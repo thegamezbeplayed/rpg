@@ -59,7 +59,7 @@ void ScreenSyncMouse(void){
 
     mousectrl.target = ScreenEntMouseCollision();
     if(mousectrl.target){
-      mousectrl.offset = Vector2Subtract(mousectrl.pos, mousectrl.target->pos);
+      mousectrl.offset = Vector2Subtract(mousectrl.pos, mousectrl.target->sprite->pos);
       mousectrl.is_dragging = true;
     }
     else
@@ -68,33 +68,30 @@ void ScreenSyncMouse(void){
   else if(IsMouseButtonReleased(MOUSE_LEFT_BUTTON)){
     if(mousectrl.target){
 
-      SetState(mousectrl.target,STATE_PLACED,SetViableTile);
-      EntSetPos(mousectrl.target, mousectrl.target->owner->pos);
     }
     ClearMouse(); 
   }
   else if (!mousectrl.is_dragging){
-  /*
-    ent_t* hover = ScreenEntMouseHover();
-    if(mousectrl.hover && mousectrl.hover != hover){
-      SetState(mousectrl.hover,STATE_IDLE,NULL);
-    }
-
-    mousectrl.hover = hover;
-    if(mousectrl.hover)
-      SetState(mousectrl.hover,STATE_HOVER,NULL);
-  */
    }
 
   if(mousectrl.is_dragging){
-    SetState(mousectrl.target,STATE_SELECTED,NULL);
-    EntSetPos(mousectrl.target, Vector2Add(mousectrl.pos,mousectrl.offset));
   }
 }
 
-ent_t* ScreenEntMouseHover(void){
-  ent_t* shape_pool[GRID_WIDTH * GRID_HEIGHT];
+Vector2 CaptureInput(){
+  Vector2 input = {0.0f,0.0f};
 
+  if (IsKeyDown(KEY_D)) input.x += 1.0f;
+  if (IsKeyDown(KEY_A)) input.x -= 1.0f;
+  if (IsKeyDown(KEY_W)) input.y -= 1.0f;
+  if (IsKeyDown(KEY_S)) input.y += 1.0f;
+
+  return input;
+}
+
+
+ent_t* ScreenEntMouseHover(void){
+/*
   int num_shapes = WorldGetEnts(shape_pool,FilterEntShape, NULL);
   if(num_shapes <= 0)
     return NULL;
@@ -103,10 +100,11 @@ ent_t* ScreenEntMouseHover(void){
     if(CheckEntPosition(shape_pool[i],mousectrl.pos))
       return shape_pool[i];
   }
-
+*/
   return NULL;
 }
 ent_t* ScreenEntMouseCollision(void){
+ /*
   ent_t* shape_pool[GRID_WIDTH * GRID_HEIGHT];
 
   int num_shapes = WorldGetEnts(shape_pool,FilterEntShape, NULL);
@@ -119,7 +117,7 @@ ent_t* ScreenEntMouseCollision(void){
     if(CheckEntPosition(shape_pool[i],mousectrl.pos))
       return shape_pool[i];
   }
-
+*/
   return NULL;
 }
 

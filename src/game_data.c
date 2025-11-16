@@ -38,7 +38,22 @@ stat_t* InitStatOnMin(StatType attr, float min, float max){
   }; return s;
 }
 
-stat_t* InitStatOnMax(StatType attr, float val){}
+stat_t* InitStatOnMax(StatType attr, float val){
+ stat_t* s = malloc(sizeof(stat_t));
+ *s =(stat_t){
+    .attribute = attr,
+      .min = 0,
+      .max = val,
+      .current = val,
+      .ratio = StatGetRatio,
+      .increment = 1
+  }; return s;
+
+}
+
+bool StatIsEmpty(stat_t* s){
+  return s->current <= s->min;
+}
 stat_t* InitStatEmpty(void){}
 stat_t* InitStat(StatType attr,float min, float max, float amount){
  stat_t* s = malloc(sizeof(stat_t));

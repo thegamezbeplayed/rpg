@@ -2,7 +2,6 @@
 #include "game_utils.h"
 #include "game_process.h"
 #include "game_tools.h"
-#include "game_helpers.h"
 
 behavior_tree_node_t *BehaviorGetTree(BehaviorID id) {
    for (int i = 0; i < tree_cache_count; i++){
@@ -23,7 +22,6 @@ behavior_tree_node_t *BuildTreeNode(BehaviorID id,behavior_params_t* parent_para
     *parent_params =(behavior_params_t){
       .owner = NULL,
         .state = data.state,
-        .turn = data.turn
     };
   }
   if(data.bt_type == BT_LEAF)
@@ -65,40 +63,6 @@ behavior_tree_node_t* InitBehaviorTree( BehaviorID id){
   return NULL;
 }
 
-BehaviorStatus BehaviorChangeChildState(behavior_params_t *params){
-  struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  if(!params->state)
-    return BEHAVIOR_FAILURE;
-
-  if(!e->child)
-    return BEHAVIOR_FAILURE;
-
-  if(SetState(e->child, params->state,NULL))
-    return BEHAVIOR_SUCCESS;
-
-  return BEHAVIOR_FAILURE;
-}  
-
-BehaviorStatus BehaviorChangeOwnerState(behavior_params_t *params){
-  struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  if(!params->state)
-    return BEHAVIOR_FAILURE;
-  
-  if(!e->owner)
-    return BEHAVIOR_FAILURE;
-
-  if(SetState(e->owner, params->state,NULL))
-    return BEHAVIOR_SUCCESS;
-
-  return BEHAVIOR_FAILURE;
-}
-
 BehaviorStatus BehaviorChangeState(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
@@ -114,302 +78,123 @@ BehaviorStatus BehaviorChangeState(behavior_params_t *params){
 
 }
 
-BehaviorStatus BehaviorMatchChild(behavior_params_t *params){
-struct ent_s* e = params->owner;
+BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
+  struct ent_s* e = params->owner;
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
-  if(!e->child)
+  if(e->control->target)
+    return BEHAVIOR_SUCCESS;
+}
+
+
+BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
     return BEHAVIOR_FAILURE;
- 
-  ent_t* shape_pool[GRID_WIDTH * GRID_HEIGHT];
-  int num_shapes = WorldGetEnts(shape_pool,FilterEntShape, NULL);
-  bool shape_match_row[GRID_WIDTH]={0};
-  bool shape_match_col[GRID_HEIGHT]={0};
 
-  bool color_match_row[GRID_WIDTH]={0};
-  bool color_match_col[GRID_HEIGHT]={0};
+  if(e->control->target && CheckEntAvailable(e->control->target))
+    return BEHAVIOR_SUCCESS;
 
-  color_match_row[e->intgrid_pos.y]=true;
-  shape_match_row[e->intgrid_pos.y]=true;
+  e->control->target = NULL;
+  if(!CheckEntAvailable(player))
+    return BEHAVIOR_FAILURE;
 
-  color_match_col[e->intgrid_pos.x]=true;
-  shape_match_col[e->intgrid_pos.x]=true;
+  if(CellDistGrid(e->pos,player->pos) > e->stats[STAT_AGGRO]->current)
+    return BEHAVIOR_FAILURE;
 
-  ShapeFlags compareShape = SHAPE_TYPE(e->child->shape);
-  ShapeFlags compareColor = SHAPE_COLOR(e->child->shape);
-  for (int i = 0; i < num_shapes; i++){
-    Cell otherPos = shape_pool[i]->intgrid_pos;
-
-    ShapeFlags otherShape = SHAPE_TYPE(shape_pool[i]->shape);
-    ShapeFlags otherColor = SHAPE_COLOR(shape_pool[i]->shape);
-
-    if(!IS_TYPE(compareShape,otherShape))
-      continue;
-
-    if(otherPos.x == e->intgrid_pos.x){
-      shape_match_row[otherPos.y] = true;
-
-      if(IS_COLOR(compareColor,otherColor))
-        color_match_row[otherPos.y] = true;
-    }
-
-    if(otherPos.y == e->intgrid_pos.y){
-      shape_match_col[otherPos.x] = true;
-
-      if(IS_COLOR(compareColor,otherColor))
-        color_match_col[otherPos.x] = true;
+  e->control->target = player;
+  return BEHAVIOR_SUCCESS;
+  /*
+  struct ent_s* others[MAX_ENTS];
+  int num_others =  WorldGetEnts(others,FilterEntTargetable, e);
+  for (int i = 0; i < num_others; i++){
+    if(CheckCanSeeTarget(e->body,others[i]->body, e->control->ranges[RANGE_AGGRO])){
+      e->control->target = others[i];
+      return BEHAVIOR_SUCCESS;
     }
   }
-
-  bool has_match = false;
-  if(COMPARE_ALL_BOOL(shape_match_row,GRID_WIDTH)){
-    bool add_color_match_row = COMPARE_ALL_BOOL(color_match_row,GRID_WIDTH);
-    TraceLog(LOG_INFO,"Match on row %i",e->intgrid_pos.y);
-    has_match = true;
-    WorldTurnAddMatch(e->child,add_color_match_row);
-  }
-
-  if(COMPARE_ALL_BOOL(shape_match_col,GRID_HEIGHT)){
-    bool add_color_match_col = COMPARE_ALL_BOOL(color_match_col,GRID_HEIGHT);
-    TraceLog(LOG_INFO,"Match on col %i",e->intgrid_pos.x);
-    has_match = true;
-
-    WorldTurnAddMatch(e->child,add_color_match_col);
-  }
-
-  return BEHAVIOR_SUCCESS;
-}
-
-BehaviorStatus BehaviorMatchNeighbors(behavior_params_t *params){
-struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  ent_t* shape_pool[GRID_WIDTH * GRID_HEIGHT];
-  int num_shapes = WorldGetEnts(shape_pool,FilterEntShape, e);
-  
-  bool shape_match_row[GRID_WIDTH]={0};
-  bool shape_match_col[GRID_HEIGHT]={0};
-
-  bool color_match_row[GRID_WIDTH]={0};
-  bool color_match_col[GRID_HEIGHT]={0};
-
-  color_match_row[e->intgrid_pos.y]=true;
-  shape_match_row[e->intgrid_pos.y]=true;
-  
-  color_match_col[e->intgrid_pos.x]=true;
-  shape_match_col[e->intgrid_pos.x]=true;
-
-  ShapeFlags compareShape = SHAPE_TYPE(e->shape);
-  ShapeFlags compareColor = SHAPE_COLOR(e->shape);
-  for (int i = 0; i < num_shapes; i++){
-    Cell otherPos = shape_pool[i]->intgrid_pos;
-
-    ShapeFlags otherShape = SHAPE_TYPE(shape_pool[i]->shape);
-    ShapeFlags otherColor = SHAPE_COLOR(shape_pool[i]->shape);
-
-    if(!IS_TYPE(compareShape,otherShape))
-      continue;
-
-    if(otherPos.x == e->intgrid_pos.x){
-      shape_match_row[otherPos.y] = true;
-
-      if(IS_COLOR(compareColor,otherColor)){
-        color_match_row[otherPos.y] = true;
-      }
-    }
-
-    if(otherPos.y == e->intgrid_pos.y){
-      shape_match_col[otherPos.x] = true;
-      if(IS_COLOR(compareColor,otherColor)){
-        color_match_col[otherPos.x] = true;
-      }
-    }
-  }
-
-  bool has_match = false;
-  if(COMPARE_ALL_BOOL(shape_match_row,GRID_WIDTH)){
-    bool add_color_match_row = COMPARE_ALL_BOOL(color_match_row,GRID_WIDTH);
-    TraceLog(LOG_INFO,"Match on row %i",e->intgrid_pos.y);
-    has_match = true;
-    WorldTurnAddMatch(e,add_color_match_row);
-  }
-
-  if(COMPARE_ALL_BOOL(shape_match_col,GRID_HEIGHT)){
-    bool add_color_match_col = COMPARE_ALL_BOOL(color_match_col,GRID_HEIGHT);
-    TraceLog(LOG_INFO,"Match on col %i",e->intgrid_pos.x);
-    has_match = true;
-      
-    WorldTurnAddMatch(e,add_color_match_col);
-  }
-
-  if(has_match)
-    return BEHAVIOR_SUCCESS;
-
-  return BEHAVIOR_FAILURE;
-
-}
-
-BehaviorStatus BehaviorInitChild(behavior_params_t *params){
-struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  if(!e->child)
-    return BEHAVIOR_FAILURE;
-
-  if(!RegisterEnt(e->child))
-    return BEHAVIOR_FAILURE;
-
-
-  SetState(e->child,STATE_IDLE,NULL);
-  return BEHAVIOR_SUCCESS;
-
-}
-
-BehaviorStatus BehaviorSelectHelpfulShape(behavior_params_t *params){
-  struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  if(e->child)
-    return BEHAVIOR_SUCCESS;
-
-
-  ShapeID shape = SelectHelpfulShape();
-
-  TraceLog(LOG_INFO,"New Shape Selected: %i",shape);
-  EntSetOwner(InitEnt(GetObjectInstanceByShapeID(shape)),e,false,NULL);
-
-  return BEHAVIOR_SUCCESS;
-
-}
-
-BehaviorStatus BehaviorSelectShape(behavior_params_t *params){
-  struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  if(e->child)
-    return BEHAVIOR_SUCCESS;
-
-  ShapeID shape = SelectShapeFromRange(SHAPE_COLOR_NONE, SHAPE_TYPE_SQUARE,WorldGetPossibleShape());
-
-  EntSetOwner(InitEnt(GetObjectInstanceByShapeID(shape)),e,false,NULL);
-
-  return BEHAVIOR_SUCCESS;
-
-}
-
-BehaviorStatus BehaviorCheckChildState(behavior_params_t *params){
-  struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  if(!e->child)
-    return BEHAVIOR_FAILURE;
-
-  if(e->child->state==params->turn)
-    return BEHAVIOR_SUCCESS;
-
-  return BEHAVIOR_RUNNING;
-
-}
- 
-BehaviorStatus BehaviorCheckOwnersState(behavior_params_t *params){
-  struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  if(!e->owner && e->type == ENT_SHAPE)
-    return BEHAVIOR_FAILURE;
- 
-  ent_t* shape_pool[GRID_WIDTH * GRID_HEIGHT];
-
-  int num_shapes = WorldGetEnts(shape_pool,FilterEntShape, NULL);
-  for (int i = 0; i < num_shapes; i++){
-    if(!shape_pool[i]->owner)
-      return BEHAVIOR_RUNNING;
-    
-    if(!CanChangeState(shape_pool[i]->owner->state, params->state))
-      return BEHAVIOR_RUNNING;
-  }
-
-  return BEHAVIOR_SUCCESS;
-
-}
-
-BehaviorStatus BehaviorClearMatchState(behavior_params_t *params){
-  struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-/*
-  if(!e->matches)
-    return BEHAVIOR_SUCCESS;
-
-  //EntClearMatches(e);
 */
+}
+
+BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+  if(!e->control->target || e->control->target->state == STATE_DIE)
+    return BEHAVIOR_FAILURE;
+
+  if(SetAction(e,ACTION_MOVE,&e->control->target->pos))
+    return BEHAVIOR_RUNNING;
+
+  return BEHAVIOR_FAILURE;
+
+  /*
+  if(PhysicsSimpleDistCheck(e->body,e->control->target->body) < e->control->ranges[RANGE_NEAR])
+    return BEHAVIOR_SUCCESS;
+
+  PhysicsAccelDir(e->body, FORCE_STEERING,Vector2Normalize(Vector2Subtract(e->control->target->pos,e->pos)));
+  return BEHAVIOR_RUNNING;
+*/
+}
+
+BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+  if(!e->control->has_arrived && !cell_compare(e->control->destination,CELL_UNSET))
+    return BEHAVIOR_SUCCESS;
+
+  e->control->destination = GetWorldCoordsFromIntGrid(e->pos, e->control->ranges[RANGE_LOITER]);
   return BEHAVIOR_SUCCESS;
 }
 
-BehaviorStatus BehaviorCheckOthersState(behavior_params_t *params){
+BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+  
+  if(e->control->has_arrived){
+    e->control->has_arrived = false;
+    e->control->destination = CELL_UNSET;
+    return BEHAVIOR_SUCCESS;
+  }
+  
+  if(CellDistGrid(e->pos,e->control->destination) <  e->control->ranges[RANGE_NEAR]){
+    e->control->has_arrived = true;
+    return BEHAVIOR_SUCCESS;
+  }
+
+  if(SetAction(e,ACTION_MOVE,&e->control->destination))
+    return BEHAVIOR_RUNNING;
+    
+  return BEHAVIOR_FAILURE;
+}
+
+BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
-  ent_t* shape_pool[GRID_WIDTH * GRID_HEIGHT];
-  int num_shapes = WorldGetEnts(shape_pool,FilterEntShape, NULL); 
-  for (int i = 0; i < num_shapes; i++){
-    if(e->uid = shape_pool[i]->uid)
-      continue;
+  if( !e->control->target)
+    return BEHAVIOR_FAILURE;
 
-    if(!CanChangeState(shape_pool[i]->state, params->state))
-      return BEHAVIOR_RUNNING;
-  }
+  if(CellDistGrid(e->pos,e->control->target->pos) <  EntGetCurrentAttack(e)->stats[STAT_ATTACK_REACH]->current)
+    return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;
-}
 
-BehaviorStatus BehaviorProgressWorldState(behavior_params_t *params){
-struct ent_s* e = params->owner;
-  if(!e || !e->control)
+}
+  
+BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e)
     return BEHAVIOR_FAILURE;
 
-  if(TurnSetState(params->turn))
+ if(SetAction(e,ACTION_ATTACK,EntGetCurrentAttack(e))) 
     return BEHAVIOR_SUCCESS;
-
-  return BEHAVIOR_RUNNING;
-}
-
-BehaviorStatus BehaviorCheckSolutions(behavior_params_t *params){
-struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_FAILURE;
-}
-
-BehaviorStatus BehaviorCheckMoves(behavior_params_t *params){
-struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  if(e->control->moves<1)
-    return BEHAVIOR_FAILURE;
-
-  return BEHAVIOR_SUCCESS;
-}
-
-BehaviorStatus BehaviorCheckWorldState(behavior_params_t *params){
-struct ent_s* e = params->owner;
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  if(TurnGetState()==params->turn)
-    return BEHAVIOR_SUCCESS;
-
-  return BEHAVIOR_RUNNING;
 }
 
 BehaviorStatus BehaviorTickLeaf(behavior_tree_node_t *self, void *context) {

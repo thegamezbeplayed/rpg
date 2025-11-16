@@ -30,97 +30,16 @@ void InitUI(void){
   for (int i = 0; i< MENU_DONE; i++)
     ui.menu_key[i] = KEY_NULL;
 
-  ui.menu_key[MENU_PAUSE] = KEY_P;
-  ui.menus[MENU_PAUSE] = InitMenu(MENU_PAUSE,VECTOR2_ZERO,VECTOR2_SCREEN,ALIGN_CENTER|ALIGN_MID,LAYOUT_VERTICAL,true);
-  ui.menus[MENU_PAUSE].cb[MENU_OPENED] = TogglePause; 
-  ui.menus[MENU_PAUSE].cb[MENU_CLOSE] = TogglePause;
 
-  ui_element_t *resumeBtn = InitElement("RESUME_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,0,0); 
-  strcpy(resumeBtn->text, "RESUME");
-  resumeBtn->cb[ELEMENT_ACTIVATE] = UICloseOwner;
-  ElementAddChild(ui.menus[MENU_PAUSE].element,resumeBtn);
   ui.menus[MENU_MAIN] = InitMenu(MENU_MAIN,VECTOR2_ZERO,DEFAULT_MENU_SIZE,ALIGN_CENTER|ALIGN_MID,LAYOUT_VERTICAL,false);
 
   ui.menus[MENU_HUD] = InitMenu(MENU_HUD,VECTOR2_ZERO,VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_HORIZONTAL,false);
 
-  ui.menus[MENU_MAIN].element->texture = InitScalingElement(ELEMENT_PANEL_GRAY);
-  ui_element_t *turnBox = InitElement("TURN_BAR",UI_STATUSBAR,VECTOR2_ZERO, XS_PANEL_SIZE,0,0);
   ui_element_t *playBtn = InitElement("PLAY_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,ALIGN_CENTER|ALIGN_MID,0); 
-  playBtn->texture = InitScalingElement(ELEMENT_BUTTON_GRAY);
   strcpy(playBtn->text, "PLAY");
   playBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
   ElementAddChild(ui.menus[MENU_MAIN].element,playBtn);
 
-  strcpy(turnBox->text, "TURN");
-
-  ui_element_t *comboBox = InitElement("COMBO_BAR",UI_STATUSBAR,VECTOR2_ZERO, XS_PANEL_SIZE,0,0);
-  strcpy(comboBox->text, "COMBO");
-
- ui_element_t *scoreBox = InitElement("SCORE_BAR",UI_STATUSBAR,VECTOR2_ZERO, XS_PANEL_SIZE,0,0);
-  strcpy(scoreBox->text, "SCORE");
-   ui_element_t *turnText = InitElement("TURN_BAR",UI_STATUSBAR,VECTOR2_ZERO,XS_PANEL_SIZE,0,0);
-  turnText->get_val = GetDisplayTurn;
-
- ui_element_t *comboText = InitElement("STREAK_BAR",UI_STATUSBAR,VECTOR2_ZERO,XS_PANEL_SIZE,0,0);
-  comboText->get_val = GetDisplayCombo;
-
-  ui_element_t *scoreText = InitElement("POINT_BAR",UI_STATUSBAR,VECTOR2_ZERO,XS_PANEL_SIZE,0,0);
-  scoreText->get_val = GetDisplayPoints;
-  
-   ui_element_t *turnPanel = InitElement("TURN_PANEL",UI_PANEL,VECTOR2_ZERO,VECTOR2_ZERO,0,LAYOUT_HORIZONTAL);
-  turnPanel->texture = InitScalingElement(ELEMENT_PANEL_GRAY_WIDE);
-  //ElementAddChild(turnPanel,turnBox);
-  //ElementAddChild(turnPanel,turnText);
-
-  ui_element_t *comboPanel = InitElement("COMBO_PANEL",UI_PANEL,VECTOR2_ZERO,VECTOR2_ZERO,0,LAYOUT_HORIZONTAL);
-  comboPanel->texture = InitScalingElement(ELEMENT_PANEL_GRAY_WIDE);
-  ElementAddChild(comboPanel,comboBox);
-  ElementAddChild(comboPanel,comboText);
-
-  ui_element_t *scorePanel = InitElement("SCORE_PANEL",UI_PANEL,VECTOR2_ZERO,VECTOR2_ZERO,0,LAYOUT_HORIZONTAL);
-  scorePanel->texture = InitScalingElement(ELEMENT_PANEL_GRAY_WIDE);
-  ElementAddChild(scorePanel,scoreBox);
-  ElementAddChild(scorePanel,scoreText);
-
-
-  //ElementAddChild(ui.menus[MENU_HUD].element,turnPanel);
-  ElementAddChild(ui.menus[MENU_HUD].element,comboPanel);
-  ElementAddChild(ui.menus[MENU_HUD].element,scorePanel);
-
-  ui.menus[MENU_RECAP] = InitMenu(MENU_RECAP,VECTOR2_ZERO,DEFAULT_MENU_SIZE,ALIGN_CENTER|ALIGN_MID,LAYOUT_VERTICAL,false);
-
-  ui.menus[MENU_RECAP].element->spacing[UI_MARGIN_TOP]=6;
-  ui.menus[MENU_RECAP].element->texture = InitScalingElement(ELEMENT_PANEL_GRAY);
-
-  ui_element_t *endScore = InitElement("SCORE_PANEL",UI_PANEL,VECTOR2_ZERO,VECTOR2_ZERO,ALIGN_CENTER|ALIGN_MID,LAYOUT_HORIZONTAL);
-  endScore->texture = InitScalingElement(ELEMENT_PANEL_GRAY_WIDE);
-  ui_element_t *pointsBox =InitElement("SCORE_LBL",UI_STATUSBAR,VECTOR2_ZERO,XS_PANEL_SIZE,0,0);
-  ui_element_t *pointsText =InitElement("POINTS_LBL",UI_STATUSBAR,VECTOR2_ZERO,XS_PANEL_SIZE,0,0);
-  strcpy(pointsBox->text, "SCORE");
-  pointsText->get_val = GetDisplayPoints;
-
-  ui_element_t *recapBtn = InitElement("RECAP_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,ALIGN_CENTER|ALIGN_MID,0); 
-  recapBtn->texture =  InitScalingElement(ELEMENT_PANEL_GRAY_WIDE);
-  strcpy(recapBtn->text, "CONTINUE");
-  recapBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
-
-  ElementAddChild(endScore,pointsBox);
-  ElementAddChild(endScore,pointsText);
-
-  ElementAddChild(ui.menus[MENU_RECAP].element,endScore);
-  ElementAddChild(ui.menus[MENU_RECAP].element,recapBtn);
-
-  ui.menus[MENU_EXIT] = InitMenu(MENU_EXIT,VECTOR2_ZERO,SMALL_PANEL_SIZE,ALIGN_CENTER|ALIGN_MID,LAYOUT_VERTICAL,true);
-  ui.menus[MENU_EXIT].element->texture = InitScalingElement(ELEMENT_ERROR_WIDE);
-  ui_element_t *endBtn = InitElement("END_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,ALIGN_CENTER|ALIGN_MID,0);
-  strcpy(endBtn->text,"GAME OVER");
-  endBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
-  endBtn->cb[ELEMENT_ACTIVATED] = UICloseOwner;
-  ElementAddChild(ui.menus[MENU_EXIT].element,endBtn);
-
-  ui.menus[MENU_PLAY_AREA] = InitMenu(MENU_PLAY_AREA,VECTOR2_ZERO,Vector2XY(ROOM_WIDTH,ROOM_HEIGHT),ALIGN_CENTER|ALIGN_MID,LAYOUT_GRID,false);
-  ui.menus[MENU_PLAY_AREA].element->spacing[UI_MARGIN]=4;//3*UI_SCALE;
-  ui.menus[MENU_PLAY_AREA].cb[MENU_INACTIVE] = UIClearElements;
 }
 
 ui_menu_t InitMenu(MenuId id,Vector2 pos, Vector2 size, UIAlignment align,UILayout layout, bool modal){
@@ -185,8 +104,7 @@ ui_element_t* InitGameElement(ent_t* e){
   u->ent = e;
   Vector2 pos = VECTOR2_ZERO;
   Vector2 size = RectSize(RectScale(e->sprite->slice->bounds,ScreenSized(SIZE_SCALE)));
-  TraceLog(LOG_INFO,"==Render Size %0.1f | %0.1f", size.x,size.y);
-  const char* name = TextFormat("TILE%i%i",e->intgrid_pos.x,e->intgrid_pos.y);
+  const char* name = TextFormat("TILE%i%i",e->pos.x,e->pos.y);
   u->hash = hash_str(name);
   u->num_children = 0;
   u->type = UI_GAME;
@@ -367,10 +285,10 @@ void ElementResize(ui_element_t *e){
   }
 
   e->bounds = RectInc(e->bounds,xinc,yinc);
-
+/*
   if(e->type == UI_GAME && e->ent)
     EntSetPos(e->ent,Vector2Add(e->ent->sprite->slice->center,RectXY(e->bounds)));
-
+*/
   for(int i = 0; i < e->num_children; i++)
     ElementResize(e->children[i]);
 }
@@ -553,32 +471,9 @@ bool ElementSetState(ui_element_t* e, ElementState s){
   return true;
 }
 
-ElementValue GetDisplayPoints(void){
-  ElementValue ev = {0};
-  ev.type = VAL_CHAR;
-  ev.c = GetPoints();
-  return ev;
-}
-
-ElementValue GetDisplayTurn(void){
-  ElementValue ev = {0};
-  ev.type = VAL_CHAR;
-  ev.c = GetTurn();
-  return ev;
-
-}
-
-ElementValue GetDisplayCombo(void){
-  ElementValue ev = {0};
-  ev.type = VAL_CHAR;
-  ev.c = GetComboStreak();
-  return ev;
-
-}
-
 ElementValue GetDisplayTime(void){
   ElementValue ev = {0};
   ev.type = VAL_CHAR;
-  ev.c = GetGameTime();
+//  ev.c = GetGameTime();
   return ev;
 }

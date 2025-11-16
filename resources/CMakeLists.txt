@@ -3,7 +3,8 @@ file(GLOB_RECURSE RESOURCE_FILES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/*.png
     ${CMAKE_CURRENT_SOURCE_DIR}/*.jpg
     ${CMAKE_CURRENT_SOURCE_DIR}/*.ogg
-    ${CMAKE_CURRENT_SOURCE_DIR}/*.ttf
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.vs
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.fs
     # Add more patterns as needed
 )
 
@@ -13,13 +14,10 @@ set(COPY_COMMANDS)
 foreach(RESOURCE_FILE ${RESOURCE_FILES})
     # Get path relative to the resources folder
     file(RELATIVE_PATH REL_PATH "${CMAKE_CURRENT_SOURCE_DIR}" "${RESOURCE_FILE}")
-    if(ANDROID)
-      set(RESOURCE_BASE "${CMAKE_SOURCE_DIR}/app/src/main/assets")
-    else()
-      set(RESOURCE_BASE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
-    endif()
+
     # Destination path (preserves relative folder structure)
-set(DEST_FILE "${RESOURCE_BASE}/${REL_PATH}")
+    set(DEST_FILE "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${REL_PATH}")
+
     # Get destination directory
     get_filename_component(DEST_DIR "${DEST_FILE}" DIRECTORY)
 

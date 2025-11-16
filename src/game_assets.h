@@ -24,27 +24,17 @@ typedef enum{
 typedef struct{
   int duration;
   int elapsed;
-
 }anim_t;
 
-typedef enum{
-  TILES,
-  SHAPES,
-}SheetID;
 //====SHADERS===>
 typedef struct{
-  bool              has_chain[SHAPE_NONE];
-  RenderTexture2D   chain1[SHAPE_NONE];
-  RenderTexture2D   chain2[SHAPE_NONE];
+  bool              has_chain[1];
+  RenderTexture2D   chain1[1];
+  RenderTexture2D   chain2[1];
 }texture_chain_t;
 
 typedef enum{
   SHADER_NONE,
-  SHADER_BASE,
-  SHADER_BLOOM,
-  SHADER_BLUR,
-  SHADER_INVERT,
-  SHADER_OUTLINE,
   SHADER_DONE
 }ShaderType;
 
@@ -77,13 +67,7 @@ typedef struct{
   void*         val;
 }shader_uniform_t;
 
-static ShaderTypeAlias shader_alias[SHADER_DONE] = {
-  {"base", SHADER_BASE},
-  {"bloom", SHADER_BLOOM},
-  {"blur", SHADER_BLUR},
-  {"invert", SHADER_INVERT},
-  {"outline", SHADER_OUTLINE},
-};
+static ShaderTypeAlias shader_alias[SHADER_DONE] = {};
 
 ShaderType ShaderTypeLookup(const char* name);
 
@@ -97,7 +81,7 @@ typedef struct{
 }gl_shader_t;
 extern gl_shader_t shaders[SHADER_DONE];
 
-void InitShaderChainCache(ShapeID,int maxWidth, int maxHeight);
+void InitShaderChainCache(int id,int maxWidth, int maxHeight);
 void InitShaders();
 void LoadShaders();
 void ShaderSetUniforms(gl_shader_t *s, Texture2D texture);

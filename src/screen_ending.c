@@ -7,8 +7,7 @@
 // Title Screen Initialization logic
 void InitEndScreen(void)
 {
-  MenuSetState(&ui.menus[MENU_RECAP],MENU_ACTIVE);
-  UploadScore();
+//  MenuSetState(&ui.menus[MENU_RECAP],MENU_ACTIVE);
 }
 
 // Title Screen Update logic
@@ -31,5 +30,5 @@ void DrawEndScreen(void)
 void UnloadEndScreen(void)
 {
     // TODO: Unload TITLE screen variables here!
-  MenuSetState(&ui.menus[MENU_RECAP],MENU_INACTIVE);
+ // MenuSetState(&ui.menus[MENU_RECAP],MENU_INACTIVE);
 }

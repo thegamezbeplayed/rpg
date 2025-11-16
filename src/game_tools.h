@@ -14,10 +14,10 @@
 #define VECTOR2_SCREEN   (Vector2){ GetScreenWidth(), GetScreenHeight()}
 #define VECTOR2_ZERO   (Vector2){ 0.0f, 0.0f}
 #define VECTOR2_ONE    (Vector2){ 1.0f, 1.0f }
-#define VECTOR2_UP     (Vector2){ 0.0f, 1.0f }
-#define VECTOR2_DOWN   (Vector2){ 0.0f,-1.0f }
-#define VECTOR2_LEFT   (Vector2){1.0f, 0.0f }
-#define VECTOR2_RIGHT  (Vector2){ -1.0f, 0.0f }
+#define VECTOR2_UP     (Vector2){ 0.0f, -1.0f }
+#define VECTOR2_DOWN   (Vector2){ 0.0f,1.0f }
+#define VECTOR2_LEFT   (Vector2){-1.0f, 0.0f }
+#define VECTOR2_RIGHT  (Vector2){ 1.0f, 0.0f }
 #define Vector2X(x) ((Vector2){ (x), 0.0f })
 #define Vector2XY(x,y) ((Vector2){ (x), (y) })
 #define Vector2Y(y) ((Vector2){ 0.0f, (y) })
@@ -30,6 +30,14 @@
 #define RECT_ZERO   (Rectangle){ 0.0f, 0.0f,0.0f,0.0f}
 #define RectInc(r,xi,yi) ((Rectangle){ (r.x+xi), (r.y+yi),(r.width),(r.height) })
 #define RectScale(r,s) ((Rectangle){ (r.x), (r.y),(r.width * s),(r.height * s) })
+#define CELL_EMPTY (Cell){0,0}
+#define CELL_UNSET (Cell){-1,-1}
+#define CELL_ONE    (Cell){ 1, 1 }
+#define CELL_UP     (Cell){ 0, -1 }
+#define CELL_DOWN   (Cell){ 0,1 }
+#define CELL_LEFT   (Cell){-1, 0 }
+#define CELL_RIGHT  (Cell){ 1, 0 }
+#define CellInc(c1,c2) ((Cell){ (c1.x+c2.x), (c1.y+c2.y) })
 
 static void shuffle_array(void *base, size_t n, size_t size) {
     char *arr = base;
@@ -53,6 +61,16 @@ static uint32_t hash_str(const char *str) {
 typedef struct {
   int x,y;
 } Cell;
+
+static inline int CellDistGrid(Cell c1,Cell c2){
+  return abs( c2.x-c1.x) + abs( c2.y-c1.y);
+
+
+}
+
+static inline bool cell_compare(Cell c1,Cell c2){
+  return (c1.x==c2.x && c1.y==c2.y);
+}
 
 static bool is_adjacent(Cell c1, Cell c2)
 {

@@ -50,6 +50,7 @@ float ScreenSized(PlaySizes s);
 
 void InitScreenInteractive(void);
 void ScreenSyncMouse(void);
+Vector2 CaptureInput();
 ent_t* ScreenEntMouseCollision(void);
 ent_t* ScreenEntMouseHover(void);
 //----------------------------------------------------------------------------------

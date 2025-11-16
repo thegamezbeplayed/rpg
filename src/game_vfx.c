@@ -42,8 +42,6 @@ void LoadShaders(){
 }
 
 void ShaderSetUniforms(gl_shader_t *s, Texture2D texture){
-  if(s->stype != SHADER_OUTLINE)
-    return;
   float textureSize[2] = { (float)texture.width, (float)texture.height };
 
   // Get shader locations

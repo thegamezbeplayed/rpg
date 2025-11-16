@@ -2,29 +2,45 @@
 #include "game_tools.h"
 #include "game_math.h"
 #include "game_process.h"
-#include "game_helpers.h"
 
 MAKE_ADAPTER(StepState, ent_t*);
 
 ent_t* InitEnt(ObjectInstance data){
   ent_t* e = malloc(sizeof(ent_t));
   *e = (ent_t){0};  // zero initialize if needed
-  e->type = ENT_SHAPE;
+  e->type = data.id;
 
-  e->shape = data.id;
-  e->sprite = InitSpriteByID(data.id,&shapedata);
+  e->pos = data.pos;
+  e->sprite = InitSpriteByID(data.id,&tiledata);
   e->sprite->owner = e;
 
-  e->stats[STAT_POINTS] = InitStat(STAT_POINTS,1,10,(int)WorldGetPossibleShape()-2);
   e->events = InitEvents();
 
   e->control = InitController();
-  for (int i = STATE_SPAWN; i < STATE_END; i++){
-    if(BASE_SHAPE.behaviors[i] == BEHAVIOR_NONE)
+  MobCategory cat = GetEntityCategory(e->type);
+
+  e->attack = InitBasicAttack();
+  category_stats_t base = CATEGORY_STATS[cat];
+  for (int i = 0; i < STAT_DONE;i++){
+    if (base.stats[i] ==0)
       continue;
-    e->control->bt[i] = InitBehaviorTree(BASE_SHAPE.behaviors[i]);
+
+    e->stats[i] = InitStatOnMax(i,base.stats[i]);
   }
-  e->control->moves = 2;
+
+  InitActions(e->actions);
+  if(e->type != ENT_PERSON){
+    e->control->ranges[RANGE_NEAR] = e->stats[STAT_AGGRO]->current;
+    e->control->ranges[RANGE_LOITER] = e->stats[STAT_AGGRO]->current+2;
+    for (int i = STATE_SPAWN; i < STATE_END; i++){
+      if(data.behaviors[i] == BEHAVIOR_NONE)
+        continue;
+      e->control->bt[i] = InitBehaviorTree(data.behaviors[i]);
+    }
+
+    e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE,ActionTraverseGrid,NULL);
+  }
+
   SetState(e,STATE_SPAWN,NULL);
   return e;
 }
@@ -32,11 +48,11 @@ ent_t* InitEnt(ObjectInstance data){
 ent_t* InitEntStatic(TileInstance data,Vector2 pos){
   ent_t* e = malloc(sizeof(ent_t));
   *e = (ent_t){0};  // zero initialize if needed
-  e->type = ENT_TILE;
+  //e->type = ENT_TILE;
 
   e->sprite = InitSpriteByIndex(data.id,&tiledata);
   e->sprite->owner = e;
-  e->pos = pos;// = Vector2Add(Vector2Scale(e->sprite->slice->center,SPRITE_SCALE),pos);
+  //e->pos = pos;// = Vector2Add(Vector2Scale(e->sprite->slice->center,SPRITE_SCALE),pos);
 
   e->control = InitController();
   for (int i = STATE_SPAWN; i < STATE_END; i++){
@@ -50,9 +66,11 @@ ent_t* InitEntStatic(TileInstance data,Vector2 pos){
   return e;
 }
 
-void EntAddPoints(ent_t *e,EntityState old, EntityState s){
-  float mul = WorldGetGridCombo(e->intgrid_pos);
-  AddPoints(mul, e->stats[STAT_POINTS]->current,e->pos);
+void EntInitOnce(ent_t* e){
+  EntSync(e);
+
+  cooldown_t* spawner = InitCooldown(3,EVENT_SPAWN,StepState_Adapter,e);
+  AddEvent(e->events, spawner);
 }
 
 void EntDestroy(ent_t* e){
@@ -64,7 +82,6 @@ void EntDestroy(ent_t* e){
     e->sprite->is_visible = false;
   }
 
-  e->owner->child = NULL;
   e->control = NULL;
 }
 
@@ -82,6 +99,17 @@ controller_t* InitController(){
 
   return ctrl;
 }
+attack_t* InitBasicAttack(void){
+  attack_t* a = malloc(sizeof(attack_t));
+
+  a->stats[0] = InitStat(STAT_ATTACK_REACH,1,1,1);
+
+  return a;
+}
+
+attack_t* EntGetCurrentAttack(ent_t* e){
+  return e->attack;
+}
 
 void EntSync(ent_t* e){
   if(e->control)  
@@ -90,19 +118,24 @@ void EntSync(ent_t* e){
   if(e->events)
     StepEvents(e->events);
 
-  if(e->type == ENT_TILE && !e->child)
-    SetState(e,STATE_EMPTY,NULL);
   if(!e->sprite)
     return;
 
-  e->sprite->pos = e->pos;// + abs(ent->sprite->offset.y);
+  e->sprite->pos = CellToVector2(e->pos,CELL_WIDTH);// + abs(ent->sprite->offset.y);
 }
 
-void EntSetPos(ent_t *e, Vector2 pos){
-  e->sprite->pos = e->pos = pos;
+void EntGridStep(ent_t *e, Cell step){
+  e->pos = CellInc(e->pos,step);
+}
+
+void EntSetCell(ent_t *e, Cell pos){
+  e->pos = pos;
 }
 
 void EntControlStep(ent_t *e){
+  if(StatIsEmpty(e->stats[STAT_ACTIONS]))
+      return;
+
   if(!e->control || !e->control->bt || !e->control->bt[e->state])
     return;
 
@@ -111,27 +144,7 @@ void EntControlStep(ent_t *e){
   current->tick(current, e);
 }
 
-void SetViableTile(ent_t* e, EntityState old, EntityState s){
-  ent_t* neighbors[4];
-
-  int num_neighbors = WorldGetEnts(neighbors, FilterEntNeighbor, e->owner);
-
-  for (int i = 0; i < num_neighbors; i++){
-    if(!CheckEntPosition(neighbors[i],e->pos))
-      continue;
-
-    EntChangeOccupant(e, neighbors[i]);
-
-    AudioPlayRandomSfx(SFX_ACTION,ACTION_PLACE);
-    return;
-  }
-
-  SetState(e,STATE_IDLE,NULL);
-}
-
 void EntToggleTooltip(ent_t* e){
-  TraceLog(LOG_INFO,"Owner at %i | %i", e->owner->intgrid_pos.x, e->owner->intgrid_pos.y);
-  TraceLog(LOG_INFO,"Ent %i at %i | %i",SHAPE_TYPE(e->shape) ,e->intgrid_pos.x, e->intgrid_pos.y);
 }
 
 bool SetState(ent_t *e, EntityState s,StateChangeCallback callback){
@@ -158,15 +171,12 @@ bool CanChangeState(EntityState old, EntityState s){
     return false;
 
   switch(s){
-    case STATE_SCORE:
-      if(old < STATE_CALCULATING)
-        return false;
+    case STATE_NONE:
+      return false;
       break;
-    case STATE_CALCULATING:
-      if(old>STATE_PLACED || old < STATE_IDLE)
-        return false;
     default:
       return true;
+      break;
   }
 
   return true;
@@ -174,86 +184,35 @@ bool CanChangeState(EntityState old, EntityState s){
 
 void OnStateChange(ent_t *e, EntityState old, EntityState s){
   switch(old){
-    case STATE_HOVER:
-      EntToggleTooltip(e);
-      break;
     case STATE_SPAWN:
       if(e->sprite)
         e->sprite->is_visible = true;
+      break;
+    case STATE_STANDBY:
+      if(e->previous >STATE_SPAWN)
+        e->state = e->previous;
       break;
     default:
       break;
   }
 
   switch(s){
-    case STATE_HOVER:
-      AudioPlayRandomSfx(SFX_ACTION,ACTION_HOVER);
-      EntToggleTooltip(e);
+    case STATE_STANDBY:
+        StatMaxOut(e->stats[STAT_ACTIONS] );
       break;
     case STATE_DIE:
-      TraceLog(LOG_INFO,"destroy shape %i",e->uid);
       EntDestroy(e);
       break;
-    case STATE_SCORE:
-      break;
-    case STATE_PLACED:
-      e->control->moved = true;
-      break;
+    case STATE_ACTION:
+      if(e->previous >= STATE_STANDBY)
+        e->previous = STATE_NONE;
+      else
+        e->previous = old;  
+      StatIncrementValue(e->stats[STAT_ACTIONS],false);
+    break;
     default:
       break;
   }
-}
-
-void ReduceMoveCount(ent_t *e, ent_t* old, ent_t* owner){
-  e->control->moves--;
-  StatIncrementValue(e->stats[STAT_POINTS],false);
-}
-
-void EntChangeOccupant(ent_t* e, ent_t* owner){
-  ent_t* tenant = owner->child;
-  ent_t* old = e->owner;
-
-  if(!EntSetOwner(e,owner,true,ReduceMoveCount))
-    return;
-
-  if(!tenant)
-    return;
-
-  if(!EntSetOwner(tenant,old,false,NULL)){
-    EntSetOwner(e,old,true,NULL);
-    return;
-  }
-}
-
-void EntOnOwnerChange(ent_t *e, ent_t* old, ent_t* owner){
-  if(e->uid <= 0){
-    RegisterEnt(e);
-    SetState(e,STATE_IDLE,NULL);
-  }
-
-  e->pos = owner->pos;
-  e->intgrid_pos = owner->intgrid_pos;
-  owner->shape = e->shape;
-}
-
-bool EntSetOwner(ent_t* e, ent_t* owner, bool evict, OwnerChangeCallback cb){
-  if (e->owner == owner)
-    return false;
-
-  if(!evict && owner->child)
-    return false;
-
-  ent_t* old = e->owner;
-  e->owner = owner;
-  owner->child = e;
-  if(old && old->child && old->child == e)
-    old->child = NULL;
-
-  EntOnOwnerChange(e,old, e->owner);
-  if(cb)
-    cb(e,old,e->owner);
-
-  return true;
 }
 
 bool CheckEntPosition(ent_t* e, Vector2 pos){
@@ -271,4 +230,10 @@ bool CheckEntAvailable(ent_t* e){
     return false;
 
   return (e->state < STATE_DIE);
+}
+
+MobCategory GetEntityCategory(EntityType t){
+ if (t >= 0 && t < ENT_DONE)
+        return ENTITY_CATEGORY_MAP[t];
+    return MOB_HUMANOID; // fallback default
 }

@@ -13,14 +13,6 @@
 #define CALL_FUNC(type, ptr, ...) ((type)(ptr))(__VA_ARGS__)
 #define MAKE_ADAPTER(name, T) \
     static void name##_Adapter(void *p) { name((T)p); }
-#pragma once
-#ifdef __EMSCRIPTEN__
-  #include <emscripten/emscripten.h>
-#else
-  #define EMSCRIPTEN_KEEPALIVE
-#endif
-void UploadScore(void);
-
 //====FILE & STRINGS====>
 char* GetFileStem(const char* filename);
 //<==========
@@ -63,7 +55,6 @@ typedef BehaviorStatus (*BehaviorTreeTickFunc)(struct behavior_tree_node_s* self
 typedef struct behavior_params_s{
   struct ent_s*         owner;
   EntityState           state;
-  TurnState             turn;
 }behavior_params_t;
 
 struct behavior_tree_node_s *BuildTreeNode(BehaviorID id, behavior_params_t* parent_params);
@@ -109,36 +100,21 @@ behavior_tree_node_t* BehaviorCreateSelector(behavior_tree_node_t **children, in
 behavior_tree_node_t* BehaviorCreateConcurrent(behavior_tree_node_t **children, int count);
 
 BehaviorStatus BehaviorChangeState(behavior_params_t *params);
-BehaviorStatus BehaviorChangeOwnerState(behavior_params_t *params);
-BehaviorStatus BehaviorChangeChildState(behavior_params_t *params);
-BehaviorStatus BehaviorInitChild(behavior_params_t *params);
-BehaviorStatus BehaviorMatchNeighbors(behavior_params_t *params);
-BehaviorStatus BehaviorMatchChild(behavior_params_t *params);
-BehaviorStatus BehaviorProgressWorldState(behavior_params_t *params);
-BehaviorStatus BehaviorCheckOthersState(behavior_params_t *params);
-BehaviorStatus BehaviorClearMatchState(behavior_params_t *params);
-BehaviorStatus BehaviorCheckOwnersState(behavior_params_t *params);
-BehaviorStatus BehaviorCheckChildState(behavior_params_t *params);
-BehaviorStatus BehaviorCheckWorldState(behavior_params_t *params);
-BehaviorStatus BehaviorCheckMoves(behavior_params_t *params);
-BehaviorStatus BehaviorCheckSolutions(behavior_params_t *params);
-BehaviorStatus BehaviorSelectShape(behavior_params_t *params);
-BehaviorStatus BehaviorSelectHelpfulShape(behavior_params_t *params);
+BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params);
+BehaviorStatus BehaviorCheckAggro(behavior_params_t *params);
+BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params);
+BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params);
+BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params);
+BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params);
+BehaviorStatus BehaviorAttackTarget(behavior_params_t *params);
 
-static inline behavior_tree_node_t* LeafCheckOthersState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckOthersState,params); }
-static inline behavior_tree_node_t* LeafClearMatchState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorClearMatchState,params); }
-static inline behavior_tree_node_t* LeafCheckOwnersState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckOwnersState,params); }
-static inline behavior_tree_node_t* LeafCheckChildState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckChildState,params); }
-static inline behavior_tree_node_t* LeafCheckWorldState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckWorldState,params); }
-static inline behavior_tree_node_t* LeafCheckMoves(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckMoves,params); }
-static inline behavior_tree_node_t* LeafCheckSolutions(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckSolutions,params); }
-static inline behavior_tree_node_t* LeafInitChild(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorInitChild,params); }
-static inline behavior_tree_node_t* LeafMatchNeighbors(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMatchNeighbors,params); }
-static inline behavior_tree_node_t* LeafMatchChild(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMatchChild,params); }
-static inline behavior_tree_node_t* LeafProgressWorldState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorProgressWorldState,params); }
 static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeState,params); }
-static inline behavior_tree_node_t* LeafChangeOwnerState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeOwnerState,params); }
-static inline behavior_tree_node_t* LeafChangeChildState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeChildState,params); }
-static inline behavior_tree_node_t* LeafSelectShape(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorSelectShape,params); }
-static inline behavior_tree_node_t* LeafSelectHelpfulShape(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorSelectHelpfulShape,params); }
+static inline behavior_tree_node_t* LeafMoveToTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToTarget,params); }
+static inline behavior_tree_node_t* LeafCheckAggro(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAggro,params); }
+static inline behavior_tree_node_t* LeafMoveToDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToDestination,params); }
+static inline behavior_tree_node_t* LeafAcquireDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireDestination,params); }
+static inline behavior_tree_node_t* LeafAcquireTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireTarget,params); }
+static inline behavior_tree_node_t* LeafCanAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCanAttackTarget,params); }
+static inline behavior_tree_node_t* LeafAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAttackTarget,params); }
+
 #endif

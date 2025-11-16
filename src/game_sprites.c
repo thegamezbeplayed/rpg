@@ -4,15 +4,13 @@
 #include "game_tools.h"
 #include "asset_ui.h"
 #include "asset_sprites.h"
-#include "asset_shapes.h"
 #include "screens.h"
 
-sprite_sheet_data_t shapedata;
 sprite_sheet_data_t tiledata;
 scaling_sprite_data_t uidata;
 texture_chain_t TexChain;
 
-void InitShaderChainCache(ShapeID type,int maxWidth, int maxHeight) {
+void InitShaderChainCache(int type,int maxWidth, int maxHeight) {
   if(TexChain.has_chain[type])
     return;
 
@@ -21,19 +19,14 @@ void InitShaderChainCache(ShapeID type,int maxWidth, int maxHeight) {
 }
 
 void InitResources(){
-  SpriteLoadSubTextures(&shapedata,SHAPES);
-  SpriteLoadSubTextures(&tiledata,TILES);
-  SpriteLoadSlicedTextures();
-  Image *spritesImg = malloc(sizeof(Image));
-  *spritesImg = LoadImage(TextFormat("resources/%s",TILES_IMAGE_PATH)); 
-  Image shapesImg = LoadImage(TextFormat("resources/%s",SHAPES_IMAGE_PATH)); 
-  Image uiImg = LoadImage(TextFormat("resources/%s",UI_IMAGE_PATH)); 
+  SpriteLoadSubTextures(&tiledata,0);
+  //SpriteLoadSlicedTextures();
+  Image spritesImg = LoadImage(TextFormat("resources/%s",TILES_IMAGE_PATH)); 
+  //Image uiImg = LoadImage(TextFormat("resources/%s",UI_IMAGE_PATH)); 
   tiledata.sprite_sheet = malloc(sizeof(Texture2D));
-  shapedata.sprite_sheet = malloc(sizeof(Texture2D));
-  uidata.sprite_sheet = malloc(sizeof(Texture2D));
-  SpritePreprocessImg(spritesImg,tiledata.sprite_sheet);
-  *shapedata.sprite_sheet = LoadTextureFromImage(shapesImg);
-  *uidata.sprite_sheet = LoadTextureFromImage(uiImg);
+  //uidata.sprite_sheet = malloc(sizeof(Texture2D));
+  *tiledata.sprite_sheet = LoadTextureFromImage(spritesImg);
+  //*uidata.sprite_sheet = LoadTextureFromImage(uiImg);
 
 }
 
@@ -53,10 +46,10 @@ sprite_t* InitSpriteByID(int id, sprite_sheet_data_t* data){
 
     spr->offset = spr->slice->offset;
     //spr->slice->scale = SPRITE_SCALE;
-  }
 
   return spr;
-
+  }
+  return NULL;
 }
 
 sprite_t* InitSpriteByIndex(int index, sprite_sheet_data_t* data){
@@ -84,17 +77,6 @@ void SpriteSync(sprite_t *spr){
   if(!spr->anim)
     return;
 
-  switch(COMBO_KEY(spr->owner->state,spr->state)){
-    case COMBO_KEY(STATE_IDLE,ANIM_IDLE):
-      if(spr->owner->control->moves>0)
-        SpriteSetAnimState(spr, ANIM_BOUNCE);
-      else
-        SpriteSetAnimState(spr, ANIM_IDLE);
-      break;
-    default:
-      break;
-  }
-
   SpriteAnimate(spr);
 }
 
@@ -118,15 +100,8 @@ bool SpriteCanChangeState(AnimState old, AnimState s){
     return false;
 
   switch(COMBO_KEY(old,s)){
-    case COMBO_KEY(ANIM_DONE,ANIM_BOUNCE):
-    case COMBO_KEY(ANIM_DONE,ANIM_RETURN):
-    case COMBO_KEY(ANIM_IDLE,ANIM_BOUNCE):
-    case COMBO_KEY(ANIM_BOUNCE,ANIM_DONE):
-    case COMBO_KEY(ANIM_RETURN,ANIM_DONE):
-      return true;
-      break;
     default:
-      return false;
+      return true;
       break;
   }
 }
@@ -146,18 +121,6 @@ void SpriteAnimate(sprite_t *spr){
     return;
 
   spr->anim->elapsed++;
-  float height = (spr->owner->control->moves) *6.9f;
-  switch(spr->state){
-    case ANIM_BOUNCE:
-      spr->offset.y=EaseLinearOut(spr->anim->elapsed, 0.0f,-height,spr->anim->duration);
-      break;
-    case ANIM_RETURN:
-      spr->offset.y=EaseLinearIn(spr->anim->elapsed,-height, height, spr->anim->duration);
-      break;
-  }
-
-  if(spr->anim->elapsed >= spr->anim->duration)
-    SpriteSetAnimState(spr, ANIM_DONE);
 
 }
 
@@ -261,22 +224,8 @@ void DrawSprite(sprite_t* s){
 
 void SpriteLoadSubTextures(sprite_sheet_data_t *out, int sheet_id){
 
-  sub_texture_t sprData;
-
-  for (int i = 0; i < MAX_SPRITES; i++){
-    switch(sheet_id){
-      case TILES:
-        if(i >= BACKTILE_DONE)
-          return;
-        sprData = BACK_TILES[i];
-        break;
-      case SHAPES:
-        if(i >= SHAPE_COUNT)
-          return;
-
-        sprData = SHAPE_SPRITES[i];
-        break;
-    }
+  for(int i = 0; i < ENT_DONE;i++){
+    sub_texture_t sprData = TILE_SPRITES[i];
 
     Vector2 center = Vector2FromXY(sprData.originX,sprData.originY);
     Vector2 offset = Vector2FromXY(sprData.trimRecX,sprData.trimRecY);
@@ -291,7 +240,6 @@ void SpriteLoadSubTextures(sprite_sheet_data_t *out, int sheet_id){
     spr->offset = offset;//center;//Vector2Scale(center,spr->scale);
     spr->bounds = bounds;
     out->sprites[out->num_sprites++] = spr;
-
   }
 }
 
