@@ -38,6 +38,7 @@
 #define CELL_LEFT   (Cell){-1, 0 }
 #define CELL_RIGHT  (Cell){ 1, 0 }
 #define CellInc(c1,c2) ((Cell){ (c1.x+c2.x), (c1.y+c2.y) })
+#define CELL_NEW(x,y) ((Cell){(x),(y)})
 
 static void shuffle_array(void *base, size_t n, size_t size) {
     char *arr = base;
@@ -66,6 +67,12 @@ static inline int CellDistGrid(Cell c1,Cell c2){
   return abs( c2.x-c1.x) + abs( c2.y-c1.y);
 
 
+}
+static inline bool cell_in_bounds(Cell c, Cell bounds){
+  if (c.x > bounds.x || c.x < 0)
+    return false;
+
+  return (c.y < bounds.y || c.x > -1);
 }
 
 static inline bool cell_compare(Cell c1,Cell c2){

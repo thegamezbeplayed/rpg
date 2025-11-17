@@ -17,8 +17,24 @@ action_turn_t* InitAction(ActionType t, TakeActionCallback fn, OnActionCallback 
   return a;
 }
 
+bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k){
+ if(!EntCanTakeAction(e))
+    return false;
+
+  if(cell_compare(e->facing,CELL_EMPTY))
+    return false;
+
+  attack_t* atk = EntGetCurrentAttack(e);
+  TileStatus* status;
+  ent_t* target = MapGetOccupant(e->map, e->facing, status);
+  if(target)
+    return EntAttack(e, atk, target);
+
+  return true;
+}
+
 bool ActionMove(ent_t* e, ActionType a, KeyboardKey k){
-  if(!EntCanTakeAction(e,a))
+  if(!EntCanTakeAction(e))
     return false;
 
  Cell dir;
@@ -49,36 +65,20 @@ switch(k){
   return true;
 }
 
-bool EntCanTakeAction(ent_t* e, ActionType a){
-  if(e->state == STATE_ACTION)
+bool EntCanTakeAction(ent_t* e){
+  if(e->state == STATE_STANDBY)
     return false;
 
-  return true;
+  if(e->stats[STAT_ACTIONS]->current < 1)
+    return false;
+
+  return WorldGetTurnState();
 }
 
 void ActionSync(ent_t* e){
-  if(e->state == STATE_ACTION){
-    SetState(e,STATE_STANDBY,NULL);
-
-    return;
-  }
-
   if(e->state == STATE_STANDBY){
     if(!SetState(e, e->previous,NULL))
       SetState(e,STATE_IDLE,NULL);
-
-    return;
-  }
-  for (int i = 0; i < ACTION_DONE; i++){
-    if(!e->actions[i]->context)
-      continue;
-
-  
-    if(!EntCanTakeAction(e,i))
-      continue;
-
-    if(TakeAction(e,e->actions[i]))
-      return;
   }
 }
 
@@ -112,16 +112,40 @@ bool TakeAction(ent_t* e, action_turn_t* action){
   return ActionTaken(e, action->action);
 }
 
+ActionType ActionGetEntNext(ent_t* e){
+  ActionType next = ACTION_NONE;
+
+  for(int i = 0; i < ACTION_DONE; i++){
+    if(!e->actions[i]->on_deck)
+      continue;
+
+    if(e->actions[i]->context)
+      return i;
+  }
+
+  return next;
+}
+
 bool ActionTaken(ent_t* e, ActionType a){
-  return SetState(e, STATE_ACTION,NULL);
+  e->actions[a]->on_deck = false;
+  return SetState(e, STATE_STANDBY,NULL);
 }
 
 bool SetAction(ent_t* e, ActionType a, void *context){
   if(e->actions[a]->action == ACTION_NONE)
     return false;
 
-  e->actions[a]->context = context;
+  for (int i = 0; i < ACTION_DONE;i++){
+    if(e->actions[i]->on_deck && i!=a)
+      return false;
 
+  }
+
+
+  e->actions[a]->context = context;
+  e->actions[a]->on_deck = true;
+  
+  return true;
 }
 
 bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb){
@@ -150,7 +174,28 @@ bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb){
 
   Cell step = { stepX, stepY };
 
+  TraceLog(LOG_INFO,"Stepping  %i | %i",step.x, step.y);
+
   EntGridStep(e,step);
   e->actions[a]->context = NULL;
   return true;
+}
+
+bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
+  action_turn_t* inst = e->actions[a];
+  if(!inst || !inst->context)
+    return false;
+
+  attack_t* atk = (attack_t*)inst->context;
+
+  if(!e->control || !e->control->target)
+    return false;
+ 
+  ent_t* target = e->control->target;
+
+  if(target)
+    return EntAttack(e, atk, target);
+
+  return true;
+
 }

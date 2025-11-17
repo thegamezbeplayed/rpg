@@ -121,21 +121,14 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
+
   if(!e->control->target || e->control->target->state == STATE_DIE)
     return BEHAVIOR_FAILURE;
 
-  if(SetAction(e,ACTION_MOVE,&e->control->target->pos))
+  if(!SetAction(e,ACTION_MOVE,&e->control->target->pos))
     return BEHAVIOR_RUNNING;
 
-  return BEHAVIOR_FAILURE;
-
-  /*
-  if(PhysicsSimpleDistCheck(e->body,e->control->target->body) < e->control->ranges[RANGE_NEAR])
-    return BEHAVIOR_SUCCESS;
-
-  PhysicsAccelDir(e->body, FORCE_STEERING,Vector2Normalize(Vector2Subtract(e->control->target->pos,e->pos)));
-  return BEHAVIOR_RUNNING;
-*/
+  return BEHAVIOR_SUCCESS;
 }
 
 BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
@@ -146,6 +139,8 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
     return BEHAVIOR_SUCCESS;
 
   e->control->destination = GetWorldCoordsFromIntGrid(e->pos, e->control->ranges[RANGE_LOITER]);
+
+  TraceLog(LOG_INFO,"Moving to %i | %i", e->control->destination.x, e->control->destination.y);
   return BEHAVIOR_SUCCESS;
 }
 
@@ -165,10 +160,10 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
     return BEHAVIOR_SUCCESS;
   }
 
-  if(SetAction(e,ACTION_MOVE,&e->control->destination))
+  if(!SetAction(e,ACTION_MOVE,&e->control->destination))
     return BEHAVIOR_RUNNING;
     
-  return BEHAVIOR_FAILURE;
+  return BEHAVIOR_SUCCESS;
 }
 
 BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
@@ -179,13 +174,43 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
   if( !e->control->target)
     return BEHAVIOR_FAILURE;
 
-  if(CellDistGrid(e->pos,e->control->target->pos) <  EntGetCurrentAttack(e)->stats[STAT_ATTACK_REACH]->current)
+  if(CellDistGrid(e->pos,e->control->target->pos) >  EntGetCurrentAttack(e)->stats[STAT_REACH]->current)
     return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;
 
 }
-  
+   
+BehaviorStatus BehaviorCheckTurn(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
+
+  if(EntCanTakeAction(e))
+    return BEHAVIOR_SUCCESS;
+
+  return BEHAVIOR_RUNNING;
+}
+
+BehaviorStatus BehaviorTakeTurn(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
+  ActionType next = ActionGetEntNext(e);
+
+  if(next == ACTION_NONE)
+    return BEHAVIOR_FAILURE;
+
+  action_turn_t* action = e->actions[next];
+  if(TakeAction(e,action))
+    return BEHAVIOR_SUCCESS;
+
+  return BEHAVIOR_FAILURE;
+}
+
 BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e)

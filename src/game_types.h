@@ -17,7 +17,7 @@ typedef enum{
 }RangeType;   
 
 typedef struct{
-  stat_t*     stats[STAT_ATTACK_DONE-STAT_ATTACK_STATS];
+  stat_t*     stats[STAT_DONE];
 }attack_t;
 
 typedef struct{
@@ -35,7 +35,8 @@ typedef struct ent_s{
   stat_t*               stats[STAT_DONE];
   attack_t*             attack;
   EntityType            type;
-  Cell                  pos;
+  map_grid_t*           map;
+  Cell                  pos,facing;
   EntityState           state,previous;
   action_turn_t         *actions[ACTION_DONE];
   controller_t          *control;
@@ -50,12 +51,13 @@ void EntToggleTooltip(ent_t* e);
 void EntInitOnce(ent_t* e);
 attack_t* InitBasicAttack(void);
 attack_t* EntGetCurrentAttack(ent_t* e);
+bool EntAttack(ent_t* e, attack_t* a, ent_t* target);
 void EntSync(ent_t* e);
 bool EntKill(ent_t* e);
 void EntDestroy(ent_t* e);
 bool FreeEnt(ent_t* e);
 void EntPrepStep(ent_t *e);
-void EntGridStep(ent_t *e, Cell step);
+TileStatus EntGridStep(ent_t *e, Cell step);
 void EntSetCell(ent_t *e, Cell pos);
 void EntAddPos(ent_t *e, Vector2 pos);
 void EntSetPos(ent_t *e, Vector2 pos);
@@ -69,19 +71,24 @@ void StepState(ent_t *e);
 void OnStateChange(ent_t *e, EntityState old, EntityState s);
 bool CanChangeState(EntityState old, EntityState s);
 
-bool EntCanTakeAction(ent_t* e, ActionType a);
+bool EntCanTakeAction(ent_t* e);
 void InitActions(action_turn_t* actions[ACTION_DONE]);
 action_turn_t* InitAction(ActionType t, TakeActionCallback fn, OnActionCallback cb);
+bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k);
 bool ActionMove(ent_t*, ActionType a, KeyboardKey k);
+void ActionStandby(ent_t* e);
 void ActionSync(ent_t* e);
 bool ActionInput(void);
 bool SetAction(ent_t* e, ActionType a, void* context);
 bool ActionTaken(ent_t* e, ActionType a);
 bool TakeAction(ent_t* e, action_turn_t* action);
 bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb);
+ActionType ActionGetEntNext(ent_t* e);
+bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb);
 
 static action_key_t action_keys[ACTION_DONE] = {
   {ACTION_NONE},
   {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ActionMove},
+  {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack},
 };
 #endif

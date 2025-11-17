@@ -7,8 +7,8 @@
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
-#define GRID_WIDTH 3
-#define GRID_HEIGHT 3
+#define GRID_WIDTH 50
+#define GRID_HEIGHT 50
 
 typedef struct ent_s ent_t;
 static inline bool LESS_THAN(int a, int b){
@@ -25,13 +25,12 @@ static inline bool EQUAL_TO(int a, int b){
 
 typedef enum{
   STAT_NONE,
+  STAT_REACH,
+  STAT_DAMAGE,
   STAT_HEALTH,
   STAT_AGGRO,
   STAT_ACTIONS,
   STAT_DONE,
-  STAT_ATTACK_STATS,
-  STAT_ATTACK_REACH,
-  STAT_ATTACK_DONE
 }StatType;
 
 typedef enum{
@@ -254,6 +253,7 @@ typedef bool (*OnActionCallback)(struct ent_s* e, ActionType a);
 typedef bool (*TakeActionCallback)(struct ent_s* e, ActionType a, OnActionCallback cb);
 
 typedef struct{
+  bool                on_deck;
   ActionType          action;
   void*               context;
   TakeActionCallback  fn;
@@ -261,24 +261,28 @@ typedef struct{
 }action_turn_t;
 
 typedef enum{
-  BEHAVIOR_NONE,
-  BEHAVIOR_CHANGE_STATE,
-  BEHAVIOR_GET_TARGET,
-  BEHAVIOR_GET_DEST,
-  BEHAVIOR_MOVE_TO_TARGET,
-  BEHAVIOR_MOVE_TO_DEST,
-  BEHAVIOR_CAN_ATTACK,
-  BEHAVIOR_ATTACK,
-  BEHAVIOR_MOVE,
-  BEHAVIOR_CHECK_AGGRO,
-  BEHAVIOR_ACQUIRE,
-  BEHAVIOR_TRY_ATTACK,
-  BEHAVIOR_APPROACH,
-  BEHAVIOR_WANDER,
-  BEHAVIOR_SEEK,
-  BEHAVIOR_ACTION,
-  BEHAVIOR_NO_ACTION,
-  BEHAVIOR_MOB_AGGRO,
+  BEHAVIOR_NONE,          
+  BEHAVIOR_CHANGE_STATE,      //1
+  BEHAVIOR_GET_TARGET,        //2
+  BEHAVIOR_GET_DEST,          //3
+  BEHAVIOR_MOVE_TO_TARGET,    //4
+  BEHAVIOR_MOVE_TO_DEST,      //4
+  BEHAVIOR_CAN_ATTACK,        //5
+  BEHAVIOR_ATTACK,            //6
+  BEHAVIOR_CHECK_TURN_STATE,  //7
+  BEHAVIOR_TAKE_TURN,         //8
+  BEHAVIOR_MOVE,              //9
+  BEHAVIOR_CHECK_AGGRO,       //10
+  BEHAVIOR_ACQUIRE,           //11
+  BEHAVIOR_TRY_ATTACK,        //12
+  BEHAVIOR_APPROACH,          //13
+  BEHAVIOR_WANDER,            //14
+  BEHAVIOR_SEEK,              //15
+  BEHAVIOR_TAKE_ACTION,       //16
+  BEHAVIOR_ACTION,            //17
+  BEHAVIOR_NO_ACTION,         //18
+  BEHAVIOR_COMBAT,            //19
+  BEHAVIOR_MOB_AGGRO,         //20
   BEHAVIOR_COUNT
 }BehaviorID;
 
@@ -429,4 +433,31 @@ typedef enum{
   ELEMENT_COUNT
 }ElementID;
 
+typedef enum{
+  TILE_EMPTY,
+  TILE_OCCUPIED,
+  TILE_COLLISION,
+  TILE_SUCCESS,
+  TILE_ISSUES,
+  TILE_OUT_OF_BOUNDS,
+  TILE_ERROR
+}TileStatus;
+
+typedef struct{
+  Cell        coords;
+  TileStatus  status;
+  ent_t*      occupant;
+}map_cell_t;
+
+typedef struct{
+  map_cell_t   tiles[GRID_WIDTH][GRID_HEIGHT];
+  int          width,height;
+  int          step_size;
+}map_grid_t;
+
+map_grid_t* InitMapGrid(void);
+TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
+TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);
+ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status);
+map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
 #endif

@@ -100,7 +100,7 @@ typedef struct{
 }world_data_t;
 
 typedef struct world_s{
-  bool          intgrid[GRID_WIDTH][GRID_HEIGHT];
+  map_grid_t    *map;
   ent_t*        ents[MAX_ENTS];
   unsigned int  num_ent;
   sprite_t*     sprs[MAX_ENTS];
@@ -114,7 +114,10 @@ ent_t* WorldGetEntById(unsigned int uid);
 ent_t* WorldPlayer(void);
 
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
+ent_t* WorldGetEntAtTile(Cell tile);
+map_grid_t* WorldGetMap(void);
 int WorldGetEnts(ent_t** results,EntFilterFn fn, void* params);
+bool WorldGetTurnState(void);
 bool RegisterBehaviorTree(BehaviorData data);
 bool RegisterEnt( ent_t *e);
 bool RegisterSprite(sprite_t *s);

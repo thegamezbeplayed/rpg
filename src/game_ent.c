@@ -10,7 +10,9 @@ ent_t* InitEnt(ObjectInstance data){
   *e = (ent_t){0};  // zero initialize if needed
   e->type = data.id;
 
+  e->map = WorldGetMap();
   e->pos = data.pos;
+  e->facing = CELL_EMPTY;
   e->sprite = InitSpriteByID(data.id,&tiledata);
   e->sprite->owner = e;
 
@@ -39,6 +41,7 @@ ent_t* InitEnt(ObjectInstance data){
     }
 
     e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE,ActionTraverseGrid,NULL);
+    e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK,ActionAttack,NULL);
   }
 
   SetState(e,STATE_SPAWN,NULL);
@@ -85,6 +88,22 @@ void EntDestroy(ent_t* e){
   e->control = NULL;
 }
 
+bool EntHit(ent_t* e, attack_t* a){
+  int damage = -1 * a->stats[STAT_DAMAGE]->current;
+  if(StatChangeValue(e,e->stats[STAT_HEALTH], damage)){
+   TraceLog(LOG_INFO,"Ent %i hit health now %0.0f/%0.0f",e->uid, e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
+
+    return true;
+  }
+
+  return false;
+}
+
+bool EntAttack(ent_t* e, attack_t* a, ent_t* target){
+  TraceLog(LOG_INFO,"Ent %i swings at ent %i",e->uid,target->uid);
+  return EntHit(target, a);
+}
+
 bool FreeEnt(ent_t* e){
   if(!e)
     return false;
@@ -102,7 +121,8 @@ controller_t* InitController(){
 attack_t* InitBasicAttack(void){
   attack_t* a = malloc(sizeof(attack_t));
 
-  a->stats[0] = InitStat(STAT_ATTACK_REACH,1,1,1);
+  a->stats[STAT_REACH] = InitStat(STAT_REACH,1,1,1);
+  a->stats[STAT_DAMAGE] = InitStat(STAT_DAMAGE,1,1,1);
 
   return a;
 }
@@ -124,8 +144,16 @@ void EntSync(ent_t* e){
   e->sprite->pos = CellToVector2(e->pos,CELL_WIDTH);// + abs(ent->sprite->offset.y);
 }
 
-void EntGridStep(ent_t *e, Cell step){
-  e->pos = CellInc(e->pos,step);
+TileStatus EntGridStep(ent_t *e, Cell step){
+  Cell newPos = CellInc(e->pos,step);
+  TileStatus status = MapChangeOccupant(e->map,e,e->pos,newPos);
+
+  if(status < TILE_ISSUES){
+
+    e->pos = newPos;
+    e->facing = CellInc(e->pos,step);
+  }
+  return status;
 }
 
 void EntSetCell(ent_t *e, Cell pos){

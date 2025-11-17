@@ -47,6 +47,13 @@ void AddFloatingText(render_text_t *rt){
     return;
   }
 }
+map_grid_t* WorldGetMap(void){
+  return world.map;
+}
+
+ent_t* WorldGetEntAtTile(Cell tile){
+  return MapGetTile(world.map,tile)->occupant;
+}
 
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len){
   int grid_x = (int)pos.x/CELL_WIDTH;
@@ -62,6 +69,7 @@ Cell GetWorldCoordsFromIntGrid(Cell pos, float len){
 
 
  Cell candidates[GRID_WIDTH * GRID_HEIGHT];
+/*
  int count = 0;
   for (int x = start_x; x < end_x; x++)
     for(int y = start_y; y < end_y; y++){
@@ -77,8 +85,8 @@ Cell GetWorldCoordsFromIntGrid(Cell pos, float len){
     return CELL_EMPTY;
 
   int r = rand() % count;
-
-  return candidates[r];
+*/
+  //return candidates[r];
 }
 
 
@@ -102,6 +110,10 @@ bool RegisterBehaviorTree(BehaviorData data){
   tree_cache[tree_cache_count++] = entry;
 
   return entry.root!=NULL;
+}
+
+bool WorldGetTurnState(void){
+  return !CheckEvent(game_process.events,EVENT_TURN);
 }
 
 ent_t* WorldGetEnt(const char* name){
@@ -173,7 +185,11 @@ int AddSprite(sprite_t *s){
 
 bool RegisterEnt( ent_t *e){
   e->uid = AddEnt(e);
- 
+
+  TileStatus status = MapSetOccupant(world.map,e,e->pos);
+  if(status > TILE_ISSUES)
+    TraceLog(LOG_WARNING,"Issue %i at tile %i,%i ",status,e->pos.x,e->pos.y);
+
   if(e->type == ENT_PERSON)
     player = e;
 
@@ -204,10 +220,9 @@ void WorldPreUpdate(){
 }
 
 void WorldFixedUpdate(){
-
-  if(ActionInput())
+  if(ActionInput()){
     ResetEvent(game_process.events,EVENT_TURN);
-  
+  }
   for(int i = 0; i < world.num_ent; i++){
     switch(world.ents[i]->state){
       case STATE_END:
@@ -244,6 +259,9 @@ void WorldTurnUpdate(void* context){
 
 void InitWorld(world_data_t data){
   world = (world_t){0};
+  
+  world.map = InitMapGrid();
+  
   for (int i = 1; i < ENT_DONE;i++){
     if (room_instances[i].id == ENT_DONE)
       break;
@@ -288,6 +306,7 @@ void InitGameProcess(){
     if(room_behaviors[i].is_root)
       RegisterBehaviorTree(room_behaviors[i]);
   }
+
 
   for(int s = 0; s<SCREEN_DONE; s++){
     game_process.album_id[s] = -1;

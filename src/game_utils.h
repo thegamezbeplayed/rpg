@@ -55,6 +55,7 @@ typedef BehaviorStatus (*BehaviorTreeTickFunc)(struct behavior_tree_node_s* self
 typedef struct behavior_params_s{
   struct ent_s*         owner;
   EntityState           state;
+  ActionType            action;
 }behavior_params_t;
 
 struct behavior_tree_node_s *BuildTreeNode(BehaviorID id, behavior_params_t* parent_params);
@@ -106,7 +107,9 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params);
 BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params);
 BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params);
 BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params);
+BehaviorStatus BehaviorCheckTurn(behavior_params_t *params);
 BehaviorStatus BehaviorAttackTarget(behavior_params_t *params);
+BehaviorStatus BehaviorTakeTurn(behavior_params_t *params);
 
 static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeState,params); }
 static inline behavior_tree_node_t* LeafMoveToTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToTarget,params); }
@@ -115,6 +118,8 @@ static inline behavior_tree_node_t* LeafMoveToDestination(behavior_params_t *par
 static inline behavior_tree_node_t* LeafAcquireDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireDestination,params); }
 static inline behavior_tree_node_t* LeafAcquireTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireTarget,params); }
 static inline behavior_tree_node_t* LeafCanAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCanAttackTarget,params); }
+static inline behavior_tree_node_t* LeafCheckTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckTurn,params); }
 static inline behavior_tree_node_t* LeafAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAttackTarget,params); }
+static inline behavior_tree_node_t* LeafTakeTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorTakeTurn,params); }
 
 #endif

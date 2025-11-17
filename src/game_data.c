@@ -80,7 +80,23 @@ bool StatIncrementValue(stat_t* attr,bool increase){
   return true;
 }
 
-bool StatChangeValue(struct ent_s* owner, stat_t* attr, float val){}
+bool StatChangeValue(struct ent_s* owner, stat_t* attr, float val){
+  float old = attr->current;
+  attr->current+=val;
+  attr->current = CLAMPF(attr->current,attr->min, attr->max);
+  float cur = attr->current;
+  if(attr->current == old) 
+    return false;
+
+  if(attr->on_stat_change != NULL)
+    attr->on_stat_change(owner,old, cur);
+  
+  if(attr->current == attr->min && attr->on_stat_empty!=NULL)
+    attr->on_stat_empty(owner);
+
+  return true;
+}
+
 void StatMaxOut(stat_t* s){}
 void StatEmpty(stat_t* s){
   s->current = s->min;
