@@ -76,8 +76,11 @@ bool EntCanTakeAction(ent_t* e){
 }
 
 void ActionSync(ent_t* e){
+
+  StatMaxOut(e->stats[STAT_ACTIONS] );
+
   if(e->state == STATE_STANDBY){
-    if(!SetState(e, e->previous,NULL))
+    //if(!SetState(e, e->previous,NULL))
       SetState(e,STATE_IDLE,NULL);
   }
 }
@@ -92,7 +95,7 @@ bool ActionInput(void){
         continue;
 
       if(fn(player,a,k)){
-        SetState(player,STATE_ACTION,NULL);
+        SetState(player,STATE_STANDBY,NULL);
         return true;
       }
     }
@@ -103,8 +106,10 @@ bool ActionInput(void){
 }
 
 bool TakeAction(ent_t* e, action_turn_t* action){
-  if(!action->fn(e,action->action,action->cb))
+  if(!action->fn(e,action->action,action->cb)){
+    SetState(e, STATE_STANDBY,NULL);
     return false;
+  }
 
   if(action->cb)
     action->cb(e,action->action);
@@ -128,6 +133,8 @@ ActionType ActionGetEntNext(ent_t* e){
 
 bool ActionTaken(ent_t* e, ActionType a){
   e->actions[a]->on_deck = false;
+  StatIncrementValue(e->stats[STAT_ACTIONS],false);
+
   return SetState(e, STATE_STANDBY,NULL);
 }
 
@@ -196,6 +203,6 @@ bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
   if(target)
     return EntAttack(e, atk, target);
 
-  return true;
+  return false;
 
 }

@@ -6,6 +6,9 @@
 #include "game_ui.h"
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
+static dice_roll_t selection = {6,1,RollDie};
+
+
 void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color baseColor) { }
 ui_manager_t ui;
 void InitUI(void){
@@ -35,11 +38,38 @@ void InitUI(void){
 
   ui.menus[MENU_HUD] = InitMenu(MENU_HUD,VECTOR2_ZERO,VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_HORIZONTAL,false);
 
+  ui_element_t *attrPanel = InitElement("ATTR_PANEL",UI_PANEL,VECTOR2_ZERO, VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_HORIZONTAL);
+
   ui_element_t *playBtn = InitElement("PLAY_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,ALIGN_CENTER|ALIGN_MID,0); 
   strcpy(playBtn->text, "PLAY");
   playBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
   ElementAddChild(ui.menus[MENU_MAIN].element,playBtn);
 
+  ui.menus[MENU_OPTIONS] = InitMenu(MENU_OPTIONS, VECTOR2_ZERO,DEFAULT_MENU_SIZE,ALIGN_CENTER|ALIGN_MID,LAYOUT_VERTICAL,false);
+
+
+  ui_element_t *die = InitElement("DIE_ICON",UI_STATUSBAR,VECTOR2_ZERO, SQUARE_PANEL,ALIGN_CENTER|ALIGN_MID,0);
+
+  die->get_val = GetSelectionRoll; 
+  ElementAddChild(ui.menus[MENU_OPTIONS].element,die);
+
+  for(int i = 0; i < ATTR_DONE; i++){
+
+    ui_element_t *attrBtn = InitElement("ATTR_BUTTON",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_WIDE,ALIGN_CENTER|ALIGN_MID,0);
+
+    strcpy(attrBtn->text,attributes[i].name);
+    attrBtn->cb[ELEMENT_ACTIVATE] = UISelectOption;
+    attrBtn->cb[ELEMENT_ACTIVATED] = UIHideElement;
+
+    ElementAddChild(ui.menus[MENU_OPTIONS].element,attrBtn);
+
+  }
+
+  ui_element_t* healthBar = InitElement("HEALTH_BAR",UI_PROGRESSBAR, VECTOR2_ZERO, DEFAULT_BUTTON_WIDE,0,0);
+
+  healthBar->get_val = GetDisplayHealth;
+  ElementAddChild(attrPanel,healthBar);
+  ElementAddChild(ui.menus[MENU_HUD].element,attrPanel);
 }
 
 ui_menu_t InitMenu(MenuId id,Vector2 pos, Vector2 size, UIAlignment align,UILayout layout, bool modal){
@@ -108,7 +138,7 @@ ui_element_t* InitGameElement(ent_t* e){
   u->hash = hash_str(name);
   u->num_children = 0;
   u->type = UI_GAME;
-  u->state = ELEMENT_IDLE;
+  u->state = ELEMENT_NONE;
   u->get_val = NULL;//CHAR_DO_NOTHING;
   u->bounds = Rect(pos.x,pos.y,size.x,size.y);
   u->width = size.x;
@@ -124,6 +154,19 @@ ui_element_t* InitGameElement(ent_t* e){
   return u;
 
 }
+
+ui_element_t* ElementGetChild(ui_element_t* owner, uint32_t child_id){
+  for(int i = 0; i < MAX_ELEMENTS; i++){
+    if(ui.elements[i] == NULL)
+      return NULL;
+
+    if(ui.elements[i]->hash == child_id)
+      return ui.elements[i];
+  }
+
+  return NULL;
+}
+
 
 void ElementAddGameElement( ent_t* e){
   ui_element_t *o = ui.menus[MENU_PLAY_AREA].element;
@@ -143,10 +186,14 @@ void ElementAddChild(ui_element_t *o, ui_element_t* c){
   c->index = o->num_children;
   c->menu = o->menu;
   c->owner = o;
+  ElementSetState(c,ELEMENT_IDLE);
   o->children[o->num_children++] = c;
 }
 
 float ElementGetHeightSum(ui_element_t *e){
+  if(e->state < ELEMENT_IDLE)
+    return 0;
+
   float height = e->bounds.height;// + e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_TOP];
 
   float cheight = 0;
@@ -165,6 +212,9 @@ float ElementGetHeightSum(ui_element_t *e){
 }
 
 float ElementGetWidthSum(ui_element_t *e){
+  if(e->state < ELEMENT_IDLE)
+    return 0;
+
   float width = e->bounds.width;// + e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_LEFT];
 
   float cwidth = 0;
@@ -326,11 +376,27 @@ void UISyncElement(ui_element_t* e){
 
   int clicked = 0,toggle = 0,focused = 0;
   if(e->get_val){
-    ElementValue ev = e->get_val();
-    if(ev.type == VAL_CHAR)
-      strcpy(e->text, ev.c);
+    if( e->value==NULL ){
+      e->value = malloc(sizeof(ElementValue));
+      memset(e->value,0,sizeof(ElementValue));
+    }
+
+    if( e->value->rate == FETCH_UPDATE || e->value->rate == 0)
+      *e->value = e->get_val(e);
+
+    switch(e->value->type){
+      case VAL_CHAR:
+        strcpy(e->text, e->value->c);
+        break;
+      case VAL_INT:
+        strcpy(e->text,TextFormat("%i",*e->value->i));
+        break;
+      default:
+        break;
+    }
   }
-   if(e->texture)
+
+    if(e->texture)
     DrawNineSlice(e->texture,e->bounds);
 
   switch(e->type){
@@ -346,7 +412,7 @@ void UISyncElement(ui_element_t* e){
     case UI_BOX:
       GuiGroupBox(e->bounds,NULL);//e->text);
     case UI_PROGRESSBAR:
-      GuiProgressBar(e->bounds, NULL,NULL, e->get_val().f,0,1);
+      GuiProgressBar(e->bounds, NULL,NULL, e->get_val(e).f,0,1);
       break;
     case UI_STATUSBAR:
       GuiStatusBar(e->bounds, e->text);
@@ -371,6 +437,10 @@ bool UIFreeElement(ui_element_t* e){
   return true;
 }
 
+bool UIHideElement(ui_element_t* e){
+  return ElementSetState(e,ELEMENT_HIDDEN);
+}
+
 bool UICloseOwner(ui_element_t* e){
   if(!e->menu)
     return false;
@@ -390,6 +460,25 @@ bool UIClearElements(ui_menu_t* m){
       eo->num_children--;
 
   }
+}
+
+bool UIGetPlayerAttributeName(ui_element_t* e){
+
+  strcpy(e->text,attributes[e->index+1].name);
+
+  return true;
+}
+
+bool UISelectOption(ui_element_t* e){
+  ui_element_t* die = ElementGetChild(ui.menus[MENU_OPTIONS].element,hash_str("DIE_ICON"));
+
+  int* selection = die->value->i;
+
+  CATEGORY_STATS[MOB_PLAYER].attr[e->index-1] = *selection;
+
+  *die->value = die->get_val(die);
+  strcpy(die->text,TextFormat("%i",*die->value->i));
+
 }
 
 bool UITransitionScreen(ui_element_t* e){
@@ -456,8 +545,14 @@ bool ElementCanChangeState(ElementState old, ElementState s){
 }
 
 void ElementStepState(ui_element_t* e, ElementState s){
-  if(s > ELEMENT_FOCUSED && s < ELEMENT_ACTIVATED)
-    ElementSetState(e,ELEMENT_ACTIVATED);
+  switch(s){
+    case ELEMENT_TOGGLE:
+    case ELEMENT_ACTIVATE:
+      ElementSetState(e,ELEMENT_ACTIVATED);
+      break;
+    default:
+     break;
+  } 
 }
 
 bool ElementSetState(ui_element_t* e, ElementState s){
@@ -471,9 +566,24 @@ bool ElementSetState(ui_element_t* e, ElementState s){
   return true;
 }
 
-ElementValue GetDisplayTime(void){
+ElementValue GetDisplayHealth(ui_element_t* e){
+  ElementValue ev = {0}; 
+  ev.type = VAL_FLOAT;
+  ev.f = malloc(sizeof(float));
+  if(player->stats[STAT_HEALTH]->ratio ==NULL)
+    *ev.f = 0.0f;
+  else
+    *ev.f = RATIO(player->stats[STAT_HEALTH]);
+  return ev;
+}
+
+
+ElementValue GetSelectionRoll(ui_element_t* e){
   ElementValue ev = {0};
-  ev.type = VAL_CHAR;
-//  ev.c = GetGameTime();
+  ev.rate = FETCH_ACTIVE;
+  ev.type = VAL_INT;
+  ev.i = malloc(sizeof(int));
+  *ev.i = selection.roll(&selection);
+
   return ev;
 }

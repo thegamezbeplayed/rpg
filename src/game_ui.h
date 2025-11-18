@@ -20,7 +20,8 @@
 #define XS_PANEL_THIN_SIZE (Vector2){108*UI_SCALE, 32*UI_SCALE}
 #endif
 #define LARGE_BUTTON_SIZE (Vector2){164*UI_SCALE, 32*UI_SCALE}
-
+#define SQUARE_PANEL (Vector2){96,96}
+#define DEFAULT_BUTTON_WIDE (Vector2){172*UI_SCALE, 48*UI_SCALE}
 #define DEFAULT_PANEL_SIZE (Vector2){GetScreenWidth()*UI_SCALE, 64*UI_SCALE}
 #define DEFAULT_PANEL_THIN_SIZE (Vector2){224*UI_SCALE, 32*UI_SCALE}
 #define LARGE_PANEL_THIN_SIZE (Vector2){GetScreenWidth()*UI_SCALE, 32*UI_SCALE}
@@ -104,11 +105,21 @@ typedef enum{
   MENU_DEBUG,
   MENU_DONE
 }MenuId;
+
+typedef enum{
+  FETCH_NONE,
+  FETCH_UPDATE,
+  FETCH_ONCE,
+  FETCH_ACTIVE,
+  FETCH_DONE,
+}FetchRate;
+
 typedef struct ent_s ent_t;
 struct ui_element_s;
 typedef bool (*ElementCallback)(struct ui_element_s* self);
 typedef enum { VAL_INT, VAL_FLOAT, VAL_CHAR } ValueType;
 typedef struct {
+  FetchRate   rate;
     ValueType type;
     union {
         int   *i;
@@ -117,7 +128,7 @@ typedef struct {
     };
 } ElementValue;
 
-typedef ElementValue (*ElementValueSync)(void);
+typedef ElementValue (*ElementValueSync)(struct ui_element_s* e);
 
 typedef struct ui_element_s{
   uint32_t            hash;
@@ -135,6 +146,7 @@ typedef struct ui_element_s{
   float               spacing[UI_POSITIONING];
   char                text[65];
   ElementValueSync    get_val;
+  ElementValue        *value;
   int                 num_children;
   struct ui_element_s *children[16];
   ent_t*              ent;
@@ -149,16 +161,16 @@ void ElementAddGameElement( ent_t* e);
 void UISyncElement(ui_element_t* e);
 bool UICloseOwner(ui_element_t* e);
 bool UIFreeElement(ui_element_t* e);
-
+bool UIHideElement(ui_element_t* e);
 ui_element_t* InitGameElement(ent_t* e);
 
 struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
-ElementValue GetDisplayTurn(void);
-ElementValue GetDisplayPoints(void);
-ElementValue GetDisplayTime(void);
-ElementValue GetDisplayCombo(void);
+ElementValue GetDisplayHealth(ui_element_t* e);
+ElementValue GetPlayerAttribute(ui_element_t* e);
+ElementValue GetSelectionRoll(ui_element_t* e);
+ElementValue GetDisplayTime(ui_element_t* e);
 typedef struct ui_menu_s{
   ui_element_t  *element;
   MenuCallback  cb[MENU_END];
@@ -167,9 +179,11 @@ typedef struct ui_menu_s{
 }ui_menu_t;
 
 ui_menu_t InitMenu(MenuId id,Vector2 pos, Vector2 size, UIAlignment align,UILayout layout, bool modal);
+bool UIGetPlayerAttributeName(ui_element_t* e);
 bool UIClearElements(ui_menu_t* m);
 void UISyncMenu(ui_menu_t* m);
 bool UICloseMenu(ui_menu_t* m);
+bool UISelectOption(ui_element_t* e);
 bool UITransitionScreen(ui_element_t* e);
 void DrawMenu(ui_menu_t* m);
 bool MenuCanChangeState(MenuState old, MenuState s);

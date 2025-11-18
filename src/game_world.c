@@ -319,12 +319,20 @@ void InitGameProcess(){
       game_process.children[s].state[p]=GAME_NONE;
   }
 
-  game_process.next[SCREEN_TITLE] = SCREEN_GAMEPLAY;
+  game_process.next[SCREEN_TITLE] = SCREEN_OPTIONS;
   game_process.init[SCREEN_TITLE] = InitTitleScreen;
   game_process.finish[SCREEN_TITLE] = UnloadTitleScreen;
   game_process.update_steps[SCREEN_TITLE][UPDATE_DRAW] = DrawTitleScreen;
   game_process.update_steps[SCREEN_TITLE][UPDATE_FRAME] = UpdateTitleScreen;
 
+  game_process.next[SCREEN_OPTIONS] = SCREEN_GAMEPLAY;
+  game_process.init[SCREEN_OPTIONS] = InitOptionsScreen;
+  game_process.finish[SCREEN_OPTIONS] = UnloadOptionsScreen;
+  game_process.finish[SCREEN_OPTIONS] = UnloadOptionsScreen;
+  game_process.update_steps[SCREEN_OPTIONS][UPDATE_DRAW] = DrawOptionsScreen;
+  game_process.update_steps[SCREEN_OPTIONS][UPDATE_FRAME] = UpdateOptionsScreen;
+
+ 
   game_process.next[SCREEN_GAMEPLAY] = SCREEN_ENDING;
   game_process.init[SCREEN_GAMEPLAY] = InitGameplayScreen;
   game_process.finish[SCREEN_GAMEPLAY] = UnloadGameplayScreen;

@@ -10,6 +10,18 @@
 #define GRID_WIDTH 50
 #define GRID_HEIGHT 50
 
+#define RATIO(s) ((s)->ratio((s)))
+
+struct dice_roll_s;
+typedef int (*DiceRollFunction)(struct dice_roll_s* d);
+
+typedef struct dice_roll_s{
+  int              sides,num_die;
+  DiceRollFunction roll;
+}dice_roll_t;
+
+int RollDie(dice_roll_t* d);
+
 typedef struct ent_s ent_t;
 static inline bool LESS_THAN(int a, int b){
   return a<b;
@@ -32,6 +44,42 @@ typedef enum{
   STAT_ACTIONS,
   STAT_DONE,
 }StatType;
+
+typedef enum{
+  ATTR_NONE,
+  ATTR_CON,
+  ATTR_STR,
+  ATTR_DEX,
+  ATTR_INT,
+  ATTR_WIS,
+  ATTR_CHAR,
+  ATTR_DONE
+}AttributeType;
+
+typedef struct{
+  AttributeType t;
+  const char* name;
+}attribute_name_t;
+
+static attribute_name_t attributes[ATTR_DONE]={
+  {ATTR_NONE,"REROLL"},
+  {ATTR_CON,"CONSTITUTION"},
+  {ATTR_STR,"STRENGTH"},
+  {ATTR_DEX,"DEXTERITY"},
+  {ATTR_INT,"INTELLIGENCE"},
+  {ATTR_WIS,"WISDOM"},
+  {ATTR_CHAR,"CHARISMA"}
+};
+
+struct attribute_s;
+typedef bool (*AttributeCallback)(struct attribute_s *a);
+
+typedef struct attribute_s{ 
+  int                 val,min,max;
+  AttributeCallback   expand;
+}attribute_t;
+
+attribute_t* InitAttribute(AttributeType type, int val);
 
 typedef enum{
   ENT_NONE,
@@ -124,24 +172,22 @@ typedef enum{
   MOB_DEMONIC,
   MOB_FEY,
   MOB_CIVILIAN,
+  MOB_PLAYER,
   MOB_DONE
 }MobCategory;
 
 typedef struct {
     MobCategory category;
     int     stats[STAT_DONE];
+    int     attr[ATTR_DONE];
 } category_stats_t;
 
-static category_stats_t CATEGORY_STATS[MOB_DONE] = {
-  {MOB_NONE},
-  {MOB_HUMANOID, {[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 5}},
-
-};
+extern category_stats_t CATEGORY_STATS[MOB_DONE];
 
 static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
 
     // === HUMANOIDS ===
-    [ENT_PERSON] = MOB_HUMANOID,
+    [ENT_PERSON] = MOB_PLAYER,
     [ENT_SPEARMAN] = MOB_HUMANOID,
     [ENT_ARMSMAN] = MOB_HUMANOID,
     [ENT_KNIGHT] = MOB_HUMANOID,
@@ -283,6 +329,7 @@ typedef enum{
   BEHAVIOR_NO_ACTION,         //18
   BEHAVIOR_COMBAT,            //19
   BEHAVIOR_MOB_AGGRO,         //20
+  BEHAVIOR_STANDBY,           //21
   BEHAVIOR_COUNT
 }BehaviorID;
 
@@ -357,19 +404,35 @@ void ResetEvent(events_t* pool, EventType type);
 bool CheckEvent(events_t* pool, EventType type);
 
 struct stat_s;
+typedef void (*StatFormula)(struct stat_s* self);
+
 typedef bool (*StatOwnerCallback)(struct ent_s* owner);
 typedef void (*StatCallback)(struct ent_s* owner, float old, float cur);
 typedef float (*StatGetter)(struct stat_s* self);
 typedef struct stat_s{
-  StatType  attribute;
-  float     min;
-  float     max;
-  float     current;
-  float     increment;
+  StatType      attribute;
+  float         min;
+  float         max;
+  float         current;
+  float         increment;
+  dice_roll_t*  die;
+  StatFormula   base,lvl;
+  bool          modified_by[ATTR_DONE];
   StatGetter ratio;
   StatCallback on_stat_change;
   StatOwnerCallback on_stat_empty;
 } stat_t;
+
+void FormulaDieAddAttr(stat_t* self);
+void FormulaDie(stat_t* self);
+
+static stat_t base_stats[STAT_DONE]={
+  {STAT_NONE},
+  {STAT_NONE},
+  {STAT_NONE},
+  {STAT_HEALTH,0,0,0,0,NULL,FormulaDieAddAttr,FormulaDie,{[ATTR_CON]=true}},
+};
+
 
 stat_t* InitStatOnMin(StatType attr, float min, float max);
 stat_t* InitStatOnMax(StatType attr, float val);
@@ -460,4 +523,5 @@ TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
 TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);
 ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status);
 map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
+TileStatus MapRemoveOccupant(map_grid_t* m, Cell c);
 #endif

@@ -21,7 +21,7 @@ TileStatus MapChangeOccupant(map_grid_t* map,ent_t* e, Cell old, Cell c){
     return TILE_OCCUPIED;
 
   if(map->tiles[old.x][old.y].occupant)
-    map->tiles[old.x][old.y].occupant = NULL;
+    MapRemoveOccupant(map,old);
 
   return MapSetOccupant(map,e,c);
 }
@@ -48,6 +48,19 @@ map_cell_t* MapGetTile(map_grid_t* map,Cell tile){
 
   return &map->tiles[tile.x][tile.y];
 
+}
+
+TileStatus MapRemoveOccupant(map_grid_t* m, Cell c){
+  Cell bounds = CELL_NEW(m->width,m->height);
+  if(!cell_in_bounds(c,bounds))
+    return TILE_OUT_OF_BOUNDS;
+
+  m->tiles[c.x][c.y].occupant = NULL;
+
+  m->tiles[c.x][c.y].status = TILE_EMPTY;
+
+
+  return TILE_SUCCESS;
 }
 
 ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status){

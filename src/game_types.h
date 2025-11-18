@@ -33,6 +33,7 @@ controller_t* InitController();
 typedef struct ent_s{
   int                   uid;
   stat_t*               stats[STAT_DONE];
+  attribute_t*          attribs[ATTR_DONE];
   attack_t*             attack;
   EntityType            type;
   map_grid_t*           map;

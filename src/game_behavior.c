@@ -105,16 +105,6 @@ BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
 
   e->control->target = player;
   return BEHAVIOR_SUCCESS;
-  /*
-  struct ent_s* others[MAX_ENTS];
-  int num_others =  WorldGetEnts(others,FilterEntTargetable, e);
-  for (int i = 0; i < num_others; i++){
-    if(CheckCanSeeTarget(e->body,others[i]->body, e->control->ranges[RANGE_AGGRO])){
-      e->control->target = others[i];
-      return BEHAVIOR_SUCCESS;
-    }
-  }
-*/
 }
 
 BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
@@ -190,7 +180,7 @@ BehaviorStatus BehaviorCheckTurn(behavior_params_t *params){
   if(EntCanTakeAction(e))
     return BEHAVIOR_SUCCESS;
 
-  return BEHAVIOR_RUNNING;
+  return BEHAVIOR_FAILURE;
 }
 
 BehaviorStatus BehaviorTakeTurn(behavior_params_t *params){

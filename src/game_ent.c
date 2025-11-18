@@ -22,15 +22,23 @@ ent_t* InitEnt(ObjectInstance data){
   MobCategory cat = GetEntityCategory(e->type);
 
   e->attack = InitBasicAttack();
+
   category_stats_t base = CATEGORY_STATS[cat];
+  for (int i = 0; i < ATTR_DONE; i++)
+    e->attribs[i] = InitAttribute(i, base.attr[i]);
+
   for (int i = 0; i < STAT_DONE;i++){
     if (base.stats[i] ==0)
       continue;
 
+
     e->stats[i] = InitStatOnMax(i,base.stats[i]);
   }
 
+  e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
+
   InitActions(e->actions);
+
   if(e->type != ENT_PERSON){
     e->control->ranges[RANGE_NEAR] = e->stats[STAT_AGGRO]->current;
     e->control->ranges[RANGE_LOITER] = e->stats[STAT_AGGRO]->current+2;
@@ -69,6 +77,10 @@ ent_t* InitEntStatic(TileInstance data,Vector2 pos){
   return e;
 }
 
+bool EntKill(ent_t* e){
+  return SetState(e, STATE_DIE,NULL);
+}
+
 void EntInitOnce(ent_t* e){
   EntSync(e);
 
@@ -79,6 +91,8 @@ void EntInitOnce(ent_t* e){
 void EntDestroy(ent_t* e){
   if(!e || !SetState(e, STATE_END,NULL))
     return;
+
+  MapRemoveOccupant(e->map,e->pos);
 
   if(e->sprite!=NULL){
     e->sprite->owner = NULL;
@@ -161,9 +175,6 @@ void EntSetCell(ent_t *e, Cell pos){
 }
 
 void EntControlStep(ent_t *e){
-  if(StatIsEmpty(e->stats[STAT_ACTIONS]))
-      return;
-
   if(!e->control || !e->control->bt || !e->control->bt[e->state])
     return;
 
@@ -216,28 +227,14 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s){
       if(e->sprite)
         e->sprite->is_visible = true;
       break;
-    case STATE_STANDBY:
-      if(e->previous >STATE_SPAWN)
-        e->state = e->previous;
-      break;
     default:
       break;
   }
 
   switch(s){
-    case STATE_STANDBY:
-        StatMaxOut(e->stats[STAT_ACTIONS] );
-      break;
     case STATE_DIE:
       EntDestroy(e);
       break;
-    case STATE_ACTION:
-      if(e->previous >= STATE_STANDBY)
-        e->previous = STATE_NONE;
-      else
-        e->previous = old;  
-      StatIncrementValue(e->stats[STAT_ACTIONS],false);
-    break;
     default:
       break;
   }
