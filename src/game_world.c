@@ -47,6 +47,16 @@ void AddFloatingText(render_text_t *rt){
     return;
   }
 }
+
+item_def_t* GetItemDefByID(GearID id){
+  for (int i = 0; i < world.items->size; i++){
+    if(world.items->pool[i]->id == id)
+      return world.items->pool[i];
+  }
+
+  return NULL;
+}
+
 map_grid_t* WorldGetMap(void){
   return world.map;
 }
@@ -120,6 +130,15 @@ ent_t* WorldGetEnt(const char* name){
   return NULL;
 }
 
+env_t* WorldGetEnvById(unsigned int uid){
+  for(int i = 0; i < world.num_env; i++){
+    if(world.envs[i]->uid == uid)
+      return world.envs[i];
+  }
+
+  return NULL;
+}
+
 ent_t* WorldGetEntById(unsigned int uid){
   for(int i = 0; i < world.num_ent; i++){
     if(world.ents[i]->uid == uid)
@@ -161,6 +180,17 @@ int RemoveEnt(int index){
 
 }
 
+int AddEnv(env_t *e){
+  if(world.num_env < MAX_ENVS){
+    int index = world.num_env;
+    world.envs[index] = e;
+    world.num_env++;
+
+    return index;
+  }
+  return -1;
+}
+
 int AddEnt(ent_t *e) {
   if (world.num_ent < MAX_ENTS) {
     int index = world.num_ent;
@@ -183,6 +213,19 @@ int AddSprite(sprite_t *s){
   return -1;
 }
 
+bool RegisterEnv( env_t *e){
+ AddEnv(e);
+ e->uid = e->type;
+ TileStatus status = MapSetTile(world.map,e,e->pos);
+  if(status > TILE_ISSUES)
+    TraceLog(LOG_WARNING,"Issue %i at tile %i,%i ",status,e->pos.x,e->pos.y);
+
+  if(e->sprite)
+    e->sprite->is_visible = true;
+  
+  return e->uid > -1;
+}
+
 bool RegisterEnt( ent_t *e){
   e->uid = AddEnt(e);
 
@@ -203,6 +246,12 @@ bool RegisterSprite(sprite_t *s){
   s->suid = AddSprite(s);
 
   return s->suid > -1;
+}
+
+bool RegisterItem(ItemInstance g){
+  item_def_t* item = DefineItem(g);
+
+  world.items->pool[world.items->size++] = item;
 }
 
 void WorldInitOnce(){
@@ -259,14 +308,27 @@ void WorldTurnUpdate(void* context){
 
 void InitWorld(world_data_t data){
   world = (world_t){0};
-  
+ 
+
+ world.items = InitItemPool(); 
   world.map = InitMapGrid();
-  
-  for (int i = 1; i < ENT_DONE;i++){
+
+   MapRoomGen(world.map);
+   MapRoomBuild(world.map);
+
+ for (int i = 0; i < GEAR_DONE; i++){
+  if(room_items[i].id== GEAR_DONE)
+   break;
+
+  RegisterItem(room_items[i]);
+ }
+  for (int i = 0; i < ENT_DONE;i++){
     if (room_instances[i].id == ENT_DONE)
       break;
 
-    RegisterEnt(InitEnt(room_instances[i]));
+    ObjectInstance inst = room_instances[i];
+    for(int p = 0; p < inst.amount; p++)
+      RegisterEnt(InitEnt(inst,inst.pos[p]));
   }
 }
 
@@ -283,9 +345,16 @@ void FreeWorld(){
 }
 
 void WorldRender(){
+  ClearBackground(world.map->floor);
+
+  for(int i = 0; i < world.num_env; i++){
+    DrawSpriteAtPos(world.envs[i]->sprite,world.envs[i]->vpos);
+  }
+
   for(int i = 0; i < world.num_spr;i++)
-    if(world.sprs[i]->owner !=NULL)
-      DrawSprite(world.sprs[i]);
+    if(world.sprs[i]->state < ANIM_KILL)
+      if(world.sprs[i]->owner)
+        DrawSprite(world.sprs[i]);
     else
       i-=RemoveSprite(i);
 
@@ -306,7 +375,6 @@ void InitGameProcess(){
     if(room_behaviors[i].is_root)
       RegisterBehaviorTree(room_behaviors[i]);
   }
-
 
   for(int s = 0; s<SCREEN_DONE; s++){
     game_process.album_id[s] = -1;

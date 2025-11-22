@@ -105,6 +105,9 @@ typedef struct world_s{
   unsigned int  num_ent;
   sprite_t*     sprs[MAX_ENTS];
   unsigned int  num_spr;
+  item_pool_t   *items;
+  unsigned int  num_env;
+  env_t*        envs[MAX_ENTS];
   render_text_t *texts[MAX_EVENTS];
   bool          floatytext_used[MAX_EVENTS];
 } world_t;
@@ -112,7 +115,7 @@ typedef struct world_s{
 ent_t* WorldGetEnt(const char* name);
 ent_t* WorldGetEntById(unsigned int uid);
 ent_t* WorldPlayer(void);
-
+env_t* WorldGetEnvById(unsigned int uid);
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);
 map_grid_t* WorldGetMap(void);
@@ -120,7 +123,9 @@ int WorldGetEnts(ent_t** results,EntFilterFn fn, void* params);
 bool WorldGetTurnState(void);
 bool RegisterBehaviorTree(BehaviorData data);
 bool RegisterEnt( ent_t *e);
+bool RegisterEnv( env_t *e);
 bool RegisterSprite(sprite_t *s);
+bool RegisterItem(ItemInstance g);
 void WorldInitOnce();
 void WorldPreUpdate();
 void WorldFixedUpdate();

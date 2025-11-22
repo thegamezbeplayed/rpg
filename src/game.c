@@ -37,6 +37,7 @@ void PostUpdate(void){
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void)
 {
+  camera.target = WorldPlayer()->sprite->pos;
   ScreenSyncMouse();
 }
 
@@ -46,7 +47,6 @@ void DrawGameplayScreen(void)
   //  if(game_process.state == GAME_LOADING)
   //  return;
   BeginDrawing();
-  ClearBackground(GRAY);
   BeginMode2D(camera);
 
   WorldRender();

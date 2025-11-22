@@ -2,10 +2,18 @@
 #include "game_tools.h"
 #include "game_process.h"
 
+
+item_fn_t item_funcs[ITEM_DONE] = {
+  {ITEM_NONE},
+  {ITEM_WEAPON,.on_equip=ItemAddAttack},
+  {ITEM_ARMOR,.on_equip=ItemApplyStats},
+  {ITEM_DONE}
+};
+
 category_stats_t CATEGORY_STATS[MOB_DONE] = {
   {MOB_NONE},
   {MOB_HUMANOID, 
-    {[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_HEALTH]=9, [STAT_ARMOR]=1,[STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 3, [ATTR_STR]=3, [ATTR_DEX]=3, [ATTR_INT]=3,[ATTR_WIS]=3,[ATTR_CHAR]=3}
   },
   {MOB_MONSTROUS,     
@@ -13,12 +21,12 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
     {[ATTR_CON]= 5, [ATTR_STR]=5, [ATTR_DEX]=3, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=2}
   },
   {MOB_BEAST,
-    {[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_HEALTH]=10, [STAT_AGGRO]=12,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 4, [ATTR_STR]=4, [ATTR_DEX]=4, [ATTR_INT]=3,[ATTR_WIS]=1,[ATTR_CHAR]=1}
   },
   {MOB_UNDEAD, 
     {[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
-    {[ATTR_CON]= 4, [ATTR_STR]=5, [ATTR_DEX]=3, [ATTR_INT]=1,[ATTR_WIS]=1,[ATTR_CHAR]=1}
+    {[ATTR_CON]= 4, [ATTR_STR]=5, [ATTR_DEX]=3, [ATTR_INT]=2,[ATTR_WIS]=1,[ATTR_CHAR]=1}
   },
   {MOB_CONSTRUCT, 
     {[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
@@ -33,14 +41,38 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
     {[ATTR_CON]= 4, [ATTR_STR]=4, [ATTR_DEX]=4, [ATTR_INT]=3,[ATTR_WIS]=1,[ATTR_CHAR]=1}
   },
   {MOB_CIVILIAN, 
-    {[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_HEALTH]=10, [STAT_AGGRO]=9,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 3, [ATTR_STR]=2, [ATTR_DEX]=2, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=1}
   },
   {MOB_PLAYER, 
-    {[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
-    {[ATTR_CON]= 0, [ATTR_STR]=0, [ATTR_DEX]=0, [ATTR_INT]=0,[ATTR_WIS]=0,[ATTR_CHAR]=0}
+    {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[ATTR_CON]= 6, [ATTR_STR]=6, [ATTR_DEX]=6, [ATTR_INT]=6,[ATTR_WIS]=6,[ATTR_CHAR]=6}
   },
 };
+species_stats_t RACIALS[SPEC_DONE]={
+  {SPEC_NONE},
+  {SPEC_HUMAN, {},
+    {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_INT]=1,[ATTR_WIS]=1,[ATTR_CHAR]=1}},
+  {SPEC_GREENSKIN, {[STAT_HEALTH]=1, [STAT_ARMOR]=2},
+    {[ATTR_CON]=1,[ATTR_STR]=2,[ATTR_INT]=-1,[ATTR_WIS]=-1}},
+  {SPEC_ETHEREAL,{},
+    {[ATTR_STR] -2, [ATTR_DEX]=3}},
+  {SPEC_ROTTING, {},
+    {[ATTR_INT]=-1, [ATTR_DEX]=-1}},
+  {SPEC_VAMPIRIC, {[STAT_HEALTH]=2},
+    {[ATTR_DEX]=2,[ATTR_CHAR]=3}}
+  };
+
+static dice_roll_t DTEN = {6,1,RollDie};
+
+dice_roll_t* Die(int side, int num){
+  dice_roll_t* die = malloc(sizeof(dice_roll_t));
+
+  *die = (dice_roll_t){
+    side,num,RollDie};
+
+  return die;
+}
 
 void UploadScore(void){
 TraceLog(LOG_INFO,"Call EMSCRIPTEN");
@@ -63,10 +95,6 @@ int RollDie(dice_roll_t* d){
   }
 
   return sum;
-}
-
-void FormulaDieAddAttr(stat_t* self){
-  
 }
 
 void FormulaDie(stat_t* self){
@@ -102,25 +130,36 @@ stat_t* InitStatOnMin(StatType attr, float min, float max){
       .current = min,
       .ratio = StatGetRatio,
       .increment = 1.0f
-  }; return s;
+  };
+
+ return s;
 }
 
 stat_t* InitStatOnMax(StatType attr, float val){
  stat_t* s = malloc(sizeof(stat_t));
+ stat_attribute_relation_t relate = stat_modifiers[attr];
  *s =(stat_t){
     .attribute = attr,
       .min = 0,
       .max = val,
       .current = val,
       .ratio = StatGetRatio,
-      .increment = 1
-  }; return s;
+      .increment = 1,
+      .die = Die(1,val),
+      .start = FormulaDieAddAttr
+  };
+
+ for(int i = 0; i < ATTR_DONE; i++)
+   s->modified_by[i] = relate.modifier[i];
+
+ return s;
 
 }
 
 bool StatIsEmpty(stat_t* s){
   return s->current <= s->min;
 }
+
 stat_t* InitStatEmpty(void){}
 stat_t* InitStat(StatType attr,float min, float max, float amount){
  stat_t* s = malloc(sizeof(stat_t));
@@ -133,6 +172,14 @@ stat_t* InitStat(StatType attr,float min, float max, float amount){
       .increment = 1.0f
   }; return s;
 
+}
+
+bool StatExpand(stat_t* s, int val, bool fill){
+  s->max+= val;
+  if(fill)
+    StatMaxOut(s);
+
+  return true;
 }
 
 bool StatIncrementValue(stat_t* attr,bool increase){
@@ -174,3 +221,15 @@ void StatEmpty(stat_t* s){
 }
 
 float StatGetRatio(stat_t *self){}
+
+void FormulaDieAddAttr(stat_t* self){
+  int modifier = 0;
+  for(int i = 0; i < ATTR_DONE;i++){
+    if(self->modified_by[i])
+      modifier += isqrt(self->owner->attribs[i]->val); 
+  }
+  self->base += self->die->roll(self->die);
+
+  self->max=self->base+modifier;
+
+}

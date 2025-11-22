@@ -8,7 +8,7 @@
 #define MAX_PLAYERS 32
 
 #define MAX_BEHAVIOR_TREE 12
-#define MAX_NAME_LEN 64
+
 #define COMBO_KEY(a, b) ((a << 8) | b)
 #define CALL_FUNC(type, ptr, ...) ((type)(ptr))(__VA_ARGS__)
 #define MAKE_ADAPTER(name, T) \

@@ -7,6 +7,7 @@
 #define CLAMP(x, low, high) (((x) < (low)) ? (low) : (((x) > (high)) ? (high) : (x)))
 #define CLAMPF(val, min, max) ((val) < (min) ? (min) : ((val) > (max) ? (max) : (val)))
 
+
 static inline Vector2 Vector2FromXY(float x, float y){
   Vector2 result = {
     x,y
@@ -78,5 +79,15 @@ static inline Rectangle GetIntersectionRec(Rectangle r1, Rectangle r2){
 
   if (w <= 0 || h <= 0) return (Rectangle){0}; // no overlap
   return (Rectangle){ x, y, w, h };
+}
+
+static int isqrt(int n) {
+    int x = n;
+    int y = (x + 1) / 2;
+    while (y < x) {
+        x = y;
+        y = (x + n / x) / 2;
+    }
+    return x;
 }
 #endif

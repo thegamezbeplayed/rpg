@@ -7,19 +7,49 @@
 #define ROOM_LEVEL_COUNT 3
 
 static const ObjectInstance room_instances[ENT_DONE] = {
-  {ENT_NONE},
-  {ENT_PERSON,(Cell){12,20},{}},
-  {ENT_GOBLIN,(Cell){22,22},{
-                              [STATE_IDLE]= BEHAVIOR_SEEK,
-                              [STATE_WANDER]= BEHAVIOR_WANDER,
-                              [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
-                              [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
-                              [STATE_ATTACK] = BEHAVIOR_COMBAT,
-                            }},
-//  {ENT_TREE,(Cell){23,22},{}},
+  {ENT_PERSON,SIZE_MEDIUM,"Frank the Tank",1,{(Cell){20,20}},{GEAR_MACE, GEAR_LEATHER_ARMOR},{}},
+  {ENT_GOBLIN,SIZE_SMALL,"Goblin",3,{
+                                      (Cell){22,22},
+                                      (Cell){23,22},
+                                      (Cell){22,23},
+                                    },{GEAR_NONE},{
+                                      [STATE_IDLE]= BEHAVIOR_SEEK,
+                                      [STATE_WANDER]= BEHAVIOR_WANDER,
+                                      [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
+                                      [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
+                                      [STATE_ATTACK] = BEHAVIOR_COMBAT,
+                                    }},
+  {ENT_ORC,SIZE_MEDIUM,"Orc", 3,{
+                                  (Cell){35,35},
+                                  (Cell){36,35},
+                                  (Cell){35,36},
+                                },{GEAR_NONE},{
+                                  [STATE_IDLE]= BEHAVIOR_SEEK,
+                                  [STATE_WANDER]= BEHAVIOR_WANDER,
+                                  [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
+                                  [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
+                                  [STATE_ATTACK] = BEHAVIOR_COMBAT,
+                                }},
+  {ENT_OGRE,SIZE_LARGE,"Ogre", 2,{
+                                   (Cell){57,55},
+                                   (Cell){57,57},
+                                 },{GEAR_NONE},{
+                                   [STATE_IDLE]= BEHAVIOR_SEEK,
+                                   [STATE_WANDER]= BEHAVIOR_WANDER,
+                                   [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
+                                   [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
+                                   [STATE_ATTACK] = BEHAVIOR_COMBAT,
+                                 }
+  },
+
+  //  {ENT_TREE,(Cell){23,22},{}},
   {ENT_DONE}
 };
-
+static const ItemInstance room_items[GEAR_DONE] = {
+  {GEAR_MACE, ITEM_WEAPON, {[STAT_DAMAGE]=6, [STAT_REACH]=1}},
+  {GEAR_LEATHER_ARMOR, ITEM_ARMOR, {[STAT_ARMOR]=4}},
+  {GEAR_LEATHER_CAP, ITEM_ARMOR, {[STAT_ARMOR]=2}},
+};
 static const TileInstance BASE_TILE = {};
 
 typedef struct {

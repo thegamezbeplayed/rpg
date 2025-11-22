@@ -25,7 +25,7 @@ bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k){
     return false;
 
   attack_t* atk = EntGetCurrentAttack(e);
-  TileStatus* status;
+  TileStatus* status =malloc(sizeof(TileStatus));
   ent_t* target = MapGetOccupant(e->map, e->facing, status);
   if(target)
     return EntAttack(e, atk, target);
@@ -37,32 +37,33 @@ bool ActionMove(ent_t* e, ActionType a, KeyboardKey k){
   if(!EntCanTakeAction(e))
     return false;
 
- Cell dir;
+  Cell dir;
 
-switch(k){
-  case KEY_A:
-  case KEY_LEFT:
-    dir = CELL_LEFT;
-    break;
-  case KEY_D:
-  case KEY_RIGHT:
-    dir = CELL_RIGHT;
-    break;
-  case KEY_W:
-  case KEY_UP:
-    dir = CELL_UP;
-    break;
-  case KEY_S:
-  case KEY_DOWN:
-    dir = CELL_DOWN;
-    break;
-  default:
-    break;
-} 
- 
-  EntGridStep(e,dir);
+  switch(k){
+    case KEY_A:
+    case KEY_LEFT:
+      dir = CELL_LEFT;
+      break;
+    case KEY_D:
+    case KEY_RIGHT:
+      dir = CELL_RIGHT;
+      break;
+    case KEY_W:
+    case KEY_UP:
+      dir = CELL_UP;
+      break;
+    case KEY_S:
+    case KEY_DOWN:
+      dir = CELL_DOWN;
+      break;
+    default:
+      break;
+  } 
 
-  return true;
+  if(EntGridStep(e,dir)<TILE_ISSUES)
+    return true;
+
+  return false;
 }
 
 bool EntCanTakeAction(ent_t* e){
@@ -180,8 +181,6 @@ bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb){
   }
 
   Cell step = { stepX, stepY };
-
-  TraceLog(LOG_INFO,"Stepping  %i | %i",step.x, step.y);
 
   EntGridStep(e,step);
   e->actions[a]->context = NULL;

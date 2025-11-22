@@ -8,6 +8,8 @@
 #include "game_math.h"
 
 #define MAX_ENTS 128  
+#define MAX_ENVS 2048  
+#define CARRY_SIZE 4
 
 typedef enum{
   RANGE_AGGRO,
@@ -17,8 +19,49 @@ typedef enum{
 }RangeType;   
 
 typedef struct{
-  stat_t*     stats[STAT_DONE];
+  dice_roll_t*  dc,*hit;
+  stat_t*       stats[STAT_DONE];
 }attack_t;
+
+typedef struct item_def_s{
+  int id;
+  char name[32];
+  ItemCategory category;        // weapon / armor / potion / scroll
+  stat_t   *stats[STAT_DONE];     // modifiers (e.g. +2 STR)
+  attack_t *attack;     // if weapon
+  sprite_t *sprite;     // icon
+}item_def_t;
+
+struct item_s;
+typedef bool (*ItemEquipCallback)(struct ent_s* owner, struct item_s* item);
+
+typedef struct item_s{
+  const item_def_t *def;
+  struct ent_s*    owner;
+  bool             equipped;
+  int              durability;
+  ItemEquipCallback on_equip,on_use;
+}item_t;
+
+bool ItemApplyStats(struct ent_s* owner, item_t* item);
+bool ItemAddAttack(struct ent_s* owner, item_t* item);
+bool ItemConsume(struct ent_s* owner, item_t* item);
+
+typedef struct{
+  ItemCategory      cat;
+  ItemEquipCallback on_equip, on_use;
+}item_fn_t;
+extern item_fn_t item_funcs[ITEM_DONE];
+typedef struct{
+  int         size;
+  item_def_t* pool[GEAR_DONE];
+}item_pool_t;
+
+item_pool_t* InitItemPool(void);
+item_def_t* DefineItem(ItemInstance data);
+item_t* InitItem(item_def_t* def);
+
+item_def_t* GetItemDefByID(GearID id);
 
 typedef struct{
   struct ent_s*           target;
@@ -32,6 +75,8 @@ controller_t* InitController();
 //===ENT_T===>
 typedef struct ent_s{
   int                   uid;
+  char                  name[MAX_NAME_LEN];
+  MonsterSize           size;
   stat_t*               stats[STAT_DONE];
   attribute_t*          attribs[ATTR_DONE];
   attack_t*             attack;
@@ -42,15 +87,20 @@ typedef struct ent_s{
   action_turn_t         *actions[ACTION_DONE];
   controller_t          *control;
   events_t              *events;
+  item_t                *gear[CARRY_SIZE];
   sprite_t              *sprite;
 } ent_t;
 
-ent_t* InitEnt(ObjectInstance data);
-ent_t* InitEntStatic(TileInstance data,Vector2 pos);
+ent_t* InitEnt(ObjectInstance data, Cell pos);
 
+void EntCalcStats(ent_t* e);
+void EntPollInventory(ent_t* e);
+item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
+bool EntAddItem(ent_t* e, item_t* item, bool equip);
 void EntToggleTooltip(ent_t* e);
 void EntInitOnce(ent_t* e);
-attack_t* InitBasicAttack(void);
+attack_t* InitBasicAttack(ent_t* owner);
+attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 attack_t* EntGetCurrentAttack(ent_t* e);
 bool EntAttack(ent_t* e, attack_t* a, ent_t* target);
 void EntSync(ent_t* e);
@@ -92,4 +142,14 @@ static action_key_t action_keys[ACTION_DONE] = {
   {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ActionMove},
   {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack},
 };
+
+typedef struct env_s{
+  int       uid;
+  EnvTile   type;
+  Vector2   vpos;
+  Cell      pos;
+  sprite_t  *sprite;
+}env_t;
+
+env_t* InitEnv(EnvTile t,Cell pos);
 #endif

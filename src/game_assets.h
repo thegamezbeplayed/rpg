@@ -17,6 +17,7 @@ typedef enum{
   ANIM_IDLE,
   ANIM_BOUNCE,
   ANIM_RETURN,
+  ANIM_KILL,
   ANIM_DONE,
   ANIM_COUNT
 }AnimState;
@@ -237,9 +238,15 @@ typedef struct{
   Texture2D       *sprite_sheet;
 }sprite_sheet_data_t;
 
-extern sprite_sheet_data_t shapedata;
-extern sprite_sheet_data_t tiledata;
-void SpriteLoadSubTextures(sprite_sheet_data_t *out, int sheet_id);
+typedef enum{
+  SHEET_ENT,
+  SHEET_ENV,
+  SHEET_UI,
+  SHEET_ALL
+}SheetID;
+
+static sprite_sheet_data_t SHEETS[SHEET_ALL];
+void SpriteLoadSubTextures(sub_texture_t* data, SheetID id, int sheet_cap);
 void SpriteLoadSlicedTextures();
 //SPRITE_T===>
 typedef struct {
@@ -248,9 +255,9 @@ typedef struct {
   anim_t          *anim;
   Texture2D       *sheet;
   sprite_slice_t* slice;
+  Color           color;
   gl_shader_t*    gls[SHADER_DONE];
   bool            is_visible;
-  float           rot;
   Vector2         offset;
   Vector2         pos;
   RenderLayer     layer;
@@ -259,7 +266,7 @@ typedef struct {
 
 void DrawSlice(sprite_t *spr, Vector2 position,float rot);
 void DrawNineSlice(scaling_slice_t *spr, Rectangle dst);
-sprite_t* InitSpriteByID(int id, sprite_sheet_data_t* data);
+sprite_t* InitSpriteByID(int id, SheetID sid);
 sprite_t* InitSpriteByIndex(int index, sprite_sheet_data_t* spritesheet);
 scaling_slice_t* InitScalingElement(ElementID id);
 bool FreeSprite(sprite_t* s);
