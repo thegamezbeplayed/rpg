@@ -35,21 +35,58 @@ ent_t* InitEnt(ObjectInstance data,Cell pos){
     EntAddItem(e, InitItem(item), true);
   }
 
-  if(e->type != ENT_PERSON){
-    e->sprite->color = DARKGREEN;
-    e->control->ranges[RANGE_NEAR] = e->stats[STAT_AGGRO]->current;
-    e->control->ranges[RANGE_LOITER] = e->stats[STAT_AGGRO]->current+2;
-    for (int i = STATE_SPAWN; i < STATE_END; i++){
-      if(data.behaviors[i] == BEHAVIOR_NONE)
-        continue;
-      e->control->bt[i] = InitBehaviorTree(data.behaviors[i]);
-    }
+  SetState(e,STATE_SPAWN,NULL);
+  return e;
+}
 
-    e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE,ActionTraverseGrid,NULL);
-    e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK,ActionAttack,NULL);
+ent_t* InitMob(EntityType mob, Cell pos){
+  ent_t* e = malloc(sizeof(ent_t));
+  *e = (ent_t){0};  // zero initialize if needed
+  e->type = mob;
+
+  ObjectInstance data = GetEntityData(mob);
+  e->size = data.size;
+  e->map = WorldGetMap();
+  e->pos = pos;
+  e->facing = CELL_EMPTY;
+  e->sprite = InitSpriteByID(data.id,SHEET_ENT);
+  e->sprite->owner = e;
+
+  strcpy(e->name,data.name);
+  e->events = InitEvents();
+
+  e->control = InitController();
+
+  EntCalcStats(e);
+  e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
+
+  InitActions(e->actions);
+
+  for(int i = 0; i < NUM_ABILITIES; i++){
+    if(data.abilities[i] == ABILITY_DONE)
+      break;
+
+    e->abilities[e->num_abilities++] = InitAbility(e, data.abilities[i]);
   }
-  else
-    e->sprite->color = GOLD;
+
+  for(int i = 0; i < GEAR_DONE; i++){
+    if(data.items[i]==GEAR_NONE)
+      break;
+
+    item_def_t* item = GetItemDefByID(i);
+    EntAddItem(e, InitItem(item), true);
+  }
+
+  e->control->ranges[RANGE_NEAR] = (int)e->stats[STAT_AGGRO]->current/4;
+  e->control->ranges[RANGE_LOITER] = (int)e->stats[STAT_AGGRO]->current/2;
+  for (int i = STATE_SPAWN; i < STATE_END; i++){
+    if(data.behaviors[i] == BEHAVIOR_NONE)
+      continue;
+    e->control->bt[i] = InitBehaviorTree(data.behaviors[i]);
+  }
+
+  e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE,ActionTraverseGrid,NULL);
+  e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK,ActionAttack,NULL);
 
   SetState(e,STATE_SPAWN,NULL);
   return e;
@@ -65,7 +102,6 @@ env_t* InitEnv(EnvTile t,Cell pos){
   env_t* batch =WorldGetEnvById(e->type);
   if(!batch){
     e->sprite = InitSpriteByID(t,SHEET_ENV);
-    e->sprite->color = GREEN;
   }
   else
     e->sprite = batch->sprite;
@@ -82,8 +118,11 @@ void EntCalcStats(ent_t* e){
 
   category_stats_t base = CATEGORY_STATS[cat];
   species_stats_t racial = RACIALS[species];
-  size_category_t size = MOB_SIZE[0];
-  
+  size_category_t size = MOB_SIZE[cat];
+ 
+ if(e->size == SIZE_TINY)
+  DO_NOTHING();
+
   for (int i = 0; i < ATTR_DONE; i++){
     int val = base.attr[i] + racial.attr[i] + size.attr[e->size][i];
     e->attribs[i] = InitAttribute(i,val);
@@ -124,6 +163,9 @@ item_def_t* DefineItem(ItemInstance data){
   item_def_t* item = malloc(sizeof(item_def_t));
   item->id = data.id;
 
+  for (int i = 0; i < DMG_DONE; i++)
+      item->damage[i] = data.damage[i];
+ 
   item->category = data.cat;
   for (int i = 0; i < STAT_DONE; i++){
     if(data.stats[i] == 0){
@@ -266,6 +308,7 @@ controller_t* InitController(){
   controller_t* ctrl = malloc(sizeof(controller_t));
   *ctrl = (controller_t){0};
 
+  ctrl->destination = CELL_UNSET;
 
   return ctrl;
 }
@@ -282,6 +325,13 @@ bool ItemAddAttack(struct ent_s* owner, item_t* item){
 
   a->stats[STAT_REACH] = def->stats[STAT_REACH];
   a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE, 0);
+
+  for(int i = 0; i < DMG_DONE; i++){
+    if(def->damage[i] > 0){
+      a->type = i;
+      break;
+    }
+  }
 
   for (int i = 0; i < STAT_DONE; i++){
     if(!a->stats[i])
@@ -313,6 +363,16 @@ attack_t* InitWeaponAttack(ent_t* owner, item_t* w){
   return a;
 }
 
+ability_t* InitAbility(ent_t* owner, AbilityID id){
+  ability_t* a = malloc(sizeof(ability_t));
+
+  *a = AbilityLookup(id);
+
+  if(a->damage > DMG_NONE)
+    a->attack = InitAttackAbility(owner,a);
+  return a;
+}
+
 attack_t* InitBasicAttack(ent_t* owner){
   attack_t* a = malloc(sizeof(attack_t));
 
@@ -323,6 +383,7 @@ attack_t* InitBasicAttack(ent_t* owner){
   a->stats[STAT_REACH] = InitStat(STAT_REACH,1,1,1);
   a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,1);
 
+  a->type = DMG_BLUNT;
   for (int i = 0; i < STAT_DONE; i++){
     if(!a->stats[i])
       continue;
@@ -464,3 +525,12 @@ SpeciesType GetEntitySpecies(EntityType t){
 
 }
 
+ObjectInstance GetEntityData(EntityType t){
+  if(t >= 0 && t < ENT_DONE)
+    return room_instances[t];
+}
+
+ability_t AbilityLookup(AbilityID id){
+  if(id >= ABILITY_NONE && id < ABILITY_DONE)
+    return ABILITIES[id];
+}

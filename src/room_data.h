@@ -7,48 +7,68 @@
 #define ROOM_LEVEL_COUNT 3
 
 static const ObjectInstance room_instances[ENT_DONE] = {
-  {ENT_PERSON,SIZE_MEDIUM,"Frank the Tank",1,{(Cell){20,20}},{GEAR_MACE, GEAR_LEATHER_ARMOR},{}},
-  {ENT_GOBLIN,SIZE_SMALL,"Goblin",3,{
-                                      (Cell){22,22},
-                                      (Cell){23,22},
-                                      (Cell){22,23},
-                                    },{GEAR_NONE},{
-                                      [STATE_IDLE]= BEHAVIOR_SEEK,
-                                      [STATE_WANDER]= BEHAVIOR_WANDER,
-                                      [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
-                                      [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
-                                      [STATE_ATTACK] = BEHAVIOR_COMBAT,
-                                    }},
-  {ENT_ORC,SIZE_MEDIUM,"Orc", 3,{
-                                  (Cell){35,35},
-                                  (Cell){36,35},
-                                  (Cell){35,36},
-                                },{GEAR_NONE},{
-                                  [STATE_IDLE]= BEHAVIOR_SEEK,
-                                  [STATE_WANDER]= BEHAVIOR_WANDER,
-                                  [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
-                                  [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
-                                  [STATE_ATTACK] = BEHAVIOR_COMBAT,
-                                }},
-  {ENT_OGRE,SIZE_LARGE,"Ogre", 2,{
-                                   (Cell){57,55},
-                                   (Cell){57,57},
-                                 },{GEAR_NONE},{
-                                   [STATE_IDLE]= BEHAVIOR_SEEK,
-                                   [STATE_WANDER]= BEHAVIOR_WANDER,
-                                   [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
-                                   [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
-                                   [STATE_ATTACK] = BEHAVIOR_COMBAT,
-                                 }
+  {ENT_PERSON,SIZE_MEDIUM,"Frank the Tank",1,1,1,SPAWN_SOLO,{GEAR_MACE, GEAR_LEATHER_ARMOR},{}},
+  {ENT_GOBLIN,SIZE_SMALL,"Goblin",2,4,1,SPAWN_PACK,
+    {GEAR_NONE},
+    {ABILITY_DONE},
+    {
+      [STATE_IDLE]= BEHAVIOR_SEEK,
+      [STATE_WANDER]= BEHAVIOR_WANDER,
+      [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
+      [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
+      [STATE_ATTACK] = BEHAVIOR_COMBAT,
+    }},
+  {ENT_ORC,SIZE_MEDIUM,"Orc", 1,3,3,SPAWN_SOLO,{GEAR_NONE},
+    {ABILITY_DONE},
+    {
+      [STATE_IDLE]= BEHAVIOR_SEEK,
+      [STATE_WANDER]= BEHAVIOR_WANDER,
+      [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
+      [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
+      [STATE_ATTACK] = BEHAVIOR_COMBAT,
+    }},
+  {ENT_OGRE,SIZE_LARGE,"Ogre", 1,1,5,SPAWN_SOLO,
+    {GEAR_NONE},
+    {ABILITY_DONE},
+    {
+      [STATE_IDLE]= BEHAVIOR_SEEK,
+      [STATE_WANDER]= BEHAVIOR_WANDER,
+      [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
+      [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
+      [STATE_ATTACK] = BEHAVIOR_COMBAT,
+    }
+  },
+  {ENT_ORC_FIGHTER},
+  {ENT_BERSERKER},
+  {ENT_HOBGOBLIN},
+  {ENT_OROG},
+  {ENT_SCORPION},
+  {ENT_SPIDER, SIZE_TINY,"Spider", 2,6,2,SPAWN_SWARM,{GEAR_NONE},
+    {ABILITY_BITE_POISON,ABILITY_DONE},
+    {
+      [STATE_IDLE]= BEHAVIOR_SEEK,
+        [STATE_WANDER]= BEHAVIOR_WANDER,
+        [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
+        [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
+        [STATE_ATTACK] = BEHAVIOR_COMBAT,
+    }
   },
 
   //  {ENT_TREE,(Cell){23,22},{}},
   {ENT_DONE}
 };
+
+static const spawn_rules_t dark_forest[4]= {
+  {ENT_GOBLIN,SPAWN_PACK,50},
+  {ENT_ORC,SPAWN_PACK,10},
+  {ENT_SPIDER,SPAWN_SWARM,30},
+  {ENT_DONE}
+};
+
 static const ItemInstance room_items[GEAR_DONE] = {
-  {GEAR_MACE, ITEM_WEAPON, {[STAT_DAMAGE]=6, [STAT_REACH]=1}},
-  {GEAR_LEATHER_ARMOR, ITEM_ARMOR, {[STAT_ARMOR]=4}},
-  {GEAR_LEATHER_CAP, ITEM_ARMOR, {[STAT_ARMOR]=2}},
+  {GEAR_MACE, ITEM_WEAPON, {[DMG_BLUNT]=1},{[STAT_DAMAGE]=6,[STAT_REACH]=1}},
+  {GEAR_LEATHER_ARMOR,ITEM_ARMOR, {[DMG_SLASH]=1}, {[STAT_ARMOR]=4}},
+  {GEAR_LEATHER_CAP, ITEM_ARMOR, {[DMG_SLASH]=1}, {[STAT_ARMOR]=2}},
 };
 static const TileInstance BASE_TILE = {};
 
@@ -72,12 +92,13 @@ static const BehaviorData room_behaviors[ BEHAVIOR_COUNT] = {
   { BEHAVIOR_MOVE_TO_DEST,false,BT_LEAF,LeafMoveToDestination,false, STATE_NONE,0,{}},
   {BEHAVIOR_CAN_ATTACK,false,BT_LEAF,LeafCanAttackTarget,false, STATE_NONE,0,{}},
   {BEHAVIOR_ATTACK,false,BT_LEAF,LeafAttackTarget,false, STATE_NONE,0,{}},
+  {BEHAVIOR_SEE,false,BT_LEAF,LeafCanSeeTarget,false, STATE_NONE,0,{}},
   {BEHAVIOR_CHECK_TURN_STATE,false, BT_LEAF,LeafCheckTurn,false,0,0,{}},
   {BEHAVIOR_TAKE_TURN,false, BT_LEAF,LeafTakeTurn,false,0,0,{}},
   { BEHAVIOR_MOVE,false,BT_SEQUENCE, NULL,true, STATE_ACTION,3,{ BEHAVIOR_GET_DEST, BEHAVIOR_MOVE_TO_DEST,BEHAVIOR_CHANGE_STATE}},
   { BEHAVIOR_CHECK_AGGRO,false,BT_SEQUENCE, NULL,true, STATE_IDLE,2,{ BEHAVIOR_GET_TARGET, BEHAVIOR_CHANGE_STATE}},
   { BEHAVIOR_ACQUIRE,false, BT_SEQUENCE, NULL,true, STATE_AGGRO,2,{ BEHAVIOR_GET_TARGET, BEHAVIOR_CHANGE_STATE}},
-  {BEHAVIOR_TRY_ATTACK, false, BT_SEQUENCE,NULL,true, STATE_ATTACK,3,{BEHAVIOR_GET_TARGET,BEHAVIOR_CAN_ATTACK,BEHAVIOR_CHANGE_STATE}},
+  {BEHAVIOR_TRY_ATTACK, false, BT_SEQUENCE,NULL,true, STATE_ATTACK,4,{BEHAVIOR_GET_TARGET,BEHAVIOR_SEE,BEHAVIOR_CAN_ATTACK,BEHAVIOR_CHANGE_STATE}},
   {BEHAVIOR_APPROACH , false,BT_SEQUENCE, NULL,false, STATE_NONE,2,{BEHAVIOR_MOVE_TO_TARGET,BEHAVIOR_TAKE_TURN}},
   { BEHAVIOR_WANDER,true,BT_SELECTOR, NULL,false, STATE_NONE,2,{ BEHAVIOR_CHECK_AGGRO, BEHAVIOR_MOVE}},
   { BEHAVIOR_SEEK, true,BT_SELECTOR,NULL,true,STATE_WANDER,2,{ BEHAVIOR_ACQUIRE,  BEHAVIOR_CHANGE_STATE}},

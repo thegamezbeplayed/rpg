@@ -3,6 +3,13 @@
 #include "game_process.h"
 
 
+ability_t ABILITIES[ABILITY_DONE]={
+  {ABILITY_NONE},
+  {ABILITY_BITE, DMG_PIERCE, 25, 4, 1, 2, ATTR_NONE},
+  {ABILITY_BITE_POISON, DMG_PIERCE, 25, 4, 1, 2, ATTR_NONE,ABILITY_POISON},
+  {ABILITY_POISON, DMG_POISON, 25, 9, 1, 4,ATTR_CON},
+};
+
 item_fn_t item_funcs[ITEM_DONE] = {
   {ITEM_NONE},
   {ITEM_WEAPON,.on_equip=ItemAddAttack},
@@ -11,7 +18,6 @@ item_fn_t item_funcs[ITEM_DONE] = {
 };
 
 category_stats_t CATEGORY_STATS[MOB_DONE] = {
-  {MOB_NONE},
   {MOB_HUMANOID, 
     {[STAT_HEALTH]=9, [STAT_ARMOR]=1,[STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 3, [ATTR_STR]=3, [ATTR_DEX]=3, [ATTR_INT]=3,[ATTR_WIS]=3,[ATTR_CHAR]=3}
@@ -55,6 +61,8 @@ species_stats_t RACIALS[SPEC_DONE]={
     {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_INT]=1,[ATTR_WIS]=1,[ATTR_CHAR]=1}},
   {SPEC_GREENSKIN, {[STAT_HEALTH]=1, [STAT_ARMOR]=2},
     {[ATTR_CON]=1,[ATTR_STR]=2,[ATTR_INT]=-1,[ATTR_WIS]=-1}},
+  {SPEC_ARTHROPOD, {[STAT_ARMOR]=3},
+    {[ATTR_DEX]=2}},
   {SPEC_ETHEREAL,{},
     {[ATTR_STR] -2, [ATTR_DEX]=3}},
   {SPEC_ROTTING, {},

@@ -10,6 +10,7 @@
 #define MAX_ENTS 128  
 #define MAX_ENVS 2048  
 #define CARRY_SIZE 4
+#define NUM_ABILITIES 6
 
 typedef enum{
   RANGE_AGGRO,
@@ -19,14 +20,30 @@ typedef enum{
 }RangeType;   
 
 typedef struct{
+  DamageType    type;
   dice_roll_t*  dc,*hit;
+  AttributeType save;
   stat_t*       stats[STAT_DONE];
 }attack_t;
+
+typedef struct{
+  AbilityID     id;
+  DamageType    damage;
+  int           weight,hit,die,side;
+  AttributeType save;
+  AbilityID     chain;
+  attack_t*     attack;
+}ability_t;
+
+extern ability_t ABILITIES[ABILITY_DONE];
+
+ability_t AbilityLookup(AbilityID id);
 
 typedef struct item_def_s{
   int id;
   char name[32];
   ItemCategory category;        // weapon / armor / potion / scroll
+  int      damage[DMG_DONE];
   stat_t   *stats[STAT_DONE];     // modifiers (e.g. +2 STR)
   attack_t *attack;     // if weapon
   sprite_t *sprite;     // icon
@@ -80,6 +97,8 @@ typedef struct ent_s{
   stat_t*               stats[STAT_DONE];
   attribute_t*          attribs[ATTR_DONE];
   attack_t*             attack;
+  int                   num_abilities;
+  ability_t*            abilities[6];
   EntityType            type;
   map_grid_t*           map;
   Cell                  pos,facing;
@@ -92,13 +111,15 @@ typedef struct ent_s{
 } ent_t;
 
 ent_t* InitEnt(ObjectInstance data, Cell pos);
-
+ent_t* InitMob(EntityType mob, Cell pos);
 void EntCalcStats(ent_t* e);
 void EntPollInventory(ent_t* e);
 item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
 bool EntAddItem(ent_t* e, item_t* item, bool equip);
 void EntToggleTooltip(ent_t* e);
 void EntInitOnce(ent_t* e);
+ability_t* InitAbility(ent_t* owner, AbilityID);
+attack_t* InitAttackAbility(ent_t* owner,ability_t* a);
 attack_t* InitBasicAttack(ent_t* owner);
 attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 attack_t* EntGetCurrentAttack(ent_t* e);

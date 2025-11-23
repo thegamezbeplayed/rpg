@@ -85,11 +85,6 @@ typedef struct{
   behavior_params_t*    params;
 }behavior_tree_leaf_t;
 
-typedef struct {
-    const char *name;  // "CanSeeTarget", "MoveToTarget", ...
-    behavior_tree_node_t* (*factory)(behavior_params_t *params); // params is leaf-specific (can be NULL)
-} BTLeafRegistryEntry;
-
 behavior_tree_node_t* InitBehaviorTree( BehaviorID id);
 void FreeBehaviorTree(behavior_tree_node_t* node);
 BehaviorStatus BehaviorTickSequence(behavior_tree_node_t *self, void *context);
@@ -110,6 +105,7 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params);
 BehaviorStatus BehaviorCheckTurn(behavior_params_t *params);
 BehaviorStatus BehaviorAttackTarget(behavior_params_t *params);
 BehaviorStatus BehaviorTakeTurn(behavior_params_t *params);
+BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params);
 
 static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeState,params); }
 static inline behavior_tree_node_t* LeafMoveToTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToTarget,params); }
@@ -121,5 +117,6 @@ static inline behavior_tree_node_t* LeafCanAttackTarget(behavior_params_t *param
 static inline behavior_tree_node_t* LeafCheckTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckTurn,params); }
 static inline behavior_tree_node_t* LeafAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAttackTarget,params); }
 static inline behavior_tree_node_t* LeafTakeTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorTakeTurn,params); }
+static inline behavior_tree_node_t* LeafCanSeeTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCanSeeTarget,params); }
 
 #endif

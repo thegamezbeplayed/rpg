@@ -7,8 +7,8 @@
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
-#define GRID_WIDTH 40
-#define GRID_HEIGHT 40
+#define GRID_WIDTH 45
+#define GRID_HEIGHT 45
 
 #define MAX_NAME_LEN 64
 
@@ -68,6 +68,103 @@ typedef enum{
   ATTR_CHAR,
   ATTR_DONE
 }AttributeType;
+
+typedef enum{
+  DMG_NONE = 0,
+
+  DMG_BLUNT,
+  DMG_PIERCE,
+  DMG_SLASH,
+
+  DMG_FIRE,
+  DMG_COLD,
+  DMG_LIGHTNING,
+  DMG_ACID,
+  DMG_POISON,
+
+  DMG_PSYCHIC,
+  DMG_RADIANT,
+  DMG_NECROTIC,
+  DMG_FORCE,
+  DMG_TRUE,
+
+  DMG_DONE
+}DamageType;
+
+typedef enum {
+  DMGTAG_NONE        = 0,
+
+  // broad categories
+  DMGTAG_PHYSICAL    = 1 << 0,
+  DMGTAG_ELEMENTAL   = 1 << 1,
+  DMGTAG_MAGIC       = 1 << 2,
+
+  // delivery types
+  DMGTAG_MELEE       = 1 << 3,
+  DMGTAG_RANGED      = 1 << 4,
+
+  // special subcategories
+  DMGTAG_NATURAL     = 1 << 5,   // claws, bites
+  DMGTAG_WEAPON      = 1 << 6,   // swords, axes
+  DMGTAG_STATUS      = 1 << 7,   // poison, disease
+  DMGTAG_ABSOLUTE    = 1 << 8,
+} DamageTag;
+
+static const uint32_t DamageTypeTags[DMG_DONE] = {
+  [DMG_NONE]      = DMGTAG_NONE,
+
+  // Physical
+  [DMG_BLUNT]  = DMGTAG_PHYSICAL | DMGTAG_MELEE  | DMGTAG_WEAPON,
+  [DMG_PIERCE]    = DMGTAG_PHYSICAL | DMGTAG_RANGED | DMGTAG_WEAPON,
+  [DMG_SLASH]     = DMGTAG_PHYSICAL | DMGTAG_MELEE  | DMGTAG_WEAPON,
+
+  // Elemental (also magical)
+  [DMG_FIRE]      = DMGTAG_ELEMENTAL | DMGTAG_MAGIC,
+  [DMG_COLD]      = DMGTAG_ELEMENTAL | DMGTAG_MAGIC,
+  [DMG_LIGHTNING] = DMGTAG_ELEMENTAL | DMGTAG_MAGIC,
+  [DMG_ACID]      = DMGTAG_ELEMENTAL | DMGTAG_MAGIC,
+  [DMG_POISON]    = DMGTAG_STATUS    | DMGTAG_MAGIC,
+
+  // Magical
+  [DMG_PSYCHIC]   = DMGTAG_MAGIC,
+  [DMG_RADIANT]   = DMGTAG_MAGIC,
+  [DMG_NECROTIC]  = DMGTAG_MAGIC,
+  [DMG_FORCE]     = DMGTAG_MAGIC,
+  [DMG_TRUE]      = DMGTAG_ABSOLUTE,
+};
+
+typedef enum{
+  ABILITY_NONE,
+  ABILITY_BITE,
+  ABILITY_BITE_POISON,
+  ABILITY_POISON,
+  ABILITY_DONE
+}AbilityID;
+
+static inline bool DamageHasTag(DamageType t, DamageTag tag) {
+  return (DamageTypeTags[t] & tag) != 0;
+}
+
+static inline bool DamageIsPhysical(DamageType t) {
+  return DamageHasTag(t, DMGTAG_PHYSICAL);
+}
+
+static inline bool DamageIsMagic(DamageType t) {
+  return DamageHasTag(t, DMGTAG_MAGIC);
+}
+
+static inline bool DamageIsElemental(DamageType t) {
+    return DamageHasTag(t, DMGTAG_ELEMENTAL);
+}
+
+static inline bool DamageIsRanged(DamageType t) {
+    return DamageHasTag(t, DMGTAG_RANGED);
+}
+
+static inline bool DamageIsMelee(DamageType t) {
+    return DamageHasTag(t, DMGTAG_MELEE);
+}
+
 
 typedef struct{
   AttributeType t;
@@ -133,10 +230,12 @@ typedef enum{
   TILEFLAG_ROAD        = 1 << 4,
   TILEFLAG_FOREST      = 1 << 5,
   TILEFLAG_NATURAL     = 1 << 6,   // plants, rocks, nature
-  TILEFLAG_INTERACT    = 1 << 7,
+  TILEFLAG_DEBRIS      = 1 << 7,
   TILEFLAG_DECOR       = 1 <<8,
-  TILEFLAG_BORDER      = 1 << 9,
-  TILEFLAG_SPAWN       = 1 << 10
+  TILEFLAG_OBSTRUCT    = 1 <<9,
+  TILEFLAG_BORDER      = 1 << 10,
+  TILEFLAG_SPAWN       = 1 << 11,
+  TILEFLAG_FLOOR       = 1 << 12,
 }TileFlags;
 
 typedef enum{
@@ -167,23 +266,25 @@ typedef enum{
   ENV_TREE_FIR,
   ENV_FOREST,
   ENV_WEB,
+  ENV_DIRT,
+  ENV_DIRT_PATCH,
   ENV_DONE
 }EnvTile;
 
 static const uint32_t EnvTileFlags[ENV_DONE] = {
-    [ENV_BONES_BEAST]    = TILEFLAG_INTERACT | TILEFLAG_DECOR,
-    [ENV_BOULDER]        = TILEFLAG_SOLID | TILEFLAG_NATURAL,
+    [ENV_BONES_BEAST]    = TILEFLAG_DEBRIS | TILEFLAG_DECOR,
+    [ENV_BOULDER]        = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_NATURAL,
     [ENV_COBBLE]         = TILEFLAG_ROAD,
     [ENV_COBBLE_WORN]    = TILEFLAG_ROAD,
-    [ENV_FLOWERS]        = TILEFLAG_GRASS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
-    [ENV_FLOWERS_THIN]   = TILEFLAG_GRASS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
+    [ENV_FLOWERS]        = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
+    [ENV_FLOWERS_THIN]   = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
     [ENV_FOREST_FIR]     = TILEFLAG_SOLID | TILEFLAG_FOREST | TILEFLAG_NATURAL,
     [ENV_GRASS]          = TILEFLAG_GRASS | TILEFLAG_NATURAL,
     [ENV_GRASS_SPARSE]   = TILEFLAG_GRASS | TILEFLAG_NATURAL,
-    [ENV_GRASS_WILD]     = TILEFLAG_GRASS | TILEFLAG_NATURAL,
+    [ENV_GRASS_WILD]     = TILEFLAG_GRASS | TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
     [ENV_LEAVES]         = TILEFLAG_DECOR | TILEFLAG_NATURAL,
     [ENV_TREE_MAPLE]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_MEADOW]         = TILEFLAG_GRASS | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+    [ENV_MEADOW]         = TILEFLAG_GRASS |TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
     [ENV_TREE_OLDGROWTH] = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
     [ENV_TREE_PINE]      = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
     [ENV_ROAD]           = TILEFLAG_ROAD,
@@ -194,10 +295,12 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
     [ENV_TREE_CEDAR]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
     [ENV_TREE_DEAD]      = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
     [ENV_TREE_DYING]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
-    [ENV_TREE_FELLED]    = TILEFLAG_INTERACT | TILEFLAG_FOREST | TILEFLAG_NATURAL,  // updated
+    [ENV_TREE_FELLED]    = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_FOREST | TILEFLAG_NATURAL,  // updated
     [ENV_TREE_FIR]       = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_FOREST]         = TILEFLAG_BORDER | TILEFLAG_FOREST | TILEFLAG_GRASS | TILEFLAG_NATURAL,
-    [ENV_WEB]            = TILEFLAG_INTERACT | TILEFLAG_DECOR,
+    [ENV_FOREST]         = TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_GRASS | TILEFLAG_NATURAL,
+    [ENV_WEB]            = TILEFLAG_DECOR,
+    [ENV_DIRT]            = TILEFLAG_FLOOR,
+    [ENV_DIRT]            = TILEFLAG_FLOOR,
 };
 
 static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
@@ -221,7 +324,6 @@ static inline EnvTile GetTileByFlags(uint32_t flags) {
 }
 
 typedef enum{
-  MOB_NONE,
   MOB_HUMANOID,
   MOB_MONSTROUS,
   MOB_BEAST,
@@ -238,6 +340,7 @@ typedef enum{
   SPEC_NONE,
   SPEC_HUMAN,
   SPEC_GREENSKIN,
+  SPEC_ARTHROPOD,
   SPEC_ETHEREAL,
   SPEC_ROTTING,
   SPEC_VAMPIRIC,
@@ -260,13 +363,23 @@ typedef struct{
 }size_category_t;
 
 static const size_category_t MOB_SIZE[MOB_DONE]={
-  {MOB_HUMANOID,{[SIZE_SMALL]={[STAT_HEALTH]=-4,[STAT_ARMOR]=-1},
+  {MOB_HUMANOID,{[SIZE_SMALL]={[STAT_HEALTH]=-2,[STAT_ARMOR]=-1},
                   [SIZE_LARGE] = {[STAT_HEALTH]=4,[STAT_AGGRO]=1},
                   [SIZE_HUGE] = {[STAT_HEALTH]=8,[STAT_AGGRO]=2}},
-  {[SIZE_SMALL]={[ATTR_DEX]=3,[ATTR_STR]=-3},
+  {[SIZE_SMALL]={[ATTR_DEX]=3,[ATTR_STR]=-2},
     [SIZE_LARGE]={[ATTR_STR]=3,[ATTR_CON]=2},
     [SIZE_HUGE] ={[ATTR_STR]=6,[ATTR_CON]=4,[ATTR_DEX]=-2}}
   },
+  {MOB_MONSTROUS},
+  {MOB_BEAST,{[SIZE_TINY]={[STAT_HEALTH]=-4},
+                  [SIZE_SMALL] = {[STAT_HEALTH]=-2},
+                  [SIZE_LARGE] = {[STAT_HEALTH]=2,[STAT_AGGRO]=1}},
+  {[SIZE_TINY]={[ATTR_DEX]=6,[ATTR_STR]=-4},
+    [SIZE_SMALL]={[ATTR_STR]=-3,[ATTR_DEX]=4},
+    [SIZE_LARGE] ={[ATTR_STR]=2,[ATTR_CON]=2}}
+  },
+
+
 };
 typedef struct {
   MobCategory category;
@@ -307,6 +420,9 @@ static const SpeciesType RACE_MAP[ENT_DONE] = {
 //  [ENT_SKELETON] = SPEC_ROTTING,
 //  [ENT_CADAVER] = SPEC_ROTTING,
 //  [ENT_ABOMINATION] = SPEC_ROTTING,
+
+  [ENT_SPIDER] = SPEC_ARTHROPOD,
+  [ENT_SCORPION] = SPEC_ARTHROPOD,
 };
 
 static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
@@ -355,7 +471,6 @@ static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
   [ENT_WASP] = MOB_BEAST,
   [ENT_BEETLE] = MOB_BEAST,
   [ENT_STAG] = MOB_BEAST,
-  [ENT_SPIDER] = MOB_BEAST,
   [ENT_SCARAB] = MOB_BEAST,
   [ENT_HEN] = MOB_BEAST,
   [ENT_DUCK] = MOB_BEAST,
@@ -407,19 +522,19 @@ static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
 */
 };
 
-MobCategory GetEntityCategory(EntityType t);
-SpeciesType GetEntitySpecies(EntityType t);
-
 typedef enum{
   SPAWN_NONE,
+  SPAWN_PLAYER,
   SPAWN_SOLO,
   SPAWN_PACK,
+  SPAWN_SWARM,
   SPAWN_DONE
 }SpawnType;
 
 typedef struct{
-  SpawnType   type;
-  int         min,max,weight;
+  EntityType  mob;
+  SpawnType   rule;
+  int         weight;
 }spawn_rules_t;
 
 typedef enum{
@@ -476,33 +591,31 @@ typedef enum{
   BEHAVIOR_MOVE_TO_DEST,      //4
   BEHAVIOR_CAN_ATTACK,        //5
   BEHAVIOR_ATTACK,            //6
-  BEHAVIOR_CHECK_TURN_STATE,  //7
-  BEHAVIOR_TAKE_TURN,         //8
-  BEHAVIOR_MOVE,              //9
-  BEHAVIOR_CHECK_AGGRO,       //10
-  BEHAVIOR_ACQUIRE,           //11
-  BEHAVIOR_TRY_ATTACK,        //12
-  BEHAVIOR_APPROACH,          //13
-  BEHAVIOR_WANDER,            //14
-  BEHAVIOR_SEEK,              //15
-  BEHAVIOR_TAKE_ACTION,       //16
-  BEHAVIOR_ACTION,            //17
-  BEHAVIOR_NO_ACTION,         //18
-  BEHAVIOR_COMBAT,            //19
-  BEHAVIOR_MOB_AGGRO,         //20
-  BEHAVIOR_STANDBY,           //21
+  BEHAVIOR_SEE,               //8
+  BEHAVIOR_CHECK_TURN_STATE,  //9
+  BEHAVIOR_TAKE_TURN,         //10
+  BEHAVIOR_MOVE,              //11
+  BEHAVIOR_CHECK_AGGRO,       //12
+  BEHAVIOR_ACQUIRE,           //13
+  BEHAVIOR_TRY_ATTACK,        //14
+  BEHAVIOR_APPROACH,          //15
+  BEHAVIOR_WANDER,            //16
+  BEHAVIOR_SEEK,              //17
+  BEHAVIOR_TAKE_ACTION,       //18
+  BEHAVIOR_ACTION,            //19
+  BEHAVIOR_NO_ACTION,         //20
+  BEHAVIOR_COMBAT,            //21
+  BEHAVIOR_MOB_AGGRO,         //22
+  BEHAVIOR_STANDBY,           //23
   BEHAVIOR_COUNT
 }BehaviorID;
 
 typedef struct sub_texture_s {
-  int tag;
-  int originX, originY;
-  int positionX, positionY;
-  int sourceWidth, sourceHeight;
-  int padding;
-  bool trimmed;
-  int trimRecX, trimRecY, trimRecWidth, trimRecHeight;
-  int colliderType;
+  int   tag;
+  int   originX, originY;
+  int   positionX, positionY;
+  int   sourceWidth, sourceHeight;
+  Color color;
   int colliderPosX, colliderPosY, colliderSizeX, colliderSizeY;
 } sub_texture_t;
 
@@ -639,6 +752,7 @@ typedef struct {
 typedef struct{
   int          id;
   ItemCategory cat;
+  int          damage[DMG_DONE];
   int          stats[STAT_DONE];
 }ItemInstance;
 
@@ -646,9 +760,10 @@ typedef struct {
   int         id;
   MonsterSize size;
   char        name[MAX_NAME_LEN];
-  int         amount;
-  Cell        pos[6];
+  int         min,max,cr;
+  SpawnType   spawn;
   GearID      items[ITEM_DONE];
+  AbilityID   abilities[6];
   BehaviorID  behaviors[STATE_END];
 } ObjectInstance;
 
@@ -685,6 +800,7 @@ typedef struct{
   map_cell_t   tiles[GRID_WIDTH][GRID_HEIGHT];
   int          x,y,width,height;
   int          step_size;
+  int          spawn_rate;
   Color        floor;
 }map_grid_t;
 
@@ -704,4 +820,12 @@ void MapBuilderSetFlags(TileFlags flags, int x, int y);
 void MapRoomBuild(map_grid_t* m);
 void MapRoomGen(map_grid_t* m);
 void MapSpawn(TileFlags flags, int x, int y);
+void MapSpawnMob(int x, int y);
+bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep);
+
+MobCategory GetEntityCategory(EntityType t);
+SpeciesType GetEntitySpecies(EntityType t);
+ObjectInstance GetEntityData(EntityType t);
+
+
 #endif

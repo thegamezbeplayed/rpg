@@ -4,6 +4,7 @@
 #define map_set(f, x,y) MapBuilderSetFlags((f), (x),(y))
 
 static map_build_t builder;
+static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
 
 map_grid_t* InitMapGrid(void){
   map_grid_t* m = malloc(sizeof(map_grid_t));
@@ -12,6 +13,7 @@ map_grid_t* InitMapGrid(void){
 
   m->step_size = CELL_WIDTH;
 
+  m->spawn_rate = 8;
   m->x = 0;
   m->y = 0;
   m->width = GRID_WIDTH;
@@ -82,7 +84,6 @@ TileStatus MapRemoveOccupant(map_grid_t* m, Cell c){
 
   m->tiles[c.x][c.y].status = TILE_EMPTY;
 
-
   return TILE_SUCCESS;
 }
 
@@ -112,14 +113,23 @@ void MapRoomGen(map_grid_t* m){
   {
     // carve
             
-    float n = perlin2d(px, py, .10f, 4);
-    if(n>.25f)
-      map_set(TILEFLAG_SPAWN,px,py);
+    float n = perlin2d(px * 0.25f, py*0.25f, .12f, 4);
+    if(n>.25f){
+      if(rand()%m->spawn_rate==0)
+        map_set(TILEFLAG_SPAWN,px,py);
+      else if (rand()%15==0)
+        map_set(TILEFLAG_DEBRIS,px,py);
+      else
+        map_set(TILEFLAG_FLOOR,px,py);
+    }
     else if(n>0.1f)
       map_set( TILEFLAG_GRASS, px,py);
-    else
-      map_set(TILEFLAG_EMPTY,px,py);
-
+    else{
+      if(rand()%16==0)
+        map_set(TILEFLAG_FLOOR,px,py);
+      else
+        map_set(TILEFLAG_EMPTY,px,py);
+    }
     int dir = rand() % 4;
     if (dir == 0) px++;
     if (dir == 1) px--;
@@ -142,7 +152,7 @@ void MapRoomBuild(map_grid_t* m){
         continue;
 
       if(builder.enviroment[x][y] == TILEFLAG_SPAWN){
-        //CREATE SPAWNS
+        MapSpawnMob(x,y);
         map_set(TILEFLAG_GRASS,x,y);
       }
       if(builder.enviroment[x][y] == TILEFLAG_NONE)
@@ -154,6 +164,42 @@ void MapRoomBuild(map_grid_t* m){
   }
 }
 
+void MapSpawnMob(int x, int y){
+  int total = 0;
+
+  int count = 3;
+  for (int i = 0; i < count; i++){
+    if(dark_forest[i].mob == ENT_DONE)
+      break;
+    total+=dark_forest[i].weight;
+  }
+
+  int r = rand() % total;
+
+  for (int i = 0; i < count; i++){
+    if(dark_forest[i].mob == ENT_DONE)
+      break;
+
+    if(r<dark_forest[i].weight){
+      ObjectInstance mob = GetEntityData(dark_forest[i].mob);
+      int mobs = 1;
+      for (int j = 0; j < mob.max; j++){
+        if(mobs>=mob.max)
+          break;
+
+        if(rand()%mobs==0){
+          RegisterEnt(InitMob(dark_forest[i].mob,(Cell){x,y}));
+          mobs++;
+          break;
+        }
+      }
+      break;
+    }
+
+    r -= dark_forest[i].weight;
+  }
+}
+
 void MapSpawn(TileFlags flags, int x, int y){
 
   EnvTile t = GetTileByFlags(flags);
@@ -161,4 +207,123 @@ void MapSpawn(TileFlags flags, int x, int y){
   Cell pos = {x,y};
   RegisterEnv(InitEnv(t,pos));
 
+}
+
+bool TileBlocksMovement(map_cell_t *c) {
+  if(c->tile==NULL)
+    return false;
+
+  uint32_t f = EnvTileFlags[c->tile->type];
+  return (f & TILEFLAG_SOLID) || (f & TILEFLAG_BORDER);
+}
+
+bool TileBlocksSight(map_cell_t *c) {
+  if(c->tile==NULL)
+    return false;
+
+  uint32_t f = EnvTileFlags[c->tile->type];
+  return (f & TILEFLAG_SOLID) || (f & TILEFLAG_OBSTRUCT);
+}
+
+bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep)
+{
+    // Early out: same tile
+    if (sx == tx && sy == ty)
+        return false;
+
+    // Init nodes
+    for (int y = 0; y < m->height; y++)
+    for (int x = 0; x < m->width; x++) {
+        nodes[x][y] = (path_node_t){
+            .x = x, .y = y,
+            .gCost = 999999,
+            .hCost = 0,
+            .fCost = 999999,
+            .open = false,
+            .closed = false,
+            .parentX = -1,
+            .parentY = -1
+        };
+    }
+
+    // Pointer to nodes
+    path_node_t *start = &nodes[sx][sy];
+    path_node_t *goal  = &nodes[tx][ty];
+
+    start->gCost = 0;
+    start->hCost = Heuristic(sx, sy, tx, ty);
+    start->fCost = start->hCost;
+    start->open = true;
+
+    while (1)
+    {
+        // Step 1: Find lowest fCost open node
+        path_node_t *current = NULL;
+
+        for (int y = 0; y < m->height; y++)
+        for (int x = 0; x < m->width; x++) {
+            path_node_t *n = &nodes[x][y];
+            if (n->open && !n->closed) {
+                if (!current || n->fCost < current->fCost)
+                    current = n;
+            }
+        }
+
+        if (!current) {
+            return false; // no path
+        }
+
+        // Reached target
+        if (current == goal)
+            break;
+
+        current->open = false;
+        current->closed = true;
+
+        // Step 2: Explore neighbors
+        const int dirs[4][2] = {
+            { 1, 0 }, {-1, 0},
+            { 0, 1 }, { 0,-1}
+        };
+
+        for (int i = 0; i < 4; i++)
+        {
+            int nx = current->x + dirs[i][0];
+            int ny = current->y + dirs[i][1];
+
+            if (!InBounds(m, nx, ny)) continue;
+            if (TileBlocksMovement(&m->tiles[nx][ny])) continue;
+
+            path_node_t *neighbor = &nodes[nx][ny];
+            if (neighbor->closed) continue;
+
+            int cost = current->gCost + 1;
+
+            if (!neighbor->open || cost < neighbor->gCost) {
+                neighbor->gCost = cost;
+                neighbor->hCost = Heuristic(nx, ny, tx, ty);
+                neighbor->fCost = neighbor->gCost + neighbor->hCost;
+
+                neighbor->parentX = current->x;
+                neighbor->parentY = current->y;
+
+                neighbor->open = true;
+            }
+        }
+    }
+
+    // Step 3: Backtrack from goal to start to find next step
+    path_node_t *node = goal;
+
+    while (node->parentX != sx || node->parentY != sy) {
+        if (node->parentX < 0 || node->parentY < 0)
+            return false;
+        node = &nodes[node->parentX][node->parentY];
+    }
+
+    // Write next step
+    outNextStep->x = node->x;
+    outNextStep->y = node->y;
+
+    return true;
 }

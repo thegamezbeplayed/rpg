@@ -14,16 +14,16 @@
 
 // Atlas sprites array
 static sub_texture_t ENT_SPRITES[ENT_DONE] = {
-  { ENT_PERSON, 8, 8, 16, 0, 16, 16, 0, false, 2, 1, 12, 14, 0, 0, 0, 0, 0 },
-  { ENT_GOBLIN, 8, 8, 32, 0, 16, 16, 0, false, 2, 1, 12, 14, 0, 0, 0, 0, 0 },
-  { ENT_ORC, 8, 8, 80, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
-  { ENT_OGRE, 8, 8, 64, 0, 16, 16, 0, false, 1, 0, 14, 16, 0, 0, 0, 0, 0 },
-  { ENT_BERSERKER, 8, 8, 0, 0, 16, 16, 0, false, 2, 1, 13, 14, 0, 0, 0, 0, 0 },
-  { ENT_HOBGOBLIN, 8, 8, 48, 0, 16, 16, 0, false, 2, 1, 12, 14, 0, 0, 0, 0, 0 },
-  { ENT_ORC_FIGHTER, 8, 8, 96, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
-  { ENT_OROG, 8, 8, 112, 0, 16, 16, 0, false, 1, 0, 14, 15, 0, 0, 0, 0, 0 },
-  { ENT_SCORPION, 8, 8, 0, 16, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
-  { ENT_SPIDER, 8, 8, 16, 16, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
-  { ENT_TROLL, 8, 8, 32, 16, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
-  { ENT_TROLL_CAVE, 8, 8, 48, 16, 16, 16, 0, false, 1, 0, 14, 16, 0, 0, 0, 0, 0 },  
+  { ENT_PERSON, 8, 8, 16, 0, 16, 16, GOLD, 0, 0, 0, 0 },
+  { ENT_GOBLIN, 8, 8, 32, 0, 16, 16, LIME, 0, 0, 0, 0 },
+  { ENT_ORC, 8, 8, 80, 0, 16, 16, GREEN, 0, 0, 0, 0 },
+  { ENT_OGRE, 8, 8, 64, 0, 16, 16, BEIGE, 0, 0, 0, 0 },
+  { ENT_BERSERKER, 8, 8, 0, 0, 16, 16, GREEN, 0, 0, 0, 0 },
+  { ENT_HOBGOBLIN, 8, 8, 48, 0, 16, 16, MAROON, 0, 0, 0, 0 },
+  { ENT_ORC_FIGHTER, 8, 8, 96, 0, 16, 16, GREEN, 0, 0, 0, 0 },
+  { ENT_OROG, 8, 8, 112, 0, 16, 16, BEIGE, 0, 0, 0, 0 },
+  { ENT_SCORPION, 8, 8, 0, 16, 16, 16, YELLOW, 0, 0, 0, 0 },
+  { ENT_SPIDER, 8, 8, 16, 16, 16, 16, BLACK, 0, 0, 0, 0 },
+  { ENT_TROLL, 8, 8, 32, 16, 16, 16, GRAY, 0, 0, 0, 0 },
+  { ENT_TROLL_CAVE, 8, 8, 48, 16, 16, 16,DARKGRAY, 0, 0, 0, 0 },  
 };

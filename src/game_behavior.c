@@ -115,8 +115,13 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
   if(!e->control->target || e->control->target->state == STATE_DIE)
     return BEHAVIOR_FAILURE;
 
-  if(!SetAction(e,ACTION_MOVE,&e->control->target->pos))
-    return BEHAVIOR_RUNNING;
+  ent_t* tar = e->control->target;
+  Cell next;
+  if (!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next))
+    return BEHAVIOR_FAILURE;
+
+  if(!SetAction(e,ACTION_MOVE,&next))
+    return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;
 }
@@ -129,6 +134,13 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
     return BEHAVIOR_SUCCESS;
 
   e->control->destination = GetWorldCoordsFromIntGrid(e->pos, e->control->ranges[RANGE_LOITER]);
+
+  Cell tar = e->control->destination;
+  Cell next;
+  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next)){
+    e->control->destination = CELL_UNSET;
+    return BEHAVIOR_FAILURE;
+  }
 
   TraceLog(LOG_INFO,"Moving to %i | %i", e->control->destination.x, e->control->destination.y);
   return BEHAVIOR_SUCCESS;
@@ -150,8 +162,15 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
     return BEHAVIOR_SUCCESS;
   }
 
-  if(!SetAction(e,ACTION_MOVE,&e->control->destination))
-    return BEHAVIOR_RUNNING;
+  Cell tar = e->control->destination;
+  Cell next;
+  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next)){
+    e->control->destination = CELL_UNSET;
+    return BEHAVIOR_FAILURE;
+  }
+
+  if(!SetAction(e,ACTION_MOVE,&next))
+    return BEHAVIOR_FAILURE;
     
   return BEHAVIOR_SUCCESS;
 }
@@ -210,6 +229,14 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
     return BEHAVIOR_SUCCESS;
 
   return BEHAVIOR_FAILURE;
+}
+
+BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  return BEHAVIOR_SUCCESS;
 }
 
 BehaviorStatus BehaviorTickLeaf(behavior_tree_node_t *self, void *context) {

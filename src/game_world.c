@@ -66,37 +66,31 @@ ent_t* WorldGetEntAtTile(Cell tile){
 }
 
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len){
-  int grid_x = (int)pos.x/CELL_WIDTH;
-  int grid_y = (int)pos.y/CELL_HEIGHT;
 
-  int grid_step = (int)len/CELL_WIDTH;
+  int start_x = CLAMP(pos.x - len,1,GRID_WIDTH);
+  int start_y = CLAMP(pos.y - len,1,GRID_HEIGHT);
 
-  int start_x = CLAMP(grid_x - grid_step,1,GRID_WIDTH);
-  int start_y = CLAMP(grid_y - grid_step,1,GRID_HEIGHT);
-
-  int end_x = CLAMP(grid_x + grid_step,1,GRID_WIDTH);
-  int end_y = CLAMP(grid_y + grid_step,1,GRID_HEIGHT);
+  int end_x = CLAMP(pos.x + len,1,GRID_WIDTH);
+  int end_y = CLAMP(pos.y + len,1,GRID_HEIGHT);
 
 
  Cell candidates[GRID_WIDTH * GRID_HEIGHT];
-/*
  int count = 0;
   for (int x = start_x; x < end_x; x++)
     for(int y = start_y; y < end_y; y++){
-      if(world.intgrid[x][y])
+      if(world.map->tiles[x][y].status >= TILE_ISSUES)
         continue;
-      if(distance(grid_x,grid_y,x,y) > len)
+      if(distance(pos.x,pos.y,x,y) > len)
         continue;
 
       candidates[count++] = (Cell){x,y};
     }
 
   if (count == 0)
-    return CELL_EMPTY;
+    return CELL_UNSET;
 
   int r = rand() % count;
-*/
-  //return candidates[r];
+  return candidates[r];
 }
 
 
@@ -322,14 +316,8 @@ void InitWorld(world_data_t data){
 
   RegisterItem(room_items[i]);
  }
-  for (int i = 0; i < ENT_DONE;i++){
-    if (room_instances[i].id == ENT_DONE)
-      break;
 
-    ObjectInstance inst = room_instances[i];
-    for(int p = 0; p < inst.amount; p++)
-      RegisterEnt(InitEnt(inst,inst.pos[p]));
-  }
+ RegisterEnt(InitEnt(room_instances[0],(Cell){20,20}));
 }
 
 void FreeWorld(){
@@ -357,14 +345,14 @@ void WorldRender(){
         DrawSprite(world.sprs[i]);
     else
       i-=RemoveSprite(i);
-
+/*
   for(int i = 0; i < MAX_EVENTS; i++){
     if(!world.floatytext_used[i])
       continue;
     render_text_t rt = *world.texts[i];
     DrawTextEx(ui.font,rt.text, rt.pos,rt.size,1,rt.color);
   }
-
+*/
 }
 
 void InitGameProcess(){

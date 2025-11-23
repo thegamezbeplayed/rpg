@@ -147,7 +147,7 @@ void DrawSlice(sprite_t *spr, Vector2 position,float rot){
       slice->center.y * slice->scale//offset.y
   };
 
-  DrawTexturePro(*spr->sheet,src,dst, origin, rot, spr->color);
+  DrawTexturePro(*spr->sheet,src,dst, origin, rot, slice->color);
 
   return;
 }
@@ -235,16 +235,16 @@ void SpriteLoadSubTextures(sub_texture_t* data, SheetID id, int sheet_cap){
     sub_texture_t sprData = data[i];
 
     Vector2 center = Vector2FromXY(sprData.originX,sprData.originY);
-    Vector2 offset = Vector2FromXY(sprData.trimRecX,sprData.trimRecY);
     Rectangle bounds = RecFromCoords(sprData.positionX,sprData.positionY,sprData.sourceWidth,sprData.sourceHeight);
 
     sprite_slice_t *spr = malloc(sizeof(sprite_slice_t));
     memset(spr,0,sizeof(sprite_slice_t));
 
+    spr->color = sprData.color;
     spr->scale = 1;//ScreenSized(SIZE_SCALE);
     spr->id = sprData.tag;
     spr->center = center;// Vector2Scale(offset,spr->scale);
-    spr->offset = offset;//center;//Vector2Scale(center,spr->scale);
+    spr->offset = VECTOR2_ZERO;//offset;//center;//Vector2Scale(center,spr->scale);
     spr->bounds = bounds;
     SHEETS[id].sprites[SHEETS[id].num_sprites++] = spr;
   }

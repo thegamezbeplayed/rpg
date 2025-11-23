@@ -3,6 +3,28 @@
 
 #include "game_common.h"
 
+typedef struct {
+    int x, y;
+
+    int gCost;          // cost from start
+    int hCost;          // heuristic
+    int fCost;          // g + h
+
+    int parentX;
+    int parentY;
+
+    bool open;
+    bool closed;
+} path_node_t;
+
+static inline int Heuristic(int x1, int y1, int x2, int y2) {
+    return abs(x1 - x2) + abs(y1 - y2);
+}
+
+static inline bool InBounds(map_grid_t *m, int x, int y) {
+    return (x >= 0 && x < m->width && y >= 0 && y < m->height);
+}
+
 static int permutation[256] = {
 151,160,137,91,90,15,
 131,13,201,95,96,53,194,233,7,225,140,36,

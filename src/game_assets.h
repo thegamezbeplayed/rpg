@@ -180,6 +180,7 @@ typedef struct {
   Vector2   center;
   Rectangle bounds;
   Vector2   offset;
+  Color     color;
   float     scale;
 } sprite_slice_t;
 
@@ -255,7 +256,6 @@ typedef struct {
   anim_t          *anim;
   Texture2D       *sheet;
   sprite_slice_t* slice;
-  Color           color;
   gl_shader_t*    gls[SHADER_DONE];
   bool            is_visible;
   Vector2         offset;
