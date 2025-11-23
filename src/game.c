@@ -13,7 +13,7 @@ void InitGameplayScreen(void){
   //camera.target = player.position;
   camera.offset = VECTOR2_CENTER_SCREEN;
   camera.rotation = 0.0f;
-  camera.zoom = 1.0f;
+  camera.zoom = 2.0f;
 
   camera.target = VECTOR2_CENTER_SCREEN;
   InitGameEvents();

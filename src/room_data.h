@@ -53,22 +53,32 @@ static const ObjectInstance room_instances[ENT_DONE] = {
         [STATE_ATTACK] = BEHAVIOR_COMBAT,
     }
   },
-
-  //  {ENT_TREE,(Cell){23,22},{}},
-  {ENT_DONE}
+  {ENT_TROLL},
+  {ENT_TROLL_CAVE},
+  {ENT_BEAR,SIZE_LARGE,"Brown Bear",1,1,1,SPAWN_SOLO,{GEAR_NONE},
+    {ABILITY_SWIPE,ABILITY_BITE,ABILITY_DONE},
+    {
+      [STATE_IDLE]= BEHAVIOR_SEEK,
+      [STATE_WANDER]= BEHAVIOR_WANDER,
+      [STATE_AGGRO]= BEHAVIOR_MOB_AGGRO,
+      [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
+      [STATE_ATTACK] = BEHAVIOR_COMBAT,
+    }
+  },
 };
 
-static const spawn_rules_t dark_forest[4]= {
-  {ENT_GOBLIN,SPAWN_PACK,50},
-  {ENT_ORC,SPAWN_PACK,10},
-  {ENT_SPIDER,SPAWN_SWARM,30},
+static const spawn_rules_t dark_forest[5]= {
+  {ENT_GOBLIN,SPAWN_PACK,5},
+  {ENT_ORC,SPAWN_PACK,1},
+  {ENT_SPIDER,SPAWN_SWARM,20},
+  {ENT_BEAR,SPAWN_SOLO,50},
   {ENT_DONE}
 };
 
 static const ItemInstance room_items[GEAR_DONE] = {
-  {GEAR_MACE, ITEM_WEAPON, {[DMG_BLUNT]=1},{[STAT_DAMAGE]=6,[STAT_REACH]=1}},
-  {GEAR_LEATHER_ARMOR,ITEM_ARMOR, {[DMG_SLASH]=1}, {[STAT_ARMOR]=4}},
-  {GEAR_LEATHER_CAP, ITEM_ARMOR, {[DMG_SLASH]=1}, {[STAT_ARMOR]=2}},
+  {GEAR_MACE, ITEM_WEAPON, DMG_BLUNT,{[STAT_DAMAGE]=6,[STAT_REACH]=1}},
+  {GEAR_LEATHER_ARMOR,ITEM_ARMOR, DMG_SLASH, {[STAT_ARMOR]=2}},
+  {GEAR_LEATHER_CAP, ITEM_ARMOR, DMG_SLASH, {[STAT_ARMOR]=2}},
 };
 static const TileInstance BASE_TILE = {};
 

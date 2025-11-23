@@ -25,5 +25,6 @@ static sub_texture_t ENT_SPRITES[ENT_DONE] = {
   { ENT_SCORPION, 8, 8, 0, 16, 16, 16, YELLOW, 0, 0, 0, 0 },
   { ENT_SPIDER, 8, 8, 16, 16, 16, 16, BLACK, 0, 0, 0, 0 },
   { ENT_TROLL, 8, 8, 32, 16, 16, 16, GRAY, 0, 0, 0, 0 },
-  { ENT_TROLL_CAVE, 8, 8, 48, 16, 16, 16,DARKGRAY, 0, 0, 0, 0 },  
+  { ENT_TROLL_CAVE, 8, 8, 48, 16, 16, 16,DARKGRAY, 0, 0, 0, 0 },
+  { ENT_BEAR, 8, 8, 64, 16, 16, 16, BROWN, 0, 0, 0, 0 },
 };

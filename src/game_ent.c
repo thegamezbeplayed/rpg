@@ -66,7 +66,23 @@ ent_t* InitMob(EntityType mob, Cell pos){
     if(data.abilities[i] == ABILITY_DONE)
       break;
 
-    e->abilities[e->num_abilities++] = InitAbility(e, data.abilities[i]);
+    ability_t* a = InitAbility(e, data.abilities[i]);
+    e->abilities[e->num_abilities++] = a;
+    if(a->attack)
+      e->attack = a->attack;
+
+    if(a->chain > ABILITY_NONE){
+      ability_t* child = InitAbility(e, a->chain);
+      child->weight = -1;
+
+      if(a->attack){
+        a->attack->on_hit_fn = EntAttack;
+        a->attack->on_hit = child->attack;
+      }
+      e->abilities[e->num_abilities++] = child;
+
+    }
+    
   }
 
   for(int i = 0; i < GEAR_DONE; i++){
@@ -163,9 +179,8 @@ item_def_t* DefineItem(ItemInstance data){
   item_def_t* item = malloc(sizeof(item_def_t));
   item->id = data.id;
 
-  for (int i = 0; i < DMG_DONE; i++)
-      item->damage[i] = data.damage[i];
- 
+  item->damage =data.damage;
+
   item->category = data.cat;
   for (int i = 0; i < STAT_DONE; i++){
     if(data.stats[i] == 0){
@@ -265,14 +280,19 @@ void EntDestroy(ent_t* e){
   e->control = NULL;
 }
 
-bool EntHit(ent_t* e, attack_t* a){
+bool EntHit(ent_t* e, attack_t* a, ent_t* source){
 
   int base_dmg = a->dc->roll(a->dc);
 
   int damage = -1 * (base_dmg + a->stats[STAT_DAMAGE]->current);
 
   if(StatChangeValue(e,e->stats[STAT_HEALTH], damage)){
-   TraceLog(LOG_INFO,"%s hit health now %0.0f/%0.0f",e->name, e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
+   TraceLog(LOG_INFO,"%s hits %s with %i %s damage\n %s health now %0.0f/%0.0f",
+       source->name, e->name,
+       damage*-1,
+       DAMAGE_STRING[a->type],
+       e->name,
+       e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
 
     return true;
   }
@@ -284,8 +304,11 @@ bool EntAttack(ent_t* e, attack_t* a, ent_t* target){
   TraceLog(LOG_INFO,"%s swings at %s",e->name,target->name);
 
   int hit = a->hit->roll(a->hit);
-  if (hit < target->stats[STAT_ARMOR]->current){
+  int save = target->stats[STAT_ARMOR]->current;
+  if(a->save > ATTR_NONE)
+    save = target->attribs[a->save]->val;
 
+  if (hit < save){
     TraceLog(LOG_INFO,"%s misses",e->name);
     return false;
   }
@@ -293,7 +316,12 @@ bool EntAttack(ent_t* e, attack_t* a, ent_t* target){
   a->stats[STAT_DAMAGE]->start(a->stats[STAT_DAMAGE]);
 
   StatMaxOut(a->stats[STAT_DAMAGE]);
-  return EntHit(target, a);
+  
+  bool success = EntHit(target, a,e);
+  if(success && a->on_hit_fn)
+    a->on_hit_fn(e, a->on_hit,target);
+
+  return success;
 }
 
 bool FreeEnt(ent_t* e){
@@ -326,12 +354,7 @@ bool ItemAddAttack(struct ent_s* owner, item_t* item){
   a->stats[STAT_REACH] = def->stats[STAT_REACH];
   a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE, 0);
 
-  for(int i = 0; i < DMG_DONE; i++){
-    if(def->damage[i] > 0){
-      a->type = i;
-      break;
-    }
-  }
+  a->type = def->damage;
 
   for (int i = 0; i < STAT_DONE; i++){
     if(!a->stats[i])
@@ -352,6 +375,8 @@ attack_t* InitWeaponAttack(ent_t* owner, item_t* w){
   
   memset(a->stats, 0, sizeof(a->stats));
 
+  a->type = def->damage;
+
   a->stats[STAT_REACH] = def->stats[STAT_REACH];
   a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE, 0);
 
@@ -370,6 +395,33 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
 
   if(a->damage > DMG_NONE)
     a->attack = InitAttackAbility(owner,a);
+
+
+  return a;
+}
+
+attack_t* InitAttackAbility(ent_t* owner,ability_t* ab){
+  attack_t* a = malloc(sizeof(attack_t));
+
+  memset(a,0,sizeof(attack_t));
+  memset(a->stats, 0, sizeof(a->stats));
+
+  a->hit = Die(ab->hit+20,1);
+
+  a->dc = Die(ab->side,ab->die);
+
+  a->stats[STAT_REACH] = InitStat(STAT_REACH,1,1,1);
+  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,1);
+
+  a->type = ab->damage;
+  a->save = ab->save;
+
+  for (int i = 0; i < STAT_DONE; i++){
+    if(!a->stats[i])
+      continue;
+    a->stats[i]->owner = owner;
+  }
+
   return a;
 }
 

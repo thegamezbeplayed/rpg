@@ -7,8 +7,8 @@
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
-#define GRID_WIDTH 45
-#define GRID_HEIGHT 45
+#define GRID_WIDTH 25
+#define GRID_HEIGHT 25
 
 #define MAX_NAME_LEN 64
 
@@ -133,9 +133,27 @@ static const uint32_t DamageTypeTags[DMG_DONE] = {
   [DMG_TRUE]      = DMGTAG_ABSOLUTE,
 };
 
+static const char* DAMAGE_STRING[DMG_DONE]={
+  "Unarmed",
+  "Blunt",
+  "Piercing",
+  "Slashing",
+  "Fire",
+  "Frost",
+  "Electric",
+  "Corrosive",
+  "Poison",
+  "Physic",
+  "Radiant",
+  "Necrotic",
+  "Force",
+  "True"
+};
+
 typedef enum{
   ABILITY_NONE,
   ABILITY_BITE,
+  ABILITY_SWIPE,
   ABILITY_BITE_POISON,
   ABILITY_POISON,
   ABILITY_DONE
@@ -218,6 +236,7 @@ typedef enum{
   ENT_SPIDER,
   ENT_TROLL,
   ENT_TROLL_CAVE,
+  ENT_BEAR,
   ENT_DONE
 }EntityType;
 
@@ -344,6 +363,7 @@ typedef enum{
   SPEC_ETHEREAL,
   SPEC_ROTTING,
   SPEC_VAMPIRIC,
+  SPEC_CANIFORM,
   SPEC_DONE
 }SpeciesType;
 
@@ -423,6 +443,7 @@ static const SpeciesType RACE_MAP[ENT_DONE] = {
 
   [ENT_SPIDER] = SPEC_ARTHROPOD,
   [ENT_SCORPION] = SPEC_ARTHROPOD,
+  [ENT_BEAR] = SPEC_CANIFORM,
 };
 
 static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
@@ -479,6 +500,7 @@ static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
 */
   [ENT_SCORPION] = MOB_BEAST,
   [ENT_SPIDER] = MOB_BEAST,
+  [ENT_BEAR] = MOB_BEAST,
    // === UNDEAD ===
 /*
   [ENT_SKELETON] = MOB_UNDEAD,
@@ -752,7 +774,7 @@ typedef struct {
 typedef struct{
   int          id;
   ItemCategory cat;
-  int          damage[DMG_DONE];
+  DamageType   damage;
   int          stats[STAT_DONE];
 }ItemInstance;
 

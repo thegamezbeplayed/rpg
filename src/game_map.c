@@ -167,7 +167,7 @@ void MapRoomBuild(map_grid_t* m){
 void MapSpawnMob(int x, int y){
   int total = 0;
 
-  int count = 3;
+  int count = 4;
   for (int i = 0; i < count; i++){
     if(dark_forest[i].mob == ENT_DONE)
       break;
@@ -182,12 +182,12 @@ void MapSpawnMob(int x, int y){
 
     if(r<dark_forest[i].weight){
       ObjectInstance mob = GetEntityData(dark_forest[i].mob);
-      int mobs = 1;
+      int mobs = 0;
       for (int j = 0; j < mob.max; j++){
         if(mobs>=mob.max)
           break;
 
-        if(rand()%mobs==0){
+        if(rand()%(mobs+1)==0){
           RegisterEnt(InitMob(dark_forest[i].mob,(Cell){x,y}));
           mobs++;
           break;

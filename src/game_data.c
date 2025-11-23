@@ -6,6 +6,7 @@
 ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
   {ABILITY_BITE, DMG_PIERCE, 25, 4, 1, 2, ATTR_NONE},
+  {ABILITY_SWIPE, DMG_SLASH, 50, 6, 2, 6, ATTR_NONE},
   {ABILITY_BITE_POISON, DMG_PIERCE, 25, 4, 1, 2, ATTR_NONE,ABILITY_POISON},
   {ABILITY_POISON, DMG_POISON, 25, 9, 1, 4,ATTR_CON},
 };
@@ -19,7 +20,7 @@ item_fn_t item_funcs[ITEM_DONE] = {
 
 category_stats_t CATEGORY_STATS[MOB_DONE] = {
   {MOB_HUMANOID, 
-    {[STAT_HEALTH]=9, [STAT_ARMOR]=1,[STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_HEALTH]=9, [STAT_ARMOR]=0,[STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 3, [ATTR_STR]=3, [ATTR_DEX]=3, [ATTR_INT]=3,[ATTR_WIS]=3,[ATTR_CHAR]=3}
   },
   {MOB_MONSTROUS,     
@@ -68,8 +69,11 @@ species_stats_t RACIALS[SPEC_DONE]={
   {SPEC_ROTTING, {},
     {[ATTR_INT]=-1, [ATTR_DEX]=-1}},
   {SPEC_VAMPIRIC, {[STAT_HEALTH]=2},
-    {[ATTR_DEX]=2,[ATTR_CHAR]=3}}
-  };
+    {[ATTR_DEX]=2,[ATTR_CHAR]=3}},
+  {SPEC_CANIFORM, {[STAT_AGGRO]=2,},
+    {[ATTR_STR]=1,[ATTR_DEX]=2}
+  },
+};
 
 static dice_roll_t DTEN = {6,1,RollDie};
 

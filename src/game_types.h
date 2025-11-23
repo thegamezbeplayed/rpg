@@ -12,6 +12,9 @@
 #define CARRY_SIZE 4
 #define NUM_ABILITIES 6
 
+typedef struct ent_s ent_t;
+typedef struct attack_s attack_t;
+
 typedef enum{
   RANGE_AGGRO,
   RANGE_LOITER,
@@ -19,11 +22,14 @@ typedef enum{
   RANGE_EMPTY 
 }RangeType;   
 
-typedef struct{
-  DamageType    type;
-  dice_roll_t*  dc,*hit;
-  AttributeType save;
-  stat_t*       stats[STAT_DONE];
+typedef bool (*AttackCallback)(struct ent_s* owner,  struct attack_s* chain, struct ent_s* target);
+typedef struct attack_s{
+  DamageType      type;
+  dice_roll_t*    dc,*hit;
+  AttributeType   save;
+  stat_t*         stats[STAT_DONE];
+  struct attack_s *on_hit;
+  AttackCallback  on_hit_fn;
 }attack_t;
 
 typedef struct{
@@ -42,11 +48,11 @@ ability_t AbilityLookup(AbilityID id);
 typedef struct item_def_s{
   int id;
   char name[32];
-  ItemCategory category;        // weapon / armor / potion / scroll
-  int      damage[DMG_DONE];
-  stat_t   *stats[STAT_DONE];     // modifiers (e.g. +2 STR)
-  attack_t *attack;     // if weapon
-  sprite_t *sprite;     // icon
+  ItemCategory  category;        // weapon / armor / potion / scroll
+  DamageType    damage;
+  stat_t        *stats[STAT_DONE];     // modifiers (e.g. +2 STR)
+  attack_t      *attack;     // if weapon
+  sprite_t      *sprite;     // icon
 }item_def_t;
 
 struct item_s;

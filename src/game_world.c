@@ -317,7 +317,7 @@ void InitWorld(world_data_t data){
   RegisterItem(room_items[i]);
  }
 
- RegisterEnt(InitEnt(room_instances[0],(Cell){20,20}));
+ RegisterEnt(InitEnt(room_instances[0],(Cell){12,13}));
 }
 
 void FreeWorld(){
