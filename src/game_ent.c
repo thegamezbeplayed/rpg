@@ -68,17 +68,13 @@ ent_t* InitMob(EntityType mob, Cell pos){
 
     ability_t* a = InitAbility(e, data.abilities[i]);
     e->abilities[e->num_abilities++] = a;
-    if(a->attack)
-      e->attack = a->attack;
 
     if(a->chain > ABILITY_NONE){
       ability_t* child = InitAbility(e, a->chain);
       child->weight = -1;
 
-      if(a->attack){
-        a->attack->on_hit_fn = EntAttack;
-        a->attack->on_hit = child->attack;
-      }
+        a->on_success_fn = EntUseAbility;
+        a->on_success = child;
       e->abilities[e->num_abilities++] = child;
 
     }
@@ -150,8 +146,6 @@ void EntCalcStats(ent_t* e){
     e->stats[i]->owner = e;
     e->stats[i]->start(e->stats[i]);
   }
-
-
 }
 
 item_t* InitItem(item_def_t* def){
@@ -176,12 +170,20 @@ item_pool_t* InitItemPool(void) {
 }
 
 item_def_t* DefineItem(ItemInstance data){
-  item_def_t* item = malloc(sizeof(item_def_t));
-  item->id = data.id;
-
+  
+  switch(data.cat){
+    case ITEM_ARMOR:
+      return DefineArmor(data);
+      break;
+    case ITEM_WEAPON:
+      return DefineWeapon(data);
+    default:
+      return NULL;
+      break;
+  }
+  /*
   item->damage =data.damage;
 
-  item->category = data.cat;
   for (int i = 0; i < STAT_DONE; i++){
     if(data.stats[i] == 0){
       item->stats[i] = 0;
@@ -190,6 +192,41 @@ item_def_t* DefineItem(ItemInstance data){
 
     item->stats[i] = InitStat(i, 1, data.stats[i], data.stats[i]);
   }
+  */
+}
+
+item_def_t* DefineWeapon(ItemInstance data){
+item_def_t* item = calloc(1,sizeof(item_def_t));
+  item->id = data.id;
+  item->category = ITEM_WEAPON;
+
+  weapon_def_t temp = WEAPON_TEMPLATES[data.equip_type];
+
+  item->damage = temp.dtype;
+
+  for(int i = 0; i< STAT_DONE; i++){
+    if(temp.stats[i] < 1)
+      continue;
+
+    item->stats[i] = InitStat(i, 1, temp.stats[i], temp.stats[i]);
+  }
+  
+  return item;
+}
+
+item_def_t* DefineArmor(ItemInstance data){
+  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item->id = data.id;
+  item->category = ITEM_ARMOR;
+
+  item->dr = calloc(1,sizeof(damage_reduction_t));
+
+  armor_def_t temp = ARMOR_TEMPLATES[data.equip_type];
+  item->stats[STAT_ARMOR] = InitStatOnMax(STAT_ARMOR,temp.armor_class);
+
+  *item->dr = temp.dr_base;
+
+  //item->ability = temp.ability;
   
   return item;
 }
@@ -203,9 +240,10 @@ void EntInitOnce(ent_t* e){
 
   EntPollInventory(e);
   //if(e->items[0]
-  if(e->attack==NULL)
+  /*
+   * if(e->attack==NULL)
     e->attack = InitBasicAttack(e);
- 
+ */
 
   for(int i = 0; i < STAT_DONE; i++){
     if(!e->stats[i])
@@ -260,6 +298,10 @@ bool EntAddItem(ent_t* e, item_t* item, bool equip){
 
     item->owner = e;
 
+    if(item->def->ability>ABILITY_NONE)
+      ItemAddAbility(e,item);
+
+    e->num_items++;
     return true;
   }
 
@@ -280,29 +322,119 @@ void EntDestroy(ent_t* e){
   e->control = NULL;
 }
 
-bool EntHit(ent_t* e, attack_t* a, ent_t* source){
-
+bool EntTarget(ent_t* e, ability_t* a, ent_t* source){
   int base_dmg = a->dc->roll(a->dc);
-
-  int damage = -1 * (base_dmg + a->stats[STAT_DAMAGE]->current);
-
+  
+  int damage = (base_dmg + a->stats[STAT_DAMAGE]->current);
+ damage = -1 * EntDamageReduction(e,a,damage); 
   if(StatChangeValue(e,e->stats[STAT_HEALTH], damage)){
    TraceLog(LOG_INFO,"%s hits %s with %i %s damage\n %s health now %0.0f/%0.0f",
        source->name, e->name,
        damage*-1,
-       DAMAGE_STRING[a->type],
+       DAMAGE_STRING[a->school],
        e->name,
        e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
-
+    
     return true;
   }
-
+  
   return false;
+
 }
 
-bool EntAttack(ent_t* e, attack_t* a, ent_t* target){
-  TraceLog(LOG_INFO,"%s swings at %s",e->name,target->name);
+int EntDamageReduction(ent_t* e, ability_t* a, int dmg){
 
+  for(int i = 0; i < e->num_items; i++){
+    item_t* item = e->gear[i];
+    if(item==NULL)
+      continue;
+
+    if(!item->equipped)
+      continue;
+
+    if(item->def->dr == NULL)
+      continue;
+    DamageTag tag = DamageTypeTags[a->school];
+    if(item->def->dr->resist_types[a->school] > 0){
+      dmg-=item->def->dr->resist_types[a->school];   
+    }
+
+    if(item->def->dr->resist_tags[tag] > 0){
+      dmg-=item->def->dr->resist_tags[tag];
+    }
+
+    if(dmg<1){
+      dmg =1;
+      break;
+    }
+    
+  }
+
+  return dmg;
+}
+
+ability_t* EntChooseWeightedAbility(ent_t* e, int budget){
+   int count = 0;
+
+    // Temporary filtered list
+    ability_t* allowed[NUM_ABILITIES];
+
+    // 1. Filter abilities by budget
+    for (int i = 0; i < e->num_abilities; i++) {
+        ability_t* abil = e->abilities[i];
+
+        if (abil->cost <= budget)
+            allowed[count++] = abil;
+    }
+
+    // No ability fits the budget → fallback
+    if (count == 0)
+        return NULL;
+
+    // 2. Weighted roll
+    int total = 0;
+    for (int i = 0; i < count; i++)
+        total += allowed[i]->weight;
+
+    int r = GetRandomValue(1, total);
+
+    // 3. Select based on weight
+    for (int i = 0; i < count; i++) {
+        r -= allowed[i]->weight;
+        if (r <= 0)
+            return allowed[i];
+    }
+
+    return allowed[count - 1]; // safety
+}
+
+bool ItemAddAbility(struct ent_s* owner, item_t* item){
+  ability_t* a = malloc(sizeof(ability_t));
+
+  memset(a,0,sizeof(ability_t));
+
+  const item_def_t* def = item->def;
+
+  a->dc = Die(1,def->stats[STAT_DAMAGE]->current);
+  a->hit = Die(20,1);
+
+  memset(a->stats, 0, sizeof(a->stats));
+
+  a->stats[STAT_REACH] = def->stats[STAT_REACH];
+  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE, 0);
+
+  a->school = def->damage;
+
+  for (int i = 0; i < STAT_DONE; i++){
+    if(!a->stats[i])
+      continue;
+    a->stats[i]->owner = owner;
+  }
+
+  owner->abilities[owner->num_abilities++] = a;
+}
+
+bool EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   int hit = a->hit->roll(a->hit);
   int save = target->stats[STAT_ARMOR]->current;
   if(a->save > ATTR_NONE)
@@ -316,12 +448,13 @@ bool EntAttack(ent_t* e, attack_t* a, ent_t* target){
   a->stats[STAT_DAMAGE]->start(a->stats[STAT_DAMAGE]);
 
   StatMaxOut(a->stats[STAT_DAMAGE]);
-  
-  bool success = EntHit(target, a,e);
-  if(success && a->on_hit_fn)
-    a->on_hit_fn(e, a->on_hit,target);
+
+  bool success = EntTarget(target, a,e);
+  if(success && a->on_success_fn)
+    a->on_success_fn(e, a->on_success,target);
 
   return success;
+
 }
 
 bool FreeEnt(ent_t* e){
@@ -341,32 +474,8 @@ controller_t* InitController(){
   return ctrl;
 }
 
-bool ItemAddAttack(struct ent_s* owner, item_t* item){
-  attack_t* a = malloc(sizeof(attack_t));
-
-  const item_def_t* def = item->def;
-
-  a->dc = Die(1,def->stats[STAT_DAMAGE]->current);
-  a->hit = Die(20,1);
-
-  memset(a->stats, 0, sizeof(a->stats));
-
-  a->stats[STAT_REACH] = def->stats[STAT_REACH];
-  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE, 0);
-
-  a->type = def->damage;
-
-  for (int i = 0; i < STAT_DONE; i++){
-    if(!a->stats[i])
-      continue;
-    a->stats[i]->owner = owner;
-  }
-
-  owner->attack = a;
-}
-
-attack_t* InitWeaponAttack(ent_t* owner, item_t* w){
-  attack_t* a = malloc(sizeof(attack_t));
+ability_t* InitWeaponAttack(ent_t* owner, item_t* w){
+  ability_t* a = malloc(sizeof(ability_t));
 
   const item_def_t* def = w->def;
   
@@ -375,7 +484,7 @@ attack_t* InitWeaponAttack(ent_t* owner, item_t* w){
   
   memset(a->stats, 0, sizeof(a->stats));
 
-  a->type = def->damage;
+  a->school = def->damage;
 
   a->stats[STAT_REACH] = def->stats[STAT_REACH];
   a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE, 0);
@@ -393,28 +502,12 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
 
   *a = AbilityLookup(id);
 
-  if(a->damage > DMG_NONE)
-    a->attack = InitAttackAbility(owner,a);
+  a->hit = Die(a->hdie+20,1);
 
-
-  return a;
-}
-
-attack_t* InitAttackAbility(ent_t* owner,ability_t* ab){
-  attack_t* a = malloc(sizeof(attack_t));
-
-  memset(a,0,sizeof(attack_t));
-  memset(a->stats, 0, sizeof(a->stats));
-
-  a->hit = Die(ab->hit+20,1);
-
-  a->dc = Die(ab->side,ab->die);
+  a->dc = Die(a->side,a->die);
 
   a->stats[STAT_REACH] = InitStat(STAT_REACH,1,1,1);
   a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,1);
-
-  a->type = ab->damage;
-  a->save = ab->save;
 
   for (int i = 0; i < STAT_DONE; i++){
     if(!a->stats[i])
@@ -423,30 +516,6 @@ attack_t* InitAttackAbility(ent_t* owner,ability_t* ab){
   }
 
   return a;
-}
-
-attack_t* InitBasicAttack(ent_t* owner){
-  attack_t* a = malloc(sizeof(attack_t));
-
-  memset(a->stats, 0, sizeof(a->stats));
-
-  a->hit = Die(20,1);
-  a->dc = Die(1,1);
-  a->stats[STAT_REACH] = InitStat(STAT_REACH,1,1,1);
-  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,1);
-
-  a->type = DMG_BLUNT;
-  for (int i = 0; i < STAT_DONE; i++){
-    if(!a->stats[i])
-      continue;
-    a->stats[i]->owner = owner;
-  }
-
-  return a;
-}
-
-attack_t* EntGetCurrentAttack(ent_t* e){
-  return e->attack;
 }
 
 void EntSync(ent_t* e){

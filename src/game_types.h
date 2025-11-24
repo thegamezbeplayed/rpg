@@ -13,7 +13,7 @@
 #define NUM_ABILITIES 6
 
 typedef struct ent_s ent_t;
-typedef struct attack_s attack_t;
+typedef struct ability_s ability_t;
 
 typedef enum{
   RANGE_AGGRO,
@@ -22,23 +22,18 @@ typedef enum{
   RANGE_EMPTY 
 }RangeType;   
 
-typedef bool (*AttackCallback)(struct ent_s* owner,  struct attack_s* chain, struct ent_s* target);
-typedef struct attack_s{
-  DamageType      type;
-  dice_roll_t*    dc,*hit;
-  AttributeType   save;
-  stat_t*         stats[STAT_DONE];
-  struct attack_s *on_hit;
-  AttackCallback  on_hit_fn;
-}attack_t;
+typedef bool (*AbilityCallback)(struct ent_s* owner,  struct ability_s* chain, struct ent_s* target);
 
-typedef struct{
-  AbilityID     id;
-  DamageType    damage;
-  int           weight,hit,die,side;
-  AttributeType save;
-  AbilityID     chain;
-  attack_t*     attack;
+typedef struct ability_s{
+  AbilityID        id;
+  DamageType       school;
+  int              weight,cost,hdie,die,side;
+  AttributeType    save;
+  AbilityID        chain;
+  dice_roll_t*     dc,*hit;
+  stat_t*          stats[STAT_DONE];
+  struct ability_s *on_success;
+  AbilityCallback  on_success_fn;
 }ability_t;
 
 extern ability_t ABILITIES[ABILITY_DONE];
@@ -48,11 +43,12 @@ ability_t AbilityLookup(AbilityID id);
 typedef struct item_def_s{
   int id;
   char name[32];
-  ItemCategory  category;        // weapon / armor / potion / scroll
-  DamageType    damage;
-  stat_t        *stats[STAT_DONE];     // modifiers (e.g. +2 STR)
-  attack_t      *attack;     // if weapon
-  sprite_t      *sprite;     // icon
+  ItemCategory        category;        // weapon / armor / potion / scroll
+  DamageType          damage;
+  damage_reduction_t  *dr;
+  stat_t              *stats[STAT_DONE];     // modifiers (e.g. +2 STR)
+  AbilityID           ability;
+  sprite_t            *sprite;     // icon
 }item_def_t;
 
 struct item_s;
@@ -63,12 +59,13 @@ typedef struct item_s{
   struct ent_s*    owner;
   bool             equipped;
   int              durability;
+  ability_t        *ability;     
   ItemEquipCallback on_equip,on_use;
 }item_t;
 
 bool ItemApplyStats(struct ent_s* owner, item_t* item);
-bool ItemAddAttack(struct ent_s* owner, item_t* item);
 bool ItemConsume(struct ent_s* owner, item_t* item);
+bool ItemAddAbility(struct ent_s* owner, item_t* item);
 
 typedef struct{
   ItemCategory      cat;
@@ -82,6 +79,8 @@ typedef struct{
 
 item_pool_t* InitItemPool(void);
 item_def_t* DefineItem(ItemInstance data);
+item_def_t* DefineArmor(ItemInstance data);
+item_def_t* DefineWeapon(ItemInstance data);
 item_t* InitItem(item_def_t* def);
 
 item_def_t* GetItemDefByID(GearID id);
@@ -102,7 +101,6 @@ typedef struct ent_s{
   MonsterSize           size;
   stat_t*               stats[STAT_DONE];
   attribute_t*          attribs[ATTR_DONE];
-  attack_t*             attack;
   int                   num_abilities;
   ability_t*            abilities[6];
   EntityType            type;
@@ -112,6 +110,7 @@ typedef struct ent_s{
   action_turn_t         *actions[ACTION_DONE];
   controller_t          *control;
   events_t              *events;
+  int                   num_items;
   item_t                *gear[CARRY_SIZE];
   sprite_t              *sprite;
 } ent_t;
@@ -125,11 +124,11 @@ bool EntAddItem(ent_t* e, item_t* item, bool equip);
 void EntToggleTooltip(ent_t* e);
 void EntInitOnce(ent_t* e);
 ability_t* InitAbility(ent_t* owner, AbilityID);
-attack_t* InitAttackAbility(ent_t* owner,ability_t* a);
-attack_t* InitBasicAttack(ent_t* owner);
-attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
-attack_t* EntGetCurrentAttack(ent_t* e);
-bool EntAttack(ent_t* e, attack_t* a, ent_t* target);
+ability_t* EntChooseWeightedAbility(ent_t* e, int budget);
+//attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
+int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
+bool EntTarget(ent_t* e, ability_t* a, ent_t* source);
+bool EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
 void EntSync(ent_t* e);
 bool EntKill(ent_t* e);
 void EntDestroy(ent_t* e);

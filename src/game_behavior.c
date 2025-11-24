@@ -183,7 +183,7 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
   if( !e->control->target)
     return BEHAVIOR_FAILURE;
 
-  if(CellDistGrid(e->pos,e->control->target->pos) >  EntGetCurrentAttack(e)->stats[STAT_REACH]->current)
+  if(CellDistGrid(e->pos,e->control->target->pos) >  e->stats[STAT_REACH]->current)
     return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;
@@ -225,7 +225,7 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
   if(!e)
     return BEHAVIOR_FAILURE;
 
- if(SetAction(e,ACTION_ATTACK,EntGetCurrentAttack(e))) 
+ if(SetAction(e,ACTION_ATTACK,EntChooseWeightedAbility(e,100))) 
     return BEHAVIOR_SUCCESS;
 
   return BEHAVIOR_FAILURE;

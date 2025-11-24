@@ -54,6 +54,7 @@ typedef enum{
   STAT_HEALTH,
   STAT_ARMOR,
   STAT_AGGRO,
+  STAT_STEALTH,
   STAT_ACTIONS,
   STAT_DONE,
 }StatType;
@@ -108,6 +109,7 @@ typedef enum {
   DMGTAG_WEAPON      = 1 << 6,   // swords, axes
   DMGTAG_STATUS      = 1 << 7,   // poison, disease
   DMGTAG_ABSOLUTE    = 1 << 8,
+  DMGTAG_DONE        = 1 << 9
 } DamageTag;
 
 static const uint32_t DamageTypeTags[DMG_DONE] = {
@@ -149,6 +151,11 @@ static const char* DAMAGE_STRING[DMG_DONE]={
   "Force",
   "True"
 };
+
+typedef struct{
+  int      resist_types[DMG_DONE];   
+  int      resist_tags[DMGTAG_DONE];
+}damage_reduction_t;
 
 typedef enum{
   ABILITY_NONE,
@@ -774,9 +781,54 @@ typedef struct {
 typedef struct{
   int          id;
   ItemCategory cat;
-  DamageType   damage;
-  int          stats[STAT_DONE];
+  int          equip_type,rarity;
 }ItemInstance;
+
+typedef enum{
+  ARMOR_NONE,
+  ARMOR_NATURAL,
+  ARMOR_PADDED,
+  ARMOR_LEATHER,
+  ARMOR_CHAIN,
+  ARMOR_PLATE,
+  ARMOR_SHIELD,
+  ARMOR_DONE
+}ArmorType;
+
+typedef enum{
+  WEAP_NONE,
+  WEAP_BLUNT,
+  WEAP_SLASH,
+  WEAP_PIERCE,
+  WEAP_DONE
+}WeaponType;
+
+typedef enum{
+  PROP_NONE,
+  PROP_DONE
+}WeaponProp;
+
+typedef struct{
+  ArmorType          type;
+  int                armor_class;
+  damage_reduction_t dr_base,dr_rarity;
+  int                weight,cost;
+  AttributeType      modifier,required;
+  int                mod_max, req_min;
+  bool               disadvantage[STAT_DONE];
+}armor_def_t;
+
+typedef struct{
+  WeaponType      type;
+  int             cost,weight,die,side;
+  DamageType      dtype;
+  int             stats[STAT_DONE];
+  bool            props[PROP_DONE];
+  AbilityID       ability;
+}weapon_def_t;
+
+extern armor_def_t ARMOR_TEMPLATES[ARMOR_DONE];
+extern weapon_def_t WEAPON_TEMPLATES[WEAP_DONE];
 
 typedef struct {
   int         id;

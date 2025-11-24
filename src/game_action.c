@@ -24,11 +24,10 @@ bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k){
   if(cell_compare(e->facing,CELL_EMPTY))
     return false;
 
-  attack_t* atk = EntGetCurrentAttack(e);
   TileStatus* status =malloc(sizeof(TileStatus));
   ent_t* target = MapGetOccupant(e->map, e->facing, status);
   if(target)
-    return EntAttack(e, atk, target);
+    return EntUseAbility(e, e->abilities[0], target);
 
   return true;
 }
@@ -192,7 +191,7 @@ bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
   if(!inst || !inst->context)
     return false;
 
-  attack_t* atk = (attack_t*)inst->context;
+  ability_t* ab = (ability_t*)inst->context;
 
   if(!e->control || !e->control->target)
     return false;
@@ -200,7 +199,7 @@ bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
   ent_t* target = e->control->target;
 
   if(target)
-    return EntAttack(e, atk, target);
+    return EntUseAbility(e, ab, target);
 
   return false;
 
