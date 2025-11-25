@@ -7,8 +7,8 @@
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
-#define GRID_WIDTH 25
-#define GRID_HEIGHT 25
+#define GRID_WIDTH 50
+#define GRID_HEIGHT 50
 
 #define MAX_NAME_LEN 64
 
@@ -56,6 +56,7 @@ typedef enum{
   STAT_AGGRO,
   STAT_STEALTH,
   STAT_ACTIONS,
+  STAT_TIME,
   STAT_DONE,
 }StatType;
 
@@ -251,17 +252,17 @@ typedef enum{
   TILEFLAG_NONE        = 0,
   TILEFLAG_EMPTY       = 1 << 0,   // blocks movement
   TILEFLAG_SOLID       = 1 << 1,   // blocks movement
-  TILEFLAG_GRASS       = 1 << 2,
+  TILEFLAG_NATURAL     = 1 << 2,
   TILEFLAG_TREE        = 1 << 3,
   TILEFLAG_ROAD        = 1 << 4,
   TILEFLAG_FOREST      = 1 << 5,
-  TILEFLAG_NATURAL     = 1 << 6,   // plants, rocks, nature
-  TILEFLAG_DEBRIS      = 1 << 7,
-  TILEFLAG_DECOR       = 1 <<8,
-  TILEFLAG_OBSTRUCT    = 1 <<9,
-  TILEFLAG_BORDER      = 1 << 10,
-  TILEFLAG_SPAWN       = 1 << 11,
-  TILEFLAG_FLOOR       = 1 << 12,
+  TILEFLAG_DEBRIS      = 1 << 6,
+  TILEFLAG_DECOR       = 1 << 7,
+  TILEFLAG_OBSTRUCT    = 1 << 8,
+  TILEFLAG_BORDER      = 1 << 9,
+  TILEFLAG_SPAWN       = 1 << 10,
+  TILEFLAG_FLOOR       = 1 << 11,
+  TILEFLAG_START       = 1 << 12
 }TileFlags;
 
 typedef enum{
@@ -305,12 +306,12 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
     [ENV_FLOWERS]        = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
     [ENV_FLOWERS_THIN]   = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
     [ENV_FOREST_FIR]     = TILEFLAG_SOLID | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_GRASS]          = TILEFLAG_GRASS | TILEFLAG_NATURAL,
-    [ENV_GRASS_SPARSE]   = TILEFLAG_GRASS | TILEFLAG_NATURAL,
-    [ENV_GRASS_WILD]     = TILEFLAG_GRASS | TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
+    [ENV_GRASS]          = TILEFLAG_FLOOR | TILEFLAG_NATURAL,
+    [ENV_GRASS_SPARSE]   = TILEFLAG_FLOOR | TILEFLAG_NATURAL,
+    [ENV_GRASS_WILD]     = TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
     [ENV_LEAVES]         = TILEFLAG_DECOR | TILEFLAG_NATURAL,
     [ENV_TREE_MAPLE]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_MEADOW]         = TILEFLAG_GRASS |TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
+    [ENV_MEADOW]         = TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
     [ENV_TREE_OLDGROWTH] = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
     [ENV_TREE_PINE]      = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
     [ENV_ROAD]           = TILEFLAG_ROAD,
@@ -323,7 +324,7 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
     [ENV_TREE_DYING]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
     [ENV_TREE_FELLED]    = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_FOREST | TILEFLAG_NATURAL,  // updated
     [ENV_TREE_FIR]       = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_FOREST]         = TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_GRASS | TILEFLAG_NATURAL,
+    [ENV_FOREST]         = TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_NATURAL,
     [ENV_WEB]            = TILEFLAG_DECOR,
     [ENV_DIRT]            = TILEFLAG_FLOOR,
     [ENV_DIRT]            = TILEFLAG_FLOOR,
@@ -400,7 +401,7 @@ static const size_category_t MOB_SIZE[MOB_DONE]={
   {MOB_MONSTROUS},
   {MOB_BEAST,{[SIZE_TINY]={[STAT_HEALTH]=-4},
                   [SIZE_SMALL] = {[STAT_HEALTH]=-2},
-                  [SIZE_LARGE] = {[STAT_HEALTH]=2,[STAT_AGGRO]=1}},
+                  [SIZE_LARGE] = {[STAT_HEALTH]=4,[STAT_ARMOR]=2,[STAT_AGGRO]=1}},
   {[SIZE_TINY]={[ATTR_DEX]=6,[ATTR_STR]=-4},
     [SIZE_SMALL]={[ATTR_STR]=-3,[ATTR_DEX]=4},
     [SIZE_LARGE] ={[ATTR_STR]=2,[ATTR_CON]=2}}
@@ -567,6 +568,17 @@ typedef struct{
 }spawn_rules_t;
 
 typedef enum{
+  DARK_FOREST,
+  MAP_DONE,
+}MapID;
+
+typedef struct{
+  MapID           id;
+  int             num_mobs,spawn_min,spawn_max,spacing,border;
+  spawn_rules_t   mobs[6];
+}map_gen_t;
+
+typedef enum{
   ITEM_NONE,
   ITEM_WEAPON,
   ITEM_ARMOR,
@@ -710,7 +722,7 @@ struct stat_s;
 typedef void (*StatFormula)(struct stat_s* self);
 
 typedef bool (*StatOwnerCallback)(struct ent_s* owner);
-typedef void (*StatCallback)(struct ent_s* owner, float old, float cur);
+typedef void (*StatCallback)(struct stat_s* self, float old, float cur);
 typedef float (*StatGetter)(struct stat_s* self);
 typedef struct stat_s{
   StatType      attribute;
@@ -724,8 +736,7 @@ typedef struct stat_s{
   ModifierType  modified_by[ATTR_DONE];
   struct ent_s  *owner;
   StatGetter ratio;
-  StatCallback on_stat_change;
-  StatOwnerCallback on_stat_empty;
+  StatCallback on_stat_change,on_stat_full, on_stat_empty;
 } stat_t;
 
 void FormulaDieAddAttr(stat_t* self);
@@ -741,6 +752,8 @@ bool StatIncrementValue(stat_t* attr,bool increase);
 bool StatChangeValue(struct ent_s* owner, stat_t* attr, float val);
 void StatMaxOut(stat_t* s);
 void StatEmpty(stat_t* s);
+void StatRestart(struct stat_s* self, float old, float cur);
+void StatReverse(struct stat_s* self, float old, float cur);
 bool StatIsEmpty(stat_t* s);
 float StatGetRatio(stat_t *self);
 //<====STATS
@@ -873,8 +886,7 @@ typedef struct{
 typedef struct{
   map_cell_t   tiles[GRID_WIDTH][GRID_HEIGHT];
   int          x,y,width,height;
-  int          step_size;
-  int          spawn_rate;
+  int          step_size,spawn_rate,rooms;
   Color        floor;
 }map_grid_t;
 
@@ -890,13 +902,16 @@ map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
 TileStatus MapRemoveOccupant(map_grid_t* m, Cell c);
 TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c);
 
-void MapBuilderSetFlags(TileFlags flags, int x, int y);
+void MapLoad(map_grid_t* m);
+void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);
+Cell MapGetTileByFlag(map_grid_t* m, TileFlags f);
 void MapRoomBuild(map_grid_t* m);
-void MapRoomGen(map_grid_t* m);
+void MapRoomGen(map_grid_t* m, Cell *poi_list, int poi_count);
 void MapSpawn(TileFlags flags, int x, int y);
 void MapSpawnMob(int x, int y);
+int MapPOIs(map_grid_t* map, Cell *list, map_gen_t* rules,int start, int count);
 bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep);
-
+bool TooClose(Cell a, Cell b, int min_dist);
 MobCategory GetEntityCategory(EntityType t);
 SpeciesType GetEntitySpecies(EntityType t);
 ObjectInstance GetEntityData(EntityType t);

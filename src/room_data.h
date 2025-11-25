@@ -67,12 +67,17 @@ static const ObjectInstance room_instances[ENT_DONE] = {
   },
 };
 
-static const spawn_rules_t dark_forest[5]= {
-  {ENT_GOBLIN,SPAWN_PACK,5},
-  {ENT_ORC,SPAWN_PACK,1},
-  {ENT_SPIDER,SPAWN_SWARM,20},
-  {ENT_BEAR,SPAWN_SOLO,50},
-  {ENT_DONE}
+static const map_gen_t MAPS[1]= {
+  {DARK_FOREST,
+    4,2, 4, 4,4,
+    {
+      {ENT_GOBLIN,SPAWN_PACK,15},
+      {ENT_ORC,SPAWN_PACK,5},
+      {ENT_SPIDER,SPAWN_SWARM,20},
+      {ENT_BEAR,SPAWN_SOLO,2},
+      {ENT_DONE}
+    }
+  }
 };
 
 static const ItemInstance room_items[GEAR_DONE] = {

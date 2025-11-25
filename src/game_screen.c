@@ -6,6 +6,7 @@
 #endif
 mouse_controller_t mousectrl;
 play_area_t play_area;
+camera_t* cam;
 
 void InitPlayArea(void){
   float sx = GetScreenWidth()/DESIGN_WIDTH;
@@ -20,6 +21,62 @@ void InitPlayArea(void){
 
   play_area.area[AREA_PLAY] = Rect(0,0,ROOM_WIDTH,ROOM_HEIGHT);
   play_area.area[AREA_UI] = Rect(0,0,DESIGN_WIDTH*scale,DESIGN_HEIGHT * scale);
+}
+
+void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target){
+  cam = calloc(1,sizeof(camera_t));
+  Camera2D* raycam = calloc(1,sizeof(Camera2D));
+
+  raycam->offset = offset;
+  raycam->rotation = rot;
+  raycam->zoom = zoom;
+
+  raycam->target = target;
+
+  cam->target = CELL_UNSET;
+  cam->camera = raycam;
+}
+
+bool ScreenCameraSetView(Cell v){
+
+  return true;
+}
+
+void ScreenCameraSetBounds(Cell b){
+  cam->bounds = Rect(0,0,b.x,b.y);
+}
+
+
+void ScreenCameraToggle(void){
+  cam->mode = !cam->mode;
+
+  if(cam->mode)
+    BeginMode2D(*cam->camera);
+  else
+    EndMode2D();
+}
+
+bool ScreenCameraSyncView(Cell target){
+
+  return true;
+}
+
+void ScreenCameraSync(Cell target){
+  Vector2 vpos =  CellToVector2(target,CELL_WIDTH);
+
+  if(Vector2Distance(cam->camera->target,vpos) < 64){
+    cam->camera->target = vpos;
+    return;
+  }
+  
+  if(!ScreenCameraSyncView(target))
+    return;
+
+  cam->camera->target = Vector2Lerp(cam->camera->target,vpos,0.05);
+
+  cam->target = target;
+
+
 }
 
 float ScreenSized(PlaySizes s){

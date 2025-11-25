@@ -130,12 +130,28 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
-  if(!e->control->has_arrived && !cell_compare(e->control->destination,CELL_UNSET))
-    return BEHAVIOR_SUCCESS;
 
-  e->control->destination = GetWorldCoordsFromIntGrid(e->pos, e->control->ranges[RANGE_LOITER]);
 
-  Cell tar = e->control->destination;
+  if(cell_compare(e->control->destination,CELL_UNSET))
+    e->control->destination = random_direction();
+
+  if(CellDistGrid(e->pos,e->control->start) > e->control->ranges[RANGE_ROAM])
+    e->control->destination = cell_dir(e->pos, e->control->start);
+  else{
+    switch(rand()%4){
+      case 0:
+        e->control->destination = random_direction();
+        break;
+      case 1:
+        e->control->destination = CELL_EMPTY;
+        return BEHAVIOR_SUCCESS;
+        break;
+      default:
+        break;
+    }
+  }  
+
+  Cell tar = CellInc(e->pos,e->control->destination);
   Cell next;
   if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next)){
     e->control->destination = CELL_UNSET;
@@ -151,27 +167,14 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
   
-  if(e->control->has_arrived){
-    e->control->has_arrived = false;
-    e->control->destination = CELL_UNSET;
-    return BEHAVIOR_SUCCESS;
-  }
+  if(cell_compare(e->control->destination,CELL_UNSET))
+    return BEHAVIOR_FAILURE;
   
-  if(CellDistGrid(e->pos,e->control->destination) <  e->control->ranges[RANGE_NEAR]){
-    e->control->has_arrived = true;
-    return BEHAVIOR_SUCCESS;
-  }
-
-  Cell tar = e->control->destination;
-  Cell next;
-  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next)){
+  if(!SetAction(e,ACTION_MOVE,&e->control->destination)){
     e->control->destination = CELL_UNSET;
     return BEHAVIOR_FAILURE;
   }
 
-  if(!SetAction(e,ACTION_MOVE,&next))
-    return BEHAVIOR_FAILURE;
-    
   return BEHAVIOR_SUCCESS;
 }
 

@@ -2,7 +2,6 @@
 #include "game_tools.h"
 #include "game_process.h"
 
-
 ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
   {ABILITY_BITE, DMG_PIERCE, 25,20, 4, 1, 2, ATTR_NONE},
@@ -20,35 +19,35 @@ item_fn_t item_funcs[ITEM_DONE] = {
 
 category_stats_t CATEGORY_STATS[MOB_DONE] = {
   {MOB_HUMANOID, 
-    {[STAT_HEALTH]=9, [STAT_REACH]=1,[STAT_ARMOR]=0,[STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_HEALTH]=9, [STAT_REACH]=1,[STAT_ARMOR]=0,[STAT_AGGRO]=4,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 4, [ATTR_STR]=4, [ATTR_DEX]=3, [ATTR_INT]=4,[ATTR_WIS]=3,[ATTR_CHAR]=3}
   },
   {MOB_MONSTROUS,     
-    {[STAT_HEALTH]=10, [STAT_REACH]=1,[STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_HEALTH]=10, [STAT_REACH]=1,[STAT_AGGRO]=4,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 5, [ATTR_STR]=5, [ATTR_DEX]=4, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=2}
   },
   {MOB_BEAST,
-    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=12,[STAT_ACTIONS]= 1},
+    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=5,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 4, [ATTR_STR]=5, [ATTR_DEX]=5, [ATTR_INT]=3,[ATTR_WIS]=1,[ATTR_CHAR]=1}
   },
   {MOB_UNDEAD, 
-    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=3,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 4, [ATTR_STR]=5, [ATTR_DEX]=3, [ATTR_INT]=2,[ATTR_WIS]=1,[ATTR_CHAR]=1}
   },
   {MOB_CONSTRUCT, 
-    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=4,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 4, [ATTR_STR]=5, [ATTR_DEX]=4, [ATTR_INT]=0,[ATTR_WIS]=0,[ATTR_CHAR]=0}
   },
   {MOB_DEMONIC, 
-    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=4,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 4, [ATTR_STR]=4, [ATTR_DEX]=3, [ATTR_INT]=3,[ATTR_WIS]=3,[ATTR_CHAR]=4}
   },
   {MOB_FEY, 
-    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=4,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 4, [ATTR_STR]=4, [ATTR_DEX]=4, [ATTR_INT]=3,[ATTR_WIS]=1,[ATTR_CHAR]=1}
   },
   {MOB_CIVILIAN, 
-    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=9,[STAT_ACTIONS]= 1},
+    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=2,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 3, [ATTR_STR]=2, [ATTR_DEX]=2, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=1}
   },
   {MOB_PLAYER, 
@@ -158,7 +157,7 @@ char* GetFileStem(const char* filename) {
 }
 
 stat_t* InitStatOnMin(StatType attr, float min, float max){
- stat_t* s = malloc(sizeof(stat_t));
+ stat_t* s = calloc(1,sizeof(stat_t));
  *s =(stat_t){
     .attribute = attr,
       .min = min,
@@ -227,6 +226,15 @@ bool StatIncrementValue(stat_t* attr,bool increase){
   attr->current+=inc;
   attr->current = CLAMPF(attr->current,attr->min, attr->max);
   float cur = attr->current;
+
+  if(attr->current == attr->max && old != attr->max)
+    if(attr->on_stat_full)
+      attr->on_stat_full(attr,old,cur);
+
+  if(attr->current != old)
+    if(attr->on_stat_change != NULL)
+      attr->on_stat_change(attr,old, cur);
+
   return true;
 }
 
@@ -239,12 +247,20 @@ bool StatChangeValue(struct ent_s* owner, stat_t* attr, float val){
     return false;
 
   if(attr->on_stat_change != NULL)
-    attr->on_stat_change(owner,old, cur);
+    attr->on_stat_change(attr,old, cur);
   
   if(attr->current == attr->min && attr->on_stat_empty!=NULL)
-    attr->on_stat_empty(owner);
+    attr->on_stat_empty(attr,old,cur);
 
   return true;
+}
+
+void StatRestart(struct stat_s* self, float old, float cur){
+  self->current = self->min;
+}
+
+void StatReverse(struct stat_s* self, float old, float cur){
+  self->increment *= -1;
 }
 
 void StatMaxOut(stat_t* s){
@@ -256,7 +272,9 @@ void StatEmpty(stat_t* s){
   s->current = s->min;
 }
 
-float StatGetRatio(stat_t *self){}
+float StatGetRatio(stat_t *self){
+  return self->current / self->max;
+}
 
 void FormulaDieAddAttr(stat_t* self){
   int modifier = 0;

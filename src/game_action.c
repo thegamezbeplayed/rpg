@@ -161,27 +161,7 @@ bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb){
     return false;
   Cell* dest = (Cell*)inst->context;
 
-  int x = e->pos.x;
-  int y = e->pos.y;
-  int tx = dest->x;
-  int ty = dest->y;
-
-  int dx = tx - x;
-  int dy = ty - y;
-
-  // choose the dominant axis (prioritize horizontal or vertical)
-  int stepX = 0;
-  int stepY = 0;
-
-  if (abs(dx) > abs(dy)) {
-    stepX = (dx > 0) ? 1 : -1;
-  } else if (dy != 0) {
-    stepY = (dy > 0) ? 1 : -1;
-  }
-
-  Cell step = { stepX, stepY };
-
-  EntGridStep(e,step);
+  EntGridStep(e,*dest);
   e->actions[a]->context = NULL;
   return true;
 }

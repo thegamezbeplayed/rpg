@@ -1,10 +1,17 @@
 #include "game_process.h"
 #include "game_helpers.h"
 
-#define map_set(f, x,y) MapBuilderSetFlags((f), (x),(y))
+#define map_set(f, x,y) MapBuilderSetFlags((f), (x),(y),false)
+#define map_set_safe(f, x,y) MapBuilderSetFlags((f), (x),(y),true)
+
+#define MAX_PLACEMENT_ATTEMPTS 32
 
 static map_build_t builder;
 static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
+
+static MapID MAP = DARK_FOREST;
+
+static map_gen_t* test;
 
 map_grid_t* InitMapGrid(void){
   map_grid_t* m = malloc(sizeof(map_grid_t));
@@ -20,6 +27,18 @@ map_grid_t* InitMapGrid(void){
   m->height = GRID_HEIGHT;
   m->floor = DARKBROWN;
   return m;
+}
+
+void MapLoad(map_grid_t* m){
+  test = malloc(sizeof(map_gen_t));
+
+  *test = MAPS[MAP];
+  Cell list[1+test->spawn_max];
+  list[0]=CELL_NEW(5,20);
+  map_set(TILEFLAG_START,5,20);
+  int poi_count = MapPOIs(m,list,test,1,1+test->spawn_max);
+   MapRoomGen(m,list,poi_count);
+   MapRoomBuild(m);
 }
 
 TileStatus MapChangeOccupant(map_grid_t* map,ent_t* e, Cell old, Cell c){
@@ -95,22 +114,94 @@ ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status){
   return tile.occupant;
 }
 
-void MapBuilderSetFlags(TileFlags flags, int x, int y){
+void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe){
+  if(safe && builder.enviroment[x][y]!=TILEFLAG_NONE)
+    return;
+
+  if(builder.enviroment[x][y] == TILEFLAG_START)
+    return;
+
   builder.enviroment[x][y] = flags;
 }
 
-void MapRoomGen(map_grid_t* m){
-  int cx = (int)m->width/2;
-  int cy = (int)m->height/2;
+Cell MapGetTileByFlag(map_grid_t* m, TileFlags f){
+  for(int y = m->y; y < m->height; y++)
+    for(int x = m->x; x < m->width; x++){
+      if(builder.enviroment[x][y] == f)
+        return CELL_NEW(x,y);
+    }
 
-  int bt = 4;
-  int roomArea = m->width * m->height;
+  return CELL_UNSET;
+}
 
-  int px = cx;
-  int py = cy;
 
-  for (int i = 0; i < roomArea * 3; i++)
-  {
+void MapCarveHorizontal(Cell c1, Cell c2, int width)
+{
+    int start = c1.x < c2.x ? c1.x : c2.x;
+    int end   = c1.x < c2.x ? c2.x : c1.x;
+
+    for (int x = start; x <= end; x++){
+      for (int w = -width/2; w <=width/2; w++)
+        if(c1.y + w >= 0){
+        TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
+          map_set_safe(f,x,c1.y+w);
+        }
+    }
+}
+
+void MapCarveVertical(Cell c1, Cell c2, int width)
+{
+  int start = c1.y < c2.y ? c1.y : c2.y;
+  int end   = c1.y < c2.y ? c2.y : c1.y;
+
+  for (int y = start; y <= end; y++){
+    for (int w = -width/2; w <=width/2; w++)
+      if(c1.x+w >= 0){
+        TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
+
+        map_set_safe(TILEFLAG_FLOOR,c1.x+w,y);
+      }
+  }
+}
+
+void MapConnectRooms(map_grid_t* m, Cell *rooms, map_gen_t* rules){
+  for(int i = 1 ; i <m->rooms;i++){
+
+    if(rand()%2){
+      MapCarveHorizontal(rooms[i-1],rooms[i],rules->border);
+      MapCarveVertical(rooms[i],rooms[i-1], rules->border);
+    }
+    else{
+      MapCarveVertical(rooms[i-1],rooms[i],rules->border);
+      MapCarveHorizontal(rooms[i],rooms[i-1],rules->border);
+    }
+
+  }
+}
+
+void MapRoomGen(map_grid_t* m, Cell *poi_list, int poi_count){
+  for (int i = 0; i < poi_count; i++){
+    Cell p = poi_list[i];
+
+    for (int dy = -2; dy <= 2; dy++){
+      for (int dx = -2; dx <=2; dx++){
+        int nx = p.x +dx;
+        int ny = p.y +dy;
+
+        if(nx > 0 && nx < m->width &&
+            ny > 0 && ny < m->height)
+          map_set_safe(TILEFLAG_EMPTY,nx,ny);
+      }
+    }
+
+    m->rooms++;
+    map_set(TILEFLAG_SPAWN,p.x,p.y);
+  }
+
+  MapConnectRooms(m,poi_list,test); 
+  /*
+     for (int i = 0; i < roomArea * 3; i++)
+     {
     // carve
             
     float n = perlin2d(px * 0.25f, py*0.25f, .12f, 4);
@@ -142,7 +233,7 @@ void MapRoomGen(map_grid_t* m){
     if (py < bt) py = bt;
     if (py >= m->height-bt) py = m->y + m->height - bt;
   }
-
+*/
 }
 
 void MapRoomBuild(map_grid_t* m){
@@ -151,13 +242,22 @@ void MapRoomBuild(map_grid_t* m){
       if(builder.enviroment[x][y] == TILEFLAG_EMPTY)
         continue;
 
-      if(builder.enviroment[x][y] == TILEFLAG_SPAWN){
-        MapSpawnMob(x,y);
-        map_set(TILEFLAG_GRASS,x,y);
+      TileFlags f = builder.enviroment[x][y];
+      switch(f){
+        case TILEFLAG_SPAWN:
+          MapSpawnMob(x,y);
+          map_set(TILEFLAG_FLOOR|TILEFLAG_NATURAL,x,y);
+          break;
+        case TILEFLAG_START:
+          RegisterEnt(InitEnt(room_instances[0],CELL_NEW(x,y)));
+          continue;
+          break;
+        case TILEFLAG_NONE:
+          map_set(TILEFLAG_BORDER, x,y);
+          break;
+        default:
+          break;
       }
-      if(builder.enviroment[x][y] == TILEFLAG_NONE)
-        map_set(TILEFLAG_BORDER, x,y);
-
       MapSpawn(builder.enviroment[x][y],x,y);
 
     }
@@ -166,37 +266,37 @@ void MapRoomBuild(map_grid_t* m){
 
 void MapSpawnMob(int x, int y){
   int total = 0;
-
-  int count = 4;
+  int count = test->num_mobs;
+  spawn_rules_t* spawn = test->mobs;
   for (int i = 0; i < count; i++){
-    if(dark_forest[i].mob == ENT_DONE)
+    if(spawn[i].mob == ENT_DONE)
       break;
-    total+=dark_forest[i].weight;
+    total+=spawn[i].weight;
   }
 
   int r = rand() % total;
 
   for (int i = 0; i < count; i++){
-    if(dark_forest[i].mob == ENT_DONE)
+    if(spawn[i].mob == ENT_DONE)
       break;
 
-    if(r<dark_forest[i].weight){
-      ObjectInstance mob = GetEntityData(dark_forest[i].mob);
+    if(r<spawn[i].weight){
+      ObjectInstance mob = GetEntityData(spawn[i].mob);
       int mobs = 0;
       for (int j = 0; j < mob.max; j++){
         if(mobs>=mob.max)
           break;
 
         if(rand()%(mobs+1)==0){
-          RegisterEnt(InitMob(dark_forest[i].mob,(Cell){x,y}));
+          RegisterEnt(InitMob(spawn[i].mob,(Cell){x,y}));
           mobs++;
           break;
         }
       }
       break;
     }
-
-    r -= dark_forest[i].weight;
+    
+    r -= spawn[i].weight;
   }
 }
 
@@ -207,6 +307,48 @@ void MapSpawn(TileFlags flags, int x, int y){
   Cell pos = {x,y};
   RegisterEnv(InitEnv(t,pos));
 
+}
+
+int MapPOIs(map_grid_t* map, Cell *list, map_gen_t* rules, int start, int count){
+  int placed = start;
+  int dist = rules->spacing;
+
+  for (int i = 0; i < count; i++){
+    Cell poi = CELL_EMPTY;
+    if(i < start)
+      continue;
+
+    for (int attempts = 0; i < MAX_PLACEMENT_ATTEMPTS; i++){
+      poi.x = rand()%map->width;
+      poi.y = rand()%map->height;
+
+      if(poi.x < rules->border || poi.x > map->width-rules->border)
+        continue;
+
+      if(poi.y < rules->border || poi.y > map->height-rules->border)
+        continue;
+
+      bool valid = true;
+      for (int j = 0; j < placed; j++) {
+        if (TooClose(poi, list[j], dist)) {
+          valid = false;
+          break;
+        }
+      }
+      if (!valid) continue;
+
+      list[placed++] = poi;
+      break;
+    }
+  }
+
+  return placed;
+}
+
+bool TooClose(Cell a, Cell b, int min_dist) {
+    int dx = abs(a.x - b.x);
+    int dy = abs(a.y - b.y);
+    return (dx*dx + dy*dy) < (min_dist * min_dist);
 }
 
 bool TileBlocksMovement(map_cell_t *c) {

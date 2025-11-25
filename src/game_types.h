@@ -19,6 +19,7 @@ typedef enum{
   RANGE_AGGRO,
   RANGE_LOITER,
   RANGE_NEAR,
+  RANGE_ROAM,
   RANGE_EMPTY 
 }RangeType;   
 
@@ -87,8 +88,7 @@ item_def_t* GetItemDefByID(GearID id);
 
 typedef struct{
   struct ent_s*           target;
-  Cell                    destination;
-  bool                    has_arrived;
+  Cell                    start,destination;
   int                     ranges[RANGE_EMPTY];
   behavior_tree_node_t*   bt[STATE_END];
 }controller_t;
@@ -130,7 +130,7 @@ int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
 bool EntTarget(ent_t* e, ability_t* a, ent_t* source);
 bool EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
 void EntSync(ent_t* e);
-bool EntKill(ent_t* e);
+void EntKill(stat_t* self, float old, float cur);
 void EntDestroy(ent_t* e);
 bool FreeEnt(ent_t* e);
 void EntPrepStep(ent_t *e);

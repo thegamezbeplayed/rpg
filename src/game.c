@@ -2,7 +2,6 @@
 #include "game_process.h"
 #include "game_ui.h"
 
-Camera2D camera = { 0 };
 //----------------------------------------------------------------------------------
 // Gameplay Screen Functions Definition
 //----------------------------------------------------------------------------------
@@ -11,11 +10,8 @@ Camera2D camera = { 0 };
 void InitGameplayScreen(void){
   MenuSetState(&ui.menus[MENU_HUD],MENU_ACTIVE);
   //camera.target = player.position;
-  camera.offset = VECTOR2_CENTER_SCREEN;
-  camera.rotation = 0.0f;
-  camera.zoom = 2.0f;
-
-  camera.target = VECTOR2_CENTER_SCREEN;
+  InitCamera(2.0f,0.0f,VECTOR2_CENTER_SCREEN,VECTOR2_CENTER_SCREEN);
+  
   InitGameEvents();
   InitScreenInteractive();
 }
@@ -37,7 +33,7 @@ void PostUpdate(void){
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void)
 {
-  camera.target = WorldPlayer()->sprite->pos;
+  ScreenCameraSync( WorldPlayer()->pos );
   ScreenSyncMouse();
 }
 
@@ -47,11 +43,15 @@ void DrawGameplayScreen(void)
   //  if(game_process.state == GAME_LOADING)
   //  return;
   BeginDrawing();
-  BeginMode2D(camera);
+  ScreenCameraToggle();
+  //BeginMode2D(camera);
 
   WorldRender();
 
-  EndMode2D();
+  ScreenCameraToggle();
+  //EndMode2D();
+  DrawTextEx(ui.font,GetWorldTime(),Vector2XY(VECTOR2_CENTER_SCREEN.x, 32) ,28,1,BLUE);
+
   UISync();
   EndDrawing();
 }

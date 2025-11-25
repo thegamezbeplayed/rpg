@@ -207,6 +207,12 @@ void DrawNineSlice(scaling_slice_t *spr, Rectangle dst){
   */
   return;
 }
+
+void DrawScreenOverlay(float alpha){
+  Color night = (Color){ 0, 0, 30, (unsigned char)alpha };
+  DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), night);
+}
+
 bool FreeSprite(sprite_t* s){
   if(!s) return false;
 

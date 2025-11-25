@@ -68,6 +68,15 @@ static inline int CellDistGrid(Cell c1,Cell c2){
 
 
 }
+
+static inline Cell random_direction(void){
+  switch(rand()%4){
+    case 0: return CELL_UP;
+    case 1: return CELL_DOWN;
+    case 2: return CELL_LEFT;
+    default: return CELL_RIGHT;
+  }
+}
 static inline bool cell_in_bounds(Cell c, Cell bounds){
   if (c.x > bounds.x || c.x < 0)
     return false;
@@ -77,6 +86,27 @@ static inline bool cell_in_bounds(Cell c, Cell bounds){
 
 static inline bool cell_compare(Cell c1,Cell c2){
   return (c1.x==c2.x && c1.y==c2.y);
+}
+
+static inline Cell cell_dir(Cell start, Cell end){
+  int tx = end.x;
+  int ty = end.y;
+  int sx = start.x;
+  int sy = start.y;
+
+  int ax = abs(tx - sx);
+  int ay = abs(ty - sy);
+
+  int dx =0, dy = 0;
+  if (ax > ay) {
+    dx = (tx > sx) - (tx < sx);
+    dy = 0;
+  } else {
+    dx = 0;
+    dy = (ty > sy) - (ty < sy);
+  }
+
+  return CELL_NEW(dx,dy);
 }
 
 static bool is_adjacent(Cell c1, Cell c2)

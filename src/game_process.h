@@ -107,9 +107,10 @@ typedef struct world_s{
   unsigned int  num_spr;
   item_pool_t   *items;
   unsigned int  num_env;
-  env_t*        envs[MAX_ENTS];
+  env_t*        envs[MAX_ENVS];
   render_text_t *texts[MAX_EVENTS];
   bool          floatytext_used[MAX_EVENTS];
+  stat_t        *time;
 } world_t;
 
 ent_t* WorldGetEnt(const char* name);
@@ -134,5 +135,6 @@ void WorldTurnUpdate(void* context);
 void InitWorld(world_data_t data);
 void WorldRender();
 Rectangle WorldRoomBounds();
+const char* GetWorldTime();
 #endif
 

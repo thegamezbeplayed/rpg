@@ -296,28 +296,29 @@ void WorldPostUpdate(){
 }
 
 void WorldTurnUpdate(void* context){
+  StatIncrementValue(world.time,true);
   for(int i = 0; i < world.num_ent; i++)
     ActionSync(world.ents[i]);
 }
 
 void InitWorld(world_data_t data){
   world = (world_t){0};
- 
 
- world.items = InitItemPool(); 
+  world.time = InitStatOnMin(STAT_TIME,0,180);
+  world.time->on_stat_full = StatReverse; 
+  world.time->on_stat_full = StatReverse; 
+  world.items = InitItemPool(); 
   world.map = InitMapGrid();
 
-   MapRoomGen(world.map);
-   MapRoomBuild(world.map);
+  for (int i = 0; i < GEAR_DONE; i++){
+    if(room_items[i].id== GEAR_DONE)
+      break;
 
- for (int i = 0; i < GEAR_DONE; i++){
-  if(room_items[i].id== GEAR_DONE)
-   break;
+    RegisterItem(room_items[i]);
+  }
+  MapLoad(world.map);
 
-  RegisterItem(room_items[i]);
- }
-
- RegisterEnt(InitEnt(room_instances[0],(Cell){12,13}));
+  ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
 }
 
 void FreeWorld(){
@@ -345,7 +346,11 @@ void WorldRender(){
         DrawSprite(world.sprs[i]);
     else
       i-=RemoveSprite(i);
-/*
+
+  float darkness = world.time->current * world.time->ratio(world.time);
+  DrawScreenOverlay(darkness);
+  
+  /*
   for(int i = 0; i < MAX_EVENTS; i++){
     if(!world.floatytext_used[i])
       continue;
@@ -475,6 +480,18 @@ void GameProcessEnd(){
   UnloadEvents(game_process.events);
   FreeWorld();
   FreeInteractions();
+}
+
+const char* GetWorldTime(){
+  int max = world.time->max;
+  int cur = world.time->current;
+
+  int time_world_speed = max + cur;
+
+  int hour = (int)(time_world_speed / 15);
+  int minute = (int)((time_world_speed%15)*4);
+
+  return TextFormat("%i : %02d", hour, minute);
 }
 
 const char* GetGameTime(){

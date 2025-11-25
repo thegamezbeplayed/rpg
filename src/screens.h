@@ -15,6 +15,19 @@ static float SPRITE_SCALE = 1.0f;
 static float UI_SCALE = 1.0f;
 
 typedef struct{
+  Camera2D  *camera;
+  Cell      size,pos,target;
+  Rectangle view,bounds;
+  bool      mode;
+}camera_t;
+
+void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target);
+void ScreenCameraSync(Cell target);
+void ScreenCameraToggle(void);
+bool ScreenCameraSetView(Cell v);
+void ScreenCameraSetBounds(Cell b);
+
+typedef struct{
   bool    is_dragging;
   Vector2 offset,pos;
   ent_t   *target;

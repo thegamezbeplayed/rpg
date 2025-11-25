@@ -56,7 +56,7 @@ ent_t* InitMob(EntityType mob, Cell pos){
   e->events = InitEvents();
 
   e->control = InitController();
-
+  e->control->start = pos;
   EntCalcStats(e);
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
 
@@ -73,12 +73,10 @@ ent_t* InitMob(EntityType mob, Cell pos){
       ability_t* child = InitAbility(e, a->chain);
       child->weight = -1;
 
-        a->on_success_fn = EntUseAbility;
-        a->on_success = child;
+      a->on_success_fn = EntUseAbility;
+      a->on_success = child;
       e->abilities[e->num_abilities++] = child;
-
     }
-    
   }
 
   for(int i = 0; i < GEAR_DONE; i++){
@@ -91,6 +89,7 @@ ent_t* InitMob(EntityType mob, Cell pos){
 
   e->control->ranges[RANGE_NEAR] = (int)e->stats[STAT_AGGRO]->current/4;
   e->control->ranges[RANGE_LOITER] = (int)e->stats[STAT_AGGRO]->current/2;
+  e->control->ranges[RANGE_ROAM] = 4;
   for (int i = STATE_SPAWN; i < STATE_END; i++){
     if(data.behaviors[i] == BEHAVIOR_NONE)
       continue;
@@ -231,8 +230,9 @@ item_def_t* DefineArmor(ItemInstance data){
   return item;
 }
 
-bool EntKill(ent_t* e){
-  return SetState(e, STATE_DIE,NULL);
+void EntKill(stat_t* self, float old, float cur){
+  ent_t* e = self->owner;
+  SetState(e, STATE_DIE,NULL);
 }
 
 void EntInitOnce(ent_t* e){
