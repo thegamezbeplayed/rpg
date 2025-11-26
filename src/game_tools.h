@@ -37,6 +37,7 @@
 #define CELL_DOWN   (Cell){ 0,1 }
 #define CELL_LEFT   (Cell){-1, 0 }
 #define CELL_RIGHT  (Cell){ 1, 0 }
+#define CellScale(c,s) (Cell){ (c.x*s),(c.y*s)}
 #define CellInc(c1,c2) ((Cell){ (c1.x+c2.x), (c1.y+c2.y) })
 #define CELL_NEW(x,y) ((Cell){(x),(y)})
 
@@ -68,7 +69,6 @@ static inline int CellDistGrid(Cell c1,Cell c2){
 
 
 }
-
 static inline Cell random_direction(void){
   switch(rand()%4){
     case 0: return CELL_UP;
@@ -77,6 +77,8 @@ static inline Cell random_direction(void){
     default: return CELL_RIGHT;
   }
 }
+
+
 static inline bool cell_in_bounds(Cell c, Cell bounds){
   if (c.x > bounds.x || c.x < 0)
     return false;
@@ -86,6 +88,25 @@ static inline bool cell_in_bounds(Cell c, Cell bounds){
 
 static inline bool cell_compare(Cell c1,Cell c2){
   return (c1.x==c2.x && c1.y==c2.y);
+}
+
+
+static inline Cell* CellClusterAround(Cell c, int amnt, int space, int dist){
+  Cell *output = calloc(amnt,sizeof(Cell));
+
+  for(int i = 0; i < amnt; i++){
+    Cell pt = random_direction();
+    Cell npt = CellInc(c,CellScale(pt,space));
+    for(int j = 0; j < i; j++)
+      if (cell_compare(output[j],npt)){
+        i--;
+        continue;
+      }
+
+    output[i]=npt;
+  }
+
+  return output;
 }
 
 static inline Cell cell_dir(Cell start, Cell end){
@@ -154,6 +175,11 @@ static inline Vector2 v2_scale(Vector2 a, float s){ return (Vector2){a.x*s,a.y*s
 static inline Vector2 v2_norm_safe(Vector2 v){
   float L = v2_len(v);
   return (L > 1e-6f) ? v2_scale(v, 1.0f/L) : (Vector2){1,0};
+}
+
+static inline bool cell_in_rect(Cell p, Rectangle r){
+  return (p.x >= r.x && p.x <= r.x + r.width &&
+      p.y >= r.y && p.y <= r.y + r.height);
 }
 
 

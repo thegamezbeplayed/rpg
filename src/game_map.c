@@ -134,19 +134,37 @@ Cell MapGetTileByFlag(map_grid_t* m, TileFlags f){
   return CELL_UNSET;
 }
 
+static void carve_circle(Cell center, int radius) {
+    for (int oy = -radius; oy <= radius; oy++) {
+        for (int ox = -radius; ox <= radius; ox++) {
+            if (ox*ox + oy*oy <= radius*radius) {
+                map_set_safe(TILEFLAG_FLOOR, center.x + ox, center.y + oy);
+            }
+        }
+    }
+}
 
 void MapCarveHorizontal(Cell c1, Cell c2, int width)
 {
-    int start = c1.x < c2.x ? c1.x : c2.x;
-    int end   = c1.x < c2.x ? c2.x : c1.x;
+  int start = c1.x < c2.x ? c1.x : c2.x;
+  int end   = c1.x < c2.x ? c2.x : c1.x;
+  float radius = width/2;
 
-    for (int x = start; x <= end; x++){
-      for (int w = -width/2; w <=width/2; w++)
-        if(c1.y + w >= 0){
-        TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
-          map_set_safe(f,x,c1.y+w);
-        }
+  RoomType shape = test->room_type;
+  for (int x = start; x <= end; x++){
+    switch (shape){
+      case ROOM_ROUND:
+        carve_circle((Cell){x, c1.y}, radius);
+        break;
+      default:
+        for (int w = -width/2; w <=width/2; w++)
+          if(c1.y + w >= 0){
+            TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
+            map_set_safe(f,x,c1.y+w);
+          }
+        break;
     }
+  }
 }
 
 void MapCarveVertical(Cell c1, Cell c2, int width)
@@ -237,6 +255,8 @@ void MapRoomGen(map_grid_t* m, Cell *poi_list, int poi_count){
 }
 
 void MapRoomBuild(map_grid_t* m){
+  Rectangle inner = Rect(test->border,test->border, m->width - 2*test->border,m->height- 2*test->border);
+
   for (int y = 0; y < m->height; y++){
     for (int x = 0; x < m->width; x++){
       if(builder.enviroment[x][y] == TILEFLAG_EMPTY)
@@ -246,14 +266,22 @@ void MapRoomBuild(map_grid_t* m){
       switch(f){
         case TILEFLAG_SPAWN:
           MapSpawnMob(x,y);
-          map_set(TILEFLAG_FLOOR|TILEFLAG_NATURAL,x,y);
           break;
         case TILEFLAG_START:
           RegisterEnt(InitEnt(room_instances[0],CELL_NEW(x,y)));
           continue;
           break;
         case TILEFLAG_NONE:
-          map_set(TILEFLAG_BORDER, x,y);
+          if(!cell_in_rect(CELL_NEW(x,y),inner))
+            map_set(TILEFLAG_BORDER, x,y);
+          else{
+            float n = Noise2D(x*0.05, y*0.05);
+            if (n> 0.4f)
+              map_set(TILEFLAG_TREE,x,y);
+            else
+              continue;
+              //map_set(TILEFLAG_NONE,x,y);
+          }
           break;
         default:
           break;
@@ -276,21 +304,22 @@ void MapSpawnMob(int x, int y){
 
   int r = rand() % total;
 
+  int mobs = 0;
+  ObjectInstance pool[count];
+
   for (int i = 0; i < count; i++){
     if(spawn[i].mob == ENT_DONE)
       break;
 
     if(r<spawn[i].weight){
       ObjectInstance mob = GetEntityData(spawn[i].mob);
-      int mobs = 0;
       for (int j = 0; j < mob.max; j++){
         if(mobs>=mob.max)
           break;
 
-        if(rand()%(mobs+1)==0){
-          RegisterEnt(InitMob(spawn[i].mob,(Cell){x,y}));
+        if(mobs<mob.min || rand()%(mobs+1)==0){
+          pool[mobs]=mob;
           mobs++;
-          break;
         }
       }
       break;
@@ -298,6 +327,18 @@ void MapSpawnMob(int x, int y){
     
     r -= spawn[i].weight;
   }
+
+  if(mobs==0)
+    return;  
+  Cell *placements = CellClusterAround((Cell){x,y},mobs, 2,4);
+
+ for(int i = 0; i < mobs; i++) 
+  RegisterEnt(InitMob(pool[i].id,placements[i]));
+
+ if(GetEntityCategory(pool[0].id)!=MOB_HUMANOID)
+   map_set(TILEFLAG_FLOOR,x,y);
+
+ free(placements);
 }
 
 void MapSpawn(TileFlags flags, int x, int y){

@@ -109,4 +109,29 @@ static float perlin2d(float x, float y, float freq, int depth){
 
 }
 
+static float rand2i(int x, int y) {
+    unsigned int n = x * 374761393 + y * 668265263; 
+    n = (n ^ (n >> 13)) * 1274126177;
+    return (float)(n & 0x7fffffff) / (float)0x7fffffff;
+}
+
+static float Noise2D(float x, float y) {
+    int x0 = (int)x;
+    int y0 = (int)y;
+    int x1 = x0 + 1;
+    int y1 = y0 + 1;
+
+    float sx = x - x0;
+    float sy = y - y0;
+
+    float n0 = rand2i(x0, y0);
+    float n1 = rand2i(x1, y0);
+    float ix0 = lerp(n0, n1, sx);
+
+    n0 = rand2i(x0, y1);
+    n1 = rand2i(x1, y1);
+    float ix1 = lerp(n0, n1, sx);
+
+    return lerp(ix0, ix1, sy);
+}
 #endif

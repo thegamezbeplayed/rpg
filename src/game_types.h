@@ -101,6 +101,7 @@ typedef struct ent_s{
   MonsterSize           size;
   stat_t*               stats[STAT_DONE];
   attribute_t*          attribs[ATTR_DONE];
+  skill_t*              skills[SKILL_DONE];
   int                   num_abilities;
   ability_t*            abilities[6];
   EntityType            type;
@@ -113,6 +114,8 @@ typedef struct ent_s{
   int                   num_items;
   item_t                *gear[CARRY_SIZE];
   sprite_t              *sprite;
+  float                 challenge;
+  struct ent_s*         last_hit_by;
 } ent_t;
 
 ent_t* InitEnt(ObjectInstance data, Cell pos);
@@ -136,6 +139,7 @@ bool FreeEnt(ent_t* e);
 void EntPrepStep(ent_t *e);
 TileStatus EntGridStep(ent_t *e, Cell step);
 void EntSetCell(ent_t *e, Cell pos);
+void EntAddExp(ent_t *e, int exp);
 void EntAddPos(ent_t *e, Vector2 pos);
 void EntSetPos(ent_t *e, Vector2 pos);
 void EntControlStep(ent_t *e);

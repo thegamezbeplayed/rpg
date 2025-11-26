@@ -25,7 +25,7 @@ static sub_texture_t ENVIRO_SPRITES[ENV_DONE] = {
   { ENV_GRASS_SPARSE, 8, 8, 0, 16, 16, 16,GREEN, 0, 0, 0, 0 },
   { ENV_GRASS_WILD, 8, 8, 16, 16, 16, 16, GREEN, 0, 0, 0, 0 },
   { ENV_LEAVES, 8, 8, 32, 16, 16, 16, GREEN, 0, 0, 0, 0 },
-  { ENV_TREE_MAPLE, 8, 8, 48, 16, 16, 16, GREEN, 0, 0, 0, 0 },
+  { ENV_TREE_MAPLE, 8, 8, 48, 16, 16, 16, DARKGREEN, 0, 0, 0, 0 },
   { ENV_MEADOW, 8, 8, 64, 16, 16, 16, GREEN, 0, 0, 0, 0 },
   { ENV_TREE_OLDGROWTH, 8, 8, 80, 16, 16, 16,DARKGREEN, 0, 0, 0, 0 },
   { ENV_TREE_PINE, 8, 8, 96, 16, 16, 16, DARKGREEN, 0, 0, 0, 0 },
@@ -43,4 +43,6 @@ static sub_texture_t ENVIRO_SPRITES[ENV_DONE] = {
   { ENV_WEB, 8, 8, 32, 48, 16, 16, WHITE, 0, 0, 0, 0 },
   { ENV_DIRT_PATCH, 8, 8, 48, 48, 16, 16, BEIGE, 0, 0, 0, 0 },
   { ENV_DIRT, 8, 8, 64, 48, 16, 16, BEIGE, 0, 0, 0, 0 },
+  { ENV_CAMP, 8, 8, 80, 48, 16, 16, RED, 0, 0, 0, 0 },
+
 };

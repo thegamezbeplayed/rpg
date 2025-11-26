@@ -148,7 +148,6 @@ bool SetAction(ent_t* e, ActionType a, void *context){
 
   }
 
-
   e->actions[a]->context = context;
   e->actions[a]->on_deck = true;
   

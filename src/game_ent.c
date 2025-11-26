@@ -60,6 +60,7 @@ ent_t* InitMob(EntityType mob, Cell pos){
   EntCalcStats(e);
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
 
+  e->challenge = data.cr;
   InitActions(e->actions);
 
   for(int i = 0; i < NUM_ABILITIES; i++){
@@ -123,6 +124,8 @@ env_t* InitEnv(EnvTile t,Cell pos){
 }
 
 void EntCalcStats(ent_t* e){
+  
+  e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,1,20);
   MobCategory cat = GetEntityCategory(e->type);
 
   SpeciesType species = GetEntitySpecies(e->type);
@@ -203,11 +206,14 @@ item_def_t* item = calloc(1,sizeof(item_def_t));
 
   item->damage = temp.dtype;
 
+  item_prop_mod_t props = GetItemProps(data);
+
   for(int i = 0; i< STAT_DONE; i++){
     if(temp.stats[i] < 1)
       continue;
+    int stat = temp.stats[i] + props.stat_change[i];
 
-    item->stats[i] = InitStat(i, 1, temp.stats[i], temp.stats[i]);
+    item->stats[i] = InitStat(i, 1, stat, stat);
   }
   
   return item;
@@ -308,6 +314,10 @@ bool EntAddItem(ent_t* e, item_t* item, bool equip){
   return false;
 }
 
+void EntAddExp(ent_t *e, int exp){
+  SkillIncrease(e->skills[SKILL_LVL], exp);
+}
+
 void EntDestroy(ent_t* e){
   if(!e || !SetState(e, STATE_END,NULL))
     return;
@@ -327,6 +337,7 @@ bool EntTarget(ent_t* e, ability_t* a, ent_t* source){
   
   int damage = (base_dmg + a->stats[STAT_DAMAGE]->current);
  damage = -1 * EntDamageReduction(e,a,damage); 
+  e->last_hit_by = source; 
   if(StatChangeValue(e,e->stats[STAT_HEALTH], damage)){
    TraceLog(LOG_INFO,"%s hits %s with %i %s damage\n %s health now %0.0f/%0.0f",
        source->name, e->name,
@@ -334,7 +345,7 @@ bool EntTarget(ent_t* e, ability_t* a, ent_t* source){
        DAMAGE_STRING[a->school],
        e->name,
        e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
-    
+   
     return true;
   }
   
@@ -609,11 +620,27 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s){
 
   switch(s){
     case STATE_DIE:
+      if(e->last_hit_by){
+        challenge_rating_t cr = GetChallengeScore(e->challenge);
+     
+        if(e->last_hit_by->skills[SKILL_LVL]->val <= cr.out_lvl)
+          EntAddExp(e->last_hit_by, cr.exp);
+      }
       EntDestroy(e);
       break;
     default:
       break;
   }
+}
+
+void EntOnLevelUp(struct skill_s* self, float old, float cur){
+  ent_t* e = self->owner;
+
+  for(int i = 0; i < STAT_DONE; i++)
+    if(e->stats[i] && e->stats[i]->lvl)
+      e->stats[i]->lvl(e->stats[i]);
+
+  TraceLog(LOG_INFO,"You have reached level %i",self->val);
 }
 
 bool CheckEntPosition(ent_t* e, Vector2 pos){
@@ -649,6 +676,16 @@ SpeciesType GetEntitySpecies(EntityType t){
 ObjectInstance GetEntityData(EntityType t){
   if(t >= 0 && t < ENT_DONE)
     return room_instances[t];
+}
+
+item_prop_mod_t GetItemProps(ItemInstance data){
+  for(int i = 0; i < PROP_ALL; i++){
+    if(PROP_MODS[i].propID == PROP_DONE)
+      return PROP_MODS[i];
+
+    if(PROP_MODS[i].propID == data.rarity)
+      return PROP_MODS[i];
+  }
 }
 
 ability_t AbilityLookup(AbilityID id){

@@ -295,6 +295,7 @@ typedef enum{
   ENV_WEB,
   ENV_DIRT,
   ENV_DIRT_PATCH,
+  ENV_CAMP,
   ENV_DONE
 }EnvTile;
 
@@ -327,7 +328,8 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
     [ENV_FOREST]         = TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_NATURAL,
     [ENV_WEB]            = TILEFLAG_DECOR,
     [ENV_DIRT]            = TILEFLAG_FLOOR,
-    [ENV_DIRT]            = TILEFLAG_FLOOR,
+    [ENV_DIRT_PATCH]            = TILEFLAG_FLOOR,
+    [ENV_CAMP]          = TILEFLAG_SPAWN,
 };
 
 static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
@@ -568,12 +570,19 @@ typedef struct{
 }spawn_rules_t;
 
 typedef enum{
+  ROOM_NONE,
+  ROOM_ROUND,
+  ROOM_SQUARE,
+}RoomType;
+
+typedef enum{
   DARK_FOREST,
   MAP_DONE,
 }MapID;
 
 typedef struct{
   MapID           id;
+  RoomType        room_type;
   int             num_mobs,spawn_min,spawn_max,spacing,border;
   spawn_rules_t   mobs[6];
 }map_gen_t;
@@ -593,6 +602,8 @@ typedef enum{
   GEAR_MACE,
   GEAR_LEATHER_ARMOR,
   GEAR_LEATHER_CAP,
+  GEAR_CLUB,
+  GEAR_HAND_AXE,
   GEAR_DONE
 }GearID;
 
@@ -739,6 +750,25 @@ typedef struct stat_s{
   StatCallback on_stat_change,on_stat_full, on_stat_empty;
 } stat_t;
 
+typedef enum{
+  SKILL_NONE,
+  SKILL_LVL,
+  SKILL_DONE
+}SkillType;
+
+struct skill_s;
+typedef void (*SkillCallback)(struct skill_s* self, float old, float cur);
+
+typedef struct skill_s{
+ SkillType     id;
+ int           val,min,max;
+ int           point,threshold;
+ SkillCallback on_skill_up;
+ struct ent_s  *owner;
+}skill_t;
+
+skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max);
+bool SkillIncrease(struct skill_s* self, int amnt);
 void FormulaDieAddAttr(stat_t* self);
 void FormulaDie(stat_t* self);
 
@@ -758,6 +788,12 @@ bool StatIsEmpty(stat_t* s);
 float StatGetRatio(stat_t *self);
 //<====STATS
 
+typedef struct{
+  float   rating;
+  int     exp, out_lvl;
+}challenge_rating_t;
+
+challenge_rating_t GetChallengeScore(float cr);
 typedef enum{
   STATE_NONE,//if ent_t is properly initalized to {0} this is already set
   STATE_SPAWN,//Should only be set after NONE
@@ -818,8 +854,18 @@ typedef enum{
 
 typedef enum{
   PROP_NONE,
+  PROP_LIGHT,
   PROP_DONE
 }WeaponProp;
+
+typedef enum{
+  QUAL_NONE = PROP_DONE,
+  QUAL_TRASH,
+  QUAL_UNCOMMON,
+  QUAL_COMMON,
+  QUAL_DONE,
+  PROP_ALL
+}ItemQuality;
 
 typedef struct{
   ArmorType          type;
@@ -843,11 +889,17 @@ typedef struct{
 extern armor_def_t ARMOR_TEMPLATES[ARMOR_DONE];
 extern weapon_def_t WEAPON_TEMPLATES[WEAP_DONE];
 
+typedef struct{
+  int     propID;
+  int     stat_change[STAT_DONE];
+}item_prop_mod_t;
+
 typedef struct {
   int         id;
   MonsterSize size;
   char        name[MAX_NAME_LEN];
-  int         min,max,cr;
+  int         min,max;
+  float       cr;
   SpawnType   spawn;
   GearID      items[ITEM_DONE];
   AbilityID   abilities[6];
@@ -915,6 +967,7 @@ bool TooClose(Cell a, Cell b, int min_dist);
 MobCategory GetEntityCategory(EntityType t);
 SpeciesType GetEntitySpecies(EntityType t);
 ObjectInstance GetEntityData(EntityType t);
+item_prop_mod_t GetItemProps(ItemInstance data);
 
 
 #endif

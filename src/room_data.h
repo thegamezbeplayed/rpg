@@ -8,8 +8,8 @@
 
 static const ObjectInstance room_instances[ENT_DONE] = {
   {ENT_PERSON,SIZE_MEDIUM,"Frank the Tank",1,1,1,SPAWN_SOLO,{GEAR_MACE, GEAR_LEATHER_ARMOR},{}},
-  {ENT_GOBLIN,SIZE_SMALL,"Goblin",2,4,1,SPAWN_PACK,
-    {GEAR_NONE},
+  {ENT_GOBLIN,SIZE_SMALL,"Goblin",2,4,0.25,SPAWN_PACK,
+    {GEAR_CLUB},
     {ABILITY_DONE},
     {
       [STATE_IDLE]= BEHAVIOR_SEEK,
@@ -18,7 +18,7 @@ static const ObjectInstance room_instances[ENT_DONE] = {
       [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
       [STATE_ATTACK] = BEHAVIOR_COMBAT,
     }},
-  {ENT_ORC,SIZE_MEDIUM,"Orc", 1,3,3,SPAWN_SOLO,{GEAR_NONE},
+  {ENT_ORC,SIZE_MEDIUM,"Orc", 1,3,0.5f,SPAWN_SOLO,{GEAR_HAND_AXE},
     {ABILITY_DONE},
     {
       [STATE_IDLE]= BEHAVIOR_SEEK,
@@ -27,7 +27,7 @@ static const ObjectInstance room_instances[ENT_DONE] = {
       [STATE_ACTION] = BEHAVIOR_TAKE_ACTION,
       [STATE_ATTACK] = BEHAVIOR_COMBAT,
     }},
-  {ENT_OGRE,SIZE_LARGE,"Ogre", 1,1,5,SPAWN_SOLO,
+  {ENT_OGRE,SIZE_LARGE,"Ogre", 1,1,2,SPAWN_SOLO,
     {GEAR_NONE},
     {ABILITY_DONE},
     {
@@ -43,7 +43,7 @@ static const ObjectInstance room_instances[ENT_DONE] = {
   {ENT_HOBGOBLIN},
   {ENT_OROG},
   {ENT_SCORPION},
-  {ENT_SPIDER, SIZE_TINY,"Spider", 2,6,2,SPAWN_SWARM,{GEAR_NONE},
+  {ENT_SPIDER, SIZE_TINY,"Spider", 2,6,0,SPAWN_SWARM,{GEAR_NONE},
     {ABILITY_BITE_POISON,ABILITY_DONE},
     {
       [STATE_IDLE]= BEHAVIOR_SEEK,
@@ -68,7 +68,7 @@ static const ObjectInstance room_instances[ENT_DONE] = {
 };
 
 static const map_gen_t MAPS[1]= {
-  {DARK_FOREST,
+  {DARK_FOREST, ROOM_ROUND,
     4,2, 4, 4,4,
     {
       {ENT_GOBLIN,SPAWN_PACK,15},
@@ -81,11 +81,17 @@ static const map_gen_t MAPS[1]= {
 };
 
 static const ItemInstance room_items[GEAR_DONE] = {
-  {GEAR_MACE, ITEM_WEAPON,WEAP_BLUNT,1},
-  {GEAR_LEATHER_ARMOR,ITEM_ARMOR,ARMOR_LEATHER,1},
-  {GEAR_LEATHER_CAP, ITEM_ARMOR,ARMOR_LEATHER,1},
+  {GEAR_MACE, ITEM_WEAPON,WEAP_BLUNT,QUAL_UNCOMMON},
+  {GEAR_LEATHER_ARMOR,ITEM_ARMOR,ARMOR_LEATHER,QUAL_UNCOMMON},
+  {GEAR_LEATHER_CAP, ITEM_ARMOR,ARMOR_LEATHER,QUAL_UNCOMMON},
+  {GEAR_CLUB, ITEM_WEAPON, WEAP_BLUNT,QUAL_TRASH},
+  {GEAR_HAND_AXE, ITEM_WEAPON, WEAP_SLASH,QUAL_TRASH},
 };
-static const TileInstance BASE_TILE = {};
+
+static const item_prop_mod_t PROP_MODS[PROP_ALL]={
+  {QUAL_TRASH,{[STAT_DAMAGE]=-2}},
+  {PROP_DONE}
+};
 
 typedef struct {
   BehaviorID           id;

@@ -59,7 +59,7 @@ species_stats_t RACIALS[SPEC_DONE]={
   {SPEC_NONE},
   {SPEC_HUMAN, {},
     {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_INT]=1,[ATTR_WIS]=1,[ATTR_CHAR]=1}},
-  {SPEC_GREENSKIN, {[STAT_HEALTH]=1, [STAT_ARMOR]=2},
+  {SPEC_GREENSKIN, {[STAT_HEALTH]=2, [STAT_ARMOR]=4},
     {[ATTR_CON]=1,[ATTR_STR]=2,[ATTR_INT]=-1,[ATTR_WIS]=-1}},
   {SPEC_ARTHROPOD, {[STAT_ARMOR]=3},
     {[ATTR_DEX]=2}},
@@ -75,8 +75,8 @@ species_stats_t RACIALS[SPEC_DONE]={
 };
 weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
   {WEAP_NONE},
-  {WEAP_BLUNT,25,1,1,8,DMG_BLUNT,{[STAT_DAMAGE]=8,[STAT_REACH]=1},{},0},
-  {WEAP_SLASH},
+  {WEAP_BLUNT,5,1,1,8,DMG_BLUNT,{[STAT_DAMAGE]=8,[STAT_REACH]=1},{},0},
+  {WEAP_SLASH,7,1,1,8,DMG_SLASH,{[STAT_DAMAGE]=8,[STAT_REACH]=1},{},0},
   {WEAP_PIERCE},
 };
 
@@ -97,6 +97,61 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
     32,100,ATTR_NONE,ATTR_STR,0,12,{}},
 };
+
+static const challenge_rating_t CR[34]={
+  {0,10,3},
+  {0.125,25,3},
+  {0.25,50,4},
+  {0.5,100,5},
+  {1,200,6},
+  {2,450,7},
+  {3,700,8},
+  {4,1100,9}, 
+  {5,1800,10}, 
+  {6,2300,11},
+  {7,2900,12},
+  {8,3900,13},
+  {9,5000,14},
+  {10,5900,15},
+  {11,7200,16},
+  {12,8400,17},
+  {13,10000,18},
+  {14,11500,19},
+  {15,13000,20},
+  {16,15000,21}, 
+  {17,18000,21}, 
+  {18,20000,21}, 
+  {19,22000,21}, 
+  {20,25000,21}, 
+  {21,33000,21}, 
+  {22,41000,21}, 
+  {23,50000,21}, 
+  {24,62000,21}, 
+  {25,75000,21}, 
+  {26,90000,21}, 
+  {27,105000,21}, 
+  {28,120000,21}, 
+  {29,135000,21}, 
+  {30,155000,21}, 
+};
+
+challenge_rating_t GetChallengeScore(float cr){
+  
+  if(cr == 0)
+    return CR[(int)cr];
+  else if (cr < 1){
+    if(cr <0.25)
+      return CR[1];
+    else if(cr < .5)
+      return CR[2];
+    else
+      return CR[3];
+  }
+  else{
+    int index = cr+3;
+    return CR[index];
+  }
+}
 
 static dice_roll_t DTEN = {6,1,RollDie};
 
@@ -286,4 +341,38 @@ void FormulaDieAddAttr(stat_t* self){
 
   self->max=self->base+modifier;
 
+}
+
+skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
+  skill_t* s = calloc(1,sizeof(skill_t));
+
+  *s = (skill_t){
+    .id = id,
+    .val = min,
+    .min = min,
+    .max = max,
+    .point = 0,
+    .threshold = 300,
+    .owner = owner
+  };
+  return s;
+
+}
+
+bool SkillIncrease(struct skill_s* s, int amnt){
+  s->point+=amnt;
+
+  if(s->point < s->threshold)
+    return false;
+
+
+  s->point = s->point - s->threshold;
+
+  s->threshold*=3;
+
+  int old = s->val;
+  s->val++;
+
+  if(s->on_skill_up)
+    s->on_skill_up(s,old,s->val);
 }

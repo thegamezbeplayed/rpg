@@ -120,7 +120,8 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
   if (!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next))
     return BEHAVIOR_FAILURE;
 
-  if(!SetAction(e,ACTION_MOVE,&next))
+  e->control->destination = cell_dir(e->pos,next);
+  if(!SetAction(e,ACTION_MOVE,&e->control->destination))
     return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;
