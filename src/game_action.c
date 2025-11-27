@@ -17,6 +17,7 @@ action_turn_t* InitAction(ActionType t, TakeActionCallback fn, OnActionCallback 
   return a;
 }
 
+
 bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k){
  if(!EntCanTakeAction(e))
     return false;
@@ -85,7 +86,14 @@ void ActionSync(ent_t* e){
   }
 }
 
+bool ActionMakeSelection(Cell start, int num, bool occupied){
+  ScreenActivateSelector(start,num,occupied);
+}
+
 bool ActionInput(void){
+  if(player->state == STATE_SELECTION)
+    return false;
+
   for(int i = 0; i < ACTION_DONE; i++){
     ActionType a = action_keys[i].action;
     ActionKeyCallback fn = action_keys[i].fn;
@@ -94,9 +102,31 @@ bool ActionInput(void){
       if(!IsKeyDown(k))
         continue;
 
-      if(fn(player,a,k)){
-        SetState(player,STATE_STANDBY,NULL);
-        return true;
+      switch(action_keys[i].action){
+        case ACTION_MOVE:
+          if(fn(player,a,k)){
+            SetState(player,STATE_STANDBY,NULL);
+            return true;
+          }
+          break;
+        case ACTION_ATTACK:
+        case ACTION_MAGIC:
+          ability_t* ability = player->abilities[action_keys[i].binding];
+          switch(ability->targeting){
+            case DES_SELECT_TARGET:
+            case DES_MULTI_TARGET:
+              SetState(player, STATE_SELECTION,NULL);
+              ActionMakeSelection(player->facing, ability->reach ,true);
+              break;
+            case DES_NONE:
+            case DES_FACING:
+            default:
+              if(fn(player,a,k)){
+                SetState(player,STATE_STANDBY,NULL);
+                return true;
+              }
+              break;
+          }
       }
     }
   }

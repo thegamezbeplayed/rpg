@@ -34,6 +34,14 @@ typedef struct{
   ent_t   *hover;
 }mouse_controller_t;
 
+typedef struct{
+  bool        active;
+  Cell        pos;
+  map_cell_t* selections[5];
+  int         desired,selected;
+  bool        occupied;
+}key_controller_t;
+
 typedef enum{
   SIZE_GRID,
   SIZE_CELL,
@@ -54,18 +62,32 @@ typedef struct{
   Rectangle      area[AREA_ALL];
   float          sizes[SIZE_ALL];
   PlaySizeSync   get_size;
+  sprite_t*      screen_icons[ELEMENT_COUNT];
 }play_area_t;
+
 float GetApproxDPIScale(void);
 void InitPlayArea(void);
 void ScreenCalcAreas(void);
 Vector2 ScreenAreaStart(ScreenArea t);
 float ScreenSized(PlaySizes s);
-
+void ScreenActivateSelector(Cell pos, int num, bool occupied);
+bool ScreenSelectorInput(void);
+bool ScreenMoveSelector(struct ent_s* e, ActionType a, KeyboardKey k);
+bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k);
+void ScreenRender(void);
 void InitScreenInteractive(void);
 void ScreenSyncMouse(void);
+void ScreenSyncKey(void);
 Vector2 CaptureInput();
 ent_t* ScreenEntMouseCollision(void);
 ent_t* ScreenEntMouseHover(void);
+
+static action_key_t selector_keys[ACTION_DONE] = {
+  {ACTION_NONE},
+  {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ScreenMoveSelector},
+  {ACTION_SELECT,1,{KEY_ENTER},ScreenMakeSelection},
+};
+
 //----------------------------------------------------------------------------------
 // Types and Structures Definition
 //----------------------------------------------------------------------------------

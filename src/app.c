@@ -37,14 +37,14 @@ int main(void)
 
   InitAudioDevice();      // Initialize audio device
 
-  InitPlayArea();
   InitAudio();
   InitResources();
   InitUI();
   
+  InitPlayArea();
   InitGameProcess();
 
-  SetTargetFPS(200);
+  SetTargetFPS(60);
 #if defined(PLATFORM_WEB)
   emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
 #else
@@ -54,7 +54,7 @@ int main(void)
   while (!WindowShouldClose() && !wantQuit)    // Detect window close button or ESC key
   {
     bool wait = true;
-    if (IsKeyPressed(KEY_ENTER))// || IsGestureDetected(GESTURE_TAP))
+    if (IsKeyPressed(KEY_TAB))// || IsGestureDetected(GESTURE_TAP))
     {
       GameTransitionScreen();
     }

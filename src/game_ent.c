@@ -31,8 +31,25 @@ ent_t* InitEnt(ObjectInstance data,Cell pos){
     if(data.items[i]==GEAR_NONE)
       break;
 
-    item_def_t* item = GetItemDefByID(i);
+    item_def_t* item = GetItemDefByID(data.items[i]);
     EntAddItem(e, InitItem(item), true);
+  }
+
+  for(int i = 0; i < NUM_ABILITIES; i++){
+    if(data.abilities[i] == ABILITY_DONE)
+      break;
+  
+    ability_t* a = InitAbility(e, data.abilities[i]);
+    e->abilities[e->num_abilities++] = a;
+
+    if(a->chain > ABILITY_NONE){
+      ability_t* child = InitAbility(e, a->chain);
+      child->weight = -1;
+
+      a->on_success_fn = EntUseAbility;
+      a->on_success = child;
+      e->abilities[e->num_abilities++] = child;
+    }
   }
 
   SetState(e,STATE_SPAWN,NULL);
@@ -84,7 +101,9 @@ ent_t* InitMob(EntityType mob, Cell pos){
     if(data.items[i]==GEAR_NONE)
       break;
 
-    item_def_t* item = GetItemDefByID(i);
+    int budget = data.budget*data.cr;
+
+    item_def_t* item = GetItemDefByID(data.items[i]);
     EntAddItem(e, InitItem(item), true);
   }
 
@@ -126,6 +145,8 @@ env_t* InitEnv(EnvTile t,Cell pos){
 void EntCalcStats(ent_t* e){
   
   e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,1,20);
+
+  e->skills[SKILL_LVL]->on_skill_up = EntOnLevelUp;
   MobCategory cat = GetEntityCategory(e->type);
 
   SpeciesType species = GetEntitySpecies(e->type);
@@ -143,7 +164,7 @@ void EntCalcStats(ent_t* e){
   }
   for (int i = 0; i < STAT_DONE;i++){
     int val = base.stats[i] + racial.stats[i] + size.stats[e->size][i];
-      e->stats[i] = InitStatOnMax(i,val);
+      e->stats[i] = InitStat(i,0,val,val);
     
     e->stats[i]->owner = e;
     e->stats[i]->start(e->stats[i]);
@@ -227,7 +248,7 @@ item_def_t* DefineArmor(ItemInstance data){
   item->dr = calloc(1,sizeof(damage_reduction_t));
 
   armor_def_t temp = ARMOR_TEMPLATES[data.equip_type];
-  item->stats[STAT_ARMOR] = InitStatOnMax(STAT_ARMOR,temp.armor_class);
+  item->stats[STAT_ARMOR] = InitStat(STAT_ARMOR,0,temp.armor_class, temp.armor_class);
 
   *item->dr = temp.dr_base;
 
@@ -335,8 +356,9 @@ void EntDestroy(ent_t* e){
 bool EntTarget(ent_t* e, ability_t* a, ent_t* source){
   int base_dmg = a->dc->roll(a->dc);
   
-  int damage = (base_dmg + a->stats[STAT_DAMAGE]->current);
- damage = -1 * EntDamageReduction(e,a,damage); 
+  base_dmg = (base_dmg + a->stats[STAT_DAMAGE]->current);
+  int reduced =  EntDamageReduction(e,a,base_dmg); 
+  int damage = -1 * reduced; 
   e->last_hit_by = source; 
   if(StatChangeValue(e,e->stats[STAT_HEALTH], damage)){
    TraceLog(LOG_INFO,"%s hits %s with %i %s damage\n %s health now %0.0f/%0.0f",
@@ -345,7 +367,9 @@ bool EntTarget(ent_t* e, ability_t* a, ent_t* source){
        DAMAGE_STRING[a->school],
        e->name,
        e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
-   
+  
+  if(reduced!=base_dmg)
+   TraceLog(LOG_INFO,"(%i damage reduction)",base_dmg-reduced); 
     return true;
   }
   
@@ -432,7 +456,7 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
   memset(a->stats, 0, sizeof(a->stats));
 
   a->stats[STAT_REACH] = def->stats[STAT_REACH];
-  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE, 0);
+  a->stats[STAT_DAMAGE] = InitStat(STAT_DAMAGE, 0,0,0);
 
   a->school = def->damage;
 
@@ -498,7 +522,7 @@ ability_t* InitWeaponAttack(ent_t* owner, item_t* w){
   a->school = def->damage;
 
   a->stats[STAT_REACH] = def->stats[STAT_REACH];
-  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE, 0);
+  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE, 0, ATTR_STR);
 
   for (int i = 0; i < STAT_DONE; i++){
     if(!a->stats[i])
@@ -517,8 +541,8 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
 
   a->dc = Die(a->side,a->die);
 
-  a->stats[STAT_REACH] = InitStat(STAT_REACH,1,1,1);
-  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,1);
+  a->stats[STAT_REACH] = InitStat(STAT_REACH,1,a->reach,a->reach);
+  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,a->bonus,a->mod);
 
   for (int i = 0; i < STAT_DONE; i++){
     if(!a->stats[i])
@@ -637,8 +661,10 @@ void EntOnLevelUp(struct skill_s* self, float old, float cur){
   ent_t* e = self->owner;
 
   for(int i = 0; i < STAT_DONE; i++)
-    if(e->stats[i] && e->stats[i]->lvl)
+    if(e->stats[i] && e->stats[i]->lvl){
       e->stats[i]->lvl(e->stats[i]);
+      StatMaxOut(e->stats[i]);
+    }
 
   TraceLog(LOG_INFO,"You have reached level %i",self->val);
 }

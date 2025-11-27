@@ -172,13 +172,23 @@ void MapCarveVertical(Cell c1, Cell c2, int width)
   int start = c1.y < c2.y ? c1.y : c2.y;
   int end   = c1.y < c2.y ? c2.y : c1.y;
 
-  for (int y = start; y <= end; y++){
-    for (int w = -width/2; w <=width/2; w++)
-      if(c1.x+w >= 0){
-        TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
+  RoomType shape = test->room_type;
+  float radius = width/2;
 
-        map_set_safe(TILEFLAG_FLOOR,c1.x+w,y);
-      }
+  for (int y = start; y <= end; y++){
+    switch (shape){
+      case ROOM_ROUND:
+        carve_circle((Cell){c1.x, y}, radius);
+        break;
+      default:
+        for (int w = -width/2; w <=width/2; w++)
+          if(c1.x+w >= 0){
+            TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
+
+            map_set_safe(TILEFLAG_FLOOR,c1.x+w,y);
+          }
+        break;
+    }
   }
 }
 
@@ -201,17 +211,27 @@ void MapRoomGen(map_grid_t* m, Cell *poi_list, int poi_count){
   for (int i = 0; i < poi_count; i++){
     Cell p = poi_list[i];
 
-    for (int dy = -2; dy <= 2; dy++){
-      for (int dx = -2; dx <=2; dx++){
-        int nx = p.x +dx;
-        int ny = p.y +dy;
+    RoomType shape = test->room_type;
+    float radius = 5;
 
-        if(nx > 0 && nx < m->width &&
-            ny > 0 && ny < m->height)
-          map_set_safe(TILEFLAG_EMPTY,nx,ny);
+    for (int dy = -2; dy <= 2; dy++){
+      switch (shape){
+        case ROOM_ROUND:
+          carve_circle((Cell){p.x, dy}, radius);
+          break;
+        default:
+
+          for (int dx = -2; dx <=2; dx++){
+            int nx = p.x +dx;
+            int ny = p.y +dy;
+
+            if(nx > 0 && nx < m->width &&
+                ny > 0 && ny < m->height)
+              map_set_safe(TILEFLAG_EMPTY,nx,ny);
+          }
+          break;
       }
     }
-
     m->rooms++;
     map_set(TILEFLAG_SPAWN,p.x,p.y);
   }
@@ -259,6 +279,8 @@ void MapRoomBuild(map_grid_t* m){
 
   for (int y = 0; y < m->height; y++){
     for (int x = 0; x < m->width; x++){
+      m->tiles[x][y].coords = CELL_NEW(x,y);
+
       if(builder.enviroment[x][y] == TILEFLAG_EMPTY)
         continue;
 

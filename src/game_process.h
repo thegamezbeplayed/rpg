@@ -119,6 +119,7 @@ ent_t* WorldPlayer(void);
 env_t* WorldGetEnvById(unsigned int uid);
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);
+map_cell_t* WorldGetTile(Cell pos);
 map_grid_t* WorldGetMap(void);
 int WorldGetEnts(ent_t** results,EntFilterFn fn, void* params);
 bool WorldGetTurnState(void);

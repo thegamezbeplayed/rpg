@@ -38,38 +38,44 @@ void InitUI(void){
 
   ui.menus[MENU_HUD] = InitMenu(MENU_HUD,VECTOR2_ZERO,VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_HORIZONTAL,false);
 
-  ui_element_t *attrPanel = InitElement("ATTR_PANEL",UI_PANEL,VECTOR2_ZERO, VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_HORIZONTAL);
+  ui_element_t *attrPanel = InitElement("ATTR_PANEL",UI_PANEL,VECTOR2_ZERO, VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_VERTICAL);
 
   ui_element_t *playBtn = InitElement("PLAY_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,ALIGN_CENTER|ALIGN_MID,0); 
   strcpy(playBtn->text, "PLAY");
   playBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
   ElementAddChild(ui.menus[MENU_MAIN].element,playBtn);
 
-  ui.menus[MENU_OPTIONS] = InitMenu(MENU_OPTIONS, VECTOR2_ZERO,DEFAULT_MENU_SIZE,ALIGN_CENTER|ALIGN_MID,LAYOUT_VERTICAL,false);
+  ui_element_t *continueBtn = InitElement("CONTINUE_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,ALIGN_CENTER|ALIGN_MID,0); 
+  strcpy(continueBtn->text, "CONTINUE");
+  continueBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
+ 
+  ui.menus[MENU_OPTIONS] = InitMenu(MENU_OPTIONS, VECTOR2_ZERO,DEFAULT_MENU_SIZE,ALIGN_CENTER,LAYOUT_HORIZONTAL,false);
 
 
-  ui_element_t *die = InitElement("DIE_ICON",UI_STATUSBAR,VECTOR2_ZERO, SQUARE_PANEL,ALIGN_CENTER|ALIGN_MID,0);
+  ui_element_t *die = InitElement("DIE_ICON",UI_STATUSBAR,VECTOR2_ZERO, SQUARE_PANEL,ALIGN_CENTER,0);
 
   die->get_val = GetSelectionRoll; 
-  ElementAddChild(ui.menus[MENU_OPTIONS].element,die);
 
+   ui_element_t *attrPanelB = InitElement("ATTR_PANEL",UI_PANEL,VECTOR2_ZERO, VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_VERTICAL);
+
+  ElementAddChild(ui.menus[MENU_OPTIONS].element,attrPanel);
+  ElementAddChild(ui.menus[MENU_OPTIONS].element,attrPanelB);
+  ElementAddChild(ui.menus[MENU_OPTIONS].element,die);
   for(int i = 0; i < ATTR_DONE; i++){
 
-    ui_element_t *attrBtn = InitElement("ATTR_BUTTON",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_WIDE,ALIGN_CENTER|ALIGN_MID,0);
+    for(int j = 0; j <2; j++){
+      ui_element_t *attrBtn = InitElement("ATTR_BUTTON",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_WIDE,ALIGN_CENTER|ALIGN_MID,0);
 
-    strcpy(attrBtn->text,attributes[i].name);
-    attrBtn->cb[ELEMENT_ACTIVATE] = UISelectOption;
-    attrBtn->cb[ELEMENT_ACTIVATED] = UIHideElement;
+      strcpy(attrBtn->text,attributes[i].name);
+      attrBtn->cb[ELEMENT_ACTIVATE] = UISelectOption;
+      attrBtn->cb[ELEMENT_ACTIVATED] = UIHideElement;
 
-    ElementAddChild(ui.menus[MENU_OPTIONS].element,attrBtn);
-
+      ElementAddChild(ui.menus[MENU_OPTIONS].element->children[j],attrBtn);
+    }
   }
 
-  ui_element_t* healthBar = InitElement("HEALTH_BAR",UI_PROGRESSBAR, VECTOR2_ZERO, DEFAULT_BUTTON_WIDE,0,0);
-
-  healthBar->get_val = GetDisplayHealth;
-  ElementAddChild(attrPanel,healthBar);
-  ElementAddChild(ui.menus[MENU_HUD].element,attrPanel);
+  ElementAddChild(ui.menus[MENU_OPTIONS].element,continueBtn);
+  
 }
 
 ui_menu_t InitMenu(MenuId id,Vector2 pos, Vector2 size, UIAlignment align,UILayout layout, bool modal){
@@ -474,7 +480,7 @@ bool UISelectOption(ui_element_t* e){
 
   int* selection = die->value->i;
 
-  CATEGORY_STATS[MOB_PLAYER].attr[e->index-1] = *selection;
+  CATEGORY_STATS[MOB_PLAYER].attr[e->index-1] += *selection;
 
   *die->value = die->get_val(die);
   strcpy(die->text,TextFormat("%i",*die->value->i));

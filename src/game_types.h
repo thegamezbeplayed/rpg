@@ -23,13 +23,23 @@ typedef enum{
   RANGE_EMPTY 
 }RangeType;   
 
+typedef enum{
+  DES_NONE,
+  DES_FACING,
+  DES_SELECT_TARGET,
+  DES_MULTI_TARGET,
+  DES_AREA,
+  DES_DIR,
+}DesignationType;
+
 typedef bool (*AbilityCallback)(struct ent_s* owner,  struct ability_s* chain, struct ent_s* target);
 
 typedef struct ability_s{
   AbilityID        id;
   DamageType       school;
-  int              weight,cost,hdie,die,side;
-  AttributeType    save;
+  DesignationType  targeting;
+  int              weight,cost,hdie,die,side,bonus,reach;
+  AttributeType    save,mod;
   AbilityID        chain;
   dice_roll_t*     dc,*hit;
   stat_t*          stats[STAT_DONE];
@@ -137,6 +147,7 @@ void EntKill(stat_t* self, float old, float cur);
 void EntDestroy(ent_t* e);
 bool FreeEnt(ent_t* e);
 void EntPrepStep(ent_t *e);
+void EntOnLevelUp(struct skill_s* self, float old, float cur);
 TileStatus EntGridStep(ent_t *e, Cell step);
 void EntSetCell(ent_t *e, Cell pos);
 void EntAddExp(ent_t *e, int exp);
@@ -170,7 +181,8 @@ bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb);
 static action_key_t action_keys[ACTION_DONE] = {
   {ACTION_NONE},
   {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ActionMove},
-  {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack},
+  {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack,1},
+  {ACTION_MAGIC,1,{KEY_M},ActionPlayerAttack,0},
 };
 
 typedef struct env_s{

@@ -8,6 +8,8 @@ mouse_controller_t mousectrl;
 play_area_t play_area;
 camera_t* cam;
 
+key_controller_t keyctrl;
+
 void InitPlayArea(void){
   float sx = GetScreenWidth()/DESIGN_WIDTH;
   float sy = GetScreenHeight()/DESIGN_HEIGHT;
@@ -21,6 +23,8 @@ void InitPlayArea(void){
 
   play_area.area[AREA_PLAY] = Rect(0,0,ROOM_WIDTH,ROOM_HEIGHT);
   play_area.area[AREA_UI] = Rect(0,0,DESIGN_WIDTH*scale,DESIGN_HEIGHT * scale);
+  for(int i = 0; i < ELEMENT_COUNT; i++)
+    play_area.screen_icons[i] = InitSpriteByID(i,SHEET_UI);
 }
 
 void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target){
@@ -72,11 +76,28 @@ void ScreenCameraSync(Cell target){
   if(!ScreenCameraSyncView(target))
     return;
 
-  cam->camera->target = Vector2Lerp(cam->camera->target,vpos,0.05);
+  cam->camera->target = Vector2Lerp(cam->camera->target,vpos,0.2);
 
   cam->target = target;
 
 
+}
+
+void ScreenRender(void){
+  if(!keyctrl.active)
+    return;
+
+  play_area.screen_icons[UI_SELECTOR_EMPTY]->is_visible = true;
+  DrawSpriteAtPos(play_area.screen_icons[UI_SELECTOR_EMPTY],CellToVector2(keyctrl.pos,CELL_WIDTH));
+  for (int i = 0; i < keyctrl.selected; i++){
+    if(!keyctrl.selections[i])
+      continue;
+
+    play_area.screen_icons[UI_SELECTOR_CHOSEN]->is_visible = true;
+    Vector2 pos = CellToVector2(keyctrl.selections[i]->coords,CELL_WIDTH);
+    DrawSpriteAtPos(play_area.screen_icons[UI_SELECTOR_CHOSEN],pos);
+
+  }
 }
 
 float ScreenSized(PlaySizes s){
@@ -101,6 +122,78 @@ void InitScreenInteractive(void){
       .offset = VECTOR2_ZERO,
       .target = NULL
   };
+
+  keyctrl = (key_controller_t) {0};
+}
+
+void ScreenActivateSelector(Cell pos, int num, bool occupied){
+  keyctrl.active = true;
+  keyctrl.pos = pos;
+  keyctrl.desired = num;
+  keyctrl.occupied = occupied;
+  keyctrl.selected = 0;
+}
+
+bool ScreenSelectorInput(void){
+  if(!keyctrl.active)
+    return false;
+
+  for(int i = 0; i < ACTION_DONE; i++){
+    ActionType a = selector_keys[i].action;
+    ActionKeyCallback fn = selector_keys[i].fn;
+    for(int j = 0; j<selector_keys[i].num_keys; j++){
+      KeyboardKey k = selector_keys[i].keys[j];
+      if(!IsKeyPressed(k))
+        continue;
+
+      return fn(NULL,a,k);
+    }
+  }
+}
+
+bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k){
+  if(keyctrl.selected >= keyctrl.desired)
+    return false;
+
+  map_cell_t* sel = WorldGetTile(keyctrl.pos);
+
+  if(keyctrl.occupied && sel->occupant==NULL)
+    return false;
+
+  keyctrl.selections[keyctrl.selected++] = sel;
+
+  return true;
+}
+
+bool ScreenMoveSelector(struct ent_s* e, ActionType a, KeyboardKey k){
+
+  Cell dir;
+
+  switch(k){
+    case KEY_A:
+    case KEY_LEFT:
+      dir = CELL_LEFT;
+      break;
+    case KEY_D:
+    case KEY_RIGHT:
+      dir = CELL_RIGHT;
+      break;
+    case KEY_W:
+    case KEY_UP:
+      dir = CELL_UP;
+      break;
+    case KEY_S:
+    case KEY_DOWN:
+      dir = CELL_DOWN;
+      break;
+    default:
+      break;
+  }
+
+  keyctrl.pos = CellInc(keyctrl.pos,dir);
+
+  return true;
+
 }
 
 void ClearMouse(void){
@@ -135,6 +228,10 @@ void ScreenSyncMouse(void){
   }
 }
 
+void ScreenSyncKey(void){
+  ScreenSelectorInput();
+}
+
 Vector2 CaptureInput(){
   Vector2 input = {0.0f,0.0f};
 
@@ -145,7 +242,6 @@ Vector2 CaptureInput(){
 
   return input;
 }
-
 
 ent_t* ScreenEntMouseHover(void){
 /*

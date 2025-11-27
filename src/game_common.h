@@ -68,6 +68,7 @@ typedef enum{
   ATTR_INT,
   ATTR_WIS,
   ATTR_CHAR,
+  ATTR_BLANK,
   ATTR_DONE
 }AttributeType;
 
@@ -161,9 +162,11 @@ typedef struct{
 typedef enum{
   ABILITY_NONE,
   ABILITY_BITE,
+  ABILITY_CLAW,
   ABILITY_SWIPE,
   ABILITY_BITE_POISON,
   ABILITY_POISON,
+  ABILITY_MAGIC_MISSLE,
   ABILITY_DONE
 }AbilityID;
 
@@ -209,7 +212,8 @@ static attribute_name_t attributes[ATTR_DONE]={
   {ATTR_DEX,"DEXTERITY"},
   {ATTR_INT,"INTELLIGENCE"},
   {ATTR_WIS,"WISDOM"},
-  {ATTR_CHAR,"CHARISMA"}
+  {ATTR_CHAR,"CHARISMA"},
+  {ATTR_BLANK,"REROLL"}
 };
 
 static stat_attribute_relation_t stat_modifiers[STAT_DONE]={
@@ -245,6 +249,7 @@ typedef enum{
   ENT_TROLL,
   ENT_TROLL_CAVE,
   ENT_BEAR,
+  ENT_WOLF,
   ENT_DONE
 }EntityType;
 
@@ -397,7 +402,7 @@ static const size_category_t MOB_SIZE[MOB_DONE]={
                   [SIZE_LARGE] = {[STAT_HEALTH]=4,[STAT_AGGRO]=1},
                   [SIZE_HUGE] = {[STAT_HEALTH]=8,[STAT_AGGRO]=2}},
   {[SIZE_SMALL]={[ATTR_DEX]=3,[ATTR_STR]=-2},
-    [SIZE_LARGE]={[ATTR_STR]=3,[ATTR_CON]=2},
+    [SIZE_LARGE]={[ATTR_STR]=2,[ATTR_CON]=2},
     [SIZE_HUGE] ={[ATTR_STR]=6,[ATTR_CON]=4,[ATTR_DEX]=-2}}
   },
   {MOB_MONSTROUS},
@@ -408,9 +413,9 @@ static const size_category_t MOB_SIZE[MOB_DONE]={
     [SIZE_SMALL]={[ATTR_STR]=-3,[ATTR_DEX]=4},
     [SIZE_LARGE] ={[ATTR_STR]=2,[ATTR_CON]=2}}
   },
-
-
 };
+
+
 typedef struct {
   MobCategory category;
   int     stats[STAT_DONE];
@@ -454,6 +459,7 @@ static const SpeciesType RACE_MAP[ENT_DONE] = {
   [ENT_SPIDER] = SPEC_ARTHROPOD,
   [ENT_SCORPION] = SPEC_ARTHROPOD,
   [ENT_BEAR] = SPEC_CANIFORM,
+  [ENT_WOLF] = SPEC_CANIFORM,
 };
 
 static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
@@ -511,6 +517,7 @@ static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
   [ENT_SCORPION] = MOB_BEAST,
   [ENT_SPIDER] = MOB_BEAST,
   [ENT_BEAR] = MOB_BEAST,
+  [ENT_WOLF] = MOB_BEAST,
    // === UNDEAD ===
 /*
   [ENT_SKELETON] = MOB_UNDEAD,
@@ -604,13 +611,24 @@ typedef enum{
   GEAR_LEATHER_CAP,
   GEAR_CLUB,
   GEAR_HAND_AXE,
+  GEAR_CLOTH_ARMOR,
+  GEAR_DAGGER,
   GEAR_DONE
 }GearID;
+
+typedef struct{
+  unsigned int  uid;
+  ItemCategory  cat;
+  int           item_id;
+  int           weight,rarity;
+}loot_t;
 
 typedef enum{
   ACTION_NONE,
   ACTION_MOVE,
   ACTION_ATTACK,
+  ACTION_MAGIC,
+  ACTION_SELECT,
   ACTION_DONE
 }ActionType;
 
@@ -621,6 +639,7 @@ typedef struct{
   int               num_keys;
   KeyboardKey       keys[8];
   ActionKeyCallback fn;
+  int               binding;
 }action_key_t;
 
 typedef bool (*OnActionCallback)(struct ent_s* e, ActionType a);
@@ -774,7 +793,7 @@ void FormulaDie(stat_t* self);
 
 stat_t* InitStatHealth(float val);
 stat_t* InitStatOnMin(StatType attr, float min, float max);
-stat_t* InitStatOnMax(StatType attr, float val);
+stat_t* InitStatOnMax(StatType attr, float val, AttributeType modified_by);
 stat_t* InitStatEmpty(void);
 stat_t* InitStat(StatType attr,float min, float max, float amount);
 bool StatExpand(stat_t* s, int val, bool fill);
@@ -803,6 +822,7 @@ typedef enum{
   STATE_AGGRO,
   STATE_ATTACK,
   STATE_STANDBY,
+  STATE_SELECTION,
   STATE_DIE,//<===== In MOST cases. Should not be able to go down from DIE
   STATE_END//sentinel entity state should never be this or greater
 }EntityState;
@@ -900,6 +920,7 @@ typedef struct {
   char        name[MAX_NAME_LEN];
   int         min,max;
   float       cr;
+  int         budget;
   SpawnType   spawn;
   GearID      items[ITEM_DONE];
   AbilityID   abilities[6];
@@ -907,13 +928,15 @@ typedef struct {
 } ObjectInstance;
 
 typedef enum{
+  UI_SELECTOR_CHOSEN=1,
+  UI_SELECTOR_EMPTY,
+  UI_SELECTOR_VALID,
+  UI_ALL,
+}UiType;
+
+typedef enum{
   ELEMENT_EMPTY,
-  ELEMENT_PANEL_GRAY,
-  ELEMENT_PANEL_GRAY_WIDE,
-  ELEMENT_BUTTON_GRAY_ACTIVE,
-  ELEMENT_BUTTON_GRAY,
-  ELEMENT_BOX_GRAY,
-  ELEMENT_ERROR_WIDE,
+  UI_DONE = UI_ALL,
   ELEMENT_COUNT
 }ElementID;
 

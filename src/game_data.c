@@ -4,10 +4,12 @@
 
 ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
-  {ABILITY_BITE, DMG_PIERCE, 25,20, 4, 1, 2, ATTR_NONE},
-  {ABILITY_SWIPE, DMG_SLASH, 50,10, 6, 2, 6, ATTR_NONE},
-  {ABILITY_BITE_POISON, DMG_PIERCE, 25,10, 4, 1, 2, ATTR_NONE,ABILITY_POISON},
-  {ABILITY_POISON, DMG_POISON, 25,10, 9, 1, 4,ATTR_CON},
+  {ABILITY_BITE, DMG_PIERCE, DES_NONE, 25,20, 4, 1, 4,4, 1, ATTR_NONE, ATTR_STR},
+  {ABILITY_CLAW, DMG_SLASH, DES_NONE, 50,10, 6, 2, 3, 1, 1, ATTR_NONE, ATTR_STR},
+  {ABILITY_SWIPE, DMG_SLASH, DES_NONE, 50,10, 6, 2, 6, 3,1, ATTR_NONE, ATTR_STR},
+  {ABILITY_BITE_POISON, DMG_PIERCE, DES_NONE, 25,10, 4, 1, 2, 0,1, ATTR_NONE, ATTR_STR,ABILITY_POISON},
+  {ABILITY_POISON, DMG_POISON, DES_NONE, 25,10, 9, 1, 3,0,1,ATTR_CON, ATTR_NONE},
+  {ABILITY_MAGIC_MISSLE ,DMG_FORCE, DES_SELECT_TARGET, 20,20,99,1,4,1,3,ATTR_NONE, ATTR_NONE},
 };
 
 item_fn_t item_funcs[ITEM_DONE] = {
@@ -19,7 +21,7 @@ item_fn_t item_funcs[ITEM_DONE] = {
 
 category_stats_t CATEGORY_STATS[MOB_DONE] = {
   {MOB_HUMANOID, 
-    {[STAT_HEALTH]=9, [STAT_REACH]=1,[STAT_ARMOR]=0,[STAT_AGGRO]=4,[STAT_ACTIONS]= 1},
+    {[STAT_HEALTH]=8, [STAT_REACH]=1,[STAT_ARMOR]=0,[STAT_AGGRO]=4,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 4, [ATTR_STR]=4, [ATTR_DEX]=3, [ATTR_INT]=4,[ATTR_WIS]=3,[ATTR_CHAR]=3}
   },
   {MOB_MONSTROUS,     
@@ -28,7 +30,7 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
   },
   {MOB_BEAST,
     {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=5,[STAT_ACTIONS]= 1},
-    {[ATTR_CON]= 4, [ATTR_STR]=5, [ATTR_DEX]=5, [ATTR_INT]=3,[ATTR_WIS]=1,[ATTR_CHAR]=1}
+    {[ATTR_CON]= 4, [ATTR_STR]=4, [ATTR_DEX]=5, [ATTR_INT]=3,[ATTR_WIS]=1,[ATTR_CHAR]=1}
   },
   {MOB_UNDEAD, 
     {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=3,[STAT_ACTIONS]= 1},
@@ -52,16 +54,16 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
   },
   {MOB_PLAYER, 
     {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
-    {[ATTR_CON]= 6, [ATTR_STR]=6, [ATTR_DEX]=6, [ATTR_INT]=6,[ATTR_WIS]=6,[ATTR_CHAR]=6}
+    {[ATTR_CON]= 0, [ATTR_STR]=0, [ATTR_DEX]=0, [ATTR_INT]=0,[ATTR_WIS]=0,[ATTR_CHAR]=0}
   },
 };
 species_stats_t RACIALS[SPEC_DONE]={
   {SPEC_NONE},
   {SPEC_HUMAN, {},
     {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_INT]=1,[ATTR_WIS]=1,[ATTR_CHAR]=1}},
-  {SPEC_GREENSKIN, {[STAT_HEALTH]=2, [STAT_ARMOR]=4},
-    {[ATTR_CON]=1,[ATTR_STR]=2,[ATTR_INT]=-1,[ATTR_WIS]=-1}},
-  {SPEC_ARTHROPOD, {[STAT_ARMOR]=3},
+  {SPEC_GREENSKIN, {[STAT_HEALTH]=2, [STAT_ARMOR]=2},
+    {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_INT]=-1,[ATTR_WIS]=-1}},
+  {SPEC_ARTHROPOD, {[STAT_HEALTH]=-3,[STAT_ARMOR]=3},
     {[ATTR_DEX]=2}},
   {SPEC_ETHEREAL,{},
     {[ATTR_STR] -2, [ATTR_DEX]=3}},
@@ -69,8 +71,8 @@ species_stats_t RACIALS[SPEC_DONE]={
     {[ATTR_INT]=-1, [ATTR_DEX]=-1}},
   {SPEC_VAMPIRIC, {[STAT_HEALTH]=2},
     {[ATTR_DEX]=2,[ATTR_CHAR]=3}},
-  {SPEC_CANIFORM, {[STAT_AGGRO]=2,},
-    {[ATTR_STR]=1,[ATTR_DEX]=2}
+  {SPEC_CANIFORM, {[STAT_HEALTH]=1,[STAT_AGGRO]=2,},
+    {[ATTR_STR]=1,[ATTR_DEX]=1}
   },
 };
 weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
@@ -80,11 +82,12 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
   {WEAP_PIERCE},
 };
 
+
 armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
   {ARMOR_NONE},
   {ARMOR_NATURAL},
   {ARMOR_PADDED, 8},
-  {ARMOR_LEATHER, 2, 
+  {ARMOR_LEATHER, 10, 
     {{[DMG_SLASH]=1,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
     8,10,ATTR_DEX,ATTR_NONE,10,0,{}},
@@ -100,24 +103,24 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
 
 static const challenge_rating_t CR[34]={
   {0,10,3},
-  {0.125,25,3},
-  {0.25,50,4},
-  {0.5,100,5},
-  {1,200,6},
-  {2,450,7},
-  {3,700,8},
-  {4,1100,9}, 
-  {5,1800,10}, 
-  {6,2300,11},
-  {7,2900,12},
-  {8,3900,13},
-  {9,5000,14},
-  {10,5900,15},
-  {11,7200,16},
-  {12,8400,17},
-  {13,10000,18},
-  {14,11500,19},
-  {15,13000,20},
+  {0.125,25,4},
+  {0.25,50,5},
+  {0.5,100,6},
+  {1,200,7},
+  {2,450,8},
+  {3,700,9},
+  {4,1100,10}, 
+  {5,1800,11}, 
+  {6,2300,12},
+  {7,2900,13},
+  {8,3900,14},
+  {9,5000,15},
+  {10,5900,16},
+  {11,7200,17},
+  {12,8400,18},
+  {13,10000,19},
+  {14,11500,20},
+  {15,13000,21},
   {16,15000,21}, 
   {17,18000,21}, 
   {18,20000,21}, 
@@ -225,7 +228,7 @@ stat_t* InitStatOnMin(StatType attr, float min, float max){
  return s;
 }
 
-stat_t* InitStatOnMax(StatType attr, float val){
+stat_t* InitStatOnMax(StatType attr, float val, AttributeType modified_by){
  stat_t* s = malloc(sizeof(stat_t));
  stat_attribute_relation_t relate = stat_modifiers[attr];
  *s =(stat_t){
@@ -236,11 +239,12 @@ stat_t* InitStatOnMax(StatType attr, float val){
       .ratio = StatGetRatio,
       .increment = 1,
       .die = Die(1,val),
-      .start = FormulaDieAddAttr
+      .start = FormulaDieAddAttr,
+      .lvl = FormulaDieAddAttr
   };
 
- for(int i = 0; i < ATTR_DONE; i++)
-   s->modified_by[i] = relate.modifier[i];
+ if(modified_by > ATTR_NONE)
+   s->modified_by[modified_by] = relate.modifier[modified_by];
 
  return s;
 
@@ -253,14 +257,23 @@ bool StatIsEmpty(stat_t* s){
 stat_t* InitStatEmpty(void){}
 stat_t* InitStat(StatType attr,float min, float max, float amount){
  stat_t* s = malloc(sizeof(stat_t));
+ stat_attribute_relation_t relate = stat_modifiers[attr];
+
  *s =(stat_t){
     .attribute = attr,
       .min = min,
       .max = max,
       .current = amount,
       .ratio = StatGetRatio,
-      .increment = 1.0f
-  }; return s;
+      .increment = 1.0f,
+      .die = Die(1,amount),
+      .start = FormulaDieAddAttr,
+      .lvl = FormulaDieAddAttr
+ }; 
+ for(int i = 0; i < ATTR_DONE; i++)
+   s->modified_by[i] = relate.modifier[i];
+
+ return s;
 
 }
 

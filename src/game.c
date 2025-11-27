@@ -35,6 +35,7 @@ void UpdateGameplayScreen(void)
 {
   ScreenCameraSync( WorldPlayer()->pos );
   ScreenSyncMouse();
+  ScreenSyncKey();
 }
 
 // Gameplay Screen Draw logic

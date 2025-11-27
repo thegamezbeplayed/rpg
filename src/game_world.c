@@ -65,6 +65,10 @@ ent_t* WorldGetEntAtTile(Cell tile){
   return MapGetTile(world.map,tile)->occupant;
 }
 
+map_cell_t* WorldGetTile(Cell pos){
+  return MapGetTile(world.map,pos);
+}
+
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len){
 
   int start_x = CLAMP(pos.x - len,1,GRID_WIDTH);
@@ -349,7 +353,8 @@ void WorldRender(){
 
   float darkness = world.time->current * world.time->ratio(world.time);
   DrawScreenOverlay(darkness);
-  
+ 
+ ScreenRender(); 
   /*
   for(int i = 0; i < MAX_EVENTS; i++){
     if(!world.floatytext_used[i])

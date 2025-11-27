@@ -21,15 +21,17 @@ void InitResources(){
   //SpriteLoadSlicedTextures();
   Image spritesImg = LoadImage(TextFormat("resources/%s",ENT_IMAGE_PATH)); 
   Image tilesImg = LoadImage(TextFormat("resources/%s",ENV_IMAGE_PATH)); 
-  //Image uiImg = LoadImage(TextFormat("resources/%s",UI_IMAGE_PATH)); 
+  Image uiImg = LoadImage(TextFormat("resources/%s",UI_IMAGE_PATH)); 
   SHEETS[SHEET_ENT].sprite_sheet = malloc(sizeof(Texture2D));
   SHEETS[SHEET_ENV].sprite_sheet = malloc(sizeof(Texture2D));
-  //SHEETS[SHEET_UI].sprite_sheet = malloc(sizeof(Texture2D));
+  SHEETS[SHEET_UI].sprite_sheet = malloc(sizeof(Texture2D));
   //uidata.sprite_sheet = malloc(sizeof(Texture2D));
   SpriteLoadSubTextures(ENT_SPRITES,SHEET_ENT,ENT_DONE);
   SpriteLoadSubTextures(ENVIRO_SPRITES,SHEET_ENV,ENV_DONE);
+  SpriteLoadSubTextures(UI_SPRITES,SHEET_UI,ELEMENT_COUNT);
   *SHEETS[SHEET_ENT].sprite_sheet = LoadTextureFromImage(spritesImg);
   *SHEETS[SHEET_ENV].sprite_sheet = LoadTextureFromImage(tilesImg);
+  *SHEETS[SHEET_UI].sprite_sheet = LoadTextureFromImage(uiImg);
   //*uidata.sprite_sheet = LoadTextureFromImage(uiImg);
 
 }
