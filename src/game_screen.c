@@ -126,12 +126,13 @@ void InitScreenInteractive(void){
   keyctrl = (key_controller_t) {0};
 }
 
-void ScreenActivateSelector(Cell pos, int num, bool occupied){
+void ScreenActivateSelector(Cell pos, int num, bool occupied, SelectionCallback on_select){
   keyctrl.active = true;
   keyctrl.pos = pos;
   keyctrl.desired = num;
   keyctrl.occupied = occupied;
   keyctrl.selected = 0;
+  keyctrl.on_select = on_select;
 }
 
 bool ScreenSelectorInput(void){
@@ -146,22 +147,24 @@ bool ScreenSelectorInput(void){
       if(!IsKeyPressed(k))
         continue;
 
-      return fn(NULL,a,k);
+      return fn(player,a,k);
     }
   }
 }
 
-bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k){
-  if(keyctrl.selected >= keyctrl.desired)
-    return false;
+key_controller_t* ScreenGetSelection(void){
+  return &keyctrl;
+}
 
+bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k){
   map_cell_t* sel = WorldGetTile(keyctrl.pos);
 
   if(keyctrl.occupied && sel->occupant==NULL)
     return false;
 
   keyctrl.selections[keyctrl.selected++] = sel;
-
+  if(keyctrl.on_select)
+    keyctrl.on_select(player, a, sel);
   return true;
 }
 
@@ -229,7 +232,13 @@ void ScreenSyncMouse(void){
 }
 
 void ScreenSyncKey(void){
-  ScreenSelectorInput();
+  if(ScreenSelectorInput())
+    if(keyctrl.selected >= keyctrl.desired){
+      keyctrl.active = false;
+      ActionType next = ActionGetEntNext(player);
+      action_turn_t* action = player->actions[next];
+      TakeAction(player,action);
+    }
 }
 
 Vector2 CaptureInput(){

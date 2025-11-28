@@ -4,12 +4,12 @@
 
 ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
-  {ABILITY_BITE, DMG_PIERCE, DES_NONE, 25,20, 4, 1, 4,4, 1, ATTR_NONE, ATTR_STR},
-  {ABILITY_CLAW, DMG_SLASH, DES_NONE, 50,10, 6, 2, 3, 1, 1, ATTR_NONE, ATTR_STR},
-  {ABILITY_SWIPE, DMG_SLASH, DES_NONE, 50,10, 6, 2, 6, 3,1, ATTR_NONE, ATTR_STR},
-  {ABILITY_BITE_POISON, DMG_PIERCE, DES_NONE, 25,10, 4, 1, 2, 0,1, ATTR_NONE, ATTR_STR,ABILITY_POISON},
-  {ABILITY_POISON, DMG_POISON, DES_NONE, 25,10, 9, 1, 3,0,1,ATTR_CON, ATTR_NONE},
-  {ABILITY_MAGIC_MISSLE ,DMG_FORCE, DES_SELECT_TARGET, 20,20,99,1,4,1,3,ATTR_NONE, ATTR_NONE},
+  {ABILITY_BITE, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 4,4, 1, ATTR_NONE, ATTR_STR},
+  {ABILITY_CLAW, DMG_SLASH, STAT_STAMINA, DES_NONE, 50,2, 6, 2, 3, 1, 1, ATTR_NONE, ATTR_STR},
+  {ABILITY_SWIPE, DMG_SLASH,STAT_STAMINA, DES_NONE, 50,2, 6, 2, 6, 3,1, ATTR_NONE, ATTR_STR},
+  {ABILITY_BITE_POISON, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2, 0,1, ATTR_NONE, ATTR_STR,ABILITY_POISON},
+  {ABILITY_POISON, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,ATTR_CON, ATTR_NONE},
+  {ABILITY_MAGIC_MISSLE ,DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,ATTR_NONE, ATTR_NONE},
 };
 
 item_fn_t item_funcs[ITEM_DONE] = {
@@ -21,7 +21,7 @@ item_fn_t item_funcs[ITEM_DONE] = {
 
 category_stats_t CATEGORY_STATS[MOB_DONE] = {
   {MOB_HUMANOID, 
-    {[STAT_HEALTH]=8, [STAT_REACH]=1,[STAT_ARMOR]=0,[STAT_AGGRO]=4,[STAT_ACTIONS]= 1},
+    {[STAT_HEALTH]=8, [STAT_REACH]=1,[STAT_ARMOR]=0,[STAT_AGGRO]=4,[STAT_ACTIONS]= 1,[STAT_STAMINA]=4},
     {[ATTR_CON]= 4, [ATTR_STR]=4, [ATTR_DEX]=3, [ATTR_INT]=4,[ATTR_WIS]=3,[ATTR_CHAR]=3}
   },
   {MOB_MONSTROUS,     
@@ -53,7 +53,7 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
     {[ATTR_CON]= 3, [ATTR_STR]=2, [ATTR_DEX]=2, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=1}
   },
   {MOB_PLAYER, 
-    {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1},
+    {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1, [STAT_STAMINA] = 4, [STAT_ENERGY] = 4},
     {[ATTR_CON]= 0, [ATTR_STR]=0, [ATTR_DEX]=0, [ATTR_INT]=0,[ATTR_WIS]=0,[ATTR_CHAR]=0}
   },
 };
@@ -77,8 +77,8 @@ species_stats_t RACIALS[SPEC_DONE]={
 };
 weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
   {WEAP_NONE},
-  {WEAP_BLUNT,5,1,1,8,DMG_BLUNT,{[STAT_DAMAGE]=8,[STAT_REACH]=1},{},0},
-  {WEAP_SLASH,7,1,1,8,DMG_SLASH,{[STAT_DAMAGE]=8,[STAT_REACH]=1},{},0},
+  {WEAP_BLUNT,5,1,1,8,DMG_BLUNT,{[STAT_DAMAGE]=8,[STAT_REACH]=1,[STAT_STAMINA]=1},{},0},
+  {WEAP_SLASH,7,1,1,8,DMG_SLASH,{[STAT_DAMAGE]=8,[STAT_REACH]=1,[STAT_STAMINA]=1},{},0},
   {WEAP_PIERCE},
 };
 
@@ -291,6 +291,9 @@ bool StatIncrementValue(stat_t* attr,bool increase){
     inc*=-1;
 
   float old = attr->current;
+  if(old+inc<attr->min)
+    return false;
+
   attr->current+=inc;
   attr->current = CLAMPF(attr->current,attr->min, attr->max);
   float cur = attr->current;
@@ -298,6 +301,9 @@ bool StatIncrementValue(stat_t* attr,bool increase){
   if(attr->current == attr->max && old != attr->max)
     if(attr->on_stat_full)
       attr->on_stat_full(attr,old,cur);
+
+  if(StatIsEmpty(attr)&& attr->on_stat_empty)
+    attr->on_stat_empty(attr,old,cur);
 
   if(attr->current != old)
     if(attr->on_stat_change != NULL)
@@ -346,10 +352,25 @@ float StatGetRatio(stat_t *self){
 
 void FormulaDieAddAttr(stat_t* self){
   int modifier = 0;
+      
+  stat_attribute_relation_t* rel = &stat_modifiers[self->attribute];
+  
   for(int i = 0; i < ATTR_DONE;i++){
-    if(self->modified_by[i])
-      modifier += isqrt(self->owner->attribs[i]->val); 
+    if(self->modified_by[i]){
+      ModifierType mod = rel->modifier[i];
+      switch(mod){
+        case MOD_SQRT:  
+          modifier += isqrt(self->owner->attribs[i]->val); 
+          break;
+        case MOD_ADD:
+          modifier += self->owner->attribs[i]->val;
+          break;
+        default:
+          break;
+      }
+    }
   }
+
   self->base += self->die->roll(self->die);
 
   self->max=self->base+modifier;

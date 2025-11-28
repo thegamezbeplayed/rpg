@@ -23,20 +23,12 @@ typedef enum{
   RANGE_EMPTY 
 }RangeType;   
 
-typedef enum{
-  DES_NONE,
-  DES_FACING,
-  DES_SELECT_TARGET,
-  DES_MULTI_TARGET,
-  DES_AREA,
-  DES_DIR,
-}DesignationType;
-
 typedef bool (*AbilityCallback)(struct ent_s* owner,  struct ability_s* chain, struct ent_s* target);
 
 typedef struct ability_s{
   AbilityID        id;
   DamageType       school;
+  StatType         resource;
   DesignationType  targeting;
   int              weight,cost,hdie,die,side,bonus,reach;
   AttributeType    save,mod;
@@ -57,6 +49,7 @@ typedef struct item_def_s{
   ItemCategory        category;        // weapon / armor / potion / scroll
   DamageType          damage;
   damage_reduction_t  *dr;
+  int                 weight;
   stat_t              *stats[STAT_DONE];     // modifiers (e.g. +2 STR)
   AbilityID           ability;
   sprite_t            *sprite;     // icon
@@ -163,20 +156,23 @@ void StepState(ent_t *e);
 void OnStateChange(ent_t *e, EntityState old, EntityState s);
 bool CanChangeState(EntityState old, EntityState s);
 
+void EntActionsTaken(stat_t* self, float old, float cur);
 bool EntCanTakeAction(ent_t* e);
 void InitActions(action_turn_t* actions[ACTION_DONE]);
-action_turn_t* InitAction(ActionType t, TakeActionCallback fn, OnActionCallback cb);
+action_turn_t* InitAction(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb);
 bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k);
 bool ActionMove(ent_t*, ActionType a, KeyboardKey k);
 void ActionStandby(ent_t* e);
 void ActionSync(ent_t* e);
 bool ActionInput(void);
-bool SetAction(ent_t* e, ActionType a, void* context);
+bool SetAction(ent_t* e, ActionType a, void* context, DesignationType targeting);
 bool ActionTaken(ent_t* e, ActionType a);
 bool TakeAction(ent_t* e, action_turn_t* action);
 bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb);
 ActionType ActionGetEntNext(ent_t* e);
 bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb);
+bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb);
+void ActionSetTarget(ent_t* e, ActionType a, void* target);
 
 static action_key_t action_keys[ACTION_DONE] = {
   {ACTION_NONE},

@@ -267,9 +267,7 @@ void WorldPreUpdate(){
 }
 
 void WorldFixedUpdate(){
-  if(ActionInput()){
-    ResetEvent(game_process.events,EVENT_TURN);
-  }
+  ActionInput();
   for(int i = 0; i < world.num_ent; i++){
     switch(world.ents[i]->state){
       case STATE_END:
@@ -297,6 +295,10 @@ void WorldPostUpdate(){
 
     world.texts[i]->duration--;
   }
+}
+
+void WorldEndTurn(void){
+  ResetEvent(game_process.events,EVENT_TURN);
 }
 
 void WorldTurnUpdate(void* context){

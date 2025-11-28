@@ -56,6 +56,11 @@ typedef enum{
   STAT_AGGRO,
   STAT_STEALTH,
   STAT_ACTIONS,
+  STAT_ENERGY,
+  STAT_STAMINA,
+  STAT_STAMINA_REGEN,
+  STAT_ENERGY_REGEN,
+  STAT_ENT_DONE,
   STAT_TIME,
   STAT_DONE,
 }StatType;
@@ -201,6 +206,25 @@ typedef struct{
 }attribute_name_t;
 
 typedef struct{
+  StatType s;
+  const char* name;
+}stat_name_t;
+
+static stat_name_t STAT_STRING[STAT_ENT_DONE]={
+  {STAT_REACH,"Reach"},
+  {STAT_DAMAGE,"Damage"},
+  {STAT_HEALTH,"Health"},
+  {STAT_ARMOR, "Armor"},
+  {STAT_AGGRO, "Sight"},
+  {STAT_STEALTH, "Stealth"},
+  {STAT_ACTIONS, "Actions"},
+  {STAT_ENERGY,"Spell Energy"},
+  {STAT_STAMINA, "Stamina"},
+  {STAT_STAMINA_REGEN,"Stamina Regen"},
+  {STAT_ENERGY_REGEN, "Spell Regen"},
+};
+
+typedef struct{
   StatType       stat;
   ModifierType   modifier[ATTR_DONE];
 }stat_attribute_relation_t;
@@ -223,6 +247,11 @@ static stat_attribute_relation_t stat_modifiers[STAT_DONE]={
   [STAT_ARMOR]={STAT_ARMOR,{[ATTR_DEX]=MOD_SQRT}},
   [STAT_AGGRO]={STAT_AGGRO,{}},
   [STAT_ACTIONS]={STAT_ACTIONS,{}},
+  [STAT_ENERGY] = {STAT_ENERGY,{[ATTR_INT]=MOD_ADD,[ATTR_WIS]=MOD_ADD}},
+  [STAT_STAMINA]= {STAT_STAMINA,{[ATTR_CON]=MOD_ADD,[ATTR_DEX]=MOD_ADD,[ATTR_STR]=MOD_ADD}},
+  [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN,{[ATTR_CON]=MOD_SQRT}},
+  [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN,{[ATTR_WIS]=MOD_SQRT}},
+
 };
 
 struct attribute_s;
@@ -645,10 +674,30 @@ typedef struct{
 typedef bool (*OnActionCallback)(struct ent_s* e, ActionType a);
 typedef bool (*TakeActionCallback)(struct ent_s* e, ActionType a, OnActionCallback cb);
 
+typedef enum{
+  DES_NONE,
+  DES_FACING,
+  DES_SELECT_TARGET,
+  DES_MULTI_TARGET,
+  DES_AREA,
+  DES_DIR,
+}DesignationType;
+
+typedef struct{
+  DesignationType   type;
+  union {
+    Cell* tile;
+    struct ent_s* mob;
+  } target;
+}action_target_t;
+
 typedef struct{
   bool                on_deck;
   ActionType          action;
+  DesignationType     targeting;
   void*               context;
+  int                 num_targets;
+  action_target_t*    targets[5];
   TakeActionCallback  fn;
   OnActionCallback    cb;
 }action_turn_t;
@@ -875,6 +924,10 @@ typedef enum{
 typedef enum{
   PROP_NONE,
   PROP_LIGHT,
+  PROP_HEAVY,
+  PROP_MARTIAL,
+  PROP_TWO_HANDED,
+  PROP_REACH,
   PROP_DONE
 }WeaponProp;
 
@@ -901,7 +954,7 @@ typedef struct{
   WeaponType      type;
   int             cost,weight,die,side;
   DamageType      dtype;
-  int             stats[STAT_DONE];
+  int             stats[STAT_ENT_DONE];
   bool            props[PROP_DONE];
   AbilityID       ability;
 }weapon_def_t;

@@ -3,14 +3,13 @@
 
 void InitActions(action_turn_t* actions[ACTION_DONE]){
   for (int i = 0; i < ACTION_DONE; i++)
-    actions[i] = InitAction(ACTION_NONE,NULL,NULL);
+    actions[i] = InitAction(ACTION_NONE,DES_NONE,NULL,NULL);
 }
 
-action_turn_t* InitAction(ActionType t, TakeActionCallback fn, OnActionCallback cb){
-  action_turn_t* a = malloc(sizeof(action_turn_t));
+action_turn_t* InitAction(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb){
+  action_turn_t* a = calloc(1,sizeof(action_turn_t));
 
-  *a = (action_turn_t){0};
-
+  a->targeting = targeting;
   a->action = t;
   a->fn = fn;
   a->cb = cb;
@@ -28,9 +27,9 @@ bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k){
   TileStatus* status =malloc(sizeof(TileStatus));
   ent_t* target = MapGetOccupant(e->map, e->facing, status);
   if(target)
-    return EntUseAbility(e, e->abilities[0], target);
+    return EntUseAbility(e, e->abilities[1], target);
 
-  return true;
+  return false;
 }
 
 bool ActionMove(ent_t* e, ActionType a, KeyboardKey k){
@@ -86,15 +85,27 @@ void ActionSync(ent_t* e){
   }
 }
 
+void EntActionsTaken(stat_t* self, float old, float cur){
+  if(self->owner == NULL)
+    return;
+
+  if(self->owner->type == ENT_PERSON)
+    WorldEndTurn();
+}
+
 bool ActionMakeSelection(Cell start, int num, bool occupied){
-  ScreenActivateSelector(start,num,occupied);
+  ScreenActivateSelector(start,num,occupied, ActionSetTarget);
 }
 
 bool ActionInput(void){
   if(player->state == STATE_SELECTION)
     return false;
 
+  ActionType acted = ACTION_NONE;
   for(int i = 0; i < ACTION_DONE; i++){
+    if(acted>ACTION_NONE)
+      break;
+
     ActionType a = action_keys[i].action;
     ActionKeyCallback fn = action_keys[i].fn;
     for(int j = 0; j<action_keys[i].num_keys; j++){
@@ -104,10 +115,8 @@ bool ActionInput(void){
 
       switch(action_keys[i].action){
         case ACTION_MOVE:
-          if(fn(player,a,k)){
-            SetState(player,STATE_STANDBY,NULL);
-            return true;
-          }
+          if(fn(player,a,k))
+            acted = ACTION_MOVE;
           break;
         case ACTION_ATTACK:
         case ACTION_MAGIC:
@@ -115,29 +124,40 @@ bool ActionInput(void){
           switch(ability->targeting){
             case DES_SELECT_TARGET:
             case DES_MULTI_TARGET:
-              SetState(player, STATE_SELECTION,NULL);
-              ActionMakeSelection(player->facing, ability->reach ,true);
+              ent_t* pool[8];
+              int dist = ability->reach;
+              Rectangle r = Rect(player->pos.x - dist, player->pos.y - dist, dist*2,2* dist);
+              int num_near = WorldGetEnts(pool, FilterEntInRect,&r);
+              if(num_near < 2)
+                break;
+              else{
+                SetState(player, STATE_SELECTION,NULL);
+                SetAction(player, a, ability, ability->targeting);
+                ActionMakeSelection(player->facing, ability->reach ,true);
+              }
               break;
             case DES_NONE:
             case DES_FACING:
             default:
-              if(fn(player,a,k)){
-                SetState(player,STATE_STANDBY,NULL);
-                return true;
-              }
+              if(fn(player,a,k))
+                acted = a;
               break;
           }
       }
     }
   }
 
+  if(acted > ACTION_NONE)
+    return ActionTaken(player,acted);
+  
   return false;
     
 }
 
 bool TakeAction(ent_t* e, action_turn_t* action){
   if(!action->fn(e,action->action,action->cb)){
-    SetState(e, STATE_STANDBY,NULL);
+    if(e->state == STATE_SELECTION)
+      SetState(e,STATE_IDLE,NULL);
     return false;
   }
 
@@ -168,7 +188,7 @@ bool ActionTaken(ent_t* e, ActionType a){
   return SetState(e, STATE_STANDBY,NULL);
 }
 
-bool SetAction(ent_t* e, ActionType a, void *context){
+bool SetAction(ent_t* e, ActionType a, void *context, DesignationType targeting){
   if(e->actions[a]->action == ACTION_NONE)
     return false;
 
@@ -178,6 +198,9 @@ bool SetAction(ent_t* e, ActionType a, void *context){
 
   }
 
+  e->actions[a]->targeting = targeting;
+  e->actions[a]->num_targets = 0;
+  //e->actions[a]->targets = ;
   e->actions[a]->context = context;
   e->actions[a]->on_deck = true;
   
@@ -195,6 +218,27 @@ bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb){
   return true;
 }
 
+void ActionSetTarget(ent_t* e, ActionType a, void* target){
+
+  map_cell_t* tile = target;
+  ActionType next = ActionGetEntNext(e);
+  action_turn_t* action = e->actions[next];
+
+  action_target_t* at = calloc(1,sizeof(action_target_t));
+  at->type = action->targeting;
+  
+  switch(action->targeting){
+    case DES_SELECT_TARGET:
+    case DES_MULTI_TARGET:
+      at->target.mob = tile->occupant;
+      break;
+    default:
+      break;
+  }
+      
+  action->targets[action->num_targets++] = at;
+}
+
 bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
   action_turn_t* inst = e->actions[a];
   if(!inst || !inst->context)
@@ -207,9 +251,36 @@ bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
  
   ent_t* target = e->control->target;
 
-  if(target)
-    return EntUseAbility(e, ab, target);
-
+  if(target){
+    EntUseAbility(e, ab, target);
+    return true;
+  }
   return false;
 
+}
+
+bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb){
+  action_turn_t* inst = e->actions[a];
+  if(!inst || !inst->context)
+    return false;
+
+  ability_t* ab = (ability_t*)inst->context;
+
+  bool success = false;
+
+  for (int i = 0; i < inst->num_targets; i++){
+    switch(ab->targeting){
+      case DES_SELECT_TARGET:
+      case DES_MULTI_TARGET:
+        ent_t* target = inst->targets[i]->target.mob;
+        success = EntUseAbility(e,ab,target)||success;
+        break;
+      default:
+        break;
+    }
+  }
+
+  if(!success)
+    TraceLog(LOG_WARNING,"DEBUG");
+  return success;
 }

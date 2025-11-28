@@ -15,7 +15,16 @@ extern Font font;
 static int fixedFPS = 60;
 
 typedef void (*UpdateFn)(void);
-typedef bool EntFilterFn(ent_t* e, ent_t* other); 
+typedef bool EntFilterFn(ent_t* e, void* params); 
+
+static bool FilterEntInRect(ent_t* e, void* params){
+  Rectangle* rect = params;
+
+  if(cell_in_rect(e->pos, *rect))
+    return e;
+
+  return NULL;
+}
 
 //INTERACTIONS_T===>
 typedef struct {
@@ -132,6 +141,7 @@ void WorldInitOnce();
 void WorldPreUpdate();
 void WorldFixedUpdate();
 void WorldPostUpdate();
+void WorldEndTurn(void);
 void WorldTurnUpdate(void* context);
 void InitWorld(world_data_t data);
 void WorldRender();

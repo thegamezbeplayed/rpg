@@ -102,6 +102,11 @@ static const ItemInstance room_items[GEAR_DONE] = {
 };
 
 static const item_prop_mod_t PROP_MODS[PROP_ALL]={
+  {PROP_MARTIAL,{[STAT_STAMINA] = 3}},
+  {PROP_LIGHT,{[STAT_STAMINA] = -2}},
+  {PROP_HEAVY,{[STAT_STAMINA] = 2}},
+  {PROP_TWO_HANDED,{[STAT_STAMINA] = -2}},
+  {PROP_REACH, {[STAT_REACH]= 1}},
   {QUAL_TRASH,{[STAT_DAMAGE]=-2}},
   {PROP_DONE}
 };

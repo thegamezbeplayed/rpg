@@ -24,8 +24,12 @@ ent_t* InitEnt(ObjectInstance data,Cell pos){
 
   EntCalcStats(e);
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
-
+  e->stats[STAT_ACTIONS]->on_stat_empty = EntActionsTaken;
+  
   InitActions(e->actions);
+  e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE, DES_FACING, NULL,NULL);
+  e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
+  e->actions[ACTION_MAGIC] = InitAction(ACTION_MAGIC, DES_MULTI_TARGET, ActionMultiTarget,NULL);
 
   for(int i = 0; i < GEAR_DONE; i++){
     if(data.items[i]==GEAR_NONE)
@@ -50,6 +54,26 @@ ent_t* InitEnt(ObjectInstance data,Cell pos){
       a->on_success = child;
       e->abilities[e->num_abilities++] = child;
     }
+  }
+
+  TraceLog(LOG_INFO,"%s has ====>\n<====STATS=====>",e->name);
+  for(int i = 0; i < STAT_ENT_DONE; i++){
+    if(e->stats[i] == NULL)
+      continue;
+    
+    int val = e->stats[i]->max;
+    const char* sname = STAT_STRING[i].name;
+    TraceLog(LOG_INFO,"%i %s \n",val,sname);
+  }
+
+  TraceLog(LOG_INFO,"<=====ATTRIBUTES=====>\n");
+  for(int i = 0; i < ATTR_DONE; i++){
+    if(e->attribs[i]==NULL)
+      continue;
+
+    int val = e->attribs[i]->val;
+    const char* name = attributes[i].name;
+    TraceLog(LOG_INFO,"%i %s",val,name);
   }
 
   SetState(e,STATE_SPAWN,NULL);
@@ -116,8 +140,8 @@ ent_t* InitMob(EntityType mob, Cell pos){
     e->control->bt[i] = InitBehaviorTree(data.behaviors[i]);
   }
 
-  e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE,ActionTraverseGrid,NULL);
-  e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK,ActionAttack,NULL);
+  e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE, DES_NONE, ActionTraverseGrid,NULL);
+  e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
 
   SetState(e,STATE_SPAWN,NULL);
   return e;
@@ -162,7 +186,7 @@ void EntCalcStats(ent_t* e){
     int val = base.attr[i] + racial.attr[i] + size.attr[e->size][i];
     e->attribs[i] = InitAttribute(i,val);
   }
-  for (int i = 0; i < STAT_DONE;i++){
+  for (int i = 0; i < STAT_ENT_DONE;i++){
     int val = base.stats[i] + racial.stats[i] + size.stats[e->size][i];
       e->stats[i] = InitStat(i,0,val,val);
     
@@ -225,6 +249,8 @@ item_def_t* item = calloc(1,sizeof(item_def_t));
 
   weapon_def_t temp = WEAPON_TEMPLATES[data.equip_type];
 
+  item->weight = temp.weight;
+
   item->damage = temp.dtype;
 
   item_prop_mod_t props = GetItemProps(data);
@@ -236,7 +262,7 @@ item_def_t* item = calloc(1,sizeof(item_def_t));
 
     item->stats[i] = InitStat(i, 1, stat, stat);
   }
-  
+
   return item;
 }
 
@@ -250,6 +276,7 @@ item_def_t* DefineArmor(ItemInstance data){
   armor_def_t temp = ARMOR_TEMPLATES[data.equip_type];
   item->stats[STAT_ARMOR] = InitStat(STAT_ARMOR,0,temp.armor_class, temp.armor_class);
 
+  item->weight = temp.weight;
   *item->dr = temp.dr_base;
 
   //item->ability = temp.ability;
@@ -455,17 +482,27 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
 
   memset(a->stats, 0, sizeof(a->stats));
 
+  a->cost = def->weight;
   a->stats[STAT_REACH] = def->stats[STAT_REACH];
   a->stats[STAT_DAMAGE] = InitStat(STAT_DAMAGE, 0,0,0);
+
+
+  a->stats[STAT_ENERGY] = def->stats[STAT_ENERGY];
+  a->stats[STAT_STAMINA] = def->stats[STAT_STAMINA];
 
   a->school = def->damage;
 
   for (int i = 0; i < STAT_DONE; i++){
     if(!a->stats[i])
       continue;
+    if((i == STAT_ENERGY && a->stats[i]->max > 0)||
+        i == STAT_STAMINA && a->stats[i]->max > 0){
+      a->resource = i;
+    }
     a->stats[i]->owner = owner;
   }
 
+  a->cost = a->stats[a->resource]->max;
   owner->abilities[owner->num_abilities++] = a;
 }
 
@@ -475,6 +512,10 @@ bool EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   if(a->save > ATTR_NONE)
     save = target->attribs[a->save]->val;
 
+  if(!StatChangeValue(e,e->stats[a->resource],-1*a->cost)){
+    TraceLog(LOG_INFO,"%s not enough %s",e->name, STAT_STRING[a->resource].name);
+    return false;
+  }
   if (hit < save){
     TraceLog(LOG_INFO,"%s misses",e->name);
     return false;

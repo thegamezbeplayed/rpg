@@ -121,7 +121,7 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
     return BEHAVIOR_FAILURE;
 
   e->control->destination = cell_dir(e->pos,next);
-  if(!SetAction(e,ACTION_MOVE,&e->control->destination))
+  if(!SetAction(e,ACTION_MOVE,&e->control->destination,DES_NONE))
     return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;
@@ -171,7 +171,7 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
   if(cell_compare(e->control->destination,CELL_UNSET))
     return BEHAVIOR_FAILURE;
   
-  if(!SetAction(e,ACTION_MOVE,&e->control->destination)){
+  if(!SetAction(e,ACTION_MOVE,&e->control->destination,DES_NONE)){
     e->control->destination = CELL_UNSET;
     return BEHAVIOR_FAILURE;
   }
@@ -229,7 +229,8 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
   if(!e)
     return BEHAVIOR_FAILURE;
 
- if(SetAction(e,ACTION_ATTACK,EntChooseWeightedAbility(e,100))) 
+  ability_t* a = EntChooseWeightedAbility(e,100);
+ if(SetAction(e,ACTION_ATTACK,a, a->targeting)) 
     return BEHAVIOR_SUCCESS;
 
   return BEHAVIOR_FAILURE;

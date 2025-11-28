@@ -34,12 +34,15 @@ typedef struct{
   ent_t   *hover;
 }mouse_controller_t;
 
+typedef void (*SelectionCallback)(ent_t* e, ActionType a, void* selection);
+
 typedef struct{
-  bool        active;
-  Cell        pos;
-  map_cell_t* selections[5];
-  int         desired,selected;
-  bool        occupied;
+  bool              active;
+  Cell              pos;
+  map_cell_t*       selections[5];
+  int               desired,selected;
+  bool              occupied;
+  SelectionCallback on_select, on_complete;
 }key_controller_t;
 
 typedef enum{
@@ -70,8 +73,9 @@ void InitPlayArea(void);
 void ScreenCalcAreas(void);
 Vector2 ScreenAreaStart(ScreenArea t);
 float ScreenSized(PlaySizes s);
-void ScreenActivateSelector(Cell pos, int num, bool occupied);
+void ScreenActivateSelector(Cell pos, int num, bool occupied, SelectionCallback on_select);
 bool ScreenSelectorInput(void);
+key_controller_t* ScreenGetSelection(void);
 bool ScreenMoveSelector(struct ent_s* e, ActionType a, KeyboardKey k);
 bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k);
 void ScreenRender(void);
