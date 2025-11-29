@@ -9,7 +9,7 @@
 static map_build_t builder;
 static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
 
-static MapID MAP = DARK_FOREST;
+static MapID MAP = DANK_DUNGEON;
 
 static map_gen_t* test;
 
@@ -33,11 +33,16 @@ void MapLoad(map_grid_t* m){
   test = malloc(sizeof(map_gen_t));
 
   *test = MAPS[MAP];
+  /*
   Cell list[1+test->spawn_max];
   list[0]=CELL_NEW(5,20);
   map_set(TILEFLAG_START,5,20);
   int poi_count = MapPOIs(m,list,test,1,1+test->spawn_max);
    MapRoomGen(m,list,poi_count);
+   MapRoomBuild(m);
+   */
+  MapGenerateRoomAt(CELL_NEW(20,20));
+
    MapRoomBuild(m);
 }
 
@@ -121,7 +126,7 @@ void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe){
   if(builder.enviroment[x][y] == TILEFLAG_START)
     return;
 
-  builder.enviroment[x][y] = flags;
+  builder.enviroment[x][y] = flags;// | test->map_flag;
 }
 
 Cell MapGetTileByFlag(map_grid_t* m, TileFlags f){
@@ -150,20 +155,12 @@ void MapCarveHorizontal(Cell c1, Cell c2, int width)
   int end   = c1.x < c2.x ? c2.x : c1.x;
   float radius = width/2;
 
-  RoomType shape = test->room_type;
   for (int x = start; x <= end; x++){
-    switch (shape){
-      case ROOM_ROUND:
-        carve_circle((Cell){x, c1.y}, radius);
-        break;
-      default:
-        for (int w = -width/2; w <=width/2; w++)
-          if(c1.y + w >= 0){
-            TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
-            map_set_safe(f,x,c1.y+w);
-          }
-        break;
-    }
+    for (int w = -width/2; w <=width/2; w++)
+      if(c1.y + w >= 0){
+        TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
+        map_set_safe(f,x,c1.y+w);
+      }
   }
 }
 
@@ -172,23 +169,15 @@ void MapCarveVertical(Cell c1, Cell c2, int width)
   int start = c1.y < c2.y ? c1.y : c2.y;
   int end   = c1.y < c2.y ? c2.y : c1.y;
 
-  RoomType shape = test->room_type;
   float radius = width/2;
 
   for (int y = start; y <= end; y++){
-    switch (shape){
-      case ROOM_ROUND:
-        carve_circle((Cell){c1.x, y}, radius);
-        break;
-      default:
-        for (int w = -width/2; w <=width/2; w++)
-          if(c1.x+w >= 0){
-            TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
+    for (int w = -width/2; w <=width/2; w++)
+      if(c1.x+w >= 0){
+        TileFlags f = rand()%4==0?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
 
-            map_set_safe(TILEFLAG_FLOOR,c1.x+w,y);
-          }
-        break;
-    }
+        map_set_safe(TILEFLAG_FLOOR,c1.x+w,y);
+      }
   }
 }
 
@@ -208,6 +197,7 @@ void MapConnectRooms(map_grid_t* m, Cell *rooms, map_gen_t* rules){
 }
 
 void MapRoomGen(map_grid_t* m, Cell *poi_list, int poi_count){
+  /*
   for (int i = 0; i < poi_count; i++){
     Cell p = poi_list[i];
 
@@ -237,7 +227,6 @@ void MapRoomGen(map_grid_t* m, Cell *poi_list, int poi_count){
   }
 
   MapConnectRooms(m,poi_list,test); 
-  /*
      for (int i = 0; i < roomArea * 3; i++)
      {
     // carve
@@ -294,16 +283,7 @@ void MapRoomBuild(map_grid_t* m){
           continue;
           break;
         case TILEFLAG_NONE:
-          if(!cell_in_rect(CELL_NEW(x,y),inner))
-            map_set(TILEFLAG_BORDER, x,y);
-          else{
-            float n = Noise2D(x*0.05, y*0.05);
-            if (n> 0.4f)
-              map_set(TILEFLAG_TREE,x,y);
-            else
-              continue;
-              //map_set(TILEFLAG_NONE,x,y);
-          }
+          map_set(TILEFLAG_BORDER,x,y);
           break;
         default:
           break;
@@ -365,7 +345,7 @@ void MapSpawnMob(int x, int y){
 
 void MapSpawn(TileFlags flags, int x, int y){
 
-  EnvTile t = GetTileByFlags(flags);
+  EnvTile t = GetTileByFlags(flags|test->map_flag);
 
   Cell pos = {x,y};
   RegisterEnv(InitEnv(t,pos));
@@ -531,4 +511,143 @@ bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep)
     outNextStep->y = node->y;
 
     return true;
+}
+
+bool MapCompileRoom(const RoomInstr *stream, int count, RoomDefinition *out)
+{
+    bool in_block = false;
+    RoomFlags flags = 0;
+
+    for (int i = 0; i < count; i++) {
+        RoomInstr instr = stream[i];
+
+        switch (instr.op) {
+
+            case CONF_START:
+                if (in_block) return false; // nested START error
+                in_block = true;
+                flags = 0;
+                break;
+
+            case CONF_FLAG:
+                if (!in_block) return false;
+                flags |= instr.flags;  // combine mask bits
+                break;
+
+            case CONF_END:
+                if (!in_block) return false;
+                in_block = false;
+
+                // Extract categories
+                out->flags  = flags;
+                out->size   = flags & ROOM_SIZE_MASK;
+                out->layout = flags & ROOM_LAYOUT_MASK;
+                out->purpose= flags & ROOM_PURPOSE_MASK;
+                out->shape  = flags & ROOM_SHAPE_MASK;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    return false; // missing CONF_END
+}
+
+void MapCarveSquareRoom(Cell c, int size)
+{
+  int half = (size >> 12);
+
+  // carve floor area
+  for (int y = -half; y <= half; y++)
+    for (int x = -half; x <= half; x++)
+      map_set_safe(TILEFLAG_FLOOR, c.x + x, c.y + y);
+
+  // carve walls around borders
+  int outer = half + 1;
+
+  // top + bottom walls
+  for (int x = -outer; x <= outer; x++) {
+    map_set_safe(TILEFLAG_WALL, c.x + x, c.y - outer);
+    map_set_safe(TILEFLAG_WALL, c.x + x, c.y + outer);
+  }
+
+  // left + right walls
+  for (int y = -outer; y <= outer; y++) {
+    map_set_safe(TILEFLAG_WALL, c.x - outer, c.y + y);
+    map_set_safe(TILEFLAG_WALL, c.x + outer, c.y + y);
+  }
+}
+
+void MapCarveCircleRoom(Cell c, int size)
+{
+    int radius = (size >> 12); // because size is in high nibble
+
+    for (int oy = -radius; oy <= radius; oy++)
+        for (int ox = -radius; ox <= radius; ox++)
+            if (ox*ox + oy*oy <= radius*radius)
+                map_set_safe(TILEFLAG_FLOOR, c.x + ox, c.y + oy);
+}
+
+void MapCarveRoom(RoomDefinition r, Cell center)
+{
+    switch (r.shape) {
+
+        case ROOM_SHAPE_SQUARE:
+            MapCarveSquareRoom(center, r.size);
+            break;
+
+        case ROOM_SHAPE_CIRCLE:
+            MapCarveCircleRoom(center, r.size);
+            break;
+
+        case ROOM_SHAPE_FORKED:
+            //CarveForkedRoom(center, r.size);
+            break;
+
+        case ROOM_SHAPE_CROSS:
+            //CarveCrossRoom(center, r.size);
+            break;
+    }
+}
+
+void MapGenerateRoomAt(Cell center)
+{
+    // 1. Define config stream
+    RoomInstr stream[] = {
+        {CONF_START},
+        {CONF_FLAG, ROOM_SIZE_LARGE},
+        {CONF_FLAG, ROOM_LAYOUT_ROOM},
+        {CONF_FLAG, ROOM_PURPOSE_START},
+        {CONF_FLAG, ROOM_SHAPE_SQUARE},
+        {CONF_END},
+    };
+
+    // 2. Compile
+    RoomDefinition rdef;
+    if (!MapCompileRoom(stream, 6, &rdef)) {
+        TraceLog(LOG_WARNING,"====MAP GEN====\n Could not compile room\n");
+        return;
+    }
+
+    MapCarveRoom(rdef, center);
+
+    switch(rdef.purpose){
+      case ROOM_PURPOSE_START:
+        map_set(TILEFLAG_START,center.x, center.y);
+        break;
+      default:
+        break;
+    }
+    
+    /*if (rdef.purpose == ROOM_PURPOSE_CHALLENGE)
+        SpawnMiniBoss(center);
+
+    if (rdef.purpose == ROOM_PURPOSE_TREASURE)
+        PlaceTreasureChest(center);
+
+    if (rdef.layout == ROOM_LAYOUT_HALL)
+        AddHallwayConnectors(center, rdef.size);
+
+        */
 }

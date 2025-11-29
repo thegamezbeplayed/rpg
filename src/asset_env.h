@@ -44,5 +44,13 @@ static sub_texture_t ENVIRO_SPRITES[ENV_DONE] = {
   { ENV_DIRT_PATCH, 8, 8, 48, 48, 16, 16, BEIGE, 0, 0, 0, 0 },
   { ENV_DIRT, 8, 8, 64, 48, 16, 16, BEIGE, 0, 0, 0, 0 },
   { ENV_CAMP, 8, 8, 80, 48, 16, 16, RED, 0, 0, 0, 0 },
+  { ENV_FLOOR_DUNGEON, 8, 8, 96, 48, 16, 16,DARKBROWN, 0, 0, 0, 0 },
+  { ENV_STONE_WALL, 8, 8, 112, 48, 16, 16, GRAY, 0, 0, 0, 0 },
+  { ENV_WALL_DUNGEON, 8, 8, 0, 64, 16, 16, GRAY, 0, 0, 0, 0 },
+  { ENV_WALL_RUIN, 8, 8, 16, 64, 16, 16,GRAY, 0, 0, 0, 0 },
+  { ENV_DOOR_DUNGEON, 8, 8, 32, 64, 16, 16, DARKGRAY, 0, 0, 0, 0 },
+  { ENV_DOOR_HEAVY, 8, 8, 48, 64, 16, 16, BROWN, 0, 0, 0, 0 },
+  {ENV_DOOR_VAULT, 8, 8, 64, 64, 16, 16, LIGHTGRAY ,0,0, 0, 0 },
+  { ENV_BORDER_DUNGEON, 8, 8, 80, 64, 16, 16,BLACK, 0, 0, 0, 0 },
 
 };

@@ -53,7 +53,7 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
     {[ATTR_CON]= 3, [ATTR_STR]=2, [ATTR_DEX]=2, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=1}
   },
   {MOB_PLAYER, 
-    {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1, [STAT_STAMINA] = 4, [STAT_ENERGY] = 4},
+    {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1, [STAT_STAMINA] = 4, [STAT_ENERGY] = 4, [STAT_STAMINA_REGEN] = 1, [STAT_ENERGY_REGEN] = 1,[STAT_STAMINA_REGEN_RATE] = 7, [STAT_ENERGY_REGEN_RATE] = 8,},
     {[ATTR_CON]= 0, [ATTR_STR]=0, [ATTR_DEX]=0, [ATTR_INT]=0,[ATTR_WIS]=0,[ATTR_CHAR]=0}
   },
 };
@@ -77,9 +77,13 @@ species_stats_t RACIALS[SPEC_DONE]={
 };
 weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
   {WEAP_NONE},
-  {WEAP_BLUNT,5,1,1,8,DMG_BLUNT,{[STAT_DAMAGE]=8,[STAT_REACH]=1,[STAT_STAMINA]=1},{},0},
-  {WEAP_SLASH,7,1,1,8,DMG_SLASH,{[STAT_DAMAGE]=8,[STAT_REACH]=1,[STAT_STAMINA]=1},{},0},
-  {WEAP_PIERCE},
+  {WEAP_MACE,5,1,1,8,DMG_BLUNT,{[STAT_DAMAGE]=8,[STAT_REACH]=1,[STAT_STAMINA]=1},{},0},
+  {WEAP_SWORD},
+  {WEAP_AXE,7,1,1,8,DMG_SLASH,{[STAT_DAMAGE]=8,[STAT_REACH]=1,[STAT_STAMINA]=1},{},0},
+  {WEAP_DAGGER},
+  {WEAP_BOW,25,2,1,6,DMG_PIERCE,
+    {[STAT_DAMAGE]=8,[STAT_REACH]=4,[STAT_STAMINA]=1},
+    {[PROP_AMMO]=true,[PROP_TWO_HANDED]=true}},
 };
 
 
@@ -361,6 +365,9 @@ void FormulaDieAddAttr(stat_t* self){
       switch(mod){
         case MOD_SQRT:  
           modifier += isqrt(self->owner->attribs[i]->val); 
+          break;
+        case MOD_NEG_SQRT:
+          modifier -= isqrt(self->owner->attribs[i]->val); 
           break;
         case MOD_ADD:
           modifier += self->owner->attribs[i]->val;

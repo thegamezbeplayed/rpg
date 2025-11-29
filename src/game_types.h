@@ -136,6 +136,8 @@ int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
 bool EntTarget(ent_t* e, ability_t* a, ent_t* source);
 bool EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
 void EntSync(ent_t* e);
+void EntResetRegen(stat_t* self, float old, float cur);
+void EntRestoreResource(stat_t* self, float old, float cur);
 void EntKill(stat_t* self, float old, float cur);
 void EntDestroy(ent_t* e);
 bool FreeEnt(ent_t* e);
@@ -155,6 +157,7 @@ bool SetState(ent_t *e, EntityState s,StateChangeCallback callback);
 void StepState(ent_t *e);
 void OnStateChange(ent_t *e, EntityState old, EntityState s);
 bool CanChangeState(EntityState old, EntityState s);
+void ItemApplyWeaponProps(item_def_t * w, weapon_def_t* def, ItemQuality rarity);
 
 void EntActionsTaken(stat_t* self, float old, float cur);
 bool EntCanTakeAction(ent_t* e);

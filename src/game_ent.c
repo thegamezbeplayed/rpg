@@ -188,10 +188,23 @@ void EntCalcStats(ent_t* e){
   }
   for (int i = 0; i < STAT_ENT_DONE;i++){
     int val = base.stats[i] + racial.stats[i] + size.stats[e->size][i];
-      e->stats[i] = InitStat(i,0,val,val);
-    
+    e->stats[i] = InitStat(i,0,val,val);
+
     e->stats[i]->owner = e;
     e->stats[i]->start(e->stats[i]);
+
+    switch(i){
+      case STAT_STAMINA:
+      case STAT_ENERGY:
+        e->stats[i]->on_stat_change = EntResetRegen;
+        break;
+      case STAT_STAMINA_REGEN_RATE:
+      case STAT_ENERGY_REGEN_RATE:
+        e->stats[i]->on_stat_full = EntRestoreResource;
+        break;
+      default:
+        break;
+    }
   }
 }
 
@@ -243,7 +256,7 @@ item_def_t* DefineItem(ItemInstance data){
 }
 
 item_def_t* DefineWeapon(ItemInstance data){
-item_def_t* item = calloc(1,sizeof(item_def_t));
+  item_def_t* item = calloc(1,sizeof(item_def_t));
   item->id = data.id;
   item->category = ITEM_WEAPON;
 
@@ -253,15 +266,15 @@ item_def_t* item = calloc(1,sizeof(item_def_t));
 
   item->damage = temp.dtype;
 
-  item_prop_mod_t props = GetItemProps(data);
-
-  for(int i = 0; i< STAT_DONE; i++){
-    if(temp.stats[i] < 1)
-      continue;
-    int stat = temp.stats[i] + props.stat_change[i];
-
-    item->stats[i] = InitStat(i, 1, stat, stat);
-  }
+  item->stats[STAT_DAMAGE] = InitStat(STAT_DAMAGE,0,temp.stats[STAT_DAMAGE],temp.stats[STAT_DAMAGE]);
+  item->stats[STAT_REACH] = InitStat(STAT_REACH,0,temp.stats[STAT_REACH],temp.stats[STAT_REACH]);
+  if(temp.stats[STAT_STAMINA] > 0)
+    item->stats[STAT_STAMINA] = InitStat(STAT_STAMINA,0,temp.stats[STAT_STAMINA],temp.stats[STAT_STAMINA]);
+  if(temp.stats[STAT_ENERGY] > 0)
+    item->stats[STAT_ENERGY] = InitStat(STAT_ENERGY,0,temp.stats[STAT_ENERGY],temp.stats[STAT_ENERGY]);
+  
+  
+  ItemApplyWeaponProps(item, &temp, data.rarity);
 
   return item;
 }
@@ -282,6 +295,14 @@ item_def_t* DefineArmor(ItemInstance data){
   //item->ability = temp.ability;
   
   return item;
+}
+
+void EntResetRegen(stat_t* self, float old, float cur){
+  
+}
+
+void EntRestoreResource(stat_t* self, float old, float cur){
+
 }
 
 void EntKill(stat_t* self, float old, float cur){
@@ -753,6 +774,30 @@ item_prop_mod_t GetItemProps(ItemInstance data){
     if(PROP_MODS[i].propID == data.rarity)
       return PROP_MODS[i];
   }
+}
+
+void ItemApplyWeaponProps(item_def_t * w, weapon_def_t* def, ItemQuality rarity){
+  item_prop_mod_t* props = calloc(1,sizeof(item_prop_mod_t));
+  *props  = PROP_MODS[rarity];
+
+  for (int p = 0; p < PROP_ALL; p++){
+    if(!def->props[p])
+      continue;
+
+    for(int s = 0; s < STAT_ENT_DONE; s++){
+      props->stat_change[s] +=PROP_MODS[p].stat_change[s];
+    }
+
+  }
+
+  for (int i = 0; i < STAT_ENT_DONE; i++){
+    if(props->stat_change[i] < 1 && w->stats[i]== NULL)
+      continue;
+
+    int val = w->stats[i]->max + props->stat_change[i];
+    w->stats[i]->max = val;
+  }
+
 }
 
 ability_t AbilityLookup(AbilityID id){

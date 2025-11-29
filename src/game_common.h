@@ -43,6 +43,7 @@ static inline bool EQUAL_TO(int a, int b){
 typedef enum{
   MOD_NONE,
   MOD_SQRT,
+  MOD_NEG_SQRT,
   MOD_ADD,
   MOD_DONE
 }ModifierType;
@@ -60,6 +61,8 @@ typedef enum{
   STAT_STAMINA,
   STAT_STAMINA_REGEN,
   STAT_ENERGY_REGEN,
+  STAT_STAMINA_REGEN_RATE,
+  STAT_ENERGY_REGEN_RATE,
   STAT_ENT_DONE,
   STAT_TIME,
   STAT_DONE,
@@ -222,6 +225,8 @@ static stat_name_t STAT_STRING[STAT_ENT_DONE]={
   {STAT_STAMINA, "Stamina"},
   {STAT_STAMINA_REGEN,"Stamina Regen"},
   {STAT_ENERGY_REGEN, "Spell Regen"},
+  {STAT_STAMINA_REGEN_RATE,"Stamina Regen Rate"},
+  {STAT_ENERGY_REGEN_RATE, "Spell Regen Rate"},
 };
 
 typedef struct{
@@ -251,6 +256,9 @@ static stat_attribute_relation_t stat_modifiers[STAT_DONE]={
   [STAT_STAMINA]= {STAT_STAMINA,{[ATTR_CON]=MOD_ADD,[ATTR_DEX]=MOD_ADD,[ATTR_STR]=MOD_ADD}},
   [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN,{[ATTR_CON]=MOD_SQRT}},
   [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN,{[ATTR_WIS]=MOD_SQRT}},
+  [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN,{[ATTR_CON]=MOD_NEG_SQRT}},
+  [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN,{[ATTR_WIS]=MOD_NEG_SQRT}},
+
 
 };
 
@@ -296,7 +304,12 @@ typedef enum{
   TILEFLAG_BORDER      = 1 << 9,
   TILEFLAG_SPAWN       = 1 << 10,
   TILEFLAG_FLOOR       = 1 << 11,
-  TILEFLAG_START       = 1 << 12
+  TILEFLAG_WALL        = 1 << 12,
+  TILEFLAG_DOOR        = 1 << 13,
+  TILEFLAG_START       = 1 << 14,
+  TILEFLAG_INTERACT    = 1 << 15,
+  MAPFLAG_DUNGEON      = 1 << 16,
+  MAPFLAG_FOREST       = 1 << 17,
 }TileFlags;
 
 typedef enum{
@@ -330,40 +343,56 @@ typedef enum{
   ENV_DIRT,
   ENV_DIRT_PATCH,
   ENV_CAMP,
+  ENV_FLOOR_DUNGEON,
+  ENV_STONE_WALL,
+  ENV_WALL_DUNGEON,
+  ENV_WALL_RUIN,
+  ENV_DOOR_DUNGEON,
+  ENV_DOOR_HEAVY,
+  ENV_DOOR_VAULT,
+  ENV_BORDER_DUNGEON,
   ENV_DONE
 }EnvTile;
 
 static const uint32_t EnvTileFlags[ENV_DONE] = {
-    [ENV_BONES_BEAST]    = TILEFLAG_DEBRIS | TILEFLAG_DECOR,
-    [ENV_BOULDER]        = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_NATURAL,
-    [ENV_COBBLE]         = TILEFLAG_ROAD,
-    [ENV_COBBLE_WORN]    = TILEFLAG_ROAD,
-    [ENV_FLOWERS]        = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
-    [ENV_FLOWERS_THIN]   = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
-    [ENV_FOREST_FIR]     = TILEFLAG_SOLID | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_GRASS]          = TILEFLAG_FLOOR | TILEFLAG_NATURAL,
-    [ENV_GRASS_SPARSE]   = TILEFLAG_FLOOR | TILEFLAG_NATURAL,
-    [ENV_GRASS_WILD]     = TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
-    [ENV_LEAVES]         = TILEFLAG_DECOR | TILEFLAG_NATURAL,
-    [ENV_TREE_MAPLE]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_MEADOW]         = TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
-    [ENV_TREE_OLDGROWTH] = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_TREE_PINE]      = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_ROAD]           = TILEFLAG_ROAD,
-    [ENV_ROAD_CROSS]     = TILEFLAG_ROAD,
-    [ENV_ROAD_FORK]      = TILEFLAG_ROAD,
-    [ENV_ROAD_TURN]      = TILEFLAG_ROAD,
-    [ENV_TREE_BIGLEAF]   = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_TREE_CEDAR]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_TREE_DEAD]      = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
-    [ENV_TREE_DYING]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
-    [ENV_TREE_FELLED]    = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_FOREST | TILEFLAG_NATURAL,  // updated
-    [ENV_TREE_FIR]       = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_FOREST]         = TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_NATURAL,
-    [ENV_WEB]            = TILEFLAG_DECOR,
-    [ENV_DIRT]            = TILEFLAG_FLOOR,
-    [ENV_DIRT_PATCH]            = TILEFLAG_FLOOR,
-    [ENV_CAMP]          = TILEFLAG_SPAWN,
+  [ENV_BONES_BEAST]    = TILEFLAG_DEBRIS | TILEFLAG_DECOR | MAPFLAG_FOREST | MAPFLAG_DUNGEON,
+  [ENV_BOULDER]        = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_NATURAL,
+  [ENV_COBBLE]         = TILEFLAG_ROAD,
+  [ENV_COBBLE_WORN]    = TILEFLAG_ROAD,
+  [ENV_FLOWERS]        = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
+  [ENV_FLOWERS_THIN]   = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
+  [ENV_FOREST_FIR]     = TILEFLAG_SOLID | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_GRASS]          = TILEFLAG_FLOOR | TILEFLAG_NATURAL,
+  [ENV_GRASS_SPARSE]   = TILEFLAG_FLOOR | TILEFLAG_NATURAL,
+  [ENV_GRASS_WILD]     = TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
+  [ENV_LEAVES]         = TILEFLAG_DECOR | TILEFLAG_NATURAL,
+  [ENV_TREE_MAPLE]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_MEADOW]         = TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
+  [ENV_TREE_OLDGROWTH] = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_TREE_PINE]      = TILEFLAG_SOLID | TILEFLAG_WALL | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_ROAD]           = TILEFLAG_ROAD,
+  [ENV_ROAD_CROSS]     = TILEFLAG_ROAD,
+  [ENV_ROAD_FORK]      = TILEFLAG_ROAD,
+  [ENV_ROAD_TURN]      = TILEFLAG_ROAD,
+  [ENV_TREE_BIGLEAF]   = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_TREE_CEDAR]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_TREE_DEAD]      = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
+  [ENV_TREE_DYING]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
+  [ENV_TREE_FELLED]    = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_FOREST | TILEFLAG_NATURAL,  // updated
+  [ENV_TREE_FIR]       = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_FOREST]         = TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_WEB]            = TILEFLAG_DECOR|MAPFLAG_FOREST|MAPFLAG_DUNGEON,
+  [ENV_DIRT]            = TILEFLAG_FLOOR,
+  [ENV_DIRT_PATCH]            = TILEFLAG_FLOOR,
+  [ENV_CAMP]          = TILEFLAG_SPAWN,
+  [ENV_FLOOR_DUNGEON]  = TILEFLAG_FLOOR | MAPFLAG_DUNGEON, 
+  [ENV_STONE_WALL]    = MAPFLAG_DUNGEON | TILEFLAG_WALL | TILEFLAG_SOLID,
+  [ENV_WALL_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_WALL | TILEFLAG_SOLID,
+  [ENV_WALL_RUIN]     = MAPFLAG_DUNGEON | TILEFLAG_WALL | TILEFLAG_SOLID,
+  [ENV_DOOR_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_DOOR | TILEFLAG_OBSTRUCT | TILEFLAG_INTERACT,
+  [ENV_DOOR_HEAVY]    = MAPFLAG_DUNGEON | TILEFLAG_DOOR | TILEFLAG_OBSTRUCT | TILEFLAG_INTERACT,
+  [ENV_DOOR_VAULT]    = MAPFLAG_DUNGEON | TILEFLAG_DOOR | TILEFLAG_OBSTRUCT | TILEFLAG_INTERACT,
+  [ENV_BORDER_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_BORDER | TILEFLAG_SOLID,
 };
 
 static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
@@ -605,21 +634,71 @@ typedef struct{
   int         weight;
 }spawn_rules_t;
 
-typedef enum{
-  ROOM_NONE,
-  ROOM_ROUND,
-  ROOM_SQUARE,
-}RoomType;
+typedef enum {
+    CONF_START = 1,
+    CONF_END   = 2,
+    CONF_FLAG  = 3, // special slot for a room flag
+} RoomConfigOpcode;
+
+typedef enum {
+
+    // ----- Size (bits 12–15) -----
+    ROOM_SIZE_SMALL   = 0x1000,
+    ROOM_SIZE_MEDIUM  = 0x2000,
+    ROOM_SIZE_LARGE   = 0x3000,
+    ROOM_SIZE_HUGE    = 0x4000,
+    ROOM_SIZE_MASK    = 0xF000,
+
+    // ----- Layout type (bits 8–11) -----
+    ROOM_LAYOUT_ROOM  = 0x0100,
+    ROOM_LAYOUT_HALL  = 0x0200,
+    ROOM_LAYOUT_OPEN  = 0x0300,
+    ROOM_LAYOUT_MAZE  = 0x0400,
+    ROOM_LAYOUT_MASK  = 0x0F00,
+
+    // ----- Purpose (bits 4–7) -----
+    ROOM_PURPOSE_NONE            = 0x0000,
+    ROOM_PURPOSE_TRAPPED         = 0x0010,
+    ROOM_PURPOSE_SECRET          = 0x0020,
+    ROOM_PURPOSE_TREASURE        = 0x0030,
+    ROOM_PURPOSE_TREASURE_FALSE  = 0x0030,
+    ROOM_PURPOSE_CHALLENGE = 0x0040,
+    ROOM_PURPOSE_START     = 0x0050,
+    ROOM_PURPOSE_MASK      = 0x00F0,
+
+    // ----- Shape (bits 0–3) -----
+    ROOM_SHAPE_SQUARE   = 0x0001,
+    ROOM_SHAPE_CIRCLE   = 0x0002,
+    ROOM_SHAPE_FORKED   = 0x0003,
+    ROOM_SHAPE_CROSS    = 0x0004,
+    ROOM_SHAPE_DIAMOND  = 0x0005,
+    ROOM_SHAPE_MASK     = 0x000F,
+
+} RoomFlags;
+
+typedef struct {
+    RoomConfigOpcode op;
+    RoomFlags flags;   // only used when op == CONF_FLAG
+} RoomInstr;
+
+typedef struct {
+    RoomFlags flags;   // the fully combined bitmask
+    int size;          // extracted from mask
+    int layout;
+    int purpose;
+    int shape;
+} RoomDefinition;
 
 typedef enum{
   DARK_FOREST,
+  DANK_DUNGEON,
   MAP_DONE,
 }MapID;
 
 typedef struct{
   MapID           id;
-  RoomType        room_type;
-  int             num_mobs,spawn_min,spawn_max,spacing,border;
+  TileFlags       map_flag;
+  int             num_mobs,spacing,border;
   spawn_rules_t   mobs[6];
 }map_gen_t;
 
@@ -642,6 +721,7 @@ typedef enum{
   GEAR_HAND_AXE,
   GEAR_CLOTH_ARMOR,
   GEAR_DAGGER,
+  GEAR_BOW_LIGHT,
   GEAR_DONE
 }GearID;
 
@@ -915,9 +995,11 @@ typedef enum{
 
 typedef enum{
   WEAP_NONE,
-  WEAP_BLUNT,
-  WEAP_SLASH,
-  WEAP_PIERCE,
+  WEAP_MACE,
+  WEAP_SWORD,
+  WEAP_AXE,
+  WEAP_DAGGER,
+  WEAP_BOW,
   WEAP_DONE
 }WeaponType;
 
@@ -928,14 +1010,16 @@ typedef enum{
   PROP_MARTIAL,
   PROP_TWO_HANDED,
   PROP_REACH,
+  PROP_RANGED,
+  PROP_AMMO,
   PROP_DONE
 }WeaponProp;
 
 typedef enum{
   QUAL_NONE = PROP_DONE,
   QUAL_TRASH,
-  QUAL_UNCOMMON,
   QUAL_COMMON,
+  QUAL_RARE,
   QUAL_DONE,
   PROP_ALL
 }ItemQuality;
@@ -955,7 +1039,7 @@ typedef struct{
   int             cost,weight,die,side;
   DamageType      dtype;
   int             stats[STAT_ENT_DONE];
-  bool            props[PROP_DONE];
+  bool            props[PROP_ALL];
   AbilityID       ability;
 }weapon_def_t;
 
@@ -1040,10 +1124,10 @@ void MapSpawnMob(int x, int y);
 int MapPOIs(map_grid_t* map, Cell *list, map_gen_t* rules,int start, int count);
 bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep);
 bool TooClose(Cell a, Cell b, int min_dist);
+void MapGenerateRoomAt(Cell center);
 MobCategory GetEntityCategory(EntityType t);
 SpeciesType GetEntitySpecies(EntityType t);
 ObjectInstance GetEntityData(EntityType t);
 item_prop_mod_t GetItemProps(ItemInstance data);
-
 
 #endif
