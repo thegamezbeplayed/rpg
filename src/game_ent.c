@@ -170,6 +170,8 @@ void EntCalcStats(ent_t* e){
   
   e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,1,20);
 
+  e->traits = calloc(1,sizeof(traits_t));
+
   e->skills[SKILL_LVL]->on_skill_up = EntOnLevelUp;
   MobCategory cat = GetEntityCategory(e->type);
 
@@ -178,9 +180,14 @@ void EntCalcStats(ent_t* e){
   category_stats_t base = CATEGORY_STATS[cat];
   species_stats_t racial = RACIALS[species];
   size_category_t size = MOB_SIZE[cat];
- 
- if(e->size == SIZE_TINY)
-  DO_NOTHING();
+
+  for (int i = 0; i < TRAIT_DONE; i++){
+    if(!HAS_ANY_IN_CATEGORY(base.traits,TRAIT_DEFENSE_MASK))
+      continue;
+  
+    if(IS_TRAIT(base.traits,TRAIT_DEFENSE_MASK, i))
+      e->traits->resistances_type[i]+=1;
+  }
 
   for (int i = 0; i < ATTR_DONE; i++){
     int val = base.attr[i] + racial.attr[i] + size.attr[e->size][i];
@@ -408,12 +415,13 @@ bool EntTarget(ent_t* e, ability_t* a, ent_t* source){
   int reduced =  EntDamageReduction(e,a,base_dmg); 
   int damage = -1 * reduced; 
   e->last_hit_by = source; 
-  if(StatChangeValue(e,e->stats[STAT_HEALTH], damage)){
-   TraceLog(LOG_INFO,"%s hits %s with %i %s damage\n %s health now %0.0f/%0.0f",
+  if(StatChangeValue(e,e->stats[a->damage_to], damage)){
+   TraceLog(LOG_INFO,"%s hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
        source->name, e->name,
        damage*-1,
        DAMAGE_STRING[a->school],
        e->name,
+       STAT_STRING[a->damage_to].name,
        e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
   
   if(reduced!=base_dmg)
@@ -427,6 +435,12 @@ bool EntTarget(ent_t* e, ability_t* a, ent_t* source){
 
 int EntDamageReduction(ent_t* e, ability_t* a, int dmg){
 
+  DamageTag tag = DamageTypeTags[a->school];
+  
+  dmg -= e->traits->resistances_type[tag];
+
+  dmg -= e->traits->resistances_school[a->school];
+
   for(int i = 0; i < e->num_items; i++){
     item_t* item = e->gear[i];
     if(item==NULL)
@@ -437,7 +451,6 @@ int EntDamageReduction(ent_t* e, ability_t* a, int dmg){
 
     if(item->def->dr == NULL)
       continue;
-    DamageTag tag = DamageTypeTags[a->school];
     if(item->def->dr->resist_types[a->school] > 0){
       dmg-=item->def->dr->resist_types[a->school];   
     }
@@ -507,6 +520,7 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
   a->stats[STAT_REACH] = def->stats[STAT_REACH];
   a->stats[STAT_DAMAGE] = InitStat(STAT_DAMAGE, 0,0,0);
 
+  a->damage_to = STAT_HEALTH;
 
   a->stats[STAT_ENERGY] = def->stats[STAT_ENERGY];
   a->stats[STAT_STAMINA] = def->stats[STAT_STAMINA];
@@ -724,8 +738,10 @@ void EntOnLevelUp(struct skill_s* self, float old, float cur){
 
   for(int i = 0; i < STAT_DONE; i++)
     if(e->stats[i] && e->stats[i]->lvl){
+      if(i==STAT_ACTIONS)
+        continue;
       e->stats[i]->lvl(e->stats[i]);
-      StatMaxOut(e->stats[i]);
+        StatMaxOut(e->stats[i]);
     }
 
   TraceLog(LOG_INFO,"You have reached level %i",self->val);

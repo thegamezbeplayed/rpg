@@ -28,6 +28,8 @@
 #define RectXY(r) ((Vector2){(r.x),(r.y)})
 #define Rect(px,py,sx,sy) ((Rectangle){ (px),(py), (sx), (sy) })
 #define RECT_ZERO   (Rectangle){ 0.0f, 0.0f,0.0f,0.0f}
+#define RectArea(r) (int){(r.width)*(r.height)}
+#define RectInner(r,i) (Rectangle){(r.x+i),(r.y+i),(r.width-2*i),(r.height-2*i)}
 #define RectInc(r,xi,yi) ((Rectangle){ (r.x+xi), (r.y+yi),(r.width),(r.height) })
 #define RectScale(r,s) ((Rectangle){ (r.x), (r.y),(r.width * s),(r.height * s) })
 #define CELL_EMPTY (Cell){0,0}
@@ -90,23 +92,28 @@ static inline bool cell_compare(Cell c1,Cell c2){
   return (c1.x==c2.x && c1.y==c2.y);
 }
 
+static bool cells_linear(Cell a, Cell b) {
+    return (a.x == b.x) || (a.y == b.y);
+}
 
-static inline Cell* CellClusterAround(Cell c, int amnt, int space, int dist){
-  Cell *output = calloc(amnt,sizeof(Cell));
+static inline int CellClusterAround(Cell c, int amnt, int space, int dist, Cell* output){
 
+  int num = 0;
   for(int i = 0; i < amnt; i++){
     Cell pt = random_direction();
-    Cell npt = CellInc(c,CellScale(pt,space));
+    int rdist = RandRange(1,dist);
+    Cell npt = CellInc(c,CellScale(pt,rdist));
     for(int j = 0; j < i; j++)
       if (cell_compare(output[j],npt)){
         i--;
         continue;
       }
 
+    num++;
     output[i]=npt;
   }
 
-  return output;
+  return num;
 }
 
 static inline Cell cell_dir(Cell start, Cell end){
@@ -195,6 +202,13 @@ static inline Vector2 clamp_point_to_rect(Vector2 p, Rectangle r){
   };
 }
 
+static inline Cell clamp_cell_to_bounds(Cell c, Rectangle r){
+  return (Cell){
+    CLAMPV2(c.x, r.x, r.x + r.width),
+      CLAMPV2(c.y, r.y, r.y + r.height)
+  };
+
+}
 // Random unit vector (use your RNG if needed)
 static inline Vector2 rand_unit(){
   float a = ((float)rand() / (float)RAND_MAX) * 6.28318530718f;

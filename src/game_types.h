@@ -31,6 +31,7 @@ typedef struct ability_s{
   StatType         resource;
   DesignationType  targeting;
   int              weight,cost,hdie,die,side,bonus,reach;
+  StatType         damage_to;
   AttributeType    save,mod;
   AbilityID        chain;
   dice_roll_t*     dc,*hit;
@@ -97,6 +98,14 @@ typedef struct{
 }controller_t;
 controller_t* InitController();
 
+typedef struct{
+  bool      immunities_type[DMGTAG_DONE];
+  int       resistances_type[DMGTAG_DONE];
+  bool      immunities_school[DMGTAG_DONE];
+  int       resistances_school[DMGTAG_DONE];
+
+}traits_t;
+
 //===ENT_T===>
 typedef struct ent_s{
   int                   uid;
@@ -105,6 +114,7 @@ typedef struct ent_s{
   stat_t*               stats[STAT_DONE];
   attribute_t*          attribs[ATTR_DONE];
   skill_t*              skills[SKILL_DONE];
+  traits_t              *traits;
   int                   num_abilities;
   ability_t*            abilities[6];
   EntityType            type;

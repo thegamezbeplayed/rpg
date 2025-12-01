@@ -7,14 +7,20 @@
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
-#define GRID_WIDTH 50
-#define GRID_HEIGHT 50
+#define GRID_WIDTH 75
+#define GRID_HEIGHT 30
 
 #define MAX_NAME_LEN 64
 
 #define RATIO(s) ((s)->ratio((s)))
 
 #define DIE(num,side) (dice_roll_t){(side),(num),RollDie}
+
+#define MAX_ROOM_SIZE 8
+#define MAX_ROOMS  6
+
+#define HAS_ANY_IN_CATEGORY(value, mask) ((value) & (mask))
+#define IS_TRAIT(value, mask, trait) (((value) & (mask)) == (trait))
 
 struct dice_roll_s;
 typedef int (*DiceRollFunction)(struct dice_roll_s* d);
@@ -170,6 +176,8 @@ typedef struct{
 typedef enum{
   ABILITY_NONE,
   ABILITY_BITE,
+  ABILITY_CHEW,
+  ABILITY_GNAW,
   ABILITY_CLAW,
   ABILITY_SWIPE,
   ABILITY_BITE_POISON,
@@ -256,10 +264,8 @@ static stat_attribute_relation_t stat_modifiers[STAT_DONE]={
   [STAT_STAMINA]= {STAT_STAMINA,{[ATTR_CON]=MOD_ADD,[ATTR_DEX]=MOD_ADD,[ATTR_STR]=MOD_ADD}},
   [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN,{[ATTR_CON]=MOD_SQRT}},
   [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN,{[ATTR_WIS]=MOD_SQRT}},
-  [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN,{[ATTR_CON]=MOD_NEG_SQRT}},
-  [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN,{[ATTR_WIS]=MOD_NEG_SQRT}},
-
-
+  [STAT_STAMINA_REGEN_RATE] = {STAT_STAMINA_REGEN_RATE,{[ATTR_CON]=MOD_NEG_SQRT}},
+  [STAT_ENERGY_REGEN_RATE] = {STAT_ENERGY_REGEN_RATE,{[ATTR_WIS]=MOD_NEG_SQRT}},
 };
 
 struct attribute_s;
@@ -287,21 +293,22 @@ typedef enum{
   ENT_TROLL_CAVE,
   ENT_BEAR,
   ENT_WOLF,
+  ENT_RAT,
   ENT_DONE
 }EntityType;
 
 typedef enum{
   TILEFLAG_NONE        = 0,
-  TILEFLAG_EMPTY       = 1 << 0,   // blocks movement
-  TILEFLAG_SOLID       = 1 << 1,   // blocks movement
-  TILEFLAG_NATURAL     = 1 << 2,
-  TILEFLAG_TREE        = 1 << 3,
-  TILEFLAG_ROAD        = 1 << 4,
-  TILEFLAG_FOREST      = 1 << 5,
-  TILEFLAG_DEBRIS      = 1 << 6,
-  TILEFLAG_DECOR       = 1 << 7,
-  TILEFLAG_OBSTRUCT    = 1 << 8,
-  TILEFLAG_BORDER      = 1 << 9,
+  TILEFLAG_BORDER      = 1 << 0,
+  TILEFLAG_EMPTY       = 1 << 1,   // blocks movement
+  TILEFLAG_SOLID       = 1 << 2,   // blocks movement
+  TILEFLAG_NATURAL     = 1 << 3,
+  TILEFLAG_TREE        = 1 << 4,
+  TILEFLAG_ROAD        = 1 << 5,
+  TILEFLAG_FOREST      = 1 << 6,
+  TILEFLAG_DEBRIS      = 1 << 7,
+  TILEFLAG_DECOR       = 1 << 8,
+  TILEFLAG_OBSTRUCT    = 1 << 9,
   TILEFLAG_SPAWN       = 1 << 10,
   TILEFLAG_FLOOR       = 1 << 11,
   TILEFLAG_WALL        = 1 << 12,
@@ -351,6 +358,7 @@ typedef enum{
   ENV_DOOR_HEAVY,
   ENV_DOOR_VAULT,
   ENV_BORDER_DUNGEON,
+  ENV_FURNITURE_CHAIR,
   ENV_DONE
 }EnvTile;
 
@@ -385,7 +393,7 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
   [ENV_DIRT]            = TILEFLAG_FLOOR,
   [ENV_DIRT_PATCH]            = TILEFLAG_FLOOR,
   [ENV_CAMP]          = TILEFLAG_SPAWN,
-  [ENV_FLOOR_DUNGEON]  = TILEFLAG_FLOOR | MAPFLAG_DUNGEON, 
+  [ENV_FLOOR_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_FLOOR, 
   [ENV_STONE_WALL]    = MAPFLAG_DUNGEON | TILEFLAG_WALL | TILEFLAG_SOLID,
   [ENV_WALL_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_WALL | TILEFLAG_SOLID,
   [ENV_WALL_RUIN]     = MAPFLAG_DUNGEON | TILEFLAG_WALL | TILEFLAG_SOLID,
@@ -393,7 +401,19 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
   [ENV_DOOR_HEAVY]    = MAPFLAG_DUNGEON | TILEFLAG_DOOR | TILEFLAG_OBSTRUCT | TILEFLAG_INTERACT,
   [ENV_DOOR_VAULT]    = MAPFLAG_DUNGEON | TILEFLAG_DOOR | TILEFLAG_OBSTRUCT | TILEFLAG_INTERACT,
   [ENV_BORDER_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_BORDER | TILEFLAG_SOLID,
+  [ENV_FURNITURE_CHAIR]  = MAPFLAG_DUNGEON | TILEFLAG_SPAWN | TILEFLAG_DECOR,
 };
+
+typedef uint64_t MonsterTraits;
+
+typedef enum{
+  TRAIT_PHYS_RESISTANCE    = 1ULL <<0,
+  TRAIT_ELE_RESISTANCE    = 1ULL <<1,
+  TRAIT_MAGIC_RESISTANCE    = 1ULL <<2,
+
+  TRAIT_DEFENSE_MASK        = 0xFFULL,
+  TRAIT_DONE,
+}MonsterTrait;
 
 static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
     return (EnvTileFlags[t] & flag) != 0;
@@ -437,6 +457,7 @@ typedef enum{
   SPEC_ROTTING,
   SPEC_VAMPIRIC,
   SPEC_CANIFORM,
+  SPEC_RODENT,
   SPEC_DONE
 }SpeciesType;
 
@@ -471,13 +492,26 @@ static const size_category_t MOB_SIZE[MOB_DONE]={
     [SIZE_SMALL]={[ATTR_STR]=-3,[ATTR_DEX]=4},
     [SIZE_LARGE] ={[ATTR_STR]=2,[ATTR_CON]=2}}
   },
+  {MOB_UNDEAD},
+  {MOB_CONSTRUCT},
+  {MOB_DEMONIC},
+  {MOB_FEY, {
+              [SIZE_TINY]={[STAT_HEALTH]=-3,[STAT_ARMOR]=-1},
+              [SIZE_SMALL]={[STAT_HEALTH]=-2},
+            },
+  {[SIZE_TINY]={[ATTR_DEX]=3,[ATTR_STR]=-1},
+    [SIZE_SMALL]={[ATTR_DEX]=2},
+    [SIZE_LARGE] ={[ATTR_STR]=1,[ATTR_CON]=1}}
+  },
+
 };
 
 
 typedef struct {
   MobCategory category;
-  int     stats[STAT_DONE];
-  int     attr[ATTR_DONE];
+  int           stats[STAT_DONE];
+  int           attr[ATTR_DONE];
+  MonsterTraits traits;
 } category_stats_t;
 
 typedef struct {
@@ -544,8 +578,8 @@ static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
   [ENT_ACOLYTE_RECRUIT] = MOB_HUMANOID,
   [ENT_MERCHANT] = MOB_HUMANOID,
 */
-  [ENT_GOBLIN] = MOB_HUMANOID,
-  [ENT_HOBGOBLIN] = MOB_HUMANOID,
+  [ENT_GOBLIN] = MOB_FEY,
+  [ENT_HOBGOBLIN] = MOB_FEY,
   [ENT_ORC] = MOB_HUMANOID,
 
   // === MONSTROUS ===
@@ -646,7 +680,10 @@ typedef enum {
     ROOM_SIZE_SMALL   = 0x1000,
     ROOM_SIZE_MEDIUM  = 0x2000,
     ROOM_SIZE_LARGE   = 0x3000,
-    ROOM_SIZE_HUGE    = 0x4000,
+    ROOM_SIZE_XL      = 0x4000,
+    ROOM_SIZE_HUGE    = 0x5000,
+    ROOM_SIZE_MASSIVE = 0x6000,
+    ROOM_SIZE_MAX     = 0x7000,
     ROOM_SIZE_MASK    = 0xF000,
 
     // ----- Layout type (bits 8–11) -----
@@ -672,6 +709,9 @@ typedef enum {
     ROOM_SHAPE_FORKED   = 0x0003,
     ROOM_SHAPE_CROSS    = 0x0004,
     ROOM_SHAPE_DIAMOND  = 0x0005,
+    ROOM_SHAPE_VERTICAL    = 0x0006,
+    ROOM_SHAPE_HORIZONTAL  = 0x0007,
+    ROOM_SHAPE_ANGLED   = 0x0008,
     ROOM_SHAPE_MASK     = 0x000F,
 
 } RoomFlags;
@@ -689,6 +729,15 @@ typedef struct {
     int shape;
 } RoomDefinition;
 
+typedef struct{
+  Cell      center;
+  Rectangle bounds;
+  int       num_spawns;
+  Cell      spawns[MAX_ROOM_SIZE];
+  Cell      enter,exit;
+  //TileFlags flags[MAX_ROOM_SIZE][MAX_ROOM_SIZE];
+}room_t;
+
 typedef enum{
   DARK_FOREST,
   DANK_DUNGEON,
@@ -698,8 +747,9 @@ typedef enum{
 typedef struct{
   MapID           id;
   TileFlags       map_flag;
-  int             num_mobs,spacing,border;
+  int             num_mobs,spacing,hall_length,hall_thickness,border,num_rooms;
   spawn_rules_t   mobs[6];
+  RoomInstr       rooms[6][6];
 }map_gen_t;
 
 typedef enum{
@@ -1104,6 +1154,8 @@ typedef struct{
 
 typedef struct{
   TileFlags enviroment[GRID_WIDTH][GRID_HEIGHT];
+  int       num_rooms;
+  room_t    *rooms[MAX_ROOMS];
 }map_build_t;
 
 map_grid_t* InitMapGrid(void);
@@ -1120,11 +1172,13 @@ Cell MapGetTileByFlag(map_grid_t* m, TileFlags f);
 void MapRoomBuild(map_grid_t* m);
 void MapRoomGen(map_grid_t* m, Cell *poi_list, int poi_count);
 void MapSpawn(TileFlags flags, int x, int y);
-void MapSpawnMob(int x, int y);
+void MapSpawnMob(map_grid_t* m, room_t* room);
+void MapPlaceSpawns(map_grid_t *m);
 int MapPOIs(map_grid_t* map, Cell *list, map_gen_t* rules,int start, int count);
 bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep);
 bool TooClose(Cell a, Cell b, int min_dist);
-void MapGenerateRoomAt(Cell center);
+void MapGenerateRoomAt(Cell center, RoomInstr* stream);
+void MapConnectRooms(Cell start, Cell end,map_gen_t* rules);
 MobCategory GetEntityCategory(EntityType t);
 SpeciesType GetEntitySpecies(EntityType t);
 ObjectInstance GetEntityData(EntityType t);

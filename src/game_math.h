@@ -1,5 +1,6 @@
 #ifndef __GAME_MATH__
 #define __GAME_MATH__
+#include <stdlib.h>
 #include <raylib.h>
 #include <raymath.h>
 #include "reasings.h"
@@ -89,5 +90,8 @@ static int isqrt(int n) {
         y = (x + n / x) / 2;
     }
     return x;
+}
+static int RandRange(int min, int max) {
+    return min + rand() % (max - min + 1);
 }
 #endif
