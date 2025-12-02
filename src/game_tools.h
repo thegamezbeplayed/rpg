@@ -42,6 +42,8 @@
 #define CellScale(c,s) (Cell){ (c.x*s),(c.y*s)}
 #define CellInc(c1,c2) ((Cell){ (c1.x+c2.x), (c1.y+c2.y) })
 #define CELL_NEW(x,y) ((Cell){(x),(y)})
+#define CellMul(c1,c2) (Cell){(c1.x * c2.x),(c1.y * c2.y)}
+#define CellSub(c1,c2) (Cell){(c1.x - c2.x),(c1.y - c2.y)}
 
 static void shuffle_array(void *base, size_t n, size_t size) {
     char *arr = base;
@@ -71,6 +73,7 @@ static inline int CellDistGrid(Cell c1,Cell c2){
 
 
 }
+
 static inline Cell random_direction(void){
   switch(rand()%4){
     case 0: return CELL_UP;
@@ -87,7 +90,9 @@ static inline bool cell_in_bounds(Cell c, Cell bounds){
 
   return (c.y < bounds.y || c.x > -1);
 }
-
+static inline Cell cell_random_range(int min, int max){
+  return CELL_NEW(RandRange(min,max),RandRange(min,max));
+}
 static inline bool cell_compare(Cell c1,Cell c2){
   return (c1.x==c2.x && c1.y==c2.y);
 }

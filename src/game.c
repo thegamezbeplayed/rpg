@@ -33,7 +33,9 @@ void PostUpdate(void){
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void)
 {
-  ScreenCameraSync( WorldPlayer()->pos );
+  if(player)
+    ScreenCameraSync( WorldPlayer()->pos );
+  
   ScreenSyncMouse();
   ScreenSyncKey();
 }
@@ -44,12 +46,12 @@ void DrawGameplayScreen(void)
   //  if(game_process.state == GAME_LOADING)
   //  return;
   BeginDrawing();
-  ScreenCameraToggle();
+  //ScreenCameraToggle();
   //BeginMode2D(camera);
 
   WorldRender();
 
-  ScreenCameraToggle();
+  //ScreenCameraToggle();
   //EndMode2D();
   DrawTextEx(ui.font,GetWorldTime(),Vector2XY(VECTOR2_CENTER_SCREEN.x, 32) ,28,1,BLUE);
 

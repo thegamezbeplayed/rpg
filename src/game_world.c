@@ -31,7 +31,7 @@ void GameSetState(GameState state){
   game_process.state[SCREEN_GAMEPLAY] = state;
 }
 
-void GameReady(void *context){
+void GameReady(void){
   WorldInitOnce();
   game_process.state[SCREEN_GAMEPLAY] = GAME_READY;
 }
@@ -267,7 +267,9 @@ void WorldPreUpdate(){
 }
 
 void WorldFixedUpdate(){
-  ActionInput();
+  if(player)
+    ActionInput();
+  
   for(int i = 0; i < world.num_ent; i++){
     switch(world.ents[i]->state){
       case STATE_END:
@@ -303,8 +305,10 @@ void WorldEndTurn(void){
 
 void WorldTurnUpdate(void* context){
   StatIncrementValue(world.time,true);
-  for(int i = 0; i < world.num_ent; i++)
+  for(int i = 0; i < world.num_ent; i++){
+    EntTurnSync(world.ents[i]);
     ActionSync(world.ents[i]);
+  }
 }
 
 void InitWorld(world_data_t data){
@@ -314,7 +318,6 @@ void InitWorld(world_data_t data){
   world.time->on_stat_full = StatReverse; 
   world.time->on_stat_full = StatReverse; 
   world.items = InitItemPool(); 
-  world.map = InitMapGrid();
 
   for (int i = 0; i < GEAR_DONE; i++){
     if(room_items[i].id== GEAR_DONE)
@@ -322,9 +325,12 @@ void InitWorld(world_data_t data){
 
     RegisterItem(room_items[i]);
   }
-  MapLoad(world.map);
 
-  ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
+  if(InitMap()){
+    world.map =  InitMapGrid();
+    MapApplyContext(world.map);
+  }
+  //ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
 }
 
 void FreeWorld(){
@@ -375,7 +381,15 @@ void InitGameProcess(){
     if(room_behaviors[i].is_root)
       RegisterBehaviorTree(room_behaviors[i]);
   }
+/*
+  for(int i = 0; i <MAP_NODE_DONE; i++){
+    if(room_nodes[i].type != MAP_NODE_ROOT)
+      continue;
 
+    M
+
+  }
+*/
   for(int s = 0; s<SCREEN_DONE; s++){
     game_process.album_id[s] = -1;
     for(int u = 0; u<UPDATE_DONE;u++){
@@ -426,15 +440,13 @@ void InitGameProcess(){
 void InitGameEvents(){
   world_data_t wdata = {0};
 
-  cooldown_t* loadEvent = InitCooldown(6,EVENT_GAME_PROCESS,GameReady,NULL);
-  AddEvent(game_process.events,loadEvent);
   InitWorld(wdata);
   game_process.children[SCREEN_GAMEPLAY].process = PROCESS_LEVEL;
   game_process.game_frames = 0;
 
- cooldown_t* turnEvent = InitCooldown(20,EVENT_TURN,WorldTurnUpdate,NULL);
- turnEvent->is_recycled = true;
- AddEvent(game_process.events,turnEvent);
+  cooldown_t* turnEvent = InitCooldown(20,EVENT_TURN,WorldTurnUpdate,NULL);
+  turnEvent->is_recycled = true;
+  AddEvent(game_process.events,turnEvent);
 }
 
 bool GameTransitionScreen(){

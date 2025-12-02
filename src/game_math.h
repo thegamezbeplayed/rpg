@@ -94,4 +94,8 @@ static int isqrt(int n) {
 static int RandRange(int min, int max) {
     return min + rand() % (max - min + 1);
 }
+
+static inline int imax(int a, int b) {
+    return (a > b) ? a : b;
+}
 #endif

@@ -31,7 +31,7 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
     {[ATTR_CON]= 5, [ATTR_STR]=5, [ATTR_DEX]=4, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=2}
   },
   {MOB_BEAST,
-    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=5,[STAT_ACTIONS]= 1},
+    {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=5,[STAT_ACTIONS]= 1,[STAT_STAMINA]=10},
     {[ATTR_CON]= 4, [ATTR_STR]=4, [ATTR_DEX]=5, [ATTR_INT]=3,[ATTR_WIS]=1,[ATTR_CHAR]=1}
   },
   {MOB_UNDEAD, 
@@ -49,14 +49,14 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
   {MOB_FEY, 
     {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=6,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 3, [ATTR_STR]=4, [ATTR_DEX]=5, [ATTR_INT]=3,[ATTR_WIS]=4,[ATTR_CHAR]=3},
-    TRAIT_MAGIC_RESISTANCE,
+    TRAIT_MAGIC_RESIST|TRAIT_PSYCHIC_RESIST,
   },
   {MOB_CIVILIAN, 
     {[STAT_REACH]=1,[STAT_HEALTH]=10, [STAT_AGGRO]=2,[STAT_ACTIONS]= 1},
     {[ATTR_CON]= 3, [ATTR_STR]=2, [ATTR_DEX]=2, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=1}
   },
   {MOB_PLAYER, 
-    {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1, [STAT_STAMINA] = 4, [STAT_ENERGY] = 4, [STAT_STAMINA_REGEN] = 1, [STAT_ENERGY_REGEN] = 1,[STAT_STAMINA_REGEN_RATE] = 7, [STAT_ENERGY_REGEN_RATE] = 8,},
+    {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1, [STAT_STAMINA] = 4, [STAT_ENERGY] = 4, [STAT_STAMINA_REGEN] = 1, [STAT_ENERGY_REGEN] = 1,[STAT_STAMINA_REGEN_RATE] = 10, [STAT_ENERGY_REGEN_RATE] = 15,},
     {[ATTR_CON]= 0, [ATTR_STR]=0, [ATTR_DEX]=0, [ATTR_INT]=0,[ATTR_WIS]=0,[ATTR_CHAR]=0}
   },
 };
@@ -65,9 +65,13 @@ species_stats_t RACIALS[SPEC_DONE]={
   {SPEC_HUMAN, {},
     {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_INT]=1,[ATTR_WIS]=1,[ATTR_CHAR]=1}},
   {SPEC_GREENSKIN, {[STAT_ARMOR]=1},
-    {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_INT]=-1,[ATTR_WIS]=-1}},
+    {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_INT]=-1,[ATTR_WIS]=-1},
+    TRAIT_POISON_RESIST
+  },
   {SPEC_ARTHROPOD, {[STAT_HEALTH]=-3,[STAT_ARMOR]=3},
-    {[ATTR_DEX]=2}},
+    {[ATTR_DEX]=2},
+    TRAIT_POISON_RESIST
+  },
   {SPEC_ETHEREAL,{},
     {[ATTR_STR] -2, [ATTR_DEX]=3}},
   {SPEC_ROTTING, {},
@@ -293,6 +297,9 @@ bool StatExpand(stat_t* s, int val, bool fill){
 
   return true;
 }
+void StatIncreaseValue(stat_t* self, float old, float cur){
+  StatChangeValue(self->owner, self, self->increment);
+}
 
 bool StatIncrementValue(stat_t* attr,bool increase){
   float inc = attr->increment;
@@ -334,6 +341,10 @@ bool StatChangeValue(struct ent_s* owner, stat_t* attr, float val){
   
   if(attr->current == attr->min && attr->on_stat_empty!=NULL)
     attr->on_stat_empty(attr,old,cur);
+  
+  if(attr->current == attr->max && old != attr->max)
+    if(attr->on_stat_full)
+      attr->on_stat_full(attr,old,cur);
 
   return true;
 }
@@ -383,6 +394,7 @@ void FormulaDieAddAttr(stat_t* self){
     }
   }
 
+
   self->base += self->die->roll(self->die);
 
   self->max=self->base+modifier;
@@ -421,4 +433,11 @@ bool SkillIncrease(struct skill_s* s, int amnt){
 
   if(s->on_skill_up)
     s->on_skill_up(s,old,s->val);
+}
+
+int ResistDmgLookup(uint64_t trait){
+  for (int i = 0; i < 15; i++){
+    if(RESIST_LOOKUP[i].trait == trait)
+      return RESIST_LOOKUP[i].school;
+  }
 }

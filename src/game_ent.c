@@ -166,6 +166,39 @@ env_t* InitEnv(EnvTile t,Cell pos){
   return e;
 }
 
+uint64_t EntGetTraits(uint64_t in, uint64_t mask){
+
+  return (in & mask);
+}
+
+void EntApplyTraits(traits_t* t, uint64_t mask, uint64_t shift){
+  while (mask) {
+    uint64_t trait = mask & -mask;  // lowest bit
+    mask &= mask - 1;               // clear that bit
+
+    int index = -1;
+    switch(shift){
+      case TRAIT_RESIST_SCHOOL_MASK:
+        index = ResistDmgLookup(trait);
+        t->resistances_school[index] += 1;
+        break;
+      case TRAIT_RESIST_TAG_MASK:
+        DamageType schools[DMG_DONE]={0};
+        index = ResistDmgLookup(trait);
+        int count = GetMatchingDamageTypes(index, schools, DMG_DONE);
+        for(int i = 0; i < count;i++){
+          if(schools[i]==DMG_NONE)
+            continue;
+
+          t->resistances_school[schools[i]] += 1;
+        }
+        break;
+      default:
+        break;
+    }
+  }
+}
+
 void EntCalcStats(ent_t* e){
   
   e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,1,20);
@@ -181,14 +214,26 @@ void EntCalcStats(ent_t* e){
   species_stats_t racial = RACIALS[species];
   size_category_t size = MOB_SIZE[cat];
 
-  for (int i = 0; i < TRAIT_DONE; i++){
-    if(!HAS_ANY_IN_CATEGORY(base.traits,TRAIT_DEFENSE_MASK))
-      continue;
-  
-    if(IS_TRAIT(base.traits,TRAIT_DEFENSE_MASK, i))
-      e->traits->resistances_type[i]+=1;
-  }
 
+  trait_pool_t res[4] = {
+    {TRAIT_RESIST_SCHOOL_MASK, EntGetTraits( racial.traits, TRAIT_RESIST_SCHOOL_MASK)},
+    {TRAIT_RESIST_TAG_MASK,EntGetTraits( racial.traits, TRAIT_RESIST_TAG_MASK)},
+    {TRAIT_RESIST_SCHOOL_MASK, EntGetTraits( base.traits, TRAIT_RESIST_SCHOOL_MASK)},
+    {TRAIT_RESIST_TAG_MASK,EntGetTraits( base.traits, TRAIT_RESIST_TAG_MASK)},
+  };
+  for (int i = 0; i< 4;i++)
+    EntApplyTraits(e->traits,res[i].mask, res[i].shift);
+
+  /*
+  for (uint64_t i = 1ULL; i < (1ULL << TRAIT_DONE); i<<=1){
+    if(IS_TRAIT(base.traits,TRAIT_RESIST_TAG_MASK, i)||
+        IS_TRAIT(racial.traits,TRAIT_RESIST_TAG_MASK, i))
+      e->traits->resistances_type[i]+=1;
+    if(IS_TRAIT(base.traits,TRAIT_RESIST_SCHOOL_MASK, i)||
+        IS_TRAIT(racial.traits,TRAIT_RESIST_SCHOOL_MASK, i))
+      e->traits->resistances_school[i]+=1;
+  }
+*/
   for (int i = 0; i < ATTR_DONE; i++){
     int val = base.attr[i] + racial.attr[i] + size.attr[e->size][i];
     e->attribs[i] = InitAttribute(i,val);
@@ -207,6 +252,7 @@ void EntCalcStats(ent_t* e){
         break;
       case STAT_STAMINA_REGEN_RATE:
       case STAT_ENERGY_REGEN_RATE:
+        e->stats[i]->on_turn = StatIncreaseValue;
         e->stats[i]->on_stat_full = EntRestoreResource;
         break;
       default:
@@ -305,11 +351,48 @@ item_def_t* DefineArmor(ItemInstance data){
 }
 
 void EntResetRegen(stat_t* self, float old, float cur){
-  
+
+  StatType rel = STAT_NONE;
+
+  switch(self->attribute){
+    case STAT_STAMINA:
+      rel = STAT_STAMINA_REGEN_RATE;
+      break;
+    case STAT_ENERGY:
+      rel = STAT_ENERGY_REGEN_RATE;
+      break;
+    default:
+      break;
+
+  }  
+  if(rel > STAT_NONE)
+  StatRestart(self->owner->stats[rel],0,0);
+
 }
 
 void EntRestoreResource(stat_t* self, float old, float cur){
+  StatEmpty(self);
 
+  StatType resource = STAT_NONE;
+  int amount = 0;
+  switch(self->attribute){
+    case STAT_STAMINA_REGEN_RATE:
+      amount = self->owner->stats[STAT_STAMINA_REGEN]->current;
+      resource = STAT_STAMINA;
+      break;
+    case STAT_ENERGY_REGEN_RATE:
+      amount = self->owner->stats[STAT_ENERGY_REGEN]->current;
+      resource = STAT_ENERGY;
+      break;
+    default:
+      break;
+  }
+
+  if (resource == STAT_NONE)
+    return;
+
+  if(StatChangeValue(self->owner, self->owner->stats[resource], amount))
+    TraceLog(LOG_INFO,"====Restore %s by %i====\n, %s now %i",STAT_STRING[resource].name, amount, STAT_STRING[resource].name, (int)self->owner->stats[resource]->current);
 }
 
 void EntKill(stat_t* self, float old, float cur){
@@ -327,11 +410,14 @@ void EntInitOnce(ent_t* e){
     e->attack = InitBasicAttack(e);
  */
 
-  for(int i = 0; i < STAT_DONE; i++){
+  for(int i = 0; i < STAT_ENT_DONE; i++){
     if(!e->stats[i])
       continue;
-
-    StatMaxOut(e->stats[i]);
+    
+    if(i<STAT_START_FULL)
+      StatMaxOut(e->stats[i]);
+    else
+      StatEmpty(e->stats[i]);
   }
 
   cooldown_t* spawner = InitCooldown(3,EVENT_SPAWN,StepState_Adapter,e);
@@ -437,8 +523,6 @@ int EntDamageReduction(ent_t* e, ability_t* a, int dmg){
 
   DamageTag tag = DamageTypeTags[a->school];
   
-  dmg -= e->traits->resistances_type[tag];
-
   dmg -= e->traits->resistances_school[a->school];
 
   for(int i = 0; i < e->num_items; i++){
@@ -547,10 +631,11 @@ bool EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   if(a->save > ATTR_NONE)
     save = target->attribs[a->save]->val;
 
-  if(!StatChangeValue(e,e->stats[a->resource],-1*a->cost)){
-    TraceLog(LOG_INFO,"%s not enough %s",e->name, STAT_STRING[a->resource].name);
-    return false;
-  }
+  if(a->resource>STAT_NONE)
+    if(!StatChangeValue(e,e->stats[a->resource],-1*a->cost)){
+      TraceLog(LOG_INFO,"%s not enough %s",e->name, STAT_STRING[a->resource].name);
+      return false;
+    }
   if (hit < save){
     TraceLog(LOG_INFO,"%s misses",e->name);
     return false;
@@ -627,6 +712,19 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
   }
 
   return a;
+}
+
+void EntTurnSync(ent_t* e){
+  for(int i = 0; i< STAT_ENT_DONE; i++){
+    if(e->stats[i] ==NULL)
+      continue;
+
+    if(e->stats[i]->on_turn){
+      if(e->type == ENT_PERSON)
+        DO_NOTHING();
+      e->stats[i]->on_turn(e->stats[i],0,0);
+    }
+  }
 }
 
 void EntSync(ent_t* e){

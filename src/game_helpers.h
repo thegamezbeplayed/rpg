@@ -134,4 +134,61 @@ static float Noise2D(float x, float y) {
 
     return lerp(ix0, ix1, sy);
 }
+
+static cell_bounds_t BoundsSquare(Cell c, int radius) {
+    return (cell_bounds_t){
+        .min = { c.x - radius, c.y - radius },
+        .max = { c.x + radius, c.y + radius }
+    };
+}
+
+static cell_bounds_t BoundsVertical(Cell c, int radius) {
+    return (cell_bounds_t){
+        .min = { c.x - 2, c.y - radius },
+        .max = { c.x + 2, c.y + radius }
+    };
+}
+
+static cell_bounds_t BoundsHorizontal(Cell c, int radius) {
+    return (cell_bounds_t){
+        .min = { c.x - radius, c.y - 2 },
+        .max = { c.x + radius, c.y + 2 }
+    };
+}
+
+static Cell RoomSize(RoomFlags size, RoomFlags layout, RoomFlags purpose){
+  Cell output = CELL_EMPTY;
+
+  switch(layout){
+    case ROOM_LAYOUT_HALL:
+      if(purpose == ROOM_PURPOSE_CONNECT){
+        output = CELL_NEW(size>>10,imax(size>>13,1));
+      }
+      else
+        output = CELL_NEW(size>>11,imax(size>>13,1));
+      break;
+    default:
+      output = CELL_NEW(size>>12,size>>12);
+      break;
+  }
+
+  return output;
+}
+
+static int SizeToRadius(RoomFlags size, RoomFlags layout) {
+  int output = 0;
+  switch(layout){
+    case ROOM_LAYOUT_HALL:
+      output = imax(1,size >> 13);
+      break;
+    case ROOM_LAYOUT_OPEN:
+      output = size >> 11;
+      break;
+    default:
+      output = size >> 12;
+      break;
+  }
+  return output;
+}
+
 #endif

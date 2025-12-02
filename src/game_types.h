@@ -99,13 +99,16 @@ typedef struct{
 controller_t* InitController();
 
 typedef struct{
-  bool      immunities_type[DMGTAG_DONE];
-  int       resistances_type[DMGTAG_DONE];
-  bool      immunities_school[DMGTAG_DONE];
-  int       resistances_school[DMGTAG_DONE];
-
+  bool      immunities_status[DMG_DONE];
+  int       resistances_status[DMG_DONE];
+  bool      immunities_school[DMG_DONE];
+  int       resistances_school[DMG_DONE];
 }traits_t;
 
+typedef struct {
+ uint64_t   shift;
+ uint64_t   mask;
+}trait_pool_t;
 //===ENT_T===>
 typedef struct ent_s{
   int                   uid;
@@ -146,6 +149,7 @@ int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
 bool EntTarget(ent_t* e, ability_t* a, ent_t* source);
 bool EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
 void EntSync(ent_t* e);
+void EntTurnSync(ent_t* e);
 void EntResetRegen(stat_t* self, float old, float cur);
 void EntRestoreResource(stat_t* self, float old, float cur);
 void EntKill(stat_t* self, float old, float cur);

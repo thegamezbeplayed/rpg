@@ -7,8 +7,9 @@
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
-#define GRID_WIDTH 75
-#define GRID_HEIGHT 30
+#define GRID_WIDTH 67
+#define GRID_HEIGHT 67
+#define MAX_MAP_SIZE 128
 
 #define MAX_NAME_LEN 64
 
@@ -16,9 +17,14 @@
 
 #define DIE(num,side) (dice_roll_t){(side),(num),RollDie}
 
+#define ABSTRACT_MAP_MIN   0
+#define ABSTRACT_MAP_MAX   128
+
 #define MAX_ROOM_SIZE 8
 #define MAX_ROOMS  6
-
+#define MAX_EDGES   128
+#define MAX_ROOM_WIDTH 16
+#define MAX_ROOM_HEIGHT 16
 #define HAS_ANY_IN_CATEGORY(value, mask) ((value) & (mask))
 #define IS_TRAIT(value, mask, trait) (((value) & (mask)) == (trait))
 
@@ -67,6 +73,7 @@ typedef enum{
   STAT_STAMINA,
   STAT_STAMINA_REGEN,
   STAT_ENERGY_REGEN,
+  STAT_START_FULL,
   STAT_STAMINA_REGEN_RATE,
   STAT_ENERGY_REGEN_RATE,
   STAT_ENT_DONE,
@@ -87,7 +94,7 @@ typedef enum{
 }AttributeType;
 
 typedef enum{
-  DMG_NONE = 0,
+  DMG_NONE = -1,
 
   DMG_BLUNT,
   DMG_PIERCE,
@@ -109,7 +116,7 @@ typedef enum{
 }DamageType;
 
 typedef enum {
-  DMGTAG_NONE        = 0,
+  DMGTAG_NONE        = -1,
 
   // broad categories
   DMGTAG_PHYSICAL    = 1 << 0,
@@ -129,7 +136,6 @@ typedef enum {
 } DamageTag;
 
 static const uint32_t DamageTypeTags[DMG_DONE] = {
-  [DMG_NONE]      = DMGTAG_NONE,
 
   // Physical
   [DMG_BLUNT]  = DMGTAG_PHYSICAL | DMGTAG_MELEE  | DMGTAG_WEAPON,
@@ -152,7 +158,6 @@ static const uint32_t DamageTypeTags[DMG_DONE] = {
 };
 
 static const char* DAMAGE_STRING[DMG_DONE]={
-  "Unarmed",
   "Blunt",
   "Piercing",
   "Slashing",
@@ -185,6 +190,26 @@ typedef enum{
   ABILITY_MAGIC_MISSLE,
   ABILITY_DONE
 }AbilityID;
+
+static int GetMatchingDamageTypes(uint32_t tags, DamageType* out, int max) {
+    int count = 0;
+    for (int type = 0; type < DMG_DONE && count < max; type++) {
+        if ((DamageTypeTags[type] & tags) == tags) {
+            out[count++] = type;
+        }
+        else
+          out[count++] = DMG_NONE;
+    }
+    return count;
+}
+
+static DamageType GetDamageTypeFromTags(uint32_t tags) {
+    for (int type = 0; type < DMG_DONE; type++) {
+        if (DamageTypeTags[type] == tags)
+            return type;
+    }
+    return DMG_NONE;
+}
 
 static inline bool DamageHasTag(DamageType t, DamageTag tag) {
   return (DamageTypeTags[t] & tag) != 0;
@@ -233,6 +258,7 @@ static stat_name_t STAT_STRING[STAT_ENT_DONE]={
   {STAT_STAMINA, "Stamina"},
   {STAT_STAMINA_REGEN,"Stamina Regen"},
   {STAT_ENERGY_REGEN, "Spell Regen"},
+  {STAT_START_FULL, "N/A"},
   {STAT_STAMINA_REGEN_RATE,"Stamina Regen Rate"},
   {STAT_ENERGY_REGEN_RATE, "Spell Regen Rate"},
 };
@@ -407,13 +433,52 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
 typedef uint64_t MonsterTraits;
 
 typedef enum{
-  TRAIT_PHYS_RESISTANCE    = 1ULL <<0,
-  TRAIT_ELE_RESISTANCE    = 1ULL <<1,
-  TRAIT_MAGIC_RESISTANCE    = 1ULL <<2,
+  TRAIT_PHYS_RESIST      = 1ULL <<0,
+  TRAIT_ELE_RESIST       = 1ULL <<1,
+  TRAIT_MAGIC_RESIST     = 1ULL <<2,
 
-  TRAIT_DEFENSE_MASK        = 0xFFULL,
+  TRAIT_RESIST_TAG_MASK  = 0xFFULL,
+  TRAIT_BLUNT_RESIST     = 1ULL << 8,
+  TRAIT_PIERCE_RESIST    = 1ULL << 9,
+  TRAIT_SLASH_RESIST     = 1ULL << 10,
+  TRAIT_FIRE_RESIST      = 1ULL << 11,
+  TRAIT_COLD_RESIST      = 1ULL << 12,
+  TRAIT_ACID_RESIST      = 1ULL << 13,
+  TRAIT_POISON_RESIST    = 1ULL << 14,
+  TRAIT_PSYCHIC_RESIST   = 1ULL << 15,
+  TRAIT_RADIANT_RESIST   = 1ULL << 16,
+  TRAIT_NECROTIC_RESIST  = 1ULL << 17,
+  TRAIT_FORCE_RESIST     = 1ULL << 18,
+  TRAIT_RESIST_SCHOOL_MASK = (0xFFFFULL<<8),
   TRAIT_DONE,
 }MonsterTrait;
+
+typedef struct{
+  MonsterTrait  trait;
+  int           school;
+}trait_defense_t;
+
+static trait_defense_t RESIST_LOOKUP[15]={
+  {TRAIT_PHYS_RESIST, DMGTAG_PHYSICAL},
+  {TRAIT_ELE_RESIST, DMGTAG_ELEMENTAL},
+  {TRAIT_MAGIC_RESIST, DMGTAG_MAGIC},
+  {TRAIT_BLUNT_RESIST, DMG_BLUNT},
+  {TRAIT_PIERCE_RESIST, DMG_PIERCE},
+  {TRAIT_SLASH_RESIST, DMG_SLASH},
+  {TRAIT_PIERCE_RESIST, DMG_PIERCE},
+  {TRAIT_FIRE_RESIST, DMG_FIRE},
+  {TRAIT_COLD_RESIST, DMG_COLD},
+  {TRAIT_ACID_RESIST, DMG_ACID},
+  {TRAIT_POISON_RESIST, DMG_POISON},
+  {TRAIT_PSYCHIC_RESIST, DMG_PSYCHIC},
+  {TRAIT_RADIANT_RESIST, DMG_RADIANT},
+  {TRAIT_NECROTIC_RESIST, DMG_NECROTIC},
+  {TRAIT_FORCE_RESIST, DMG_FORCE},
+};
+
+static inline int trait_index(uint64_t trait, uint64_t mask_shift) {
+    return __builtin_ctzll(trait) -  __builtin_ctzll(mask_shift);
+}
 
 static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
     return (EnvTileFlags[t] & flag) != 0;
@@ -516,8 +581,9 @@ typedef struct {
 
 typedef struct {
   SpeciesType species;
-  int     stats[STAT_DONE];
-  int     attr[ATTR_DONE];
+  int           stats[STAT_DONE];
+  int           attr[ATTR_DONE];
+  MonsterTraits traits;
 }species_stats_t;
 
 extern species_stats_t RACIALS[SPEC_DONE];
@@ -667,90 +733,6 @@ typedef struct{
   SpawnType   rule;
   int         weight;
 }spawn_rules_t;
-
-typedef enum {
-    CONF_START = 1,
-    CONF_END   = 2,
-    CONF_FLAG  = 3, // special slot for a room flag
-} RoomConfigOpcode;
-
-typedef enum {
-
-    // ----- Size (bits 12–15) -----
-    ROOM_SIZE_SMALL   = 0x1000,
-    ROOM_SIZE_MEDIUM  = 0x2000,
-    ROOM_SIZE_LARGE   = 0x3000,
-    ROOM_SIZE_XL      = 0x4000,
-    ROOM_SIZE_HUGE    = 0x5000,
-    ROOM_SIZE_MASSIVE = 0x6000,
-    ROOM_SIZE_MAX     = 0x7000,
-    ROOM_SIZE_MASK    = 0xF000,
-
-    // ----- Layout type (bits 8–11) -----
-    ROOM_LAYOUT_ROOM  = 0x0100,
-    ROOM_LAYOUT_HALL  = 0x0200,
-    ROOM_LAYOUT_OPEN  = 0x0300,
-    ROOM_LAYOUT_MAZE  = 0x0400,
-    ROOM_LAYOUT_MASK  = 0x0F00,
-
-    // ----- Purpose (bits 4–7) -----
-    ROOM_PURPOSE_NONE            = 0x0000,
-    ROOM_PURPOSE_TRAPPED         = 0x0010,
-    ROOM_PURPOSE_SECRET          = 0x0020,
-    ROOM_PURPOSE_TREASURE        = 0x0030,
-    ROOM_PURPOSE_TREASURE_FALSE  = 0x0030,
-    ROOM_PURPOSE_CHALLENGE = 0x0040,
-    ROOM_PURPOSE_START     = 0x0050,
-    ROOM_PURPOSE_MASK      = 0x00F0,
-
-    // ----- Shape (bits 0–3) -----
-    ROOM_SHAPE_SQUARE   = 0x0001,
-    ROOM_SHAPE_CIRCLE   = 0x0002,
-    ROOM_SHAPE_FORKED   = 0x0003,
-    ROOM_SHAPE_CROSS    = 0x0004,
-    ROOM_SHAPE_DIAMOND  = 0x0005,
-    ROOM_SHAPE_VERTICAL    = 0x0006,
-    ROOM_SHAPE_HORIZONTAL  = 0x0007,
-    ROOM_SHAPE_ANGLED   = 0x0008,
-    ROOM_SHAPE_MASK     = 0x000F,
-
-} RoomFlags;
-
-typedef struct {
-    RoomConfigOpcode op;
-    RoomFlags flags;   // only used when op == CONF_FLAG
-} RoomInstr;
-
-typedef struct {
-    RoomFlags flags;   // the fully combined bitmask
-    int size;          // extracted from mask
-    int layout;
-    int purpose;
-    int shape;
-} RoomDefinition;
-
-typedef struct{
-  Cell      center;
-  Rectangle bounds;
-  int       num_spawns;
-  Cell      spawns[MAX_ROOM_SIZE];
-  Cell      enter,exit;
-  //TileFlags flags[MAX_ROOM_SIZE][MAX_ROOM_SIZE];
-}room_t;
-
-typedef enum{
-  DARK_FOREST,
-  DANK_DUNGEON,
-  MAP_DONE,
-}MapID;
-
-typedef struct{
-  MapID           id;
-  TileFlags       map_flag;
-  int             num_mobs,spacing,hall_length,hall_thickness,border,num_rooms;
-  spawn_rules_t   mobs[6];
-  RoomInstr       rooms[6][6];
-}map_gen_t;
 
 typedef enum{
   ITEM_NONE,
@@ -935,6 +917,7 @@ typedef void (*StatCallback)(struct stat_s* self, float old, float cur);
 typedef float (*StatGetter)(struct stat_s* self);
 typedef struct stat_s{
   StatType      attribute;
+  StatType      related;
   float         min;
   float         max;
   float         current;
@@ -945,7 +928,7 @@ typedef struct stat_s{
   ModifierType  modified_by[ATTR_DONE];
   struct ent_s  *owner;
   StatGetter ratio;
-  StatCallback on_stat_change,on_stat_full, on_stat_empty;
+  StatCallback on_stat_change,on_stat_full, on_stat_empty,on_turn;
 } stat_t;
 
 typedef enum{
@@ -977,6 +960,7 @@ stat_t* InitStatEmpty(void);
 stat_t* InitStat(StatType attr,float min, float max, float amount);
 bool StatExpand(stat_t* s, int val, bool fill);
 bool StatIncrementValue(stat_t* attr,bool increase);
+void StatIncreaseValue(stat_t* self, float old, float cur);
 bool StatChangeValue(struct ent_s* owner, stat_t* attr, float val);
 void StatMaxOut(stat_t* s);
 void StatEmpty(stat_t* s);
@@ -1146,18 +1130,251 @@ typedef struct{
 }map_cell_t;
 
 typedef struct{
-  map_cell_t   tiles[GRID_WIDTH][GRID_HEIGHT];
+  map_cell_t   **tiles;
   int          x,y,width,height;
-  int          step_size,spawn_rate,rooms;
+  int          step_size;
   Color        floor;
 }map_grid_t;
 
-typedef struct{
-  TileFlags enviroment[GRID_WIDTH][GRID_HEIGHT];
-  int       num_rooms;
-  room_t    *rooms[MAX_ROOMS];
-}map_build_t;
 
+typedef enum {
+    CONF_START = 1,
+    CONF_END   = 2,
+    CONF_FLAG  = 3, // special slot for a room flag
+} RoomConfigOpcode;
+
+typedef enum {
+
+    // ----- Size (bits 12–15) -----
+    ROOM_SIZE_SMALL   = 0x1000,
+    ROOM_SIZE_MEDIUM  = 0x2000,
+    ROOM_SIZE_LARGE   = 0x3000,
+    ROOM_SIZE_XL      = 0x4000,
+    ROOM_SIZE_HUGE    = 0x5000,
+    ROOM_SIZE_MASSIVE = 0x6000,
+    ROOM_SIZE_MAX     = 0x7000,
+    ROOM_SIZE_MASK    = 0xF000,
+
+    // ----- Layout type (bits 8–11) -----
+    ROOM_LAYOUT_ROOM  = 0x0100,
+    ROOM_LAYOUT_HALL  = 0x0200,
+    ROOM_LAYOUT_OPEN  = 0x0300,
+    ROOM_LAYOUT_MAZE  = 0x0400,
+    ROOM_LAYOUT_MAX  = 0x0500,
+    ROOM_LAYOUT_MASK  = 0x0F00,
+
+
+    // ----- Purpose (bits 4–7) -----
+    ROOM_PURPOSE_NONE            = 0x0000,
+    ROOM_PURPOSE_TRAPPED         = 0x0010,
+    ROOM_PURPOSE_SECRET          = 0x0020,
+    ROOM_PURPOSE_TREASURE        = 0x0030,
+    ROOM_PURPOSE_TREASURE_FALSE  = 0x0030,
+    ROOM_PURPOSE_CHALLENGE = 0x0040,
+    ROOM_PURPOSE_START     = 0x0050,
+    ROOM_PURPOSE_CONNECT   = 0x0060,
+    ROOM_PURPOSE_MAX      = 0x0070,
+    ROOM_PURPOSE_MASK      = 0x00F0,
+
+    // ----- Shape (bits 0–3) -----
+    ROOM_SHAPE_SQUARE   = 0x0001,
+    ROOM_SHAPE_CIRCLE   = 0x0002,
+    ROOM_SHAPE_FORKED   = 0x0003,
+    ROOM_SHAPE_CROSS    = 0x0004,
+    ROOM_SHAPE_DIAMOND  = 0x0005,
+    ROOM_SHAPE_VERTICAL    = 0x0006,
+    ROOM_SHAPE_HORIZONTAL  = 0x0007,
+    ROOM_SHAPE_ANGLED   = 0x0008,
+    ROOM_SHAPE_MAX     = 0x0009,
+    ROOM_SHAPE_MASK     = 0x000F,
+
+} RoomFlags;
+static inline RoomFlags RandomSize(void) {
+    int count = (ROOM_SIZE_MAX - ROOM_SIZE_SMALL) >> 12;  // 7 - 1 = 6 valid sizes
+    int pick  = RandRange(0, count - 1);                  // 0..5
+    return (RoomFlags)((pick + 1) << 12);
+}
+static inline RoomFlags RandomShape(void) {
+    int count = (ROOM_SHAPE_MAX - ROOM_SHAPE_SQUARE); // = 8
+    int pick  = RandRange(0, count - 1);              // 0..7
+    return (RoomFlags)(ROOM_SHAPE_SQUARE + pick);
+}
+static inline RoomFlags RandomPurpose(void) {
+    int count = (ROOM_PURPOSE_MAX - ROOM_PURPOSE_NONE) >> 4;  // 7 values (0..6)
+    int pick;
+
+    do {
+        pick = RandRange(0, count - 1);  // 0..5
+    } while ((pick << 4) == ROOM_PURPOSE_START);
+
+    return (RoomFlags)(pick << 4);
+}
+static inline RoomFlags RandomLayout(void) {
+    int count = (ROOM_LAYOUT_MAX - ROOM_LAYOUT_ROOM) >> 8; // = 4 layouts
+    int pick  = RandRange(0, count - 1);                   // 0..3
+    return (RoomFlags)((pick + 1) << 8);
+}
+typedef struct {
+    RoomConfigOpcode op;
+    RoomFlags flags;   // only used when op == CONF_FLAG
+} room_instr_t;
+
+typedef struct {
+    RoomFlags flags;   // the fully combined bitmask
+    int size;          // extracted from mask
+    int layout;
+    int purpose;
+    int shape;
+} room_definition_t;
+
+typedef enum{
+  DARK_FOREST,
+  DANK_DUNGEON,
+  MAP_DONE,
+}MapID;
+
+typedef struct {
+    TileFlags required_floor;   // must be standing on: TILEFLAG_FLOOR, FOREST, etc
+    TileFlags forbidden;        // cannot overlap
+    TileFlags deco_flag;        // TILEFLAG_DECOR, TILEFLAG_DEBRIS, etc
+    int chance;                 // 1 = always, 5 = 1/5, 10 = 1/10
+} DecorRule;
+
+static DecorRule dungeon_decor[] = {
+    { TILEFLAG_FLOOR, TILEFLAG_SPAWN | TILEFLAG_START, TILEFLAG_DEBRIS, 12 },
+    { TILEFLAG_FLOOR, TILEFLAG_SPAWN,                  TILEFLAG_DECOR,  15 },
+    { TILEFLAG_FLOOR, TILEFLAG_WALL,                  TILEFLAG_DECOR,  20 }
+};
+static const int dungeon_decor_count = sizeof(dungeon_decor)/sizeof(dungeon_decor[0]);
+
+typedef struct {
+    Cell min, max;
+} cell_bounds_t;
+
+typedef struct {
+    cell_bounds_t   bounds;
+    int             num_spawns;
+    RoomFlags       purpose,shape,size,layout;
+    Cell            spawns[16];
+    Cell            center;
+} room_t;
+
+typedef struct {
+    int a, b;   // indices into rooms[]
+    int length; // optional, for hall cost
+} room_edge_t;
+
+typedef enum {
+    MAP_NODE_SUCCESS,
+    MAP_NODE_FAILURE
+} MapNodeResult;
+
+typedef enum {
+  MAP_NODE_ROOT,
+  MAP_NODE_SEQUENCE,
+  MAP_NODE_LEAF,
+} MapNodeType;
+
+typedef enum {
+  MN_GRID,
+  MN_SELECT_ROOMS,
+  MN_FILL_MISSING_ROOMS,
+  MN_GENERATE_ROOMS,
+  MN_GRID_GEN,
+  MN_MAP_OUT_GRID,
+  MN_PLACE_ROOMS,
+  MN_COMPUTE_BOUNDS,
+  MN_ALLOCATE_TILES,
+  MN_CARVE_TILES,
+  MAP_NODE_PLACE_ROOMS,
+  MAP_NODE_APPLY_SHAPES,
+  MAP_NODE_BUILD_GRAPH,
+  MAP_NODE_CONNECT_HALLS,
+  MAP_NODE_PLACE_SPAWNS,
+  MAP_NODE_DECORATE,
+  MAP_NODE_DONE
+} MapNodeID;
+
+typedef struct{
+  MapID           id;
+  TileFlags       map_flag;
+  int             num_mobs,spacing,hall_length,hall_thickness,max_rooms,num_rooms;
+  spawn_rules_t   mobs[6];
+  room_instr_t    rooms[12][6];
+  MapNodeID       node_rules;
+}map_gen_t;
+
+typedef struct {
+  map_gen_t   *map_rules;
+  int         width, height;
+  room_t      rooms[MAX_ROOMS];
+  int         num_rooms, num_edges;
+  room_edge_t edges[MAX_EDGES];
+  TileFlags **tiles;
+  int alloc_w, alloc_h;
+  // random seed etc if you want
+  unsigned int seed;
+  int         decor_density;
+} map_context_t;
+
+struct map_node_s;
+typedef struct map_node_s map_node_t;
+
+typedef MapNodeResult (*MapNodeFn)(map_context_t *ctx, map_node_t *node);
+
+MapNodeResult MapFillMissing(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapCarveTiles(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapAllocateTiles(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapAssignPositions(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node);
+
+struct map_node_s {
+    MapNodeType type;
+    MapNodeID   id;
+    MapNodeFn   run;
+    int         num_children;
+    map_node_t  **children;
+};
+
+typedef struct{
+  MapNodeID     id;
+  MapNodeType   type;
+  map_node_t*   (*fn)(MapNodeID id );
+  int           num_children;
+  MapNodeType   children[6];
+}map_node_data_t;
+
+map_node_t* MapCreateLeafNode(MapNodeFn fn, MapNodeID id);
+map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count);
+
+static inline map_node_t* LeafMapFillMissing(MapNodeID id)  { return MapCreateLeafNode(MapFillMissing,id); }
+static inline map_node_t* LeafMapAllocateTiles(MapNodeID id)  { return MapCreateLeafNode(MapAllocateTiles,id); }
+static inline map_node_t* LeafMapCarveTiles(MapNodeID id)  { return MapCreateLeafNode(MapCarveTiles,id); }
+static inline map_node_t* LeafMapComputeBounds(MapNodeID id)  { return MapCreateLeafNode(MapComputeBounds,id); }
+static inline map_node_t* LeafMapAssignPositions(MapNodeID id)  { return MapCreateLeafNode(MapAssignPositions,id); }
+static inline map_node_t* LeafMapGridLayout(MapNodeID id)  { return MapCreateLeafNode(MapGridLayout,id); }
+static inline map_node_t* LeafMapGenerateRooms(MapNodeID id)  { return MapCreateLeafNode(MapGenerateRooms,id); }
+
+
+map_node_t* MapBuildNodeRules(MapNodeType id);
+MapNodeResult MapNodeRunSequence(map_context_t *ctx, map_node_t *node);
+map_node_t* MapBuildRootPipeline(void);
+bool MapGenerate(map_context_t *ctx);
+MapNodeResult NodeAssignPositions(map_context_t *ctx, map_node_t *node);
+MapNodeResult NodeApplyShapes(map_context_t *ctx, map_node_t *node);
+MapNodeResult NodeBuildRoomGraph(map_context_t *ctx, map_node_t *node);
+MapNodeResult NodeConnectHalls(map_context_t *ctx, map_node_t *node);
+void CarveHallBetween(map_context_t *ctx, Cell a, Cell b);
+MapNodeResult NodeAllocateTiles(map_context_t *ctx, map_node_t *node);
+MapNodeResult NodeCarveToTiles(map_context_t *ctx, map_node_t *node);
+MapNodeResult NodeConnectHalls(map_context_t *ctx, map_node_t *node);
+MapNodeResult NodePlaceSpawns(map_context_t *ctx, map_node_t *node);
+MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node);
+TileFlags RoomSpecialDecor(RoomFlags p);
+
+bool InitMap(void);
 map_grid_t* InitMapGrid(void);
 TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
 TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);
@@ -1166,22 +1383,29 @@ map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
 TileStatus MapRemoveOccupant(map_grid_t* m, Cell c);
 TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c);
 
-void MapLoad(map_grid_t* m);
+void MapApplyContext(map_grid_t* m);
 void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);
 Cell MapGetTileByFlag(map_grid_t* m, TileFlags f);
-void MapRoomBuild(map_grid_t* m);
-void MapRoomGen(map_grid_t* m, Cell *poi_list, int poi_count);
 void MapSpawn(TileFlags flags, int x, int y);
 void MapSpawnMob(map_grid_t* m, room_t* room);
 void MapPlaceSpawns(map_grid_t *m);
-int MapPOIs(map_grid_t* map, Cell *list, map_gen_t* rules,int start, int count);
 bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep);
 bool TooClose(Cell a, Cell b, int min_dist);
-void MapGenerateRoomAt(Cell center, RoomInstr* stream);
-void MapConnectRooms(Cell start, Cell end,map_gen_t* rules);
+
+static int RoomsOverlap(room_t *a, room_t *b, int spacing) {
+
+    int dist = CellDistGrid(a->center, b->center);
+
+    int ar = (a->size >> 12) + spacing;
+    int br = (b->size >> 12) + spacing;
+    
+    return imax(ar-dist,br-dist);
+}
+
 MobCategory GetEntityCategory(EntityType t);
 SpeciesType GetEntitySpecies(EntityType t);
 ObjectInstance GetEntityData(EntityType t);
 item_prop_mod_t GetItemProps(ItemInstance data);
 
+int ResistDmgLookup(uint64_t trait);
 #endif
