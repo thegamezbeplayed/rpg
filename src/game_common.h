@@ -21,7 +21,7 @@
 #define ABSTRACT_MAP_MAX   128
 
 #define MAX_ROOM_SIZE 8
-#define MAX_ROOMS  6
+#define MAX_ROOMS  12
 #define MAX_EDGES   128
 #define MAX_ROOM_WIDTH 16
 #define MAX_ROOM_HEIGHT 16
@@ -1169,11 +1169,11 @@ typedef enum {
     ROOM_PURPOSE_TRAPPED         = 0x0010,
     ROOM_PURPOSE_SECRET          = 0x0020,
     ROOM_PURPOSE_TREASURE        = 0x0030,
-    ROOM_PURPOSE_TREASURE_FALSE  = 0x0030,
-    ROOM_PURPOSE_CHALLENGE = 0x0040,
-    ROOM_PURPOSE_START     = 0x0050,
-    ROOM_PURPOSE_CONNECT   = 0x0060,
-    ROOM_PURPOSE_MAX      = 0x0070,
+    ROOM_PURPOSE_TREASURE_FALSE  = 0x0040,
+    ROOM_PURPOSE_CHALLENGE = 0x0050,
+    ROOM_PURPOSE_START     = 0x0060,
+    ROOM_PURPOSE_CONNECT   = 0x0070,
+    ROOM_PURPOSE_MAX      = 0x0080,
     ROOM_PURPOSE_MASK      = 0x00F0,
 
     // ----- Shape (bits 0–3) -----
@@ -1181,51 +1181,36 @@ typedef enum {
     ROOM_SHAPE_CIRCLE   = 0x0002,
     ROOM_SHAPE_FORKED   = 0x0003,
     ROOM_SHAPE_CROSS    = 0x0004,
-    ROOM_SHAPE_DIAMOND  = 0x0005,
-    ROOM_SHAPE_VERTICAL    = 0x0006,
-    ROOM_SHAPE_HORIZONTAL  = 0x0007,
-    ROOM_SHAPE_ANGLED   = 0x0008,
-    ROOM_SHAPE_MAX     = 0x0009,
+    ROOM_SHAPE_RECT     = 0x0005,
+    ROOM_SHAPE_ANGLED   = 0x0006,
+    ROOM_SHAPE_MAX      = 0x0007,
     ROOM_SHAPE_MASK     = 0x000F,
 
+    // --- Orientation (bits 16-19) ---
+    ROOM_ORIENT_NONE  = 0x00000000,
+    ROOM_ORIENT_HOR   = 0x00010000,
+    ROOM_ORIENT_VER   = 0x00020000,
+    ROOM_ORIENT_MAX   = 0x00030000,
+    ROOM_ORIENT_MASK   = 0x000F0000,
+
+    ROOM_PLACING_C = 0x00000000,
+    ROOM_PLACING_N = 0x00100000,
+    ROOM_PLACING_S = 0x00200000,
+    ROOM_PLACING_E = 0x00300000,
+    ROOM_PLACING_W = 0x00400000,
+    ROOM_PLACING_NW = 0x00500000,
+    ROOM_PLACING_NE = 0x00600000,
+    ROOM_PLACING_SE = 0x00700000,
+    ROOM_PLACING_SW = 0x00800000,
+    ROOM_PLACING_MAX = 0x00900000,
+    ROOM_PLACING_MASK = 0x00F00000,
+
+
 } RoomFlags;
-static inline RoomFlags RandomSize(void) {
-    int count = (ROOM_SIZE_MAX - ROOM_SIZE_SMALL) >> 12;  // 7 - 1 = 6 valid sizes
-    int pick  = RandRange(0, count - 1);                  // 0..5
-    return (RoomFlags)((pick + 1) << 12);
-}
-static inline RoomFlags RandomShape(void) {
-    int count = (ROOM_SHAPE_MAX - ROOM_SHAPE_SQUARE); // = 8
-    int pick  = RandRange(0, count - 1);              // 0..7
-    return (RoomFlags)(ROOM_SHAPE_SQUARE + pick);
-}
-static inline RoomFlags RandomPurpose(void) {
-    int count = (ROOM_PURPOSE_MAX - ROOM_PURPOSE_NONE) >> 4;  // 7 values (0..6)
-    int pick;
 
-    do {
-        pick = RandRange(0, count - 1);  // 0..5
-    } while ((pick << 4) == ROOM_PURPOSE_START);
-
-    return (RoomFlags)(pick << 4);
-}
-static inline RoomFlags RandomLayout(void) {
-    int count = (ROOM_LAYOUT_MAX - ROOM_LAYOUT_ROOM) >> 8; // = 4 layouts
-    int pick  = RandRange(0, count - 1);                   // 0..3
-    return (RoomFlags)((pick + 1) << 8);
-}
-typedef struct {
-    RoomConfigOpcode op;
-    RoomFlags flags;   // only used when op == CONF_FLAG
-} room_instr_t;
-
-typedef struct {
-    RoomFlags flags;   // the fully combined bitmask
-    int size;          // extracted from mask
-    int layout;
-    int purpose;
-    int shape;
-} room_definition_t;
+static int room_size_weights[7] = {0,14,33,52,70,82,96};
+static int room_purpose_weights[8] = {50,10,3,9,6,22,0,0};
+static int room_shape_weights[7] = {50,20,10,10,5,20,15};
 
 typedef enum{
   DARK_FOREST,
@@ -1251,13 +1236,22 @@ typedef struct {
     Cell min, max;
 } cell_bounds_t;
 
-typedef struct {
+typedef struct room_s room_t;
+
+typedef struct{
+  bool          entrance;
+  struct room_s *sub;
+  Cell          dir, pos;
+}room_opening_t;
+
+struct room_s{
     cell_bounds_t   bounds;
-    int             num_spawns;
-    RoomFlags       purpose,shape,size,layout;
+    int             num_spawns,num_children;
+    RoomFlags       flags;
+    room_opening_t  openings[16];
     Cell            spawns[16];
-    Cell            center;
-} room_t;
+    Cell            center,dir;
+};
 
 typedef struct {
     int a, b;   // indices into rooms[]
@@ -1282,12 +1276,13 @@ typedef enum {
   MN_GENERATE_ROOMS,
   MN_GRID_GEN,
   MN_MAP_OUT_GRID,
+  MN_APPLY_SHAPES,
   MN_PLACE_ROOMS,
   MN_COMPUTE_BOUNDS,
   MN_ALLOCATE_TILES,
   MN_CARVE_TILES,
+  MN_GRAPH_ROOTS,
   MAP_NODE_PLACE_ROOMS,
-  MAP_NODE_APPLY_SHAPES,
   MAP_NODE_BUILD_GRAPH,
   MAP_NODE_CONNECT_HALLS,
   MAP_NODE_PLACE_SPAWNS,
@@ -1300,7 +1295,7 @@ typedef struct{
   TileFlags       map_flag;
   int             num_mobs,spacing,hall_length,hall_thickness,max_rooms,num_rooms;
   spawn_rules_t   mobs[6];
-  room_instr_t    rooms[12][6];
+  RoomFlags       rooms[12];
   MapNodeID       node_rules;
 }map_gen_t;
 
@@ -1323,6 +1318,9 @@ typedef struct map_node_s map_node_t;
 typedef MapNodeResult (*MapNodeFn)(map_context_t *ctx, map_node_t *node);
 
 MapNodeResult MapFillMissing(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapGraphRooms(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapApplyRoomShapes(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapPlaceSubrooms(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapCarveTiles(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapAllocateTiles(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapAssignPositions(map_context_t *ctx, map_node_t *node);
@@ -1350,6 +1348,9 @@ map_node_t* MapCreateLeafNode(MapNodeFn fn, MapNodeID id);
 map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count);
 
 static inline map_node_t* LeafMapFillMissing(MapNodeID id)  { return MapCreateLeafNode(MapFillMissing,id); }
+static inline map_node_t* LeafMapGraphRooms(MapNodeID id)  { return MapCreateLeafNode(MapGraphRooms,id); }
+static inline map_node_t* LeafMapApplyRoomShapes(MapNodeID id)  { return MapCreateLeafNode(MapApplyRoomShapes,id); }
+static inline map_node_t* LeafMapPlaceSubrooms(MapNodeID id)  { return MapCreateLeafNode(MapPlaceSubrooms,id); }
 static inline map_node_t* LeafMapAllocateTiles(MapNodeID id)  { return MapCreateLeafNode(MapAllocateTiles,id); }
 static inline map_node_t* LeafMapCarveTiles(MapNodeID id)  { return MapCreateLeafNode(MapCarveTiles,id); }
 static inline map_node_t* LeafMapComputeBounds(MapNodeID id)  { return MapCreateLeafNode(MapComputeBounds,id); }
@@ -1363,7 +1364,6 @@ MapNodeResult MapNodeRunSequence(map_context_t *ctx, map_node_t *node);
 map_node_t* MapBuildRootPipeline(void);
 bool MapGenerate(map_context_t *ctx);
 MapNodeResult NodeAssignPositions(map_context_t *ctx, map_node_t *node);
-MapNodeResult NodeApplyShapes(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeBuildRoomGraph(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeConnectHalls(map_context_t *ctx, map_node_t *node);
 void CarveHallBetween(map_context_t *ctx, Cell a, Cell b);
@@ -1396,8 +1396,10 @@ static int RoomsOverlap(room_t *a, room_t *b, int spacing) {
 
     int dist = CellDistGrid(a->center, b->center);
 
-    int ar = (a->size >> 12) + spacing;
-    int br = (b->size >> 12) + spacing;
+    RoomFlags asize = a->flags & ROOM_SIZE_MASK;
+    RoomFlags bsize = b->flags & ROOM_SIZE_MASK;
+    int ar = (asize >> 12) + spacing;
+    int br = (bsize >> 12) + spacing;
     
     return imax(ar-dist,br-dist);
 }

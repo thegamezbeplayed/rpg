@@ -44,6 +44,7 @@
 #define CELL_NEW(x,y) ((Cell){(x),(y)})
 #define CellMul(c1,c2) (Cell){(c1.x * c2.x),(c1.y * c2.y)}
 #define CellSub(c1,c2) (Cell){(c1.x - c2.x),(c1.y - c2.y)}
+#define CellFlip(c) (Cell){(c.y),(c.x)}
 
 static void shuffle_array(void *base, size_t n, size_t size) {
     char *arr = base;
@@ -83,6 +84,14 @@ static inline Cell random_direction(void){
   }
 }
 
+static inline Cell cell_point_along(Cell c, int min){
+  if(c.x>c.y)
+    c.x = RandRange(min,c.x-1);
+  else
+    c.y = RandRange(min,c.y-1);
+
+  return c;
+}
 
 static inline bool cell_in_bounds(Cell c, Cell bounds){
   if (c.x > bounds.x || c.x < 0)

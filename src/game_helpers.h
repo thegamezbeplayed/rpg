@@ -135,30 +135,13 @@ static float Noise2D(float x, float y) {
     return lerp(ix0, ix1, sy);
 }
 
-static cell_bounds_t BoundsSquare(Cell c, int radius) {
-    return (cell_bounds_t){
-        .min = { c.x - radius, c.y - radius },
-        .max = { c.x + radius, c.y + radius }
-    };
-}
-
-static cell_bounds_t BoundsVertical(Cell c, int radius) {
-    return (cell_bounds_t){
-        .min = { c.x - 2, c.y - radius },
-        .max = { c.x + 2, c.y + radius }
-    };
-}
-
-static cell_bounds_t BoundsHorizontal(Cell c, int radius) {
-    return (cell_bounds_t){
-        .min = { c.x - radius, c.y - 2 },
-        .max = { c.x + radius, c.y + 2 }
-    };
-}
-
-static Cell RoomSize(RoomFlags size, RoomFlags layout, RoomFlags purpose){
+static Cell RoomSize(RoomFlags f){
   Cell output = CELL_EMPTY;
 
+  RoomFlags size = f & ROOM_SIZE_MASK;
+  RoomFlags purpose = f & ROOM_PURPOSE_MASK;
+  RoomFlags layout = f & ROOM_LAYOUT_MASK;
+  
   switch(layout){
     case ROOM_LAYOUT_HALL:
       if(purpose == ROOM_PURPOSE_CONNECT){
@@ -169,6 +152,28 @@ static Cell RoomSize(RoomFlags size, RoomFlags layout, RoomFlags purpose){
       break;
     default:
       output = CELL_NEW(size>>12,size>>12);
+      break;
+  }
+
+  return output;
+}
+
+static cell_bounds_t RoomBounds(room_t* r){
+  cell_bounds_t output= {CELL_UNSET,CELL_UNSET};
+
+  RoomFlags size = r->flags & ROOM_SIZE_MASK;
+  RoomFlags purpose = r->flags & ROOM_PURPOSE_MASK;
+  RoomFlags layout = r->flags & ROOM_LAYOUT_MASK;
+
+  switch(layout){
+    case ROOM_LAYOUT_HALL:
+      if(purpose == ROOM_PURPOSE_CONNECT){
+      }
+      else{
+
+      }
+      break;
+    default:
       break;
   }
 
@@ -189,6 +194,44 @@ static int SizeToRadius(RoomFlags size, RoomFlags layout) {
       break;
   }
   return output;
+}
+
+static inline RoomFlags FlagByWeight(RoomFlags max, int budget){
+  int r = RandRange(0,budget);
+  
+  int category_size = (max>>12)-1;
+  for (int i = category_size; i > 1; i--){
+    if(room_size_weights[i] < r)
+      return i<<12;
+  }
+
+  return 1<<12;
+}
+
+static inline RoomFlags RandomSize(void) {
+    int count = (ROOM_SIZE_MAX - ROOM_SIZE_SMALL) >> 12;  // 7 - 1 = 6 valid sizes
+    int pick  = RandRange(0, count - 1);                  // 0..5
+    return (RoomFlags)((pick + 1) << 12);
+}
+static inline RoomFlags RandomShape(void) {
+    int count = (ROOM_SHAPE_MAX - ROOM_SHAPE_SQUARE); // = 8
+    int pick  = RandRange(0, count - 1);              // 0..7
+    return (RoomFlags)(ROOM_SHAPE_SQUARE + pick);
+}
+static inline RoomFlags RandomPurpose(void) {
+    int count = (ROOM_PURPOSE_START - ROOM_PURPOSE_NONE) >> 4;  // 7 values (0..6)
+    int pick;
+
+    do {
+        pick = RandRange(0, count - 1);  // 0..5
+    } while ((pick << 4) == ROOM_PURPOSE_START);
+
+    return (RoomFlags)(pick << 4);
+}
+static inline RoomFlags RandomLayout(void) {
+    int count = (ROOM_LAYOUT_MAX - ROOM_LAYOUT_ROOM) >> 8; // = 4 layouts
+    int pick  = RandRange(0, count - 1);                   // 0..3
+    return (RoomFlags)((pick + 1) << 8);
 }
 
 #endif

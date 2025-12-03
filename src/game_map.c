@@ -172,6 +172,7 @@ void MapSpawn(TileFlags flags, int x, int y){
 
 MapNodeResult MapNodeRunSequence(map_context_t *ctx, map_node_t *node){
   for (int i = 0; i < node->num_children; i++) {
+    TraceLog(LOG_INFO,"Run sequence %i of type %i",node->id,node->type);
     MapNodeResult r = node->children[i]->run(ctx, node->children[i]);
     if (r != MAP_NODE_SUCCESS)
       return r;
@@ -198,18 +199,17 @@ map_node_t* MapBuildRootPipeline(void){
 /*
   n_place.type = MAP_NODE_PLACE_ROOMS;
   n_place.run  = NodeAssignPositions;
-*/
+  
   n_shape.type = MAP_NODE_APPLY_SHAPES;
   n_shape.run = NodeApplyShapes;
 
   //n_bounds.type = MAP_NODE_COMPUTE_BOUNDS;
   //n_bounds.run = NodeComputeBounds;
-/*
   n_allocate.type = MAP_NODE_ALLOCATE_TILE_GRID;
   n_allocate.run = NodeAllocateTiles;
-*/
   n_graph.type = MAP_NODE_BUILD_GRAPH;
   n_graph.run  = NodeBuildRoomGraph;
+*/
 
   n_connect.type = MAP_NODE_CONNECT_HALLS;
   n_connect.run  = NodeConnectHalls;
@@ -251,99 +251,58 @@ MapNodeResult MapFillMissing(map_context_t *ctx, map_node_t *node){
   int temp_id = ctx->map_rules->num_rooms-1;
 
   for(int i = temp_id; i  < ctx->map_rules->max_rooms; i++){
-    room_instr_t *insrt = ctx->map_rules->rooms[i];
-    
-    insrt[1] = (room_instr_t){CONF_FLAG,RandomPurpose()};
-    insrt[2] = (room_instr_t){CONF_FLAG,RandomShape()};
-    insrt[3] = (room_instr_t){CONF_FLAG,RandomSize()};
-
+    RoomFlags flags = ctx->map_rules->rooms[i] | RandomPurpose();
+    /*
+    insrt[3] = (room_instr_t){CONF_FLAG,RandomShape()};
+    insrt[4] = (room_instr_t){CONF_FLAG,RandomSize()};
+    insrt[5] = (room_instr_t){CONF_END};
+*/
+    if(i > temp_id)
     ctx->map_rules->num_rooms++;
  }
+
+ return MAP_NODE_SUCCESS;
 }
 
 MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node){
-  int previous_hall = -1;
-  const int spacing = ctx->map_rules->spacing;
-
   Cell prev_pos = CELL_EMPTY;
-
-  Cell prev_dis = CELL_EMPTY;
-  const int hall_len = ctx->map_rules->hall_length;
-
+  int num_root_rooms = 0;
   for (int i = 0 ; i < ctx->num_rooms; i++){
     room_t *room = &ctx->rooms[i];
+    RoomFlags purpose = room->flags & ROOM_PURPOSE_MASK;
 
-    bool placed = false;
-    if (room->purpose==ROOM_PURPOSE_CONNECT && i>previous_hall)
-      previous_hall = i;
+    if(purpose!=ROOM_PURPOSE_CONNECT && purpose!=ROOM_PURPOSE_START)
+      continue;
 
-    for (int attempt = 0; attempt < ABSTRACT_MAP_MAX; attempt++) {
-      bool collides = false;
+    room->center = prev_pos;
+    prev_pos = CellInc(room->center, RoomSize(room->flags));
 
-      if(previous_hall < 0){
-        room->center = CellInc(prev_pos,prev_dis);
-        prev_pos = room->center;
-        prev_dis = RoomSize(room->size,room->layout,room->purpose);
-        placed = true;
-        collides = false;
+    room->openings[0] = (room_opening_t){
+      .dir = cell_dir(room->center,prev_pos)
+    };
+
+    for(int j = i+1; j < ctx->num_rooms; j++){
+      room->openings[room->num_children++] = (room_opening_t)
+      {
+        .dir = CELL_UNSET,
+          .pos = CELL_UNSET,
+          .sub = &ctx->rooms[j],
+      };
+
+      if(ctx->rooms[j].flags& ROOM_PURPOSE_MASK == ROOM_PURPOSE_CONNECT)
         break;
-      }
-      
-
-      if(!collides){
-        placed = true;
-        break;
-      }
-
     }
 
-    if (!placed) {
-      TraceLog(LOG_WARNING,"======MAP GEN=====\n MAP GRID LAYOUT\nFailed to place room %d; spacing too large!\n", i);
-      return MAP_NODE_FAILURE;
-    }
-
+    ctx->rooms[num_root_rooms++] = *room;
 
   }
-}
 
-bool MapCompileRoom(const room_instr_t *stream, int count, room_definition_t *out)
-{ 
-  bool in_block = false;
-  RoomFlags flags = 0;
-
-  for (int i = 0; i < count; i++) {
-    room_instr_t instr = stream[i];
-
-    switch (instr.op) {
-
-      case CONF_START:
-        if (in_block) return false; // nested START error
-        in_block = true;
-        flags = 0;
-        break;
-      case CONF_FLAG:
-        if (!in_block) return false;
-        flags |= instr.flags;  // combine mask bits
-        break;
-
-      case CONF_END:
-        if (!in_block) return false;
-        in_block = false;
-
-        // Extract categories
-        out->flags  = flags;
-        out->size   = flags & ROOM_SIZE_MASK;
-        out->layout = flags & ROOM_LAYOUT_MASK;
-        out->purpose= flags & ROOM_PURPOSE_MASK;
-        out->shape  = flags & ROOM_SHAPE_MASK;
-        return true;
-
-      default:
-        return false;
-    }
+  if(num_root_rooms > 0){
+    ctx->num_rooms = num_root_rooms;
+    return MAP_NODE_SUCCESS;
   }
 
-  return false; // missing CONF_END
+  return MAP_NODE_FAILURE;
 }
 
 MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node){
@@ -351,31 +310,17 @@ MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node){
   map_gen_t *gen = ctx->map_rules;
 
   for (int i = 0; i < gen->num_rooms; i++){
-    room_instr_t* stream = gen->rooms[i];
-    room_definition_t rdef;
-
-    if (!MapCompileRoom(stream, 6, &rdef))
-      return MAP_NODE_FAILURE;
-
+    RoomFlags flags = gen->rooms[i];
     room_t *room = &ctx->rooms[ctx->num_rooms++];
 
-    room->purpose  = rdef.purpose;
-    room->layout  = rdef.layout;
-    room->size  = rdef.size;
+    room->flags = flags;
     room->num_spawns = 0;
-    room->shape = rdef.shape;
-    // You can randomize bounds here or later:
-    //room->bounds = ChooseRoomBounds(def);
-
-    // Save center
-    //room->center = GetBoundsCenter(room->bounds);
   }
-
 
   return ctx->num_rooms > 0 ? MAP_NODE_SUCCESS : MAP_NODE_FAILURE;
 }
 
-MapNodeResult NodeBuildRoomGraph(map_context_t *ctx, map_node_t *node) {
+MapNodeResult MapGraphRooms(map_context_t *ctx, map_node_t *node) {
   ctx->num_edges = 0;
 
   for (int i = 0; i < ctx->num_rooms; i++) {
@@ -468,7 +413,7 @@ MapNodeResult MapCarveTiles(map_context_t *ctx, map_node_t *node) {
 MapNodeResult NodePlaceSpawns(map_context_t *ctx, map_node_t *node) {
   for (int r = 0; r < ctx->num_rooms; r++) {
     room_t *room = &ctx->rooms[r];
-
+/*
     int max_mobs = 1 + ((room->size >> 12) % 4); // cheap scaling
     room->num_spawns = 0;
 
@@ -481,6 +426,8 @@ MapNodeResult NodePlaceSpawns(map_context_t *ctx, map_node_t *node) {
       ctx->tiles[x][y] = TILEFLAG_SPAWN;
     }
   }
+*/
+}
   return MAP_NODE_SUCCESS;
 }
 
@@ -488,7 +435,7 @@ MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node) {
 
   for (int r = 0; r < ctx->num_rooms; r++) {
     room_t *room = &ctx->rooms[r];
-    TileFlags special = RoomSpecialDecor(room->purpose);
+    TileFlags special = RoomSpecialDecor(room->flags & ROOM_PURPOSE_MASK);
 
     for (int y = room->bounds.min.y; y <= room->bounds.max.y; y++) {
       for (int x = room->bounds.min.x; x <= room->bounds.max.x; x++) {
@@ -530,85 +477,63 @@ MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node) {
   return MAP_NODE_SUCCESS;
 }
 
-MapNodeResult NodeApplyShapes(map_context_t *ctx, map_node_t *node) {
+
+MapNodeResult MapShapeRoom(room_t* r) {
+  r->bounds = RoomBounds(r);
+
+  return MAP_NODE_SUCCESS;
+
+}
+
+MapNodeResult MapApplyRoomShapes(map_context_t *ctx, map_node_t *node) {
 
   for (int i = 0; i < ctx->num_rooms; i++) {
     room_t *room = &ctx->rooms[i];
+    MapShapeRoom(room);
 
-    int radius = SizeToRadius(room->size,room->layout);
+    for(int k = 0; k < room->num_children; k++){
+      if(room->openings[k].sub == NULL)
+        continue;
 
-    switch(room->shape) {
-      case ROOM_SHAPE_SQUARE:
-        room->bounds = BoundsSquare(room->center, radius);
-        break;
-
-      case ROOM_SHAPE_CIRCLE:
-        room->bounds = BoundsSquare(room->center, radius);
-        break;
-
-      case ROOM_SHAPE_DIAMOND:
-        room->bounds = BoundsSquare(room->center, radius);
-        break;
-
-      case ROOM_SHAPE_VERTICAL:
-        room->bounds = BoundsVertical(room->center, radius);
-        break;
-
-      case ROOM_SHAPE_HORIZONTAL:
-        room->bounds = BoundsHorizontal(room->center, radius);
-        break;
-
-      default:
-        room->bounds = BoundsSquare(room->center, radius);
+      MapShapeRoom(room->openings[k].sub);
     }
   }
 
   return MAP_NODE_SUCCESS;
-}
-
-MapNodeResult MapAssignPositions(map_context_t *ctx, map_node_t *node) {
 
 }
 
-MapNodeResult NodeAssignPositionsAtRandom(map_context_t *ctx, map_node_t *node) {
-  const int spacing = ctx->map_rules->spacing;   // e.g., 3 or 5 tiles per size-unit
-  const int retries = 200;                       // fail-safe
+MapNodeResult MapPlaceSubrooms(map_context_t *ctx, map_node_t *node) {
 
-  const int hall_len = ctx->map_rules->hall_length;
+  for (int i = 0; i < ctx->num_rooms; i++){
+    room_t root = ctx->rooms[i];
+    for(int j = 0; j < root.num_children; j++){
+      for(int k = 0; k < root.num_children; k++){
+        if(!root.openings[k].sub)
+          continue;
 
-  int padding = 0;
-  for (int i = 0; i < ctx->num_rooms; i++) {
-    room_t *room = &ctx->rooms[i];
+        room_t* sub = root.openings[k].sub;
 
-    int placed = 0;
-    for (int attempt = 0; attempt < retries; attempt++) {
+        Cell dim = RoomSize(root.flags);
 
-      // random position inside abstract map
-      room->center.x = RandRange(-padding-spacing-hall_len, padding+hall_len + spacing+MAX_ROOM_WIDTH);
-      room->center.y = RandRange(-padding-spacing-hall_len, padding+hall_len + spacing+MAX_ROOM_HEIGHT);
+        if(!cell_compare(root.openings[k].dir,CELL_UNSET))
+          root.openings[k].dir = CellFlip(root.dir);
+        
+        if(!cell_compare(root.openings[k].pos,CELL_UNSET)){
+          Cell edge = CellMul(root.dir,root.center);
+          Cell opos = cell_point_along(edge,1);
 
-      // check against all previous rooms
-      bool collides = false;
-      for (int j = 0; j < i; j++) {
-        int overlap = RoomsOverlap(room, &ctx->rooms[j], spacing);
-        if (overlap > 0) {
-          padding+=1;
-          collides = true;
-          break;
+          root.openings[k].pos = CellInc(CellSub(root.center,edge),opos);
+
         }
-      }
 
-      if (!collides) {
-        padding = 0;
-        placed = 1;
-        break;
-      }
+        Cell subDim = RoomSize(sub->flags);
+
+        sub->center = CellInc(root.openings[k].pos,CellMul(subDim,root.openings[k].dir));
+
+      } 
     }
 
-    if (!placed) {
-      TraceLog(LOG_WARNING,"======MAP GEN=====\n{ASSIGN NODE POSITIONS\nFailed to place room %d; spacing too large!\n", i);
-      return MAP_NODE_FAILURE;
-    }
   }
 
   return MAP_NODE_SUCCESS;
