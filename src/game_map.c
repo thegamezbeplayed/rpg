@@ -251,21 +251,24 @@ MapNodeResult MapFillMissing(map_context_t *ctx, map_node_t *node){
   int temp_id = ctx->map_rules->num_rooms-1;
 
   for(int i = temp_id; i  < ctx->map_rules->max_rooms; i++){
-    RoomFlags flags = ctx->map_rules->rooms[i] | RandomPurpose();
-    /*
-    insrt[3] = (room_instr_t){CONF_FLAG,RandomShape()};
-    insrt[4] = (room_instr_t){CONF_FLAG,RandomSize()};
-    insrt[5] = (room_instr_t){CONF_END};
-*/
+    RoomFlags flags = ctx->map_rules->rooms[i] 
+      | RandomPurpose()
+      | RandomShape()
+      | SizeByWeight(ROOM_SIZE_MAX,69);
+
+    ctx->map_rules->rooms[i] = flags;
     if(i > temp_id)
-    ctx->map_rules->num_rooms++;
- }
+      ctx->map_rules->num_rooms++;
+  }
 
  return MAP_NODE_SUCCESS;
 }
 
 MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node){
   Cell prev_pos = CELL_EMPTY;
+  Cell border =CELL_NEW(ctx->map_rules->border,ctx->map_rules->border);
+  Cell spacing =CELL_NEW(ctx->map_rules->spacing,ctx->map_rules->spacing);
+  Cell prev_dis = border;
   int num_root_rooms = 0;
   for (int i = 0 ; i < ctx->num_rooms; i++){
     room_t *room = &ctx->rooms[i];
@@ -274,22 +277,28 @@ MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node){
     if(purpose!=ROOM_PURPOSE_CONNECT && purpose!=ROOM_PURPOSE_START)
       continue;
 
-    room->center = prev_pos;
-    prev_pos = CellInc(room->center, RoomSize(room->flags));
+    Cell size = RoomSize(room->flags);
+    room->dir = RoomFlagsGetPlacing(room->flags);
+    room->center = CellInc(CellMul(room->dir,CellInc(CellScale(size,0.5),prev_dis)),prev_pos);
 
-    room->openings[0] = (room_opening_t){
+    prev_dis = CellInc(size,spacing);
+    room->openings[room->num_children++] = (room_opening_t){
+      .entrance = true,
+      .pos = CellInc(cell_dir(prev_pos,room->center),room->center),
       .dir = cell_dir(room->center,prev_pos)
     };
 
+    prev_pos = room->center;
+    
     for(int j = i+1; j < ctx->num_rooms; j++){
       room->openings[room->num_children++] = (room_opening_t)
       {
-        .dir = CELL_UNSET,
+        .dir = RoomFlagsGetPlacing(ctx->rooms[j].flags),
           .pos = CELL_UNSET,
           .sub = &ctx->rooms[j],
       };
 
-      if(ctx->rooms[j].flags& ROOM_PURPOSE_MASK == ROOM_PURPOSE_CONNECT)
+      if((ctx->rooms[j].flags&ROOM_PURPOSE_MASK) == ROOM_PURPOSE_CONNECT)
         break;
     }
 
@@ -404,7 +413,16 @@ MapNodeResult MapCarveTiles(map_context_t *ctx, map_node_t *node) {
         ctx->tiles[x][y] = border ? TILEFLAG_WALL : floor;
       }
     }
+    for(int i = 0; i < room->num_children; i++){
+      Cell pos = room->openings[i].pos;
+      TileFlags opening = TILEFLAG_EMPTY;
+      if(room->openings[i].entrance)
+        opening = TILEFLAG_DOOR;
+
+      ctx->tiles[pos.x][pos.y] = opening;
+    }
   }
+
 
   // halls already carved as floor in NodeConnectHalls
   return MAP_NODE_SUCCESS;
@@ -479,7 +497,7 @@ MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node) {
 
 
 MapNodeResult MapShapeRoom(room_t* r) {
-  r->bounds = RoomBounds(r);
+  r->bounds = RoomBounds(r,r->center);
 
   return MAP_NODE_SUCCESS;
 
@@ -506,32 +524,34 @@ MapNodeResult MapApplyRoomShapes(map_context_t *ctx, map_node_t *node) {
 MapNodeResult MapPlaceSubrooms(map_context_t *ctx, map_node_t *node) {
 
   for (int i = 0; i < ctx->num_rooms; i++){
-    room_t root = ctx->rooms[i];
-    for(int j = 0; j < root.num_children; j++){
-      for(int k = 0; k < root.num_children; k++){
-        if(!root.openings[k].sub)
-          continue;
+    room_t *root = &ctx->rooms[i];
+    for(int k = 0; k < root->num_children; k++){
+      if(!root->openings[k].sub)
+        continue;
 
-        room_t* sub = root.openings[k].sub;
+      room_t* sub = root->openings[k].sub;
 
-        Cell dim = RoomSize(root.flags);
+      if((sub->flags&ROOM_PURPOSE_MASK) == ROOM_PURPOSE_CONNECT)
+        continue;
 
-        if(!cell_compare(root.openings[k].dir,CELL_UNSET))
-          root.openings[k].dir = CellFlip(root.dir);
-        
-        if(!cell_compare(root.openings[k].pos,CELL_UNSET)){
-          Cell edge = CellMul(root.dir,root.center);
-          Cell opos = cell_point_along(edge,1);
+      Cell dim = RoomSize(root->flags);
 
-          root.openings[k].pos = CellInc(CellSub(root.center,edge),opos);
+      if(!cell_compare(root->openings[k].dir,CELL_UNSET))
+        root->openings[k].dir = CellFlip(root->dir);
 
-        }
+      if(cell_compare(root->openings[k].pos,CELL_UNSET)){
+        Cell edge = CellMul(root->dir,root->center);
+        Cell opos = cell_point_along(edge,1);
 
-        Cell subDim = RoomSize(sub->flags);
+        root->openings[k].pos = CellInc(CellSub(root->center,edge),opos);
 
-        sub->center = CellInc(root.openings[k].pos,CellMul(subDim,root.openings[k].dir));
+      }
 
-      } 
+      Cell subDim = RoomSize(sub->flags);
+
+      Cell disp = CellMul(subDim,root->openings[k].dir);
+      sub->center = CellInc(root->openings[k].pos,disp);
+
     }
 
   }
@@ -541,62 +561,73 @@ MapNodeResult MapPlaceSubrooms(map_context_t *ctx, map_node_t *node) {
 
 MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node)
 {
-    if (ctx->num_rooms <= 0)
-        return MAP_NODE_FAILURE;
+  if (ctx->num_rooms <= 0)
+    return MAP_NODE_FAILURE;
 
-    int minx = INT_MAX;
-    int miny = INT_MAX;
-    int maxx = INT_MIN;
-    int maxy = INT_MIN;
+  int minx = INT_MAX;
+  int miny = INT_MAX;
+  int maxx = INT_MIN;
+  int maxy = INT_MIN;
 
-    // --- 1. Compute global min/max of all room bounds ---
-    for (int i = 0; i < ctx->num_rooms; i++) {
-        room_t *r = &ctx->rooms[i];
+  // --- 1. Compute global min/max of all room bounds ---
+  for (int i = 0; i < ctx->num_rooms; i++) {
+     room_t *r = &ctx->rooms[i];
+     if (r->bounds.min.x < minx) minx = r->bounds.min.x;
+      if (r->bounds.min.y < miny) miny = r->bounds.min.y;
+      if (r->bounds.max.x > maxx) maxx = r->bounds.max.x;
+      if (r->bounds.max.y > maxy) maxy = r->bounds.max.y;
 
-        if (r->bounds.min.x < minx) minx = r->bounds.min.x;
-        if (r->bounds.min.y < miny) miny = r->bounds.min.y;
-        if (r->bounds.max.x > maxx) maxx = r->bounds.max.x;
-        if (r->bounds.max.y > maxy) maxy = r->bounds.max.y;
+    for(int k = 0; k < ctx->rooms[i].num_children; k++){
+      if(ctx->rooms[i].openings[k].sub == NULL)
+        continue;
+
+      r = ctx->rooms[i].openings[k].sub;
+
+      if (r->bounds.min.x < minx) minx = r->bounds.min.x;
+      if (r->bounds.min.y < miny) miny = r->bounds.min.y;
+      if (r->bounds.max.x > maxx) maxx = r->bounds.max.x;
+      if (r->bounds.max.y > maxy) maxy = r->bounds.max.y;
     }
+  }
 
-    // Expand slightly if you want padding around the dungeon:
-    int padding = 2;
-    minx -= padding;
-    miny -= padding;
-    maxx += padding;
-    maxy += padding;
+  // Expand slightly if you want padding around the dungeon:
+  int padding = ctx->map_rules->border;
+  minx -= padding;
+  miny -= padding;
+  maxx += padding;
+  maxy += padding;
 
-    // --- 2. Compute width + height of final map ---
-    int width  = (maxx - minx) + 1;
-    int height = (maxy - miny) + 1;
+  // --- 2. Compute width + height of final map ---
+  int width  = abs(maxx) + abs(minx) + 1;
+  int height = abs(maxy) + abs(miny) + 1;
 
-    ctx->width  = width;
-    ctx->height = height;
+  ctx->width  = width;
+  ctx->height = height;
 
-    // --- 3. Compute offset so min becomes 0,0 ---
-    int offx = -minx;
-    int offy = -miny;
+  // --- 3. Compute offset so min becomes 0,0 ---
+  int offx = -minx;
+  int offy = -miny;
 
-    // --- 4. Shift all rooms into tile coordinate space ---
-    for (int i = 0; i < ctx->num_rooms; i++) {
-        room_t *r = &ctx->rooms[i];
+  // --- 4. Shift all rooms into tile coordinate space ---
+  for (int i = 0; i < ctx->num_rooms; i++) {
+    room_t *r = &ctx->rooms[i];
 
-        r->center.x += offx;
-        r->center.y += offy;
+    r->center.x += offx;
+    r->center.y += offy;
 
-        r->bounds.min.x += offx;
-        r->bounds.max.x += offx;
-        r->bounds.min.y += offy;
-        r->bounds.max.y += offy;
+    r->bounds.min.x += offx;
+    r->bounds.max.x += offx;
+    r->bounds.min.y += offy;
+    r->bounds.max.y += offy;
 
-        // Shift spawns too (if placed early)
-        for (int s = 0; s < r->num_spawns; s++) {
-            r->spawns[s].x += offx;
-            r->spawns[s].y += offy;
-        }
+    // Shift spawns too (if placed early)
+    for (int s = 0; s < r->num_spawns; s++) {
+      r->spawns[s].x += offx;
+      r->spawns[s].y += offy;
     }
+  }
 
-    return MAP_NODE_SUCCESS;
+  return MAP_NODE_SUCCESS;
 }
 
 MapNodeResult MapAllocateTiles(map_context_t *ctx, map_node_t *node)

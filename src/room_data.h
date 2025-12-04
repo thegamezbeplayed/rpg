@@ -89,7 +89,7 @@ static const ObjectInstance room_instances[ENT_DONE] = {
 
 static const map_gen_t MAPS[MAP_DONE]= {
   {DARK_FOREST, MAPFLAG_FOREST,
-    5, 4,MAX_ROOM_SIZE,4,4,1,
+    5, 4,4,4,1,
     {
       {ENT_GOBLIN,SPAWN_PACK,35},
       {ENT_ORC,SPAWN_PACK,2},
@@ -99,7 +99,7 @@ static const map_gen_t MAPS[MAP_DONE]= {
       {ENT_DONE}
     }
   },
-  {DANK_DUNGEON, MAPFLAG_DUNGEON, 2, 4,2+MAX_ROOM_SIZE, 2,11,3,
+  {DANK_DUNGEON, MAPFLAG_DUNGEON, 2, 2,4,11,3,
     {
       {ENT_GOBLIN,SPAWN_PACK,30},
       {ENT_SPIDER, SPAWN_SWARM,10},
@@ -107,8 +107,8 @@ static const map_gen_t MAPS[MAP_DONE]= {
       {ENT_DONE}
     },
     {
-      ROOM_SIZE_LARGE | ROOM_LAYOUT_ROOM | ROOM_PURPOSE_START | ROOM_SHAPE_SQUARE | ROOM_ORIENT_HOR,
-       ROOM_LAYOUT_HALL | ROOM_SIZE_MASSIVE | ROOM_PURPOSE_CONNECT | ROOM_SHAPE_RECT | ROOM_ORIENT_HOR,
+      ROOM_SIZE_LARGE | ROOM_LAYOUT_ROOM | ROOM_PURPOSE_START | ROOM_SHAPE_SQUARE,
+       ROOM_LAYOUT_HALL | ROOM_SIZE_MASSIVE | ROOM_PURPOSE_CONNECT | ROOM_SHAPE_SQUARE | ROOM_ORIENT_HOR | ROOM_PLACING_E,
        ROOM_LAYOUT_ROOM | ROOM_PLACING_N,
        ROOM_LAYOUT_ROOM | ROOM_PLACING_N,
        ROOM_LAYOUT_ROOM | ROOM_PLACING_N,
@@ -137,7 +137,16 @@ static map_node_data_t room_nodes[MAP_NODE_DONE] = {
   {MN_CARVE_TILES, MAP_NODE_LEAF, LeafMapCarveTiles,0},
   {MN_GRAPH_ROOTS, MAP_NODE_LEAF, LeafMapGraphRooms,0} 
 };
-
+/*Fill missing
+ * Generate Rooms (root)
+ * Grid Layout (lay the roots and openings for each sub room)
+ * Place sub rooms
+ *
+ * Shape rooms (roots for now)
+ * Compute bounds
+ * Allocate tiles
+ * Carve Tiles
+ */
 static const ItemInstance room_items[GEAR_DONE] = {
   {GEAR_MACE, ITEM_WEAPON, WEAP_MACE,QUAL_COMMON},
   {GEAR_LEATHER_ARMOR,ITEM_ARMOR,ARMOR_LEATHER,QUAL_COMMON},

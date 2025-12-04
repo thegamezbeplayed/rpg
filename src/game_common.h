@@ -1208,7 +1208,7 @@ typedef enum {
 
 } RoomFlags;
 
-static int room_size_weights[7] = {0,14,33,52,70,82,96};
+static int room_size_weights[7] = {0,10,36,52,70,82,96};
 static int room_purpose_weights[8] = {50,10,3,9,6,22,0,0};
 static int room_shape_weights[7] = {50,20,10,10,5,20,15};
 
@@ -1293,7 +1293,7 @@ typedef enum {
 typedef struct{
   MapID           id;
   TileFlags       map_flag;
-  int             num_mobs,spacing,hall_length,hall_thickness,max_rooms,num_rooms;
+  int             num_mobs,spacing,border,max_rooms,num_rooms;
   spawn_rules_t   mobs[6];
   RoomFlags       rooms[12];
   MapNodeID       node_rules;

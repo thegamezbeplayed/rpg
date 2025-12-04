@@ -158,25 +158,71 @@ static Cell RoomSize(RoomFlags f){
   return output;
 }
 
-static cell_bounds_t RoomBounds(room_t* r){
-  cell_bounds_t output= {CELL_UNSET,CELL_UNSET};
+static cell_bounds_t RoomBounds(room_t* r,Cell c){
 
   RoomFlags size = r->flags & ROOM_SIZE_MASK;
   RoomFlags purpose = r->flags & ROOM_PURPOSE_MASK;
   RoomFlags layout = r->flags & ROOM_LAYOUT_MASK;
+  RoomFlags orient = r->flags & ROOM_ORIENT_MASK;
+  RoomFlags shape = r->flags & ROOM_SHAPE_MASK;
+
+  int isize = size >> 12;
+  int bstep = 0;
+  int lstep = 0;
 
   switch(layout){
     case ROOM_LAYOUT_HALL:
-      if(purpose == ROOM_PURPOSE_CONNECT){
-      }
-      else{
+      isize = size>>11;
+      bstep = size>>15;
+      lstep = imax(-1+size>>11,2);
+     break;
+    case ROOM_LAYOUT_OPEN:
+     lstep = bstep = CLAMP(size>>12,1,3);
+    default:
+     break;
+  }
 
-      }
+  switch(purpose){
+    case ROOM_PURPOSE_CONNECT:
+      bstep=0;
+      lstep-=1;
+      break;
+    default:
+      break;
+  }
+ 
+  int minx = c.x-isize;
+  int miny = c.y-isize;
+  int maxx = c.x+isize;
+  int maxy = c.y+isize;
+
+
+  switch(orient){
+    case ROOM_ORIENT_HOR:
+      if(size>ROOM_SIZE_SMALL)
+        miny+=lstep;
+
+      maxy-=lstep;
+
+      minx-=bstep;
+      maxx+=bstep;
+
+      break;
+    case ROOM_ORIENT_VER:
+      if(size>ROOM_SIZE_SMALL)
+        minx+=lstep;
+      if(purpose == ROOM_PURPOSE_CONNECT)
+        lstep = 0;
+
+      maxx-=lstep;
+      miny-=bstep;
+      maxy+=bstep;
       break;
     default:
       break;
   }
 
+  cell_bounds_t output= {CELL_NEW(minx,miny),CELL_NEW(maxx,maxy)};
   return output;
 }
 
@@ -196,7 +242,44 @@ static int SizeToRadius(RoomFlags size, RoomFlags layout) {
   return output;
 }
 
-static inline RoomFlags FlagByWeight(RoomFlags max, int budget){
+static inline Cell RoomFlagsGetPlacing(RoomFlags f){
+  RoomFlags placing = f & ROOM_PLACING_MASK;
+
+  Cell dir = CELL_UNSET;
+  switch(placing){
+    case  ROOM_PLACING_N:
+      dir = CELL_UP;
+      break;
+    case ROOM_PLACING_S:
+      dir = CELL_DOWN;
+      break;
+    case ROOM_PLACING_E:
+      dir = CELL_RIGHT;
+      break;
+    case ROOM_PLACING_W:
+      dir = CELL_LEFT;
+      break;
+    case ROOM_PLACING_NW:
+      dir = CellInc(CELL_UP,CELL_LEFT);
+      break;
+    case ROOM_PLACING_NE:
+      dir = CellInc(CELL_UP,CELL_RIGHT);
+      break;
+    case ROOM_PLACING_SE:
+      dir = CellInc(CELL_DOWN,CELL_RIGHT);
+      break;
+    case ROOM_PLACING_SW:
+      dir = CellInc(CELL_DOWN,CELL_LEFT);
+      break;
+    default:
+      dir = CELL_EMPTY;
+      break;
+  }
+
+  return dir;
+}
+ 
+static inline RoomFlags SizeByWeight(RoomFlags max, int budget){
   int r = RandRange(0,budget);
   
   int category_size = (max>>12)-1;
