@@ -170,6 +170,8 @@ static cell_bounds_t RoomBounds(room_t* r,Cell c){
   int bstep = 0;
   int lstep = 0;
 
+  int special = 0;
+
   switch(layout){
     case ROOM_LAYOUT_HALL:
       isize = size>>11;
@@ -190,11 +192,14 @@ static cell_bounds_t RoomBounds(room_t* r,Cell c){
     default:
       break;
   }
- 
+
+  if(size == ROOM_SIZE_SMALL)
+    special = 1;
+
   int minx = c.x-isize;
   int miny = c.y-isize;
-  int maxx = c.x+isize;
-  int maxy = c.y+isize;
+  int maxx = c.x+isize+special;
+  int maxy = c.y+isize+special;
 
 
   switch(orient){

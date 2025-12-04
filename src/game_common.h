@@ -1156,6 +1156,7 @@ typedef enum {
     ROOM_SIZE_MASK    = 0xF000,
 
     // ----- Layout type (bits 8–11) -----
+    ROOM_LAYOUT_NONE  = 0x0000,
     ROOM_LAYOUT_ROOM  = 0x0100,
     ROOM_LAYOUT_HALL  = 0x0200,
     ROOM_LAYOUT_OPEN  = 0x0300,
