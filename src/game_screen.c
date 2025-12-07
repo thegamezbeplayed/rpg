@@ -35,6 +35,7 @@ void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target){
   raycam->rotation = rot;
   raycam->zoom = zoom;
 
+  cam->size = CellScale(offset,1/16);
   raycam->target = target;
 
   cam->target = CELL_UNSET;
@@ -42,7 +43,10 @@ void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target){
 }
 
 bool ScreenCameraSetView(Cell v){
-
+  int vtop = v.y - cam->size.x/2;
+  int vleft = v.x - cam->size.y/2;
+  cam->view = Rect(vleft,vtop,cam->size.x,cam->size.y);
+  cam->view = clamp_rect_to_bounds(cam->view,cam->bounds);
   return true;
 }
 
@@ -50,6 +54,9 @@ void ScreenCameraSetBounds(Cell b){
   cam->bounds = Rect(0,0,b.x,b.y);
 }
 
+Rectangle ScreenGetCameraView(void){
+  return cam->view;
+}
 
 void ScreenCameraToggle(void){
   cam->mode = !cam->mode;
@@ -62,6 +69,7 @@ void ScreenCameraToggle(void){
 
 bool ScreenCameraSyncView(Cell target){
 
+  ScreenCameraSetView(target);
   return true;
 }
 

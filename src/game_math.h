@@ -95,7 +95,19 @@ static int RandRange(int min, int max) {
     return min + rand() % (max - min + 1);
 }
 
+static inline int imin(int a, int b) {
+    return (a < b) ? a : b;
+}
+
+
 static inline int imax(int a, int b) {
     return (a > b) ? a : b;
+}
+
+static int clamp_to_interval(int val, int ntrvl){
+  if(ntrvl <=0)
+    return val;
+  return((val + ntrvl -1)/ntrvl)*ntrvl;
+
 }
 #endif

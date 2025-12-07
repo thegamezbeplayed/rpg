@@ -136,6 +136,9 @@ typedef struct ent_s{
 
 ent_t* InitEnt(ObjectInstance data, Cell pos);
 ent_t* InitMob(EntityType mob, Cell pos);
+ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race);
+int EntBuild(mob_define_t def, MobRules rules, ent_t** pool);
+void EntApplyTraits(traits_t* t, uint64_t mask, uint64_t shift);
 void EntCalcStats(ent_t* e);
 void EntPollInventory(ent_t* e);
 item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
@@ -157,6 +160,7 @@ void EntDestroy(ent_t* e);
 bool FreeEnt(ent_t* e);
 void EntPrepStep(ent_t *e);
 void EntOnLevelUp(struct skill_s* self, float old, float cur);
+void EntMonsterOnLevelUp(struct skill_s* self, float old, float cur);
 TileStatus EntGridStep(ent_t *e, Cell step);
 void EntSetCell(ent_t *e, Cell pos);
 void EntAddExp(ent_t *e, int exp);
@@ -172,7 +176,7 @@ void StepState(ent_t *e);
 void OnStateChange(ent_t *e, EntityState old, EntityState s);
 bool CanChangeState(EntityState old, EntityState s);
 void ItemApplyWeaponProps(item_def_t * w, weapon_def_t* def, ItemQuality rarity);
-
+bool EntSyncSight(ent_t* e, ActionType a);
 void EntActionsTaken(stat_t* self, float old, float cur);
 bool EntCanTakeAction(ent_t* e);
 void InitActions(action_turn_t* actions[ACTION_DONE]);

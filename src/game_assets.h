@@ -266,7 +266,7 @@ typedef struct {
 
 void DrawSlice(sprite_t *spr, Vector2 position,float rot);
 void DrawNineSlice(scaling_slice_t *spr, Rectangle dst);
-void DrawScreenOverlay(float alpha);
+void DrawScreenOverlay(Color c, Rectangle r);
 sprite_t* InitSpriteByID(int id, SheetID sid);
 sprite_t* InitSpriteByIndex(int index, sprite_sheet_data_t* spritesheet);
 scaling_slice_t* InitScalingElement(ElementID id);

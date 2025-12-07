@@ -56,7 +56,7 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
     {[ATTR_CON]= 3, [ATTR_STR]=2, [ATTR_DEX]=2, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=1}
   },
   {MOB_PLAYER, 
-    {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1, [STAT_STAMINA] = 4, [STAT_ENERGY] = 4, [STAT_STAMINA_REGEN] = 1, [STAT_ENERGY_REGEN] = 1,[STAT_STAMINA_REGEN_RATE] = 10, [STAT_ENERGY_REGEN_RATE] = 15,},
+    {[STAT_SIGHT]=4,[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1, [STAT_STAMINA] = 4, [STAT_ENERGY] = 4, [STAT_STAMINA_REGEN] = 1, [STAT_ENERGY_REGEN] = 1,[STAT_STAMINA_REGEN_RATE] = 10, [STAT_ENERGY_REGEN_RATE] = 15,},
     {[ATTR_CON]= 0, [ATTR_STR]=0, [ATTR_DEX]=0, [ATTR_INT]=0,[ATTR_WIS]=0,[ATTR_CHAR]=0}
   },
 };
@@ -64,8 +64,19 @@ species_stats_t RACIALS[SPEC_DONE]={
   {SPEC_NONE},
   {SPEC_HUMAN, {},
     {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_INT]=1,[ATTR_WIS]=1,[ATTR_CHAR]=1}},
-  {SPEC_GREENSKIN, {[STAT_ARMOR]=1},
-    {[ATTR_CON]=1,[ATTR_STR]=1,[ATTR_INT]=-1,[ATTR_WIS]=-1},
+  {SPEC_ELF,
+    {[STAT_HEALTH]=-1,[STAT_STAMINA] = -1, [STAT_ENERGY] = 1, [STAT_STAMINA_REGEN] = 1, [STAT_ENERGY_REGEN] = 1,[STAT_STAMINA_REGEN_RATE] = 15, [STAT_ENERGY_REGEN_RATE] = 10,},
+    {[ATTR_DEX]=2,[ATTR_INT]=2,[ATTR_WIS]=2},
+    TRAIT_EXPERTISE_BOW
+  },
+   {SPEC_ARCHAIN,
+    {[STAT_HEALTH]=1,[STAT_STAMINA] = 1, [STAT_ENERGY] = 1, [STAT_STAMINA_REGEN] = 1, [STAT_ENERGY_REGEN] = 1,[STAT_STAMINA_REGEN_RATE] = 12, [STAT_ENERGY_REGEN_RATE] = 12,},
+    {[ATTR_STR]=1,[ATTR_INT]=1,[ATTR_WIS]=1,[ATTR_DEX]=1,[ATTR_CON]=1,[ATTR_CHAR]=2},
+    TRAIT_FIRE_RESIST|TRAIT_PHYS_RESIST,
+  },
+       
+  {SPEC_GOBLINOID, {},
+    {[ATTR_DEX]=1,[ATTR_WIS]=1},
     TRAIT_POISON_RESIST
   },
   {SPEC_ARTHROPOD, {[STAT_HEALTH]=-3,[STAT_ARMOR]=3},
@@ -215,6 +226,17 @@ attribute_t* InitAttribute(AttributeType type, int val){
   return t;
 }
 
+bool AttributeScoreIncrease(attribute_t* a){
+  if(a->asi==0)
+    return false;
+
+  a->rollover+=a->asi;
+  float new = a->max+a->rollover;
+  a->rollover = new - (int)new;
+  a->max = a->val = (int)new;
+
+  return true;
+}
 // Allocates a copy of the filename without extension
 char* GetFileStem(const char* filename) {
     const char* dot = strrchr(filename, '.');
@@ -426,7 +448,7 @@ bool SkillIncrease(struct skill_s* s, int amnt){
 
   s->point = s->point - s->threshold;
 
-  s->threshold*=3;
+  //s->threshold*=3;
 
   int old = s->val;
   s->val++;
@@ -440,4 +462,7 @@ int ResistDmgLookup(uint64_t trait){
     if(RESIST_LOOKUP[i].trait == trait)
       return RESIST_LOOKUP[i].school;
   }
+}
+
+EntityType MobGetByRules(MobRules rules){
 }

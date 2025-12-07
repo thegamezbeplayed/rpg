@@ -3,6 +3,7 @@
 
 #include "game_common.h"
 
+
 typedef struct {
     int x, y;
 
@@ -135,29 +136,6 @@ static float Noise2D(float x, float y) {
     return lerp(ix0, ix1, sy);
 }
 
-static Cell RoomSize(RoomFlags f){
-  Cell output = CELL_EMPTY;
-
-  RoomFlags size = f & ROOM_SIZE_MASK;
-  RoomFlags purpose = f & ROOM_PURPOSE_MASK;
-  RoomFlags layout = f & ROOM_LAYOUT_MASK;
-  
-  switch(layout){
-    case ROOM_LAYOUT_HALL:
-      if(purpose == ROOM_PURPOSE_CONNECT){
-        output = CELL_NEW(size>>10,imax(size>>13,1));
-      }
-      else
-        output = CELL_NEW(size>>11,imax(size>>13,1));
-      break;
-    default:
-      output = CELL_NEW(size>>12,size>>12);
-      break;
-  }
-
-  return output;
-}
-
 static cell_bounds_t RoomBounds(room_t* r,Cell c){
 
   RoomFlags size = r->flags & ROOM_SIZE_MASK;
@@ -231,6 +209,33 @@ static cell_bounds_t RoomBounds(room_t* r,Cell c){
   return output;
 }
 
+static Cell RoomSize(room_t* r){
+  Cell output = CELL_EMPTY;
+  cell_bounds_t bounds = RoomBounds(r,CELL_EMPTY);
+
+  output = CellScale(cell_dist(bounds.min,bounds.max),0.5);
+  /*
+  RoomFlags size = f & ROOM_SIZE_MASK;
+  RoomFlags purpose = f & ROOM_PURPOSE_MASK;
+  RoomFlags layout = f & ROOM_LAYOUT_MASK;
+  
+  switch(layout){
+    case ROOM_LAYOUT_HALL:
+      if(purpose == ROOM_PURPOSE_CONNECT){
+        output = CELL_NEW(size>>10,imax(size>>13,1));
+      }
+      else
+        output = CELL_NEW(size>>11,imax(size>>13,1));
+      break;
+    default:
+      output = CELL_NEW(size>>12,size>>12);
+      break;
+  }
+*/
+  return output;
+}
+
+
 static int SizeToRadius(RoomFlags size, RoomFlags layout) {
   int output = 0;
   switch(layout){
@@ -296,6 +301,41 @@ static inline RoomFlags SizeByWeight(RoomFlags max, int budget){
   return 1<<12;
 }
 
+static inline int SpawnPoints(RoomFlags f){
+  int shift = ROOM_MOBS_SHIFT;
+
+  int count = 0;
+  RoomFlags size = f & ROOM_SIZE_MASK;
+  RoomFlags purpose = f & ROOM_PURPOSE_MASK;
+  RoomFlags layout = f & ROOM_LAYOUT_MASK;
+  RoomFlags orient = f & ROOM_ORIENT_MASK;
+  RoomFlags shape = f & ROOM_SHAPE_MASK;
+
+  switch(purpose){
+    case ROOM_PURPOSE_START:
+      return count;
+      break;
+    case ROOM_PURPOSE_CHALLENGE:
+      shift-=1;
+      break;
+    case ROOM_PURPOSE_LAIR:
+      shift+=1;
+      break;
+    case ROOM_PURPOSE_CONNECT:
+      shift+=1;
+    default:
+      break;
+  }
+  
+  count += (size<<8)>>shift;
+
+  return count;
+}
+
+static inline RoomFlags MobCountBySize(RoomFlags size){
+  return (RoomFlags)(size<<12);
+}
+
 static inline RoomFlags RandomSize(void) {
     int count = (ROOM_SIZE_MAX - ROOM_SIZE_SMALL) >> 12;  // 7 - 1 = 6 valid sizes
     int pick  = RandRange(0, count - 1);                  // 0..5
@@ -317,9 +357,31 @@ static inline RoomFlags RandomPurpose(void) {
     return (RoomFlags)(pick << 4);
 }
 static inline RoomFlags RandomLayout(void) {
-    int count = (ROOM_LAYOUT_MAX - ROOM_LAYOUT_ROOM) >> 8; // = 4 layouts
+    int count = (ROOM_LAYOUT_MASK) >> ROOM_LAYOUT_SHIFT; // = 4 layouts
     int pick  = RandRange(0, count - 1);                   // 0..3
     return (RoomFlags)((pick + 1) << 8);
 }
 
+static int weighted_choice(const int* weights, int count){
+  int total = 0;
+
+    // Sum weights
+    for (int i = 0; i < count; i++)
+        total += weights[i];
+
+    if (total <= 0)
+        return -1; // No valid choices
+
+    int r = rand() % total;
+
+    // Find selected index
+    for (int i = 0; i < count; i++) {
+        if (r < weights[i])
+            return i;
+        r -= weights[i];
+    }
+
+    return -1; // Should not happen
+
+}
 #endif

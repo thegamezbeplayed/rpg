@@ -328,9 +328,13 @@ void InitWorld(world_data_t data){
 
   if(InitMap()){
     world.map =  InitMapGrid();
-    MapApplyContext(world.map);
+    Cell player_pos = MapApplyContext(world.map);
+
+    if(!cell_compare(player_pos,CELL_UNSET))
+      RegisterEnt(InitEnt(room_instances[0],player_pos));
+   GameReady(); 
+    ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
   }
-  //ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
 }
 
 void FreeWorld(){
@@ -359,9 +363,25 @@ void WorldRender(){
     else
       i-=RemoveSprite(i);
 
+  Rectangle in_view= ScreenGetCameraView();
+
   float darkness = world.time->current * world.time->ratio(world.time);
-  DrawScreenOverlay(darkness);
- 
+  Color night = (Color){ 0, 0, 30, (unsigned char)darkness };
+
+  DrawScreenOverlay(night, in_view);
+  
+  for(int x = 0; x< in_view.width; x++){
+    for(int y = 0; y < in_view.height; y++){
+      Cell coords = CELL_NEW(x+in_view.x,y+in_view.y);
+      Rectangle r = Rect(coords.x,coords.y,CELL_WIDTH,CELL_HEIGHT);
+      map_cell_t* tile = MapGetTile(world.map,coords);
+
+      Cell s_pos = CellScale(coords,CELL_WIDTH);
+      Rectangle screen_r = RectScale(Rect(s_pos.x,s_pos.y,1,1),CELL_WIDTH);
+      //DrawScreenOverlay(tile->fow,screen_r);
+
+    }
+  }
  ScreenRender(); 
   /*
   for(int i = 0; i < MAX_EVENTS; i++){

@@ -1,5 +1,6 @@
 #include "game_types.h"
 #include "game_tools.h"
+#include "game_helpers.h"
 #include "game_math.h"
 #include "game_process.h"
 
@@ -147,6 +148,310 @@ ent_t* InitMob(EntityType mob, Cell pos){
   return e;
 }
 
+ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
+  define_race_class_t arch = RACE_CLASS_DEFINE[race][__builtin_ctzll(class_id)];
+
+  race_define_t racial = DEFINE_RACE[race];
+
+  define_archetype_t data = CLASS_DATA[__builtin_ctzll(arch.base)];
+
+  ObjectInstance todoremove = GetEntityData(racial.base_ent);
+
+  ent_t* e = malloc(sizeof(ent_t));
+  *e = (ent_t){0};  // zero initialize if needed
+
+  e->type = racial.base_ent;
+
+  strcpy(e->name, TextFormat("%s %s",racial.name,arch.b_name));
+  e->size = todoremove.size;
+  e->map = WorldGetMap();
+  e->pos = CELL_UNSET;
+  e->facing = CELL_UNSET;
+  e->sprite = InitSpriteByID(e->type,SHEET_ENT);
+  e->events = InitEvents();
+
+  e->control = InitController();
+
+  e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,1,20);
+
+  e->traits = calloc(1,sizeof(traits_t));
+
+  e->skills[SKILL_LVL]->on_skill_up = EntMonsterOnLevelUp;
+  MobCategory cat = GetEntityCategory(e->type);
+
+  category_stats_t base = CATEGORY_STATS[cat];
+  size_category_t size = MOB_SIZE[cat];
+
+
+  trait_pool_t res[4] = {
+    {TRAIT_RESIST_SCHOOL_MASK, GetTraits( racial.traits, TRAIT_RESIST_SCHOOL_MASK)},
+    {TRAIT_RESIST_TAG_MASK,GetTraits( racial.traits, TRAIT_RESIST_TAG_MASK)},
+    {TRAIT_RESIST_SCHOOL_MASK, GetTraits( base.traits, TRAIT_RESIST_SCHOOL_MASK)},
+    {TRAIT_RESIST_TAG_MASK,GetTraits( base.traits, TRAIT_RESIST_TAG_MASK)},
+  };
+  for (int i = 0; i< 4;i++)
+    EntApplyTraits(e->traits,res[i].mask, res[i].shift);
+
+  for (int i = 0; i < ATTR_DONE; i++){
+    int val = base.attr[i] + size.attr[e->size][i];
+    e->attribs[i] = InitAttribute(i,val);
+    e->attribs[i]->asi = data.ASI[i];
+  }
+
+  for (int i = 0; i < STAT_ENT_DONE;i++){
+    int val = base.stats[i] + size.stats[e->size][i];
+    int base = val;
+
+    if(i == STAT_HEALTH)
+      base = data.hitdie;
+
+    e->stats[i] = InitStat(i,0,val,base);
+
+    e->stats[i]->owner = e;
+    e->stats[i]->start(e->stats[i]);
+
+    switch(i){
+      case STAT_STAMINA:
+      case STAT_ENERGY:
+        e->stats[i]->on_stat_change = EntResetRegen;
+        break;
+      case STAT_STAMINA_REGEN_RATE:
+      case STAT_ENERGY_REGEN_RATE:
+        e->stats[i]->on_turn = StatIncreaseValue;
+        e->stats[i]->on_stat_full = EntRestoreResource;
+        break;
+      default:
+        break;
+    }
+  }
+
+  return e;
+}
+
+int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
+  int count = 0;
+  MobRules tmp = def.rules&=rules;
+  rules&=tmp;
+
+  race_define_t racial = DEFINE_RACE[def.race];
+  MobRules spawn = GetMobRulesByMask(rules,MOB_SPAWN_MASK);
+  MobRules group = GetMobRulesByMask(rules,MOB_GROUPING_MASK);
+  MobRules modif = GetMobRulesByMask(rules,MOB_MOD_MASK);
+
+  int class_weight[7] = {0};
+  
+  bool enlarge = false,arm=false,don=false;
+
+  if(modif > 0){
+    while(modif){
+      uint64_t mod = modif & -modif;
+      modif &= modif -1;
+      switch(mod){
+        case MOB_MOD_ENLARGE:
+          enlarge = true;         
+          break;
+        case MOB_MOD_WEAPON:
+          arm = true;
+          break;
+        case MOB_MOD_ARMOR:
+          don = true;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  bool diverse=false,pat=false,suprise=false,elite=false;
+  int beef = 0;
+  if(spawn > 0){
+    while(spawn){
+      uint64_t stype = spawn & -spawn;
+      spawn &= spawn -1;
+
+      switch(stype){
+        case MOB_SPAWN_TRAP:
+        case MOB_SPAWN_SECRET:
+          suprise = true;         
+          break;
+        case MOB_SPAWN_LAIR:
+          elite = true;
+          break;
+        case MOB_SPAWN_CHALLENGE:
+          beef = 1;
+          diverse = true;
+          break;
+        case MOB_SPAWN_CAMP:
+          count+=2;
+          diverse = true;
+          beef = 1;
+          arm = true;
+          don =true;
+          break;
+        case MOB_SPAWN_PATROL:
+          diverse = true;
+          arm = true;
+          don = true;
+          pat = true;
+          count++;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  bool swarm=false,outfit=false;
+  int min=99,max=-99;
+  if (group > 0){
+    while(group){
+      uint64_t size = group & -group;
+      group &= group -1;
+
+      if(size > MOB_GROUPING_TROOP)
+        diverse = true;
+
+      if(size > MOB_GROUPING_CREW)
+        don = arm = true;
+
+      switch(size){
+        case MOB_GROUPING_SOLO:
+          if (min > 1)
+            min = 1;
+          break;
+        case MOB_GROUPING_PAIRS:
+          if (min >2)
+            min = 2;
+          if (max < 2)
+            max = 2;
+          break;
+        case MOB_GROUPING_TROOP:
+          if (min >3)
+            min = 3;
+          if (max < 3)
+            max = 4;
+          break;
+        case MOB_GROUPING_PARTY:
+          if (min >5)
+            min = 5;
+          if (max < 5)
+            max = 5;
+          break;
+        case MOB_GROUPING_CREW:
+        case MOB_GROUPING_SQUAD:
+          if (min >6)
+            min = 6 + (group==MOB_GROUPING_SQUAD)?1:0;
+          if (max < 6)
+            max = 7 + (group==MOB_GROUPING_SQUAD)?2:0;
+          break;
+        case MOB_GROUPING_WARBAND:
+          outfit=true;
+          beef++;
+          elite=true;
+          if (max < 8)
+            max = 9;
+          break;
+        case MOB_GROUPING_SWARM:
+          swarm=true;
+          break;
+
+      }
+    }
+  }
+
+  int monster_size = 0;
+  if(enlarge){
+    monster_size++;
+    if(beef)
+      monster_size++;
+  }
+
+  int amount = CLAMP(RandRange(min,max+count),1,MOB_ROOM_MAX);
+  if(amount>2)
+    monster_size =0;
+
+  int chief_w = 0, captain_w = 0, commander_w =0;
+  int magicians = 0, fighters=0, ranged=0,shock=0, medics=0;
+
+  if(diverse && amount>1){
+    RaceProps tactics = GET_FLAG(racial.props, RACE_TACTICS_MASK);
+    RaceProps classes = GET_FLAG(racial.props, RACE_CLASS_MASK);
+    
+    while(tactics){
+      uint64_t tactic = tactics & -tactics;
+      tactics &= tactics-1;
+
+      switch(tactic){
+        case RACE_TACTICS_ARCANA:
+          magicians += 5;
+          medics +=2;
+          if(amount>4)
+            chief_w= amount*12;
+          break;
+        case RACE_TACTICS_MARTIAL:
+          fighters +=5;
+          ranged +=5;
+          shock +=3;
+          if(amount>3)
+            captain_w += amount*10;
+          if(amount>7)
+            commander_w += amount*7;
+          break;
+        case RACE_TACTICS_SIMPLE:
+          fighters+=2;
+          break;
+        case RACE_TACTICS_CRUDE:
+          fighters+=2;
+          break;
+        case RACE_TACTICS_RANKS:
+          fighters++;
+          shock +=2;
+          ranged+=2;
+          if(amount>4){
+            medics+=amount;
+            captain_w+=2;
+          }
+        default:
+          break;
+      }
+    }
+
+    const define_race_class_t *rcw = RACE_CLASS_DEFINE[def.race];
+    while(classes){
+      uint64_t class = classes & -classes;
+      classes &= classes -1;
+      class_weight[__builtin_ctzll(class)]=rcw[__builtin_ctzll(class)].weight;
+    }
+  }
+
+  if(monster_size > 0)
+    class_weight[__builtin_ctzll(racial.brute)] *= monster_size*100;
+  
+  class_weight[__builtin_ctzll(racial.healer)] *= medics;
+  class_weight[__builtin_ctzll(racial.shock)] += shock;
+  class_weight[__builtin_ctzll(racial.magician)] *= magicians;
+  class_weight[__builtin_ctzll(racial.chief)] += chief_w;
+  class_weight[__builtin_ctzll(racial.captain)] += captain_w;
+  class_weight[__builtin_ctzll(racial.commander)] += commander_w;
+  class_weight[__builtin_ctzll(racial.ranged)] *= ranged;
+  class_weight[__builtin_ctzll(racial.soldier)] *= fighters;
+
+  //TODO REMOVE
+  beef++;
+  count = 0;
+  for(int i = 0; i < amount; i++){
+    int selection = weighted_choice(class_weight,7);
+    ent_t* e = InitEntByRaceClass(BIT64(selection),def.race);
+
+    for(int j = 0; j < beef; j++)
+      EntAddExp(e, 300);
+
+    class_weight[selection]-=amount;
+    pool[count++] = e;
+  }
+  return count;
+}
+
 env_t* InitEnv(EnvTile t,Cell pos){
   env_t* e = malloc(sizeof(ent_t));
   *e = (env_t){0};  // zero initialize if needed
@@ -164,11 +469,6 @@ env_t* InitEnv(EnvTile t,Cell pos){
   //e->pos = pos;// = Vector2Add(Vector2Scale(e->sprite->slice->center,SPRITE_SCALE),pos);
 
   return e;
-}
-
-uint64_t EntGetTraits(uint64_t in, uint64_t mask){
-
-  return (in & mask);
 }
 
 void EntApplyTraits(traits_t* t, uint64_t mask, uint64_t shift){
@@ -216,10 +516,10 @@ void EntCalcStats(ent_t* e){
 
 
   trait_pool_t res[4] = {
-    {TRAIT_RESIST_SCHOOL_MASK, EntGetTraits( racial.traits, TRAIT_RESIST_SCHOOL_MASK)},
-    {TRAIT_RESIST_TAG_MASK,EntGetTraits( racial.traits, TRAIT_RESIST_TAG_MASK)},
-    {TRAIT_RESIST_SCHOOL_MASK, EntGetTraits( base.traits, TRAIT_RESIST_SCHOOL_MASK)},
-    {TRAIT_RESIST_TAG_MASK,EntGetTraits( base.traits, TRAIT_RESIST_TAG_MASK)},
+    {TRAIT_RESIST_SCHOOL_MASK, GetTraits( racial.traits, TRAIT_RESIST_SCHOOL_MASK)},
+    {TRAIT_RESIST_TAG_MASK,GetTraits( racial.traits, TRAIT_RESIST_TAG_MASK)},
+    {TRAIT_RESIST_SCHOOL_MASK, GetTraits( base.traits, TRAIT_RESIST_SCHOOL_MASK)},
+    {TRAIT_RESIST_TAG_MASK,GetTraits( base.traits, TRAIT_RESIST_TAG_MASK)},
   };
   for (int i = 0; i< 4;i++)
     EntApplyTraits(e->traits,res[i].mask, res[i].shift);
@@ -829,6 +1129,23 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s){
     default:
       break;
   }
+}
+
+void EntMonsterOnLevelUp(struct skill_s* self, float old, float cur){
+  ent_t* e = self->owner;
+  for(int i = 1; i < ATTR_BLANK; i++){
+    if(e->attribs[i]->expand) 
+    e->attribs[i]->expand(e->attribs[i]);
+  }
+
+  for(int i = 0; i < STAT_ENT_DONE; i++)
+    if(e->stats[i] && e->stats[i]->lvl){
+      if(i==STAT_ACTIONS)
+        continue;
+      e->stats[i]->lvl(e->stats[i]);
+      StatMaxOut(e->stats[i]);
+    }
+
 }
 
 void EntOnLevelUp(struct skill_s* self, float old, float cur){

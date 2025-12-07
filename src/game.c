@@ -46,13 +46,11 @@ void DrawGameplayScreen(void)
   //  if(game_process.state == GAME_LOADING)
   //  return;
   BeginDrawing();
-  //ScreenCameraToggle();
-  //BeginMode2D(camera);
+  ScreenCameraToggle();
 
   WorldRender();
 
-  //ScreenCameraToggle();
-  //EndMode2D();
+  ScreenCameraToggle();
   DrawTextEx(ui.font,GetWorldTime(),Vector2XY(VECTOR2_CENTER_SCREEN.x, 32) ,28,1,BLUE);
 
   UISync();

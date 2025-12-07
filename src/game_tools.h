@@ -75,6 +75,10 @@ static inline int CellDistGrid(Cell c1,Cell c2){
 
 }
 
+static inline Cell cell_dist(Cell c1, Cell c2){
+  return CELL_NEW(abs(c1.x)+abs(c2.x),abs(c1.y)+abs(c2.y));
+}
+
 static inline Cell random_direction(void){
   switch(rand()%4){
     case 0: return CELL_UP;
@@ -228,5 +232,10 @@ static inline Vector2 rand_unit(){
   float a = ((float)rand() / (float)RAND_MAX) * 6.28318530718f;
   return (Vector2){cosf(a), sinf(a)};
 }
-
+static inline Rectangle clamp_rect_to_bounds(Rectangle r, Rectangle b){
+  Cell pos = clamp_cell_to_bounds(CELL_NEW(r.x,r.y),b);
+  Cell end = CellInc(pos,CELL_NEW(r.width,r.height));
+  Cell size = cell_dist(clamp_cell_to_bounds(end, b),pos);
+  return Rect(pos.x,pos.y,size.x,size.y);
+}
 #endif

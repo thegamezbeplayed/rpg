@@ -26,6 +26,7 @@ void ScreenCameraSync(Cell target);
 void ScreenCameraToggle(void);
 bool ScreenCameraSetView(Cell v);
 void ScreenCameraSetBounds(Cell b);
+Rectangle ScreenGetCameraView(void);
 
 typedef struct{
   bool    is_dragging;

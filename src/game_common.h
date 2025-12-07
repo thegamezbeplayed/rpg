@@ -4,6 +4,8 @@
 #include "raylib.h"
 #include "game_tools.h"
 
+#define BIT64(n) (1ULL << (n))
+
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
@@ -19,7 +21,7 @@
 
 #define ABSTRACT_MAP_MIN   0
 #define ABSTRACT_MAP_MAX   128
-
+#define SECTION_SIZE 16
 #define MAX_ROOM_SIZE 8
 #define MAX_ROOMS  12
 #define MAX_EDGES   128
@@ -27,7 +29,13 @@
 #define MAX_ROOM_HEIGHT 16
 #define HAS_ANY_IN_CATEGORY(value, mask) ((value) & (mask))
 #define IS_TRAIT(value, mask, trait) (((value) & (mask)) == (trait))
+#define GET_FLAG(flag,mask) (flag&mask)
+#define MOB_ROOM_MAX 10
+#define MOB_MAP_MAX 64
 
+
+#define ROOM_MOBS_SHIFT 20
+#define ROOM_LAYOUT_SHIFT 8
 struct dice_roll_s;
 typedef int (*DiceRollFunction)(struct dice_roll_s* d);
 
@@ -67,6 +75,7 @@ typedef enum{
   STAT_HEALTH,
   STAT_ARMOR,
   STAT_AGGRO,
+  STAT_SIGHT,
   STAT_STEALTH,
   STAT_ACTIONS,
   STAT_ENERGY,
@@ -299,8 +308,11 @@ typedef bool (*AttributeCallback)(struct attribute_s *a);
 
 typedef struct attribute_s{ 
   int                 val,min,max;
+  float               rollover,asi;
   AttributeCallback   expand;
 }attribute_t;
+
+bool AttributeScoreIncrease(attribute_t* a);
 
 attribute_t* InitAttribute(AttributeType type, int val);
 
@@ -450,6 +462,15 @@ typedef enum{
   TRAIT_NECROTIC_RESIST  = 1ULL << 17,
   TRAIT_FORCE_RESIST     = 1ULL << 18,
   TRAIT_RESIST_SCHOOL_MASK = (0xFFFFULL<<8),
+  TRAIT_EXPERTISE_BOW     = 1ULL <<24,
+  TRAIT_EXPERTISE_MASK   = (0xFFULL <<24),
+  
+  TRAIT_VISION_DARK     = BIT64(32),
+  TRAIT_VISION_MASK     = 0xFFULL <<32,
+
+  TRAIT_ADV_FEAR        = BIT64(40),
+  TRAIT_ADV_CHARM       = BIT64(41),
+  TRAIT_ADV_MASK        = 0xFFULL <<40,
   TRAIT_DONE,
 }MonsterTrait;
 
@@ -475,7 +496,9 @@ static trait_defense_t RESIST_LOOKUP[15]={
   {TRAIT_NECROTIC_RESIST, DMG_NECROTIC},
   {TRAIT_FORCE_RESIST, DMG_FORCE},
 };
-
+static uint64_t GetTraits(uint64_t in, uint64_t mask){
+  return (in & mask);
+}   
 static inline int trait_index(uint64_t trait, uint64_t mask_shift) {
     return __builtin_ctzll(trait) -  __builtin_ctzll(mask_shift);
 }
@@ -516,7 +539,11 @@ typedef enum{
 typedef enum{
   SPEC_NONE,
   SPEC_HUMAN,
-  SPEC_GREENSKIN,
+  SPEC_ELF,
+  SPEC_ARCHAIN,
+  SPEC_GOBLINOID,
+  SPEC_ORC,
+  SPEC_GIANT,
   SPEC_ARTHROPOD,
   SPEC_ETHEREAL,
   SPEC_ROTTING,
@@ -525,6 +552,219 @@ typedef enum{
   SPEC_RODENT,
   SPEC_DONE
 }SpeciesType;
+
+typedef uint64_t RaceProps;
+
+typedef enum{
+ RACE_CLASS_SOLDIER   = BIT64(0),
+ RACE_CLASS_ROGUE     = BIT64(1),
+ RACE_CLASS_BERSERKER = BIT64(2),
+ RACE_CLASS_ARCHER    = BIT64(3),
+ RACE_CLASS_DRUID     = BIT64(4),
+ RACE_CLASS_WARLOCK   = BIT64(5),
+ RACE_CLASS_CLERIC    = BIT64(6),
+
+ RACE_CLASS_MASK       = 0xFFULL,
+
+ RACE_ARMOR_CRUDE     = BIT64(8),
+ RACE_ARMOR_SIMPLE    = BIT64(9),
+ RACE_ARMOR_ARTISAN   = BIT64(10),
+ RACE_ARMOR_LIGHT     = BIT64(11),
+ RACE_ARMOR_MEDIUM    = BIT64(12),
+ RACE_ARMOR_HEAVY     = BIT64(13),
+ RACE_ARMOR_FORGED    = BIT64(14),
+ RACE_ARMOR_MAGIC     = BIT64(15),
+
+ RACE_ARMOR_MASK      = 0xFFULL << 8,
+
+ RACE_ARMS_CRUDE     = BIT64(16),
+ RACE_ARMS_SIMPLE    = BIT64(17),
+ RACE_ARMS_ARTISAN   = BIT64(18),
+ RACE_ARMS_LIGHT     = BIT64(19),
+ RACE_ARMS_HEAVY     = BIT64(20),
+ RACE_ARMS_FORGED    = BIT64(21),
+ RACE_ARMS_MAGIC     = BIT64(22),
+ RACE_ARMS_SKILLED   = BIT64(23),
+ RACE_ARMS_MASK      = 0xFFULL << 16,
+
+ RACE_SIZE_SMALL     = BIT64(24),
+ RACE_SIZE_BIG       = BIT64(25),
+ RACE_SIZE_GIANT     = BIT64(26),
+ RACE_SIZE_MASK      = 0xFFULL << 24,
+ 
+ RACE_TACTICS_CRUDE   = BIT64(32),
+ RACE_TACTICS_SIMPLE  = BIT64(33),
+ RACE_TACTICS_MARTIAL = BIT64(34),
+ RACE_TACTICS_RANKS   = BIT64(35),
+ RACE_TACTICS_ARCANA  = BIT64(36),
+ RACE_TACTICS_MYSTIC  = BIT64(37),
+
+ RACE_TACTICS_MASK    = 0xFFULL << 32,
+
+ RACE_DIFF_LVL        = BIT64(40),
+ RACE_DIFF_SKILL      = BIT64(41),
+ RACE_DIFF_GEAR       = BIT64(42),
+ RACE_DIFF_SPELLS     = BIT64(43),
+ RACE_DIFF_PETS       = BIT64(44),
+ RACE_DIFF_ALPHA      = BIT64(45),
+ RACE_DIFF_STRAT      = BIT64(46),
+
+ RACE_DIFF_MASK       = 0xFFULL << 40,
+
+ RACE_SPECIAL_POTIONS = BIT64(48),
+ RACE_SPECIAL_TRAPS   = BIT64(49),
+ RACE_SPECIAL_SCROLLS = BIT64(50),
+ RACE_SPECIAL_FOCI    = BIT64(51),
+ RACE_SPECIAL_WARDS   = BIT64(52),
+ RACE_SPECIAL_RUNES   = BIT64(53),
+ RACE_SPECIAL_BUILD   = BIT64(54),
+ RACE_SPECIAL_MASK    = 0xFFULL << 48,
+
+ RACE_BUILD_CRUDE     = BIT64(56),
+ RACE_BUILD_BASIC     = BIT64(57),
+ RACE_BUILD_POST      = BIT64(58),
+ RACE_BUILD_FORT      = BIT64(59),
+ RACE_BUILD_KEEP      = BIT64(60),
+
+ RACE_BUILD_MASK      = 0xFFULL << 56,
+}RaceProp;
+
+typedef struct {
+  SpeciesType   race;
+  const char    name[MAX_NAME_LEN];
+  EntityType    base_ent;
+  RaceProps     props;
+  uint64_t      healer,chief,captain,commander,ranged,shock,soldier,brute,magician;
+  MonsterTraits traits;
+
+}race_define_t;
+
+static const race_define_t DEFINE_RACE[ SPEC_DONE] = {
+  {SPEC_NONE},
+  {SPEC_HUMAN},
+  {SPEC_ELF},
+  {SPEC_ARCHAIN},
+  {SPEC_GOBLINOID, "Goblin", ENT_GOBLIN,
+    RACE_CLASS_SOLDIER | RACE_CLASS_ROGUE | RACE_CLASS_ARCHER | RACE_CLASS_DRUID | RACE_CLASS_WARLOCK |
+      RACE_ARMOR_CRUDE | RACE_ARMOR_LIGHT| RACE_ARMS_CRUDE | RACE_ARMS_LIGHT |
+      RACE_SIZE_SMALL | RACE_TACTICS_CRUDE |
+      RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_SPELLS | RACE_DIFF_PETS | RACE_DIFF_ALPHA |
+      RACE_SPECIAL_TRAPS | RACE_SPECIAL_FOCI | RACE_SPECIAL_WARDS,
+    RACE_CLASS_CLERIC,RACE_CLASS_DRUID, RACE_CLASS_ROGUE,RACE_CLASS_SOLDIER,RACE_CLASS_ARCHER, RACE_CLASS_ROGUE, RACE_CLASS_SOLDIER, RACE_CLASS_SOLDIER, RACE_CLASS_WARLOCK,
+    TRAIT_POISON_RESIST,
+  },
+  {SPEC_ORC, "Orc", ENT_ORC,
+    RACE_CLASS_SOLDIER | RACE_CLASS_BERSERKER | RACE_CLASS_ARCHER | RACE_CLASS_DRUID | RACE_CLASS_WARLOCK |
+      RACE_ARMOR_CRUDE | RACE_ARMOR_SIMPLE | RACE_ARMOR_LIGHT | RACE_ARMOR_MEDIUM | RACE_ARMOR_HEAVY | RACE_ARMOR_FORGED |
+      RACE_ARMS_SIMPLE | RACE_ARMS_LIGHT | RACE_ARMS_HEAVY | RACE_ARMS_FORGED | RACE_ARMS_SKILLED |
+      RACE_SIZE_BIG |
+      RACE_TACTICS_MARTIAL | RACE_TACTICS_SIMPLE |
+      RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_GEAR | RACE_DIFF_SPELLS | RACE_DIFF_ALPHA |
+      RACE_SPECIAL_FOCI
+  },
+  {SPEC_ARTHROPOD},
+  {SPEC_ETHEREAL},
+  {SPEC_ROTTING},
+  {SPEC_VAMPIRIC},
+  {SPEC_CANIFORM},
+  {SPEC_RODENT},
+
+};
+
+typedef uint64_t Archetypes;
+
+typedef enum{
+  CLASS_BASE_BARD    = BIT64(0),
+  CLASS_BASE_CLERIC  = BIT64(1),
+  CLASS_BASE_DRUID   = BIT64(2),
+  CLASS_BASE_FIGHTER = BIT64(3),
+  CLASS_BASE_MONK    = BIT64(4),
+  CLASS_BASE_RANGER  = BIT64(5),
+  CLASS_BASE_ROGUE   = BIT64(6),
+  CLASS_BASE_LOCK    = BIT64(7),
+  CLASS_BASE_WIZ     = BIT64(8),
+  CLASS_BASE_MASK    = 0x1FFULL,
+
+  CLASS_SUB_BERZ     = BIT64(9),
+  CLASS_SUB_CHAMP    = BIT64(10),
+  CLASS_SUB_ASSASSIN = BIT64(11),
+  CLASS_SUB_SHOOTER  = BIT64(12),
+  CLASS_SUB_SHAMAN   = BIT64(13),
+  CLASS_SUB_HEX      = BIT64(14),
+
+}Archetype;
+
+typedef struct{
+  Archetype     archtype;
+  int           hitdie;
+  AttributeType spell,prof,save;
+  float         ASI[ATTR_DONE];
+}define_archetype_t;
+
+static const define_archetype_t CLASS_DATA[11] = {
+  {CLASS_BASE_BARD},
+  {CLASS_BASE_CLERIC, 8, ATTR_WIS,ATTR_INT,ATTR_CHAR,
+    {[ATTR_WIS]=1,[ATTR_INT]=0.5f,[ATTR_INT]=0.5f, [ATTR_CHAR] =.75f}
+  },
+  {CLASS_BASE_DRUID, 8, ATTR_WIS,ATTR_WIS,ATTR_INT,
+    {[ATTR_CON]=0.25f, [ATTR_WIS]=0.25f, [ATTR_CHAR]=0.5f, [ATTR_INT]=0.25f}
+  },
+  {CLASS_BASE_FIGHTER, 10, ATTR_NONE,ATTR_STR,ATTR_CON,
+    {[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_CON]=.25f}
+  },
+  {CLASS_BASE_MONK},
+  {CLASS_BASE_RANGER, 10, ATTR_WIS, ATTR_DEX, ATTR_STR,
+      {[ATTR_STR]=0.5f,[ATTR_DEX]=0.5f,[ATTR_CON]=.125f,[ATTR_WIS]=0.125f}
+  },
+  {CLASS_BASE_ROGUE, 8, ATTR_NONE, ATTR_DEX, ATTR_INT,
+    {[ATTR_DEX]=0.5f, [ATTR_STR]=0.125,[ATTR_INT]=0.25}
+  },
+  {CLASS_BASE_LOCK, 8, ATTR_WIS, ATTR_CHAR, ATTR_CHAR,
+    {[ATTR_CON]=0.25f, [ATTR_WIS]=0.25f, [ATTR_CHAR]=0.75f}
+
+  },
+  {CLASS_BASE_WIZ, 6, ATTR_INT, ATTR_WIS, ATTR_INT,
+    {[ATTR_WIS]=0.5f, [ATTR_CHAR]=0.25f, [ATTR_INT]=0.75f}
+  },
+  {CLASS_SUB_BERZ, 12, ATTR_NONE, ATTR_STR, ATTR_CON},
+  {CLASS_SUB_CHAMP, 10, ATTR_NONE, ATTR_STR, ATTR_CON},
+};
+
+typedef struct{
+  uint64_t    race_class;
+  int         weight;
+  Archetype   base,sub,rank;
+  const char  b_name[MAX_NAME_LEN],s_name[MAX_NAME_LEN],r_name[MAX_NAME_LEN];
+}define_race_class_t;
+
+
+static const define_race_class_t RACE_CLASS_DEFINE[SPEC_DONE][7] = {
+  [SPEC_GOBLINOID] = {
+    [__builtin_ctzll(RACE_CLASS_SOLDIER)] = { 
+      RACE_CLASS_SOLDIER, 15, CLASS_BASE_FIGHTER,CLASS_BASE_ROGUE, CLASS_SUB_CHAMP,
+      "Brawler","Saboteur","Boss"
+    },
+    [__builtin_ctzll(RACE_CLASS_ROGUE)] = {
+      RACE_CLASS_ROGUE, 10, CLASS_BASE_ROGUE, CLASS_SUB_ASSASSIN, CLASS_SUB_CHAMP,
+      "Skulker", "Infiltrator", "Saboteur"}, 
+    [__builtin_ctzll(RACE_CLASS_ARCHER)] = {
+      RACE_CLASS_ARCHER, 10, CLASS_BASE_RANGER , CLASS_BASE_ROGUE , CLASS_SUB_SHOOTER,
+      "Tracker", "Prowler", "Stinger"},
+    [__builtin_ctzll(RACE_CLASS_DRUID)] = {
+      RACE_CLASS_DRUID, 5, CLASS_BASE_DRUID, CLASS_SUB_SHAMAN, CLASS_SUB_CHAMP,
+      "Pestcaller","Seer", "Mystic"
+    },
+    [__builtin_ctzll(RACE_CLASS_WARLOCK)] = {
+      RACE_CLASS_WARLOCK,1, CLASS_BASE_LOCK, -1,-1,
+      "Filthcaller","\0","\0"
+    },
+    [__builtin_ctzll(RACE_CLASS_CLERIC)] = {
+      RACE_CLASS_CLERIC,5, CLASS_BASE_CLERIC, RACE_CLASS_WARLOCK, CLASS_SUB_HEX,
+      "Giver", "Witch-doctor", "Shadow Priest"
+    }
+
+  },
+};
 
 typedef enum{
   SIZE_TINY,
@@ -571,6 +811,196 @@ static const size_category_t MOB_SIZE[MOB_DONE]={
 
 };
 
+typedef uint64_t MobRules;
+
+typedef enum{
+  MOB_SPAWN_TRAP        = BIT64(0),
+  MOB_SPAWN_LAIR        = BIT64(1),
+  MOB_SPAWN_CHALLENGE   = BIT64(2),
+  MOB_SPAWN_SECRET      = BIT64(3),
+  MOB_SPAWN_CAMP        = BIT64(4),
+  MOB_SPAWN_PATROL      = BIT64(5),
+  MOB_SPAWN_MASK        = 0xFFULL,
+
+  MOB_MOD_ENLARGE       = BIT64(8),
+  MOB_MOD_WEAPON        = BIT64(9),
+  MOB_MOD_ARMOR         = BIT64(10),
+  MOB_MOD_MASK          = 0xFFULL << 8,
+
+  MOB_LOC_DUNGEON       = BIT64(16),
+  MOB_LOC_CAVE          = BIT64(17),
+  MOB_LOC_FOREST        = BIT64(18),
+  MOB_LOC_MASK          = 0xFFULL << 16,
+
+  MOB_THEME_CRITTER     = BIT64(24),
+  MOB_THEME_PRIMITIVE   = BIT64(25),
+  MOB_THEME_MARTIAL     = BIT64(26),
+  MOB_THEME_MASK        = 0xFFULL << 24,
+
+  MOB_FREQ_COMMON      = BIT64(32),
+  MOB_FREQ_UNCOMMON    = BIT64(33),
+  MOB_FREQ_RARE        = BIT64(34),
+  MOB_FREQ_ELUSIVE     = BIT64(35),
+  MOB_FREQ_LIMITED     = BIT64(36),
+  MOB_FREQ_MASK        = 0xFFULL << 32,
+
+  MOB_GROUPING_SOLO   = BIT64(40),
+  MOB_GROUPING_PAIRS  = BIT64(41),
+  MOB_GROUPING_TROOP  = BIT64(42),
+  MOB_GROUPING_PARTY  = BIT64(43),
+  MOB_GROUPING_CREW   = BIT64(44),
+  MOB_GROUPING_SQUAD  = BIT64(45),
+  MOB_GROUPING_WARBAND= BIT64(46),
+  MOB_GROUPING_SWARM  = BIT64(47),
+  MOB_GROUPING_MASK   = 0xFFULL << 40
+}MobRule;
+
+typedef struct{
+  EntityType  id;
+  MobRules    rules;
+  SpeciesType race;
+  int         weight;
+}mob_define_t;
+
+static const mob_define_t MONSTER_MASH[ENT_DONE] = {
+  {ENT_PERSON},
+  {ENT_GOBLIN,
+      MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
+      MOB_MOD_ENLARGE | MOB_MOD_WEAPON | MOB_MOD_ARMOR |
+      MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
+      MOB_FREQ_COMMON | MOB_FREQ_UNCOMMON|
+      MOB_THEME_PRIMITIVE |
+      MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
+      SPEC_GOBLINOID,
+      3
+  },
+  {ENT_ORC,
+      MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
+      MOB_MOD_ENLARGE | MOB_MOD_WEAPON | MOB_MOD_ARMOR |
+      MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
+      MOB_FREQ_COMMON | MOB_FREQ_UNCOMMON | MOB_FREQ_RARE|
+      MOB_THEME_MARTIAL |
+      MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
+      SPEC_ORC,
+      2
+  },
+  {ENT_OGRE},
+  {ENT_ORC_FIGHTER},
+  {ENT_BERSERKER},
+  {ENT_HOBGOBLIN},
+  {ENT_OROG},
+  {ENT_SCORPION,
+    MOB_SPAWN_LAIR | 
+      MOB_MOD_ENLARGE | 
+      MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
+      MOB_THEME_CRITTER |
+      MOB_FREQ_COMMON | MOB_FREQ_UNCOMMON | MOB_FREQ_RARE |
+      MOB_GROUPING_SOLO | MOB_GROUPING_SWARM,
+    2
+  },
+  {ENT_SPIDER,
+    MOB_SPAWN_LAIR | 
+      MOB_MOD_ENLARGE | 
+      MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
+      MOB_THEME_CRITTER |
+      MOB_FREQ_COMMON | MOB_FREQ_UNCOMMON | MOB_FREQ_RARE |
+      MOB_GROUPING_SOLO | MOB_GROUPING_SWARM,
+    4
+  },
+  {ENT_TROLL,
+      MOB_SPAWN_LAIR | 
+      MOB_MOD_ENLARGE | 
+      MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST|
+      MOB_THEME_PRIMITIVE |
+      MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS,
+      5
+  },
+  {ENT_TROLL_CAVE,
+    MOB_SPAWN_LAIR | 
+      MOB_MOD_ENLARGE | 
+      MOB_LOC_DUNGEON | MOB_LOC_CAVE |
+      MOB_THEME_PRIMITIVE |
+      MOB_GROUPING_SOLO,
+    6
+  },
+  {ENT_BEAR,
+      MOB_SPAWN_LAIR | 
+      MOB_MOD_ENLARGE | 
+      MOB_LOC_CAVE | MOB_LOC_FOREST |
+      MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_SQUAD,
+      5
+  },
+  {ENT_WOLF,
+      MOB_SPAWN_LAIR | 
+      MOB_MOD_ENLARGE | 
+      MOB_LOC_CAVE | MOB_LOC_FOREST |
+      MOB_GROUPING_SOLO | MOB_GROUPING_SQUAD,
+      4
+  },
+  {ENT_RAT,
+      MOB_MOD_ENLARGE | 
+      MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
+      MOB_THEME_CRITTER |
+      MOB_FREQ_COMMON | MOB_FREQ_UNCOMMON | MOB_FREQ_RARE|
+      MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_SWARM,
+      3
+  },
+
+};
+
+static inline bool MobHasRule(EntityType t, uint64_t rule) {
+    return (MONSTER_MASH[t].rules & rule) != 0;
+}
+
+static inline bool MobHasAllRules(EntityType t, uint64_t rules) {
+    return ( (MONSTER_MASH[t].rules & rules) == rules );
+}
+
+static inline bool MobHasAnyRules(EntityType t, uint64_t rules) {
+    return (MONSTER_MASH[t].rules & rules) != 0;
+}
+
+static inline mob_define_t GetMobByRules(uint64_t rules) {
+    for (int i = 0; i < ENT_DONE; i++) {
+        if (MobHasAllRules(i, rules))
+            return MONSTER_MASH[i];
+    }
+    return MONSTER_MASH[0]; // NONE
+}
+
+static inline int FilterMobsByRules(uint64_t rules, mob_define_t *pool) {
+    int count = 0;
+
+    for (int i = 0; i < ENT_DONE; i++) {
+        if (!MobHasAnyRules(i, rules))
+          continue;
+
+        pool[count++] = MONSTER_MASH[i];
+    }
+    return count;
+}
+
+static inline int GetMobRulesInBudget(int budget, uint64_t rules, MobRule mask, uint64_t *out, int shift){
+
+  int count = 0;
+  uint64_t masked = rules & mask;
+
+  while (masked){
+    uint64_t rule = masked & -masked;
+    masked &= -1;
+
+    if((rule>>shift) > budget)
+      return count;
+
+    *out|rule;
+  }
+
+  return count; 
+}
+
+static inline MobRules GetMobRulesByMask(uint64_t rules, MobRule mask){
+  return rules & mask;
+}
 
 typedef struct {
   MobCategory category;
@@ -599,12 +1029,12 @@ static const SpeciesType RACE_MAP[ENT_DONE] = {
 //  [ENT_TRAVELER] = SPEC_HUMAN,
 //  [ENT_MAN] = SPEC_HUMAN,
 
-  [ENT_GOBLIN] = SPEC_GREENSKIN,
-  [ENT_HOBGOBLIN] = SPEC_GREENSKIN,
-  [ENT_ORC] = SPEC_GREENSKIN,
-  [ENT_OGRE] = SPEC_GREENSKIN,
-  [ENT_TROLL] = SPEC_GREENSKIN,
-  [ENT_BERSERKER] = SPEC_GREENSKIN,
+  [ENT_GOBLIN] = SPEC_GOBLINOID,
+  [ENT_HOBGOBLIN] = SPEC_GOBLINOID,
+  [ENT_ORC] = SPEC_ORC,
+  [ENT_OGRE] = SPEC_GOBLINOID,
+  [ENT_TROLL] = SPEC_GIANT,
+  [ENT_BERSERKER] = SPEC_ORC,
 
 //  [ENT_REVENANT] = SPEC_ETHEREAL,
 //  [ENT_GHOST] = SPEC_ETHEREAL,
@@ -729,9 +1159,8 @@ typedef enum{
 }SpawnType;
 
 typedef struct{
-  EntityType  mob;
-  SpawnType   rule;
-  int         weight;
+  MobRules    rules;
+  int         max_mobs,max_room_mobs;
 }spawn_rules_t;
 
 typedef enum{
@@ -1127,15 +1556,8 @@ typedef struct{
   TileStatus  status;
   env_t*      tile;
   ent_t*      occupant;
+  Color       fow;
 }map_cell_t;
-
-typedef struct{
-  map_cell_t   **tiles;
-  int          x,y,width,height;
-  int          step_size;
-  Color        floor;
-}map_grid_t;
-
 
 typedef enum {
     CONF_START = 1,
@@ -1161,10 +1583,8 @@ typedef enum {
     ROOM_LAYOUT_HALL  = 0x0200,
     ROOM_LAYOUT_OPEN  = 0x0300,
     ROOM_LAYOUT_MAZE  = 0x0400,
-    ROOM_LAYOUT_MAX  = 0x0500,
     ROOM_LAYOUT_MASK  = 0x0F00,
-
-
+    
     // ----- Purpose (bits 4–7) -----
     ROOM_PURPOSE_NONE            = 0x0000,
     ROOM_PURPOSE_TRAPPED         = 0x0010,
@@ -1172,9 +1592,10 @@ typedef enum {
     ROOM_PURPOSE_TREASURE        = 0x0030,
     ROOM_PURPOSE_TREASURE_FALSE  = 0x0040,
     ROOM_PURPOSE_CHALLENGE = 0x0050,
-    ROOM_PURPOSE_START     = 0x0060,
-    ROOM_PURPOSE_CONNECT   = 0x0070,
-    ROOM_PURPOSE_MAX      = 0x0080,
+    ROOM_PURPOSE_LAIR      = 0x0060,
+    ROOM_PURPOSE_START     = 0x0070,
+    ROOM_PURPOSE_CONNECT   = 0x0080,
+    ROOM_PURPOSE_MAX      = 0x0090,
     ROOM_PURPOSE_MASK      = 0x00F0,
 
     // ----- Shape (bits 0–3) -----
@@ -1188,12 +1609,19 @@ typedef enum {
     ROOM_SHAPE_MASK     = 0x000F,
 
     // --- Orientation (bits 16-19) ---
-    ROOM_ORIENT_NONE  = 0x00000000,
     ROOM_ORIENT_HOR   = 0x00010000,
     ROOM_ORIENT_VER   = 0x00020000,
-    ROOM_ORIENT_MAX   = 0x00030000,
-    ROOM_ORIENT_MASK   = 0x000F0000,
+    ROOM_ORIENT_MASK   = 0x00030000,
 
+
+    /*
+    ROOM_MOBS_EASY   = 0x00010000,
+    ROOM_MOBS_NORMAL   = 0x00020000,
+    ROOM_MOBS_HARD   = 0x00030000,
+    ROOM_MOBS_HARDER   = 0x00040000,
+    ROOM_MOBS_HARDEST   = 0x00050000,
+    ROOM_MOBS_MASK      = 0x000F0000,
+ */
     ROOM_PLACING_C = 0x00000000,
     ROOM_PLACING_N = 0x00100000,
     ROOM_PLACING_S = 0x00200000,
@@ -1206,10 +1634,19 @@ typedef enum {
     ROOM_PLACING_MAX = 0x00900000,
     ROOM_PLACING_MASK = 0x00F00000,
 
+    ROOM_SPAWN_SOLO = 0x01000000,
+    ROOM_SPAWN_PAIR = 0x02000000,
+    ROOM_SPAWN_TRIO = 0x03000000,
+    ROOM_SPAWN_GROUP = 0x04000000,
+    ROOM_SPAWN_PACK = 0x05000000,
+    ROOM_SPAWN_CAMP = 0x06000000,
+    ROOM_SPAWN_MAX = 0x07000000,
+    ROOM_SPAWN_MASK = 0x0F000000,
+   
 
 } RoomFlags;
 
-static int room_size_weights[7] = {0,10,36,52,70,82,96};
+static int room_size_weights[7] = {0,9,26,41,70,82,96};
 static int room_purpose_weights[8] = {50,10,3,9,6,22,0,0};
 static int room_shape_weights[7] = {50,20,10,10,5,20,15};
 
@@ -1218,6 +1655,19 @@ typedef enum{
   DANK_DUNGEON,
   MAP_DONE,
 }MapID;
+
+typedef struct{
+
+}map_section_t;
+
+typedef struct{
+  MapID        id;
+  map_cell_t   **tiles;
+  map_section_t **sections;
+  int          x,y,width,height;
+  int          step_size;
+  Color        floor;
+}map_grid_t;
 
 typedef struct {
     TileFlags required_floor;   // must be standing on: TILEFLAG_FLOOR, FOREST, etc
@@ -1247,17 +1697,12 @@ typedef struct{
 
 struct room_s{
     cell_bounds_t   bounds;
-    int             num_spawns,num_children;
+    int             num_children;
     RoomFlags       flags;
     room_opening_t  openings[16];
-    Cell            spawns[16];
     Cell            center,dir;
+    ent_t           *mobs[MOB_ROOM_MAX];
 };
-
-typedef struct {
-    int a, b;   // indices into rooms[]
-    int length; // optional, for hall cost
-} room_edge_t;
 
 typedef enum {
     MAP_NODE_SUCCESS,
@@ -1283,6 +1728,13 @@ typedef enum {
   MN_ALLOCATE_TILES,
   MN_CARVE_TILES,
   MN_GRAPH_ROOTS,
+  MN_BUILD,
+  MN_CONNECT_SUB,
+  MN_DETAIL,
+  MN_ENCASE_FLOORS,
+  MN_PLACE_POI,
+  MN_SET_PLAYER,
+  MN_PLACE_SPAWNS,
   MAP_NODE_PLACE_ROOMS,
   MAP_NODE_BUILD_GRAPH,
   MAP_NODE_CONNECT_HALLS,
@@ -1294,18 +1746,19 @@ typedef enum {
 typedef struct{
   MapID           id;
   TileFlags       map_flag;
-  int             num_mobs,spacing,border,max_rooms,num_rooms;
-  spawn_rules_t   mobs[6];
+  int             spacing,border,max_rooms,num_rooms;
+  spawn_rules_t   mobs;
   RoomFlags       rooms[12];
   MapNodeID       node_rules;
 }map_gen_t;
 
+EntityType MobGetByRules(MobRules rules);
+
 typedef struct {
   map_gen_t   *map_rules;
-  int         width, height;
+  int         width, height, num_rooms;
   room_t      rooms[MAX_ROOMS];
-  int         num_rooms, num_edges;
-  room_edge_t edges[MAX_EDGES];
+  Cell        player_start;
   TileFlags **tiles;
   int alloc_w, alloc_h;
   // random seed etc if you want
@@ -1319,6 +1772,9 @@ typedef struct map_node_s map_node_t;
 typedef MapNodeResult (*MapNodeFn)(map_context_t *ctx, map_node_t *node);
 
 MapNodeResult MapFillMissing(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapPlayerSpawn(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapFillWalls(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapGraphRooms(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapApplyRoomShapes(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapPlaceSubrooms(map_context_t *ctx, map_node_t *node);
@@ -1328,6 +1784,7 @@ MapNodeResult MapAssignPositions(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapConnectSubrooms(map_context_t *ctx, map_node_t *node);
 
 struct map_node_s {
     MapNodeType type;
@@ -1349,6 +1806,10 @@ map_node_t* MapCreateLeafNode(MapNodeFn fn, MapNodeID id);
 map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count);
 
 static inline map_node_t* LeafMapFillMissing(MapNodeID id)  { return MapCreateLeafNode(MapFillMissing,id); }
+static inline map_node_t* LeafMapPlaceSpawns(MapNodeID id)  { return MapCreateLeafNode(MapPlaceSpawns,id); }
+static inline map_node_t* LeafMapFillWalls(MapNodeID id)  { return MapCreateLeafNode(MapFillWalls,id); }
+static inline map_node_t* LeafMapPlayerSpawn(MapNodeID id)  { return MapCreateLeafNode(MapPlayerSpawn,id); }
+static inline map_node_t* LeafMapConnectSubrooms(MapNodeID id)  { return MapCreateLeafNode(MapConnectSubrooms,id); }
 static inline map_node_t* LeafMapGraphRooms(MapNodeID id)  { return MapCreateLeafNode(MapGraphRooms,id); }
 static inline map_node_t* LeafMapApplyRoomShapes(MapNodeID id)  { return MapCreateLeafNode(MapApplyRoomShapes,id); }
 static inline map_node_t* LeafMapPlaceSubrooms(MapNodeID id)  { return MapCreateLeafNode(MapPlaceSubrooms,id); }
@@ -1366,12 +1827,10 @@ map_node_t* MapBuildRootPipeline(void);
 bool MapGenerate(map_context_t *ctx);
 MapNodeResult NodeAssignPositions(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeBuildRoomGraph(map_context_t *ctx, map_node_t *node);
-MapNodeResult NodeConnectHalls(map_context_t *ctx, map_node_t *node);
 void CarveHallBetween(map_context_t *ctx, Cell a, Cell b);
 MapNodeResult NodeAllocateTiles(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeCarveToTiles(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeConnectHalls(map_context_t *ctx, map_node_t *node);
-MapNodeResult NodePlaceSpawns(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node);
 TileFlags RoomSpecialDecor(RoomFlags p);
 
@@ -1384,12 +1843,12 @@ map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
 TileStatus MapRemoveOccupant(map_grid_t* m, Cell c);
 TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c);
 
-void MapApplyContext(map_grid_t* m);
+Cell MapApplyContext(map_grid_t* m);
 void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);
 Cell MapGetTileByFlag(map_grid_t* m, TileFlags f);
 void MapSpawn(TileFlags flags, int x, int y);
-void MapSpawnMob(map_grid_t* m, room_t* room);
-void MapPlaceSpawns(map_grid_t *m);
+void MapSpawnMob(map_grid_t* m, int x, int y);
+void RoomSpawnMob(map_grid_t* m, room_t* r);
 bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep);
 bool TooClose(Cell a, Cell b, int min_dist);
 

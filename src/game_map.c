@@ -2,6 +2,7 @@
 #include "game_helpers.h"
 #include <limits.h>
 static map_context_t world_map;
+static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
 
 bool InitMap(void){
   map_context_t* ctx =&world_map;
@@ -9,6 +10,7 @@ bool InitMap(void){
   ctx->map_rules = malloc(sizeof(map_gen_t));
   *ctx->map_rules = MAPS[DANK_DUNGEON];
 
+  ctx->player_start = CELL_UNSET;
   ctx->decor_density = 12;  
   bool gen = MapGenerate(ctx);
 
@@ -67,16 +69,43 @@ map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count){
   return node;
 }
 
-void MapApplyContext(map_grid_t* m){
+Cell MapApplyContext(map_grid_t* m){
+  m->id = world_map.map_rules->id;
   m->tiles = malloc(world_map.width * sizeof(map_cell_t*));
+  int sect_depth = world_map.height/SECTION_SIZE;
+  int sect_ind = world_map.width/SECTION_SIZE;
+  m->sections = malloc(sect_ind * sizeof(map_section_t));
+  Cell out = CELL_UNSET;
+  /*
+  for(int sx = 0; sx < section_ind; sx++){
+    m->sections[sx] = malloc(sect_depth * sizeof(map_section_t));
+    for(int sy = 0; sy < section_depth; sy++){
 
+    }
+  }
+  */
   for(int x = 0; x < world_map.width; x++){
     m->tiles[x] = calloc(m->height, sizeof(map_cell_t));
     for(int y = 0; y < world_map.height; y++){
-     m->tiles[x][y].coords = CELL_NEW(x,y); 
-      MapSpawn(world_map.tiles[x][y],x,y);
+      m->tiles[x][y].coords = CELL_NEW(x,y); 
+      m->tiles[x][y].fow = BLACK; 
+     
+      /*
+       * if(world_map.tiles[x][y] == TILEFLAG_SPAWN)
+        MapSpawnMob(m,x,y);
+      else
+      */
+        MapSpawn(world_map.tiles[x][y],x,y);
     }
   }
+  
+  for(int r = 0; r < world_map.num_rooms; r++)
+    RoomSpawnMobs(m, world_map.rooms[r]);
+
+  if(!cell_compare(world_map.player_start,CELL_UNSET))
+    out = world_map.player_start;
+
+  return out;
 }
 
 TileStatus MapChangeOccupant(map_grid_t* map,ent_t* e, Cell old, Cell c){
@@ -154,8 +183,155 @@ ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status){
   return tile.occupant;
 }
 
-bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep){
+bool TileBlocksMovement(map_cell_t *c) {
+  if(c->tile==NULL)
+    return false;
 
+  uint32_t f = EnvTileFlags[c->tile->type];
+  return (f & TILEFLAG_SOLID) || (f & TILEFLAG_BORDER);
+}
+
+bool TileBlocksSight(map_cell_t *c) {
+  if(c->tile==NULL)
+    return false;
+
+  uint32_t f = EnvTileFlags[c->tile->type];
+  return (f & TILEFLAG_SOLID) || (f & TILEFLAG_OBSTRUCT);
+}
+
+bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep){
+    // Early out: same tile
+    if (sx == tx && sy == ty)
+        return false;
+
+    // Init nodes
+    for (int y = 0; y < m->height; y++)
+    for (int x = 0; x < m->width; x++) {
+        nodes[x][y] = (path_node_t){
+            .x = x, .y = y,
+            .gCost = 999999,
+            .hCost = 0,
+            .fCost = 999999,
+            .open = false,
+            .closed = false,
+            .parentX = -1,
+            .parentY = -1
+        };
+    }
+
+    // Pointer to nodes
+    path_node_t *start = &nodes[sx][sy];
+    path_node_t *goal  = &nodes[tx][ty];
+
+    start->gCost = 0;
+    start->hCost = Heuristic(sx, sy, tx, ty);
+    start->fCost = start->hCost;
+    start->open = true;
+
+    while (1)
+    {
+        // Step 1: Find lowest fCost open node
+        path_node_t *current = NULL;
+
+        for (int y = 0; y < m->height; y++)
+        for (int x = 0; x < m->width; x++) {
+            path_node_t *n = &nodes[x][y];
+            if (n->open && !n->closed) {
+                if (!current || n->fCost < current->fCost)
+                    current = n;
+            }
+        }
+
+        if (!current) {
+            return false; // no path
+        }
+
+        // Reached target
+        if (current == goal)
+            break;
+
+        current->open = false;
+        current->closed = true;
+
+        // Step 2: Explore neighbors
+        const int dirs[4][2] = {
+            { 1, 0 }, {-1, 0},
+            { 0, 1 }, { 0,-1}
+        };
+
+        for (int i = 0; i < 4; i++)
+        {
+            int nx = current->x + dirs[i][0];
+            int ny = current->y + dirs[i][1];
+
+            if (!InBounds(m, nx, ny)) continue;
+            if (TileBlocksMovement(&m->tiles[nx][ny])) continue;
+
+            path_node_t *neighbor = &nodes[nx][ny];
+            if (neighbor->closed) continue;
+
+            int cost = current->gCost + 1;
+
+            if (!neighbor->open || cost < neighbor->gCost) {
+                neighbor->gCost = cost;
+                neighbor->hCost = Heuristic(nx, ny, tx, ty);
+                neighbor->fCost = neighbor->gCost + neighbor->hCost;
+
+                neighbor->parentX = current->x;
+                neighbor->parentY = current->y;
+
+                neighbor->open = true;
+            }
+        }
+    }
+
+    // Step 3: Backtrack from goal to start to find next step
+    path_node_t *node = goal;
+
+    while (node->parentX != sx || node->parentY != sy) {
+        if (node->parentX < 0 || node->parentY < 0)
+            return false;
+        node = &nodes[node->parentX][node->parentY];
+    }
+
+    // Write next step
+    outNextStep->x = node->x;
+    outNextStep->y = node->y;
+
+    return true;
+}
+
+void RoomSpawnMob(map_grid_t* m, room_t* r){
+
+}
+
+void MapSpawnMob(map_grid_t* m, int x, int y){
+/*
+  int total = 0;
+  int count = MAPS[m->id].num_mobs;
+  spawn_rules_t* spawn = MAPS[m->id].mobs;
+  Cell pos = CELL_NEW(x,y);
+  for (int i = 0; i < count; i++){
+    if(spawn[i].mob == ENT_DONE)
+      break;
+    total+=spawn[i].weight;
+  }
+
+  int r = rand() % total;
+
+  for (int i = 0; i < count; i++){
+    if(spawn[i].mob == ENT_DONE)
+      break;
+
+    if(r<spawn[i].weight){
+      ObjectInstance mob = GetEntityData(spawn[i].mob);
+      RegisterEnt(InitMob(mob.id,pos));
+      break;
+    }
+
+    r -= spawn[i].weight;
+  }
+  */
 }
 
 void MapSpawn(TileFlags flags, int x, int y){
@@ -211,15 +387,15 @@ map_node_t* MapBuildRootPipeline(void){
   n_graph.run  = NodeBuildRoomGraph;
 */
 
-  n_connect.type = MAP_NODE_CONNECT_HALLS;
+  /*n_connect.type = MAP_NODE_CONNECT_HALLS;
   n_connect.run  = NodeConnectHalls;
-/*
   n_carve.type = MAP_NODE_CARVE_TO_TILES;
   n_carve.run  = NodeCarveToTiles;
 */
-  n_spawns.type = MAP_NODE_PLACE_SPAWNS;
+/*
+ * n_spawns.type = MAP_NODE_PLACE_SPAWNS;
   n_spawns.run  = NodePlaceSpawns;
-
+*/
   n_decor.type = MAP_NODE_DECORATE;
   n_decor.run  = NodeDecorate;
 
@@ -282,13 +458,14 @@ MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node){
     if(purpose!=ROOM_PURPOSE_CONNECT && purpose!=ROOM_PURPOSE_START)
       continue;
 
-    Cell size = RoomSize(room->flags);
+    Cell size = RoomSize(room);
     room->dir = RoomFlagsGetPlacing(room->flags);
-    room->center = CellInc(CellMul(room->dir,CellInc(CellScale(size,0.5),prev_dis)),prev_pos);
+    room->center = CellInc(CellMul(room->dir,CellInc(CellScale(size,1),prev_dis)),prev_pos);
 
     Cell dir = (i>0)?cell_dir(room->center,prev_pos):room->dir;
     Cell door_pos = CellInc(CellMul(dir,size),room->center);
-    prev_dis = CellInc(size,spacing);
+    prev_dis = CellInc(size,CellScale(spacing,0.5));
+    if(purpose!=ROOM_PURPOSE_START)
     room->openings[room->num_children++] = (room_opening_t){
       .entrance = true,
       .pos = door_pos,
@@ -297,11 +474,15 @@ MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node){
 
     prev_pos = room->center;
     
+    if(i>0)
+      door_pos = CELL_UNSET;
+
+
     for(int j = i+1; j < ctx->num_rooms; j++){
       room->openings[room->num_children++] = (room_opening_t)
       {
         .dir = RoomFlagsGetPlacing(ctx->rooms[j].flags),
-          .pos = CELL_UNSET,
+          .pos = door_pos,
           .sub = &ctx->rooms[j],
       };
 
@@ -330,13 +511,13 @@ MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node){
     room_t *room = &ctx->rooms[ctx->num_rooms++];
 
     room->flags = flags;
-    room->num_spawns = 0;
   }
 
   return ctx->num_rooms > 0 ? MAP_NODE_SUCCESS : MAP_NODE_FAILURE;
 }
 
 MapNodeResult MapGraphRooms(map_context_t *ctx, map_node_t *node) {
+  /*
   ctx->num_edges = 0;
 
   for (int i = 0; i < ctx->num_rooms; i++) {
@@ -363,7 +544,7 @@ MapNodeResult MapGraphRooms(map_context_t *ctx, map_node_t *node) {
       e->length = best_d2;
     }
   }
-
+*/
   return MAP_NODE_SUCCESS;
 }
 
@@ -391,12 +572,19 @@ void CarveHallBetween(map_context_t *ctx, Cell a, Cell b) {
   }
 }
 
-MapNodeResult NodeConnectHalls(map_context_t *ctx, map_node_t *node) {
-  for (int i = 0; i < ctx->num_edges; i++) {
-    room_t *A = &ctx->rooms[ctx->edges[i].a];
-    room_t *B = &ctx->rooms[ctx->edges[i].b];
+MapNodeResult MapConnectSubrooms(map_context_t *ctx, map_node_t *node) {
+  for (int i = 0; i < ctx->num_rooms; i++) {
+    room_t *root = &ctx->rooms[i];
+    for (int k = 0; k < root->num_children; k++){
+      if(root->openings[k].sub == NULL)
+        continue;
 
-    CarveHallBetween(ctx, A->center, B->center);
+      room_t *sub = root->openings[k].sub;
+
+      Cell r_ent = root->openings[k].pos;
+      Cell s_ent = sub->openings[0].pos;
+      CarveHallBetween(ctx, s_ent, r_ent);
+    }
   }
   return MAP_NODE_SUCCESS;
 }
@@ -440,25 +628,117 @@ MapNodeResult MapCarveTiles(map_context_t *ctx, map_node_t *node) {
   return MAP_NODE_SUCCESS;
 }
 
-MapNodeResult NodePlaceSpawns(map_context_t *ctx, map_node_t *node) {
-  for (int r = 0; r < ctx->num_rooms; r++) {
-    room_t *room = &ctx->rooms[r];
-/*
-    int max_mobs = 1 + ((room->size >> 12) % 4); // cheap scaling
-    room->num_spawns = 0;
+bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
+  RoomFlags purpose = r->flags & ROOM_PURPOSE_MASK;
+ 
+  int num_spawns = 0; 
+  if(purpose == ROOM_PURPOSE_START)
+    return true;
 
-    for (int i = 0; i < max_mobs; i++) {
-      int x = RandRange(room->bounds.min.x + 1, room->bounds.max.x - 1);
-      int y = RandRange(room->bounds.min.y + 1, room->bounds.max.y - 1);
+  RoomFlags size = r->flags & ROOM_SIZE_MASK;
+  RoomFlags layout = r->flags & ROOM_LAYOUT_MASK;
+  RoomFlags orient = r->flags & ROOM_ORIENT_MASK;
+  RoomFlags shape = r->flags & ROOM_SHAPE_MASK;
 
-      room->spawns[room->num_spawns++] = (Cell){x,y};
-      // optional: mark flag
-      ctx->tiles[x][y] = TILEFLAG_SPAWN;
+  MobRules mob_rules = GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_LOC_MASK);
+  mob_define_t mob_pool[MOB_MAP_MAX];
+  int mobs = FilterMobsByRules(mob_rules,mob_pool);
+ 
+
+  MobRules theme = GetMobRulesByMask(ctx->map_rules->mobs.rules, MOB_THEME_MASK);
+
+  mob_rules |= theme;
+  
+  switch(purpose){
+    case ROOM_PURPOSE_CHALLENGE:
+      mob_rules |= MOB_SPAWN_CHALLENGE;
+      break;
+    case ROOM_PURPOSE_LAIR:
+      mob_rules |= MOB_SPAWN_LAIR;
+      break;
+    case ROOM_PURPOSE_CONNECT:
+      mob_rules |= MOB_SPAWN_PATROL;
+    default:
+      break;
+  }
+
+  switch(layout){
+    case ROOM_LAYOUT_OPEN:
+      mob_rules |= ( MOB_MOD_ENLARGE | MOB_SPAWN_CAMP );
+      num_spawns++;
+      break;
+    case ROOM_LAYOUT_HALL:
+      num_spawns--;
+      mob_rules &= ~MOB_SPAWN_LAIR;
+      break;
+    case ROOM_LAYOUT_MAZE:
+      num_spawns++;
+      mob_rules |= MOB_SPAWN_PATROL;
+    default:
+      break;
+  }
+
+    
+  MobRules grouping = GetMobRulesByMask(ctx->map_rules->mobs.rules, MOB_GROUPING_MASK);
+  num_spawns+=size>>12;
+
+  if(num_spawns < 9)
+    grouping &= ~MOB_GROUPING_WARBAND;
+
+  if(num_spawns < 7)
+    grouping &= ~MOB_GROUPING_SQUAD;
+
+  if(num_spawns < 5)
+    grouping &= ~MOB_GROUPING_CREW;
+  
+  if(num_spawns < 3)
+    grouping &= ~MOB_GROUPING_PARTY;
+
+  if(num_spawns <= 2)
+    grouping &= ~MOB_GROUPING_TROOP;
+
+
+  
+  int filtered = 0;
+ 
+  for (int i = 0; i < mobs; i++){
+    if(!MobHasAnyRules(mob_pool[i].id,grouping))
+      continue;
+
+    if(!MobHasAnyRules(mob_pool[i].id,theme))
+      continue;
+
+    mob_pool[filtered++] = mob_pool[i];
+  }
+  
+  mob_rules |= GetMobRulesByMask(ctx->map_rules->mobs.rules, MOB_FREQ_MASK);
+  mob_rules |= GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_MOD_MASK);
+  mob_rules |= grouping;
+  int built = 0;
+  for(int i = 0; i < filtered; i++){
+   if(mob_pool[i].weight > num_spawns)
+    continue;
+
+    built = EntBuild(mob_pool[i],mob_rules,r->mobs);
+    if(built >= MOB_ROOM_MAX)
+      return true;
+  }
+
+  return false;
+}
+
+MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node) {
+  for (int r = 0; r < ctx->num_rooms; r++){
+    RoomPlaceSpawns(ctx, &ctx->rooms[r]);
+    for (int i = 0; i < ctx->rooms[r].num_children; i++){
+      if(ctx->rooms[r].openings[i].sub == NULL)
+        continue;
+
+       RoomPlaceSpawns(ctx, ctx->rooms[r].openings[i].sub);
+
     }
   }
-*/
-}
-  return MAP_NODE_SUCCESS;
+    return MAP_NODE_SUCCESS;
 }
 
 MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node) {
@@ -477,7 +757,7 @@ MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node) {
           continue;
 
         // Skip tiles with reserved flags
-        if (TileHasFlag(*tile, TILEFLAG_SPAWN | TILEFLAG_START|TILEFLAG_BORDER))
+        if (TileHasFlag(*tile, TILEFLAG_SPAWN | TILEFLAG_START |TILEFLAG_BORDER))
           continue;
 
         // Try special room decor first
@@ -536,7 +816,7 @@ MapNodeResult MapApplyRoomShapes(map_context_t *ctx, map_node_t *node) {
 Cell RoomGetBestOpening(room_t* root, room_t* sub, int child){
   Cell r_dir = RoomFlagsGetPlacing(root->flags);
   RoomFlags s_dir = sub->flags&ROOM_PLACING_MASK;
-  Cell size = RoomSize(sub->flags);
+  Cell size = RoomSize(sub);
 
   Cell pos = CellMul(root->openings[child].dir,size);
 
@@ -585,32 +865,32 @@ MapNodeResult MapPlaceSubrooms(map_context_t *ctx, map_node_t *node) {
       if((sub->flags&ROOM_PURPOSE_MASK) == ROOM_PURPOSE_CONNECT)
         continue;
 
-      Cell dim = RoomSize(root->flags);
-
       RoomFlags s_dir = sub->flags&ROOM_PLACING_MASK;
 
       Cell o_dir = root->openings[k].dir;
 
-      Cell subDim = RoomSize(sub->flags);
+      Cell subDim = RoomSize(sub);
       
       if(cell_compare(root->openings[k].dir,CELL_UNSET))
         root->openings[k].dir = CellFlip(root->dir);
 
+      Cell pos = root->openings[k].pos;
       if(cell_compare(root->openings[k].pos,CELL_UNSET)){
-        Cell pos = RoomGetBestOpening(root,sub, k);
+        pos = RoomGetBestOpening(root,sub, k);
 
         switch(s_dir){
           case ROOM_PLACING_N:
             pos.x += prev_n.x+subDim.x;
-            //pos.x+=subDim.x;
+            pos.y=prev_n.y;
             prev_n.x = pos.x + subDim.x;
             break;
           case ROOM_PLACING_S:
             pos.x+=subDim.x + prev_s.x;
+            pos.y=prev_s.y;
             prev_s.x  = pos.x + subDim.x;
             break;
           case ROOM_PLACING_E:
-            pos.y+=subDim.y;
+            pos.x= prev_e.x;
             prev_e = pos;
             break;
           case ROOM_PLACING_W:
@@ -637,10 +917,18 @@ MapNodeResult MapPlaceSubrooms(map_context_t *ctx, map_node_t *node) {
       }
 
 
-      Cell disp = CellMul(subDim,o_dir);
-      disp = CellInc(CellScale(o_dir,ctx->map_rules->spacing),disp);
+      Cell opening = CellScale(o_dir,ctx->map_rules->spacing);
+      Cell disp = CellInc(CellMul(subDim,o_dir),opening);
+      opening = CellInc(opening,pos);
       sub->center = CELL_EMPTY;
       RoomAdjustPosition(sub,CellInc(root->openings[k].pos,disp));
+
+      sub->openings[sub->num_children++] = (room_opening_t){
+      .entrance = true,
+      .pos = opening,
+      .dir = cell_dir(sub->center, opening)
+    };
+
     }
 
   }
@@ -687,13 +975,17 @@ MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node)
   maxy += padding;
 
   // --- 2. Compute width + height of final map ---
-  int width  = abs(maxx) + abs(minx) + 1;
-  int height = abs(maxy) + abs(miny) + 1;
+  int width  = abs(maxx) + abs(minx);// + ctx->map_rules->border;
+  int height = abs(maxy) + abs(miny);// + ctx->map_rules->border;;
 
-  ctx->width = width;
-  ctx->height = height;
+  ctx->width = clamp_to_interval(width,SECTION_SIZE);
+  ctx->height = clamp_to_interval(height,SECTION_SIZE);
 
-  Cell offset = CELL_NEW(-minx,-miny);
+  TraceLog(LOG_INFO,"\n=====MAP SIZE ===\n===== WIDTH %i====\n====HEIGHT %i ====\n",ctx->width,ctx->height);
+
+  int offsetx = clamp_to_interval(-minx,SECTION_SIZE);
+  int offsety = clamp_to_interval(-miny,SECTION_SIZE);
+  Cell offset = CELL_NEW(offsetx,offsety);
 
   for (int i = 0; i < ctx->num_rooms; i++) {
     RoomAdjustPosition(&ctx->rooms[i],offset);
@@ -731,6 +1023,47 @@ MapNodeResult MapAllocateTiles(map_context_t *ctx, map_node_t *node)
     ctx->alloc_h = ctx->height;
 
     return MAP_NODE_SUCCESS;
+}
+
+MapNodeResult MapPlayerSpawn(map_context_t *ctx, map_node_t *node){
+  for(int i = 0; i < ctx->num_rooms; i++){
+    RoomFlags purpose = ctx->rooms[i].flags&ROOM_PURPOSE_MASK;
+    if(purpose!= ROOM_PURPOSE_START)
+      continue;
+
+    ctx->player_start = ctx->rooms[i].center;
+      return MAP_NODE_SUCCESS;
+
+  }
+
+return MAP_NODE_FAILURE;
+}
+
+MapNodeResult MapFillWalls(map_context_t *ctx, map_node_t *node){
+  for(int x = 0; x<ctx->width; x++){
+    for (int y = 0; y < ctx->height; y++){
+      TileFlags *tile = &ctx->tiles[x][y];
+
+      if (!TileHasFlag(*tile, TILEFLAG_EMPTY) || !TileHasFlag(*tile,TILEFLAG_FLOOR))
+        continue;
+
+      for(int nx = x-1; nx < x+1; nx++){
+        for(int ny = y-1; ny < y+1; ny++){
+          if(nx<0 || nx > ctx->width || ny < 0 || ny > ctx->width)
+            continue;
+          
+          if(!is_adjacent(CELL_NEW(x,y),CELL_NEW(nx,ny)))
+            continue;
+
+          if(ctx->tiles[nx][ny] < TILEFLAG_EMPTY)
+            ctx->tiles[nx][ny] = TILEFLAG_WALL;
+        }
+      }
+
+    }
+  }
+    
+  return MAP_NODE_SUCCESS;
 }
 
 TileFlags RoomSpecialDecor(RoomFlags p) {
