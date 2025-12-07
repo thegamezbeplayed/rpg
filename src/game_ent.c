@@ -168,6 +168,7 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
   e->pos = CELL_UNSET;
   e->facing = CELL_UNSET;
   e->sprite = InitSpriteByID(e->type,SHEET_ENT);
+  e->sprite->owner = e;
   e->events = InitEvents();
 
   e->control = InitController();
@@ -175,6 +176,7 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
   e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,1,20);
 
   e->traits = calloc(1,sizeof(traits_t));
+  InitActions(e->actions);
 
   e->skills[SKILL_LVL]->on_skill_up = EntMonsterOnLevelUp;
   MobCategory cat = GetEntityCategory(e->type);
@@ -196,6 +198,7 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
     int val = base.attr[i] + size.attr[e->size][i];
     e->attribs[i] = InitAttribute(i,val);
     e->attribs[i]->asi = data.ASI[i];
+    e->attribs[i]->expand = AttributeScoreIncrease;
   }
 
   for (int i = 0; i < STAT_ENT_DONE;i++){
@@ -328,7 +331,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
         case MOB_GROUPING_TROOP:
           if (min >3)
             min = 3;
-          if (max < 3)
+          if (max < 4)
             max = 4;
           break;
         case MOB_GROUPING_PARTY:

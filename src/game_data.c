@@ -222,7 +222,8 @@ attribute_t* InitAttribute(AttributeType type, int val){
   attribute_t* t = malloc(sizeof(attribute_t));
 
   t->max = t->min = t->val = val;
-
+  t->asi = 0;
+  t->rollover = 0;
   return t;
 }
 

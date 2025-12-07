@@ -99,9 +99,13 @@ Cell MapApplyContext(map_grid_t* m){
     }
   }
   
-  for(int r = 0; r < world_map.num_rooms; r++)
-    RoomSpawnMobs(m, world_map.rooms[r]);
-
+  for(int r = 0; r < world_map.num_rooms; r++){
+    RoomSpawnMob(m, &world_map.rooms[r]);
+    for(int o = 0; o < world_map.rooms[r].num_children; o++){
+      if(world_map.rooms[r].openings[o].sub)
+        RoomSpawnMob(m, world_map.rooms[r].openings[o].sub);
+    }
+  }
   if(!cell_compare(world_map.player_start,CELL_UNSET))
     out = world_map.player_start;
 
@@ -302,7 +306,19 @@ bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep){
 }
 
 void RoomSpawnMob(map_grid_t* m, room_t* r){
+  Cell pos = r->center;
+  
+  for(int i = 0; i < r->num_mobs; i++){
+    r->mobs[i]->pos = pos;
+    if(RegisterEnt(r->mobs[i]))
+       SetState(r->mobs[i],STATE_SPAWN,NULL);
 
+
+    if(i%2==0)
+      pos.x++;
+    else
+      pos.y++;
+  }
 }
 
 void MapSpawnMob(map_grid_t* m, int x, int y){
@@ -629,6 +645,9 @@ MapNodeResult MapCarveTiles(map_context_t *ctx, map_node_t *node) {
 }
 
 bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
+  if(r->num_mobs > 0)
+    return true;
+
   RoomFlags purpose = r->flags & ROOM_PURPOSE_MASK;
  
   int num_spawns = 0; 
@@ -715,16 +734,20 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   mob_rules |= GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_MOD_MASK);
   mob_rules |= grouping;
   int built = 0;
+  if(r->num_mobs >0){
+    DO_NOTHING();
+  }
+
   for(int i = 0; i < filtered; i++){
    if(mob_pool[i].weight > num_spawns)
     continue;
 
     built = EntBuild(mob_pool[i],mob_rules,r->mobs);
-    if(built >= MOB_ROOM_MAX)
-      return true;
+    r->num_mobs+=built;
+    break;
   }
 
-  return false;
+  return (built>0);
 }
 
 MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node) {

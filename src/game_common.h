@@ -650,7 +650,7 @@ static const race_define_t DEFINE_RACE[ SPEC_DONE] = {
       RACE_SIZE_SMALL | RACE_TACTICS_CRUDE |
       RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_SPELLS | RACE_DIFF_PETS | RACE_DIFF_ALPHA |
       RACE_SPECIAL_TRAPS | RACE_SPECIAL_FOCI | RACE_SPECIAL_WARDS,
-    RACE_CLASS_CLERIC,RACE_CLASS_DRUID, RACE_CLASS_ROGUE,RACE_CLASS_SOLDIER,RACE_CLASS_ARCHER, RACE_CLASS_ROGUE, RACE_CLASS_SOLDIER, RACE_CLASS_SOLDIER, RACE_CLASS_WARLOCK,
+    RACE_CLASS_CLERIC, RACE_CLASS_DRUID, RACE_CLASS_ROGUE, RACE_CLASS_SOLDIER, RACE_CLASS_ARCHER, RACE_CLASS_ROGUE, RACE_CLASS_SOLDIER, RACE_CLASS_SOLDIER, RACE_CLASS_WARLOCK,
     TRAIT_POISON_RESIST,
   },
   {SPEC_ORC, "Orc", ENT_ORC,
@@ -660,7 +660,9 @@ static const race_define_t DEFINE_RACE[ SPEC_DONE] = {
       RACE_SIZE_BIG |
       RACE_TACTICS_MARTIAL | RACE_TACTICS_SIMPLE |
       RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_GEAR | RACE_DIFF_SPELLS | RACE_DIFF_ALPHA |
-      RACE_SPECIAL_FOCI
+      RACE_SPECIAL_FOCI,
+      RACE_CLASS_CLERIC, RACE_CLASS_SOLDIER, RACE_CLASS_SOLDIER, RACE_CLASS_ARCHER, RACE_CLASS_BERSERKER, RACE_CLASS_SOLDIER, RACE_CLASS_BERSERKER, RACE_CLASS_WARLOCK,
+      TRAIT_VISION_DARK
   },
   {SPEC_ARTHROPOD},
   {SPEC_ETHEREAL},
@@ -759,10 +761,34 @@ static const define_race_class_t RACE_CLASS_DEFINE[SPEC_DONE][7] = {
       "Filthcaller","\0","\0"
     },
     [__builtin_ctzll(RACE_CLASS_CLERIC)] = {
-      RACE_CLASS_CLERIC,5, CLASS_BASE_CLERIC, RACE_CLASS_WARLOCK, CLASS_SUB_HEX,
+      RACE_CLASS_CLERIC,5, CLASS_BASE_CLERIC, CLASS_BASE_LOCK, CLASS_SUB_HEX,
       "Giver", "Witch-doctor", "Shadow Priest"
     }
 
+  },
+  [SPEC_ORC] = {
+    [__builtin_ctzll(RACE_CLASS_SOLDIER)] = { 
+      RACE_CLASS_SOLDIER, 25, CLASS_BASE_FIGHTER,CLASS_SUB_CHAMP, CLASS_SUB_CHAMP,
+      "Grunt","Champion","Warlord"
+    },
+    [__builtin_ctzll(RACE_CLASS_ROGUE)] = {
+      RACE_CLASS_ROGUE, 10, CLASS_BASE_ROGUE, CLASS_SUB_ASSASSIN, CLASS_SUB_CHAMP,
+      "Cutthroat", "Infiltrator", "Saboteur"}, 
+    [__builtin_ctzll(RACE_CLASS_ARCHER)] = {
+      RACE_CLASS_ARCHER, 10, CLASS_BASE_RANGER , CLASS_BASE_FIGHTER , CLASS_SUB_SHOOTER,
+      "Stalker", "Slayer", "Hunter"},
+    [__builtin_ctzll(RACE_CLASS_WARLOCK)] = {
+      RACE_CLASS_WARLOCK,1, CLASS_BASE_LOCK, -1,-1,
+      "Doomsayer","\0","\0"
+    },
+    [__builtin_ctzll(RACE_CLASS_CLERIC)] = {
+      RACE_CLASS_CLERIC,5, CLASS_BASE_CLERIC, CLASS_SUB_SHAMAN, CLASS_SUB_HEX,
+      "Priest", "Shaman", "Shadow Priest"
+    },
+    [__builtin_ctzll(RACE_CLASS_BERSERKER)] = {
+      RACE_CLASS_BERSERKER,12, CLASS_BASE_FIGHTER, CLASS_SUB_BERZ, CLASS_SUB_CHAMP,
+      "Rager", "Berserker", "Bloodrager"
+    }
   },
 };
 
@@ -896,7 +922,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_CRITTER |
       MOB_FREQ_COMMON | MOB_FREQ_UNCOMMON | MOB_FREQ_RARE |
       MOB_GROUPING_SOLO | MOB_GROUPING_SWARM,
-    2
+    SPEC_ARTHROPOD,
+    20
   },
   {ENT_SPIDER,
     MOB_SPAWN_LAIR | 
@@ -905,7 +932,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_CRITTER |
       MOB_FREQ_COMMON | MOB_FREQ_UNCOMMON | MOB_FREQ_RARE |
       MOB_GROUPING_SOLO | MOB_GROUPING_SWARM,
-    4
+    SPEC_ARTHROPOD,
+    40
   },
   {ENT_TROLL,
       MOB_SPAWN_LAIR | 
@@ -913,7 +941,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST|
       MOB_THEME_PRIMITIVE |
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS,
-      5
+      SPEC_CANIFORM,
+      50
   },
   {ENT_TROLL_CAVE,
     MOB_SPAWN_LAIR | 
@@ -921,13 +950,15 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_LOC_DUNGEON | MOB_LOC_CAVE |
       MOB_THEME_PRIMITIVE |
       MOB_GROUPING_SOLO,
-    6
+      SPEC_CANIFORM,
+    60
   },
   {ENT_BEAR,
       MOB_SPAWN_LAIR | 
       MOB_MOD_ENLARGE | 
       MOB_LOC_CAVE | MOB_LOC_FOREST |
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_SQUAD,
+      SPEC_CANIFORM,
       5
   },
   {ENT_WOLF,
@@ -935,6 +966,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_MOD_ENLARGE | 
       MOB_LOC_CAVE | MOB_LOC_FOREST |
       MOB_GROUPING_SOLO | MOB_GROUPING_SQUAD,
+      SPEC_CANIFORM,
       4
   },
   {ENT_RAT,
@@ -943,6 +975,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_CRITTER |
       MOB_FREQ_COMMON | MOB_FREQ_UNCOMMON | MOB_FREQ_RARE|
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_SWARM,
+      SPEC_RODENT,
       3
   },
 
@@ -1646,7 +1679,7 @@ typedef enum {
 
 } RoomFlags;
 
-static int room_size_weights[7] = {0,9,26,41,70,82,96};
+static int room_size_weights[7] = {0,9,16,21,67,82,96};
 static int room_purpose_weights[8] = {50,10,3,9,6,22,0,0};
 static int room_shape_weights[7] = {50,20,10,10,5,20,15};
 
@@ -1701,6 +1734,7 @@ struct room_s{
     RoomFlags       flags;
     room_opening_t  openings[16];
     Cell            center,dir;
+    int             num_mobs;
     ent_t           *mobs[MOB_ROOM_MAX];
 };
 
