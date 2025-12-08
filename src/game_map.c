@@ -310,9 +310,10 @@ void RoomSpawnMob(map_grid_t* m, room_t* r){
   
   for(int i = 0; i < r->num_mobs; i++){
     r->mobs[i]->pos = pos;
-    if(RegisterEnt(r->mobs[i]))
-       SetState(r->mobs[i],STATE_SPAWN,NULL);
-
+    if(RegisterEnt(r->mobs[i])){
+      r->mobs[i]->map = m; 
+      SetState(r->mobs[i],STATE_SPAWN,NULL);
+    }
 
     if(i%2==0)
       pos.x++;
@@ -446,16 +447,18 @@ MapNodeResult MapFillMissing(map_context_t *ctx, map_node_t *node){
     if(i > temp_id)
       ctx->map_rules->num_rooms++;
 
+    RoomFlags rules= ctx->map_rules->rooms[i];
+    RoomFlags dir= rules & ROOM_PLACING_MASK;
+    RoomFlags purpool = rules & ROOM_PURPOSE_MASK;
     if((ctx->map_rules->rooms[i]&ROOM_LAYOUT_MASK)!=ROOM_LAYOUT_NONE)
       continue;
 
-    RoomFlags flags = ctx->map_rules->rooms[i]
-      | ROOM_LAYOUT_ROOM 
-      | RandomPurpose()
+    ctx->map_rules->rooms[i] = ROOM_LAYOUT_ROOM 
+      | dir
+      | PurposeByWeight(ROOM_PURPOSE_LAIR,67+i)
       | RandomShape()
-      | SizeByWeight(ROOM_SIZE_MAX,69);
+      | SizeByWeight(ROOM_SIZE_MAX,69+i);
 
-    ctx->map_rules->rooms[i] = flags;
   }
 
  return MAP_NODE_SUCCESS;

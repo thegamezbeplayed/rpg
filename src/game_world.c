@@ -148,7 +148,6 @@ ent_t* WorldGetEntById(unsigned int uid){
 
 int RemoveSprite(int index){
   int last_pos = world.num_spr -1;
-  
   if(!FreeSprite(world.sprs[index]))
     return 0;
 
@@ -276,7 +275,7 @@ void WorldFixedUpdate(){
         i-=RemoveEnt(i);
         break;
       case STATE_DIE:
-        EntDestroy(world.ents[i]);
+        //EntDestroy(world.ents[i]);
         break;
       default:
         EntSync(world.ents[i]);

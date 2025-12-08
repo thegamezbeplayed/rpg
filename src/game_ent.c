@@ -23,7 +23,7 @@ ent_t* InitEnt(ObjectInstance data,Cell pos){
 
   e->control = InitController();
 
-  EntCalcStats(e);
+  EntCalcStats(e,NULL);
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
   e->stats[STAT_ACTIONS]->on_stat_empty = EntActionsTaken;
   
@@ -84,76 +84,16 @@ ent_t* InitEnt(ObjectInstance data,Cell pos){
 ent_t* InitMob(EntityType mob, Cell pos){
   ent_t* e = malloc(sizeof(ent_t));
   *e = (ent_t){0};  // zero initialize if needed
-  e->type = mob;
-
-  ObjectInstance data = GetEntityData(mob);
-  e->size = data.size;
-  e->map = WorldGetMap();
-  e->pos = pos;
-  e->facing = CELL_EMPTY;
-  e->sprite = InitSpriteByID(data.id,SHEET_ENT);
-  e->sprite->owner = e;
-
-  strcpy(e->name,data.name);
-  e->events = InitEvents();
-
-  e->control = InitController();
-  e->control->start = pos;
-  EntCalcStats(e);
-  e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
-
-  e->challenge = data.cr;
-  InitActions(e->actions);
-
-  for(int i = 0; i < NUM_ABILITIES; i++){
-    if(data.abilities[i] == ABILITY_DONE)
-      break;
-
-    ability_t* a = InitAbility(e, data.abilities[i]);
-    e->abilities[e->num_abilities++] = a;
-
-    if(a->chain > ABILITY_NONE){
-      ability_t* child = InitAbility(e, a->chain);
-      child->weight = -1;
-
-      a->on_success_fn = EntUseAbility;
-      a->on_success = child;
-      e->abilities[e->num_abilities++] = child;
-    }
-  }
-
-  for(int i = 0; i < GEAR_DONE; i++){
-    if(data.items[i]==GEAR_NONE)
-      break;
-
-    int budget = data.budget*data.cr;
-
-    item_def_t* item = GetItemDefByID(data.items[i]);
-    EntAddItem(e, InitItem(item), true);
-  }
-
-  e->control->ranges[RANGE_NEAR] = (int)e->stats[STAT_AGGRO]->current/4;
-  e->control->ranges[RANGE_LOITER] = (int)e->stats[STAT_AGGRO]->current/2;
-  e->control->ranges[RANGE_ROAM] = 4;
-  for (int i = STATE_SPAWN; i < STATE_END; i++){
-    if(data.behaviors[i] == BEHAVIOR_NONE)
-      continue;
-    e->control->bt[i] = InitBehaviorTree(data.behaviors[i]);
-  }
-
-  e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE, DES_NONE, ActionTraverseGrid,NULL);
-  e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
-
-  SetState(e,STATE_SPAWN,NULL);
   return e;
 }
 
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
-  define_race_class_t arch = RACE_CLASS_DEFINE[race][__builtin_ctzll(class_id)];
+  define_race_class_t arch = RACE_CLASS_DEFINE[__builtin_ctzll( race)][__builtin_ctzll(class_id)];
 
-  race_define_t racial = DEFINE_RACE[race];
+  race_define_t racial = DEFINE_RACE[__builtin_ctzll(race)];
 
   define_archetype_t data = CLASS_DATA[__builtin_ctzll(arch.base)];
+
 
   ObjectInstance todoremove = GetEntityData(racial.base_ent);
 
@@ -163,8 +103,11 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
   e->type = racial.base_ent;
 
   strcpy(e->name, TextFormat("%s %s",racial.name,arch.b_name));
+
+  if(strcmp(e->name,"Goblin ") == 0)
+    DO_NOTHING();
+
   e->size = todoremove.size;
-  e->map = WorldGetMap();
   e->pos = CELL_UNSET;
   e->facing = CELL_UNSET;
   e->sprite = InitSpriteByID(e->type,SHEET_ENT);
@@ -228,6 +171,33 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
     }
   }
 
+  AbilityID abilities[MAX_ABILITIES];
+  int num_abilities = FilterAbilities(abilities, data.archtype, race);
+  for (int i = 0; i < num_abilities; i++){
+    define_ability_class_t def_ab = CLASS_ABILITIES[abilities[i]];
+    if(def_ab.lvl > 1)
+      continue;
+
+    ability_t* a = InitAbility(e, def_ab.id);
+
+    e->abilities[e->num_abilities++] = a;
+
+  }
+  e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
+  
+  e->control->bt[STATE_IDLE] = InitBehaviorTree(BEHAVIOR_SEEK);
+  e->control->bt[STATE_WANDER] = InitBehaviorTree(BEHAVIOR_WANDER);
+  e->control->bt[STATE_AGGRO] = InitBehaviorTree(BEHAVIOR_MOB_AGGRO);
+  e->control->bt[STATE_ACTION] = InitBehaviorTree(BEHAVIOR_TAKE_ACTION);
+  e->control->bt[STATE_ATTACK] = InitBehaviorTree(BEHAVIOR_COMBAT);
+
+  e->control->ranges[RANGE_NEAR] = 2;
+  e->control->ranges[RANGE_LOITER] = 3;
+  e->control->ranges[RANGE_ROAM] = 4;
+
+  e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE, DES_NONE, ActionTraverseGrid,NULL);
+  e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
+
   return e;
 }
 
@@ -236,7 +206,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   MobRules tmp = def.rules&=rules;
   rules&=tmp;
 
-  race_define_t racial = DEFINE_RACE[def.race];
+  race_define_t racial = DEFINE_RACE[ __builtin_ctzll(def.race)];
   MobRules spawn = GetMobRulesByMask(rules,MOB_SPAWN_MASK);
   MobRules group = GetMobRulesByMask(rules,MOB_GROUPING_MASK);
   MobRules modif = GetMobRulesByMask(rules,MOB_MOD_MASK);
@@ -275,7 +245,8 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
       switch(stype){
         case MOB_SPAWN_TRAP:
         case MOB_SPAWN_SECRET:
-          suprise = true;         
+          //suprise = true;         
+          diverse = true;
           break;
         case MOB_SPAWN_LAIR:
           elite = true;
@@ -369,7 +340,12 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
       monster_size++;
   }
 
-  int amount = CLAMP(RandRange(min,max+count),1,MOB_ROOM_MAX);
+  int amount = 0;
+  if(max>min)
+    CLAMP(RandRange(min,max+count),1,MOB_ROOM_MAX);
+  else
+    amount = max+count;
+
   if(amount>2)
     monster_size =0;
 
@@ -419,7 +395,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
       }
     }
 
-    const define_race_class_t *rcw = RACE_CLASS_DEFINE[def.race];
+    const define_race_class_t *rcw = RACE_CLASS_DEFINE[__builtin_ctzll(def.race)];
     while(classes){
       uint64_t class = classes & -classes;
       classes &= classes -1;
@@ -439,13 +415,25 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   class_weight[__builtin_ctzll(racial.ranged)] *= ranged;
   class_weight[__builtin_ctzll(racial.soldier)] *= fighters;
 
-  //TODO REMOVE
-  beef++;
   count = 0;
+//  MobRules armory = GET_FLAG(racial.props,RACE_ARMS_MASK);
+
+  //MonsterTraits skill = GetTraits(racial.traits,TRAIT_EXP_MASK);
+  //weapon_def_t arms[WEAP_DONE];
+  //int w_num = GetWeaponByTrait(skill, arms);
+
   for(int i = 0; i < amount; i++){
     int selection = weighted_choice(class_weight,7);
     ent_t* e = InitEntByRaceClass(BIT64(selection),def.race);
 
+    if(arm){
+      item_def_t* item = GetItemDefByID(GEAR_DAGGER);
+      EntAddItem(e, InitItem(item), true);
+/*      for (int w = 0; w < w_num; i++){
+        EntAddItem(e,InitItem(BuildWeapon(arms[w], QUAL_TRASH)),true);
+      }
+*/
+    }
     for(int j = 0; j < beef; j++)
       EntAddExp(e, 300);
 
@@ -502,7 +490,7 @@ void EntApplyTraits(traits_t* t, uint64_t mask, uint64_t shift){
   }
 }
 
-void EntCalcStats(ent_t* e){
+void EntCalcStats(ent_t* e, race_define_t* racial){
   
   e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,1,20);
 
@@ -514,35 +502,26 @@ void EntCalcStats(ent_t* e){
   SpeciesType species = GetEntitySpecies(e->type);
 
   category_stats_t base = CATEGORY_STATS[cat];
-  species_stats_t racial = RACIALS[species];
+  //species_stats_t racial = RACIALS[species];
   size_category_t size = MOB_SIZE[cat];
 
-
+  if(racial){
   trait_pool_t res[4] = {
-    {TRAIT_RESIST_SCHOOL_MASK, GetTraits( racial.traits, TRAIT_RESIST_SCHOOL_MASK)},
-    {TRAIT_RESIST_TAG_MASK,GetTraits( racial.traits, TRAIT_RESIST_TAG_MASK)},
+    {TRAIT_RESIST_SCHOOL_MASK, GetTraits( racial->traits, TRAIT_RESIST_SCHOOL_MASK)},
+    {TRAIT_RESIST_TAG_MASK,GetTraits( racial->traits, TRAIT_RESIST_TAG_MASK)},
     {TRAIT_RESIST_SCHOOL_MASK, GetTraits( base.traits, TRAIT_RESIST_SCHOOL_MASK)},
     {TRAIT_RESIST_TAG_MASK,GetTraits( base.traits, TRAIT_RESIST_TAG_MASK)},
   };
   for (int i = 0; i< 4;i++)
     EntApplyTraits(e->traits,res[i].mask, res[i].shift);
-
-  /*
-  for (uint64_t i = 1ULL; i < (1ULL << TRAIT_DONE); i<<=1){
-    if(IS_TRAIT(base.traits,TRAIT_RESIST_TAG_MASK, i)||
-        IS_TRAIT(racial.traits,TRAIT_RESIST_TAG_MASK, i))
-      e->traits->resistances_type[i]+=1;
-    if(IS_TRAIT(base.traits,TRAIT_RESIST_SCHOOL_MASK, i)||
-        IS_TRAIT(racial.traits,TRAIT_RESIST_SCHOOL_MASK, i))
-      e->traits->resistances_school[i]+=1;
   }
-*/
+  
   for (int i = 0; i < ATTR_DONE; i++){
-    int val = base.attr[i] + racial.attr[i] + size.attr[e->size][i];
+    int val = base.attr[i] + size.attr[e->size][i];
     e->attribs[i] = InitAttribute(i,val);
   }
   for (int i = 0; i < STAT_ENT_DONE;i++){
-    int val = base.stats[i] + racial.stats[i] + size.stats[e->size][i];
+    int val = base.stats[i] +  size.stats[e->size][i];
     e->stats[i] = InitStat(i,0,val,val);
 
     e->stats[i]->owner = e;
@@ -629,7 +608,8 @@ item_def_t* DefineWeapon(ItemInstance data){
   if(temp.stats[STAT_ENERGY] > 0)
     item->stats[STAT_ENERGY] = InitStat(STAT_ENERGY,0,temp.stats[STAT_ENERGY],temp.stats[STAT_ENERGY]);
   
-  
+ 
+  item->ability = temp.ability; 
   ItemApplyWeaponProps(item, &temp, data.rarity);
 
   return item;
@@ -642,6 +622,7 @@ item_def_t* DefineArmor(ItemInstance data){
 
   item->dr = calloc(1,sizeof(damage_reduction_t));
 
+  item->ability = ABILITY_NONE;
   armor_def_t temp = ARMOR_TEMPLATES[data.equip_type];
   item->stats[STAT_ARMOR] = InitStat(STAT_ARMOR,0,temp.armor_class, temp.armor_class);
 
@@ -716,7 +697,10 @@ void EntInitOnce(ent_t* e){
   for(int i = 0; i < STAT_ENT_DONE; i++){
     if(!e->stats[i])
       continue;
-    
+   
+    if(e->type == ENT_PERSON)
+     DO_NOTHING();
+
     if(i<STAT_START_FULL)
       StatMaxOut(e->stats[i]);
     else
@@ -769,9 +753,9 @@ bool EntAddItem(ent_t* e, item_t* item, bool equip){
 
     item->owner = e;
 
-    if(item->def->ability>ABILITY_NONE)
+    /*if(item->def->ability>ABILITY_NONE)
       ItemAddAbility(e,item);
-
+*/
     e->num_items++;
     return true;
   }
@@ -898,6 +882,8 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
 
   const item_def_t* def = item->def;
 
+  a->id = def->ability;
+  a->chain = ABILITY_NONE;
   a->dc = Die(1,def->stats[STAT_DAMAGE]->current);
   a->hit = Die(20,1);
 
@@ -937,13 +923,14 @@ bool EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   if(a->resource>STAT_NONE)
     if(!StatChangeValue(e,e->stats[a->resource],-1*a->cost)){
       TraceLog(LOG_INFO,"%s not enough %s",e->name, STAT_STRING[a->resource].name);
-      return false;
+      return true;
     }
   if (hit < save){
     TraceLog(LOG_INFO,"%s misses",e->name);
-    return false;
+    return true;
   }
 
+  TraceLog(LOG_INFO,"%s now %i",STAT_STRING[a->resource].name, (int)e->stats[a->resource]->current);
   a->stats[STAT_DAMAGE]->start(a->stats[STAT_DAMAGE]);
 
   StatMaxOut(a->stats[STAT_DAMAGE]);
@@ -959,7 +946,15 @@ bool EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
 bool FreeEnt(ent_t* e){
   if(!e)
     return false;
-
+/*
+  for(int i = 0; i < STAT_ENT_DONE; i++)
+    free(e->stats[i]);
+*/
+  
+  /*for(int i = 0; i < ATTR_DONE; i++)
+    free(e->attribs[i]);
+*/
+  e=NULL;
   free(e);
   return true;
 }
@@ -1097,10 +1092,22 @@ bool CanChangeState(EntityState old, EntityState s){
   if(old == s || old > STATE_END)
     return false;
 
+  switch(old){
+    case STATE_END:
+      return false;
+      break;
+    default:
+      return true;
+      break;
+  }
+
   switch(s){
     case STATE_NONE:
       return false;
       break;
+    case STATE_DIE:
+      if(old == STATE_END)
+        return false;
     default:
       return true;
       break;
@@ -1210,6 +1217,18 @@ item_prop_mod_t GetItemProps(ItemInstance data){
   }
 }
 
+int GetWeaponByTrait(MonsterTraits t, weapon_def_t *arms){
+  int count = 0;
+  for (int i = 0; i < WEAP_DONE; i++){
+    if(t & WEAPON_TEMPLATES[i].skill != 0)
+      continue;
+    
+    arms[count++] = WEAPON_TEMPLATES[i];
+  }
+
+  return count;
+}
+
 void ItemApplyWeaponProps(item_def_t * w, weapon_def_t* def, ItemQuality rarity){
   item_prop_mod_t* props = calloc(1,sizeof(item_prop_mod_t));
   *props  = PROP_MODS[rarity];
@@ -1232,6 +1251,17 @@ void ItemApplyWeaponProps(item_def_t * w, weapon_def_t* def, ItemQuality rarity)
     w->stats[i]->max = val;
   }
 
+}
+
+item_def_t* BuildWeapon(weapon_def_t def, ItemQuality rarity){
+  item_def_t* weap = calloc(1,sizeof(item_def_t));
+
+  weap->category = ITEM_WEAPON;
+  weap->damage = def.dtype;
+  weap->weight = def.weight;
+  ItemApplyWeaponProps(weap,&def, rarity);
+  weap->ability = def.ability;
+  return weap;
 }
 
 ability_t AbilityLookup(AbilityID id){

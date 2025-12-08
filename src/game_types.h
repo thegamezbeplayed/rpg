@@ -11,17 +11,10 @@
 #define MAX_ENVS 2048  
 #define CARRY_SIZE 4
 #define NUM_ABILITIES 6
+#define MAX_ABILITIES 16
 
 typedef struct ent_s ent_t;
 typedef struct ability_s ability_t;
-
-typedef enum{
-  RANGE_AGGRO,
-  RANGE_LOITER,
-  RANGE_NEAR,
-  RANGE_ROAM,
-  RANGE_EMPTY 
-}RangeType;   
 
 typedef bool (*AbilityCallback)(struct ent_s* owner,  struct ability_s* chain, struct ent_s* target);
 
@@ -139,7 +132,7 @@ ent_t* InitMob(EntityType mob, Cell pos);
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race);
 int EntBuild(mob_define_t def, MobRules rules, ent_t** pool);
 void EntApplyTraits(traits_t* t, uint64_t mask, uint64_t shift);
-void EntCalcStats(ent_t* e);
+void EntCalcStats(ent_t* e, race_define_t* racial);
 void EntPollInventory(ent_t* e);
 item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
 bool EntAddItem(ent_t* e, item_t* item, bool equip);
@@ -176,6 +169,8 @@ void StepState(ent_t *e);
 void OnStateChange(ent_t *e, EntityState old, EntityState s);
 bool CanChangeState(EntityState old, EntityState s);
 void ItemApplyWeaponProps(item_def_t * w, weapon_def_t* def, ItemQuality rarity);
+int GetWeaponByTrait(MonsterTraits t, weapon_def_t *arms);
+item_def_t* BuildWeapon(weapon_def_t def, ItemQuality rarity);
 bool EntSyncSight(ent_t* e, ActionType a);
 void EntActionsTaken(stat_t* self, float old, float cur);
 bool EntCanTakeAction(ent_t* e);

@@ -217,9 +217,9 @@ void DrawScreenOverlay(Color c,Rectangle r){
 bool FreeSprite(sprite_t* s){
   if(!s) return false;
 
-  if(s->anim)
+  /*if(s->anim)
     free(s->anim);
-
+*/
   //for(int i = 0; i<SHADER_DONE;i++)
   //free(s->gls[i]);
 

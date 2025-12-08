@@ -301,6 +301,19 @@ static inline RoomFlags SizeByWeight(RoomFlags max, int budget){
   return 1<<12;
 }
 
+static inline RoomFlags PurposeByWeight(RoomFlags max, int budget){
+  int r = RandRange(0,budget);
+
+  int category_size = (max>>12)-1;
+  for (int i = category_size; i > 1; i--){
+    if(room_purpose_weights[i] < r)
+      return i<<12;
+  }
+
+  return 1<<12;
+}
+
+
 static inline int SpawnPoints(RoomFlags f){
   int shift = ROOM_MOBS_SHIFT;
 
@@ -346,15 +359,21 @@ static inline RoomFlags RandomShape(void) {
     int pick  = RandRange(0, count - 1);              // 0..7
     return (RoomFlags)(ROOM_SHAPE_SQUARE + pick);
 }
-static inline RoomFlags RandomPurpose(void) {
-    int count = (ROOM_PURPOSE_START - ROOM_PURPOSE_NONE) >> 4;  // 7 values (0..6)
-    int pick;
+static inline RoomFlags RandomPurpose(RoomFlags pool) {
+  RoomFlags options[16];  
+  int count = 0;
+  for (int bit = ROOM_PURPOSE_NONE; bit <= ROOM_PURPOSE_START; bit += (1 << 4)) {
+    if (pool & bit)
+      continue;
+  
+    options[count++] = bit;
+  }
 
-    do {
-        pick = RandRange(0, count - 1);  // 0..5
-    } while ((pick << 4) == ROOM_PURPOSE_START);
+  if(count == 0)
+    return ROOM_PURPOSE_NONE;
 
-    return (RoomFlags)(pick << 4);
+  int pick = RandRange(0, count - 1);
+  return options[pick];
 }
 static inline RoomFlags RandomLayout(void) {
     int count = (ROOM_LAYOUT_MASK) >> ROOM_LAYOUT_SHIFT; // = 4 layouts

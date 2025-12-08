@@ -110,7 +110,7 @@ bool ActionInput(void){
     ActionKeyCallback fn = action_keys[i].fn;
     for(int j = 0; j<action_keys[i].num_keys; j++){
       KeyboardKey k = action_keys[i].keys[j];
-      if(!IsKeyDown(k))
+      if(!IsKeyPressed(k))
         continue;
 
       switch(action_keys[i].action){
