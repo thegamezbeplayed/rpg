@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "game_tools.h"
 #include "game_process.h"
+#include "game_info.h"
 #if defined(PLATFORM_ANDROID)
 #include <jni.h>
 #endif
@@ -92,6 +93,7 @@ void ScreenCameraSync(Cell target){
 }
 
 void ScreenRender(void){
+  
   if(!keyctrl.active)
     return;
 
@@ -216,6 +218,7 @@ void ClearMouse(void){
 void ScreenSyncMouse(void){
 
   mousectrl.pos = GetMousePosition();
+  ScreenEntMouseHover();
   if(!mousectrl.target && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
 
     mousectrl.target = ScreenEntMouseCollision();
@@ -261,18 +264,26 @@ Vector2 CaptureInput(){
 }
 
 ent_t* ScreenEntMouseHover(void){
-/*
-  int num_shapes = WorldGetEnts(shape_pool,FilterEntShape, NULL);
-  if(num_shapes <= 0)
-    return NULL;
+  Cell c = vec_to_cell(mousectrl.pos,CELL_WIDTH); 
 
-  for(int i = 0; i < num_shapes; i++){
-    if(CheckEntPosition(shape_pool[i],mousectrl.pos))
-      return shape_pool[i];
+  Vector2 pos = GetScreenToWorld2D(mousectrl.pos,*cam->camera);
+  sprite_t* ent_sprites[MAX_ENTS];
+  int num = WorldGetEntSprites(ent_sprites);
+
+  ent_t *e = {0};
+  for (int i = 0; i < num; i++){
+    if(Vector2Distance(pos,ent_sprites[i]->pos)<CELL_WIDTH){
+      e = ent_sprites[i]->owner;
+    }
   }
-*/
-  return NULL;
+  
+  if(e && e!=mousectrl.hover){
+    mousectrl.hover = e;
+    PrintMobDetail(e);
+  }
+  return e;
 }
+
 ent_t* ScreenEntMouseCollision(void){
  /*
   ent_t* shape_pool[GRID_WIDTH * GRID_HEIGHT];

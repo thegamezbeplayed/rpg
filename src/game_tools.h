@@ -98,11 +98,12 @@ static inline Cell cell_point_along(Cell c, int min){
 }
 
 static inline bool cell_in_bounds(Cell c, Cell bounds){
-  if (c.x > bounds.x || c.x < 0)
+  if (c.x >= bounds.x || c.x < 0)
     return false;
 
-  return (c.y < bounds.y || c.x > -1);
+  return (c.y <= bounds.y || c.x > 0);
 }
+
 static inline Cell cell_random_range(int min, int max){
   return CELL_NEW(RandRange(min,max),RandRange(min,max));
 }
@@ -181,6 +182,9 @@ static inline float frand() {
 static inline Vector2 Vector2Avg(Vector2 a, Vector2 b){
  return (Vector2){ (a.x + b.x) * 0.5f,
                       (a.y + b.y) * 0.5f };
+}
+static inline Cell vec_to_cell(Vector2 v,float scale){
+  return CELL_NEW(v.x/scale,v.y/scale);
 }
 
 static inline Vector2 CellToVector2(Cell c, float scale){

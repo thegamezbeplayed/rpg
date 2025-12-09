@@ -36,7 +36,6 @@ void GameReady(void){
   game_process.state[SCREEN_GAMEPLAY] = GAME_READY;
 }
 
-
 void AddFloatingText(render_text_t *rt){
   for (int i = 0; i < MAX_EVENTS; i++){
     if(world.floatytext_used[i])
@@ -61,8 +60,25 @@ map_grid_t* WorldGetMap(void){
   return world.map;
 }
 
+int WorldGetEntSprites(sprite_t** pool){
+  int count = 0;
+  for(int i = 0; i < world.num_spr; i++){
+    if(world.sprs[i] == NULL)
+      continue;
+
+    if(world.sprs[i]->owner)
+      pool[count++] = world.sprs[i];
+  }
+
+  return count;
+}
+
 ent_t* WorldGetEntAtTile(Cell tile){
-  return MapGetTile(world.map,tile)->occupant;
+  map_cell_t* t = MapGetTile(world.map,tile);
+  if(t)
+    return t->occupant;
+  
+  return NULL;
 }
 
 map_cell_t* WorldGetTile(Cell pos){

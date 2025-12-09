@@ -126,6 +126,7 @@ ent_t* WorldGetEnt(const char* name);
 ent_t* WorldGetEntById(unsigned int uid);
 ent_t* WorldPlayer(void);
 env_t* WorldGetEnvById(unsigned int uid);
+int WorldGetEntSprites(sprite_t** pool);
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);
 map_cell_t* WorldGetTile(Cell pos);

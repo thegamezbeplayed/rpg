@@ -72,6 +72,8 @@ map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count){
 Cell MapApplyContext(map_grid_t* m){
   m->id = world_map.map_rules->id;
   m->tiles = malloc(world_map.width * sizeof(map_cell_t*));
+  m->width = world_map.width;
+  m->height = world_map.height;
   int sect_depth = world_map.height/SECTION_SIZE;
   int sect_ind = world_map.width/SECTION_SIZE;
   m->sections = malloc(sect_ind * sizeof(map_section_t));
@@ -88,14 +90,9 @@ Cell MapApplyContext(map_grid_t* m){
     m->tiles[x] = calloc(m->height, sizeof(map_cell_t));
     for(int y = 0; y < world_map.height; y++){
       m->tiles[x][y].coords = CELL_NEW(x,y); 
-      m->tiles[x][y].fow = BLACK; 
-     
-      /*
-       * if(world_map.tiles[x][y] == TILEFLAG_SPAWN)
-        MapSpawnMob(m,x,y);
-      else
-      */
-        MapSpawn(world_map.tiles[x][y],x,y);
+      m->tiles[x][y].fow = BLACK;  
+      m->tiles[x][y].occupant = NULL;  
+      MapSpawn(world_map.tiles[x][y],x,y);
     }
   }
   
@@ -455,7 +452,7 @@ MapNodeResult MapFillMissing(map_context_t *ctx, map_node_t *node){
 
     ctx->map_rules->rooms[i] = ROOM_LAYOUT_ROOM 
       | dir
-      | PurposeByWeight(ROOM_PURPOSE_LAIR,67+i)
+      | PurposeByWeight(ROOM_PURPOSE_LAIR,77+i)
       | RandomShape()
       | SizeByWeight(ROOM_SIZE_MAX,69+i);
 
