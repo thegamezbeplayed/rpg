@@ -54,11 +54,12 @@ void InitUI(void){
   continueBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
  
   ui.menus[MENU_OPTIONS] = InitMenu(MENU_OPTIONS, VECTOR2_ZERO,DEFAULT_MENU_SIZE,ALIGN_CENTER,LAYOUT_HORIZONTAL,false);
-
+/*
 
   ui_element_t *die = InitElement("DIE_ICON",UI_STATUSBAR,VECTOR2_ZERO, SQUARE_PANEL,ALIGN_CENTER,0);
 
   die->get_val = GetSelectionRoll; 
+
 
    ui_element_t *attrPanelB = InitElement("ATTR_PANEL",UI_PANEL,VECTOR2_ZERO, VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_VERTICAL);
 
@@ -79,7 +80,7 @@ void InitUI(void){
   }
 
   ElementAddChild(ui.menus[MENU_OPTIONS].element,continueBtn);
-  
+  */
 }
 
 ui_menu_t InitMenu(MenuId id,Vector2 pos, Vector2 size, UIAlignment align,UILayout layout, bool modal){
@@ -120,7 +121,7 @@ ui_element_t* InitElement(const char* name, ElementType type, Vector2 pos, Vecto
   u->num_children = 0;
   u->type = type;
   u->state = ELEMENT_IDLE;
-  u->get_val = NULL;//CHAR_DO_NOTHING;
+  u->sync_val = NULL;//CHAR_DO_NOTHING;
   u->bounds = Rect(pos.x,pos.y,size.x,size.y);
   u->width = size.x;
   u->height = size.y;
@@ -149,7 +150,7 @@ ui_element_t* InitGameElement(ent_t* e){
   u->num_children = 0;
   u->type = UI_GAME;
   u->state = ELEMENT_NONE;
-  u->get_val = NULL;//CHAR_DO_NOTHING;
+  u->sync_val = NULL;//CHAR_DO_NOTHING;
   u->bounds = Rect(pos.x,pos.y,size.x,size.y);
   u->width = size.x;
   u->height = size.y;
@@ -385,14 +386,8 @@ void UISyncElement(ui_element_t* e){
     return;
 
   int clicked = 0,toggle = 0,focused = 0;
-  if(e->get_val){
-    if( e->value==NULL ){
-      e->value = malloc(sizeof(ElementValue));
-      memset(e->value,0,sizeof(ElementValue));
-    }
-
-    if( e->value->rate == FETCH_UPDATE || e->value->rate == 0)
-      *e->value = e->get_val(e);
+  if(e->sync_val){
+    e->sync_val(e->value,FETCH_UPDATE);
 
     switch(e->value->type){
       case VAL_CHAR:
@@ -422,7 +417,6 @@ void UISyncElement(ui_element_t* e){
     case UI_BOX:
       GuiGroupBox(e->bounds,NULL);//e->text);
     case UI_PROGRESSBAR:
-      GuiProgressBar(e->bounds, NULL,NULL, e->get_val(e).f,0,1);
       break;
     case UI_STATUSBAR:
       GuiStatusBar(e->bounds, e->text);
@@ -486,7 +480,7 @@ bool UISelectOption(ui_element_t* e){
 
   CATEGORY_STATS[MOB_PLAYER].attr[e->index-1] += *selection;
 
-  *die->value = die->get_val(die);
+  //*die->value = die->get_val(die);
   strcpy(die->text,TextFormat("%i",*die->value->i));
 
 }
@@ -576,8 +570,8 @@ bool ElementSetState(ui_element_t* e, ElementState s){
   return true;
 }
 
-ElementValue GetDisplayHealth(ui_element_t* e){
-  ElementValue ev = {0}; 
+element_value_t GetDisplayHealth(ui_element_t* e){
+  element_value_t ev = {0}; 
   ev.type = VAL_FLOAT;
   ev.f = malloc(sizeof(float));
   if(player->stats[STAT_HEALTH]->ratio ==NULL)
@@ -588,8 +582,8 @@ ElementValue GetDisplayHealth(ui_element_t* e){
 }
 
 
-ElementValue GetSelectionRoll(ui_element_t* e){
-  ElementValue ev = {0};
+element_value_t GetSelectionRoll(ui_element_t* e){
+  element_value_t ev = {0};
   ev.rate = FETCH_ACTIVE;
   ev.type = VAL_INT;
   ev.i = malloc(sizeof(int));

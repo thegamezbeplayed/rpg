@@ -2,6 +2,7 @@
 #include "game_tools.h"
 #include "game_process.h"
 #include "game_gen.h"
+#include <stdio.h>
 
 ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_BITE, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR},
@@ -68,8 +69,8 @@ category_stats_t CATEGORY_STATS[MOB_DONE] = {
     {[ATTR_CON]= 3, [ATTR_STR]=2, [ATTR_DEX]=2, [ATTR_INT]=3,[ATTR_WIS]=2,[ATTR_CHAR]=1}
   },
   {MOB_PLAYER, 
-    {[STAT_HEALTH]=15,[STAT_ARMOR]=2, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1, [STAT_STAMINA] = 4, [STAT_ENERGY] = 4, [STAT_STAMINA_REGEN] = 1, [STAT_ENERGY_REGEN] = 1,[STAT_STAMINA_REGEN_RATE] = 10, [STAT_ENERGY_REGEN_RATE] = 15,},
-    {[ATTR_CON]= 0, [ATTR_STR]=0, [ATTR_DEX]=0, [ATTR_INT]=0,[ATTR_WIS]=0,[ATTR_CHAR]=0}
+    {[STAT_HEALTH]=15,[STAT_ARMOR]=0, [STAT_AGGRO]=10,[STAT_ACTIONS]= 1, [STAT_STAMINA] = 4, [STAT_ENERGY] = 4, [STAT_STAMINA_REGEN] = 1, [STAT_ENERGY_REGEN] = 1,[STAT_STAMINA_REGEN_RATE] = 10, [STAT_ENERGY_REGEN_RATE] = 15,},
+    {[ATTR_CON]= 9, [ATTR_STR]=7, [ATTR_DEX]=7, [ATTR_INT]=7,[ATTR_WIS]=7,[ATTR_CHAR]=5}
   },
 };
 
@@ -233,7 +234,7 @@ char* GetFileStem(const char* filename) {
 stat_t* InitStatOnMin(StatType attr, float min, float max){
  stat_t* s = calloc(1,sizeof(stat_t));
  *s =(stat_t){
-    .attribute = attr,
+    .type = attr,
       .min = min,
       .max = max,
       .current = min,
@@ -248,7 +249,7 @@ stat_t* InitStatOnMax(StatType attr, float val, AttributeType modified_by){
  stat_t* s = malloc(sizeof(stat_t));
  stat_attribute_relation_t relate = stat_modifiers[attr];
  *s =(stat_t){
-    .attribute = attr,
+    .type = attr,
       .min = 0,
       .max = val,
       .current = val,
@@ -276,7 +277,7 @@ stat_t* InitStat(StatType attr,float min, float max, float amount){
  stat_attribute_relation_t relate = stat_modifiers[attr];
 
  *s =(stat_t){
-    .attribute = attr,
+    .type = attr,
       .min = min,
       .max = max,
       .current = amount,
@@ -376,7 +377,7 @@ float StatGetRatio(stat_t *self){
 void FormulaDieAddAttr(stat_t* self){
   int modifier = 0;
       
-  stat_attribute_relation_t* rel = &stat_modifiers[self->attribute];
+  stat_attribute_relation_t* rel = &stat_modifiers[self->type];
   
   for(int i = 0; i < ATTR_DONE;i++){
     if(self->modified_by[i]){
@@ -446,4 +447,17 @@ int ResistDmgLookup(uint64_t trait){
 }
 
 EntityType MobGetByRules(MobRules rules){
+
+}
+
+bool SaveCharGrid( int width, int height, char grid[][width],const char *filename) {
+  FILE *f = fopen(filename, "w");
+  if (!f) return false;
+
+  for (int y = 0; y < height; y++) {
+    fprintf(f, "%s\n", grid[y]);
+  }
+
+  fclose(f);
+  return true;
 }

@@ -3,6 +3,16 @@
 #include <limits.h>
 static map_context_t world_map;
 static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
+static option_pool_t map_pool;
+static int APPLIED = 0;
+void MapToCharGrid(map_context_t *ctx, char out[][ctx->width+1]) {
+    for (int y = 0; y < ctx->height; y++) {
+        for (int x = 0; x < ctx->width; x++) {
+            out[y][x] = TileToChar(ctx->tiles[y][x]);
+        }
+        out[y][ctx->width] = '\0'; // null terminate each row
+    }
+}
 
 bool InitMap(void){
   map_context_t* ctx =&world_map;
@@ -13,6 +23,13 @@ bool InitMap(void){
   ctx->player_start = CELL_UNSET;
   ctx->decor_density = 12;  
   bool gen = MapGenerate(ctx);
+  
+  if(gen){
+   /* char grid[ctx->height][ctx->width+1];
+    MapToCharGrid(ctx, grid);
+    SaveCharGrid( ctx->width, ctx->height, grid, "map.txt");
+ */
+    }
 
   return gen;
 }
@@ -371,100 +388,125 @@ MapNodeResult MapNodeRunSequence(map_context_t *ctx, map_node_t *node){
 }
 
 map_node_t* MapBuildRootPipeline(void){
-  static map_node_t seq;
+}
 
-  static map_node_t n_genRooms;
-  static map_node_t n_place;
-  static map_node_t n_shape;
-  static map_node_t n_bounds;
-  static map_node_t n_allocate;
-  static map_node_t n_graph;
-  static map_node_t n_connect;
-  static map_node_t n_carve;
-  static map_node_t n_spawns;
-  static map_node_t n_decor;
+MapNodeResult MapGenInit(map_context_t *ctx, map_node_t *node){
+  map_pool.count = 0;
+  ctx->height = 100;
+  ctx->width = 100;
 
-//  n_genRooms.type = MAP_NODE_GENERATE_ROOMS;
-  //n_genRooms.run  = NodeGenerateRooms;
-/*
-  n_place.type = MAP_NODE_PLACE_ROOMS;
-  n_place.run  = NodeAssignPositions;
-  
-  n_shape.type = MAP_NODE_APPLY_SHAPES;
-  n_shape.run = NodeApplyShapes;
+  map_gen_t* gen = ctx->map_rules;
+  for (int row = 0; row < gen->quad_row; row++) {
+    for (int col = 0; col < gen->quad_col; col++) {
+      gen->quads[row][col] = calloc(1,sizeof(room_quad_t));
+    }
+  }
 
-  //n_bounds.type = MAP_NODE_COMPUTE_BOUNDS;
-  //n_bounds.run = NodeComputeBounds;
-  n_allocate.type = MAP_NODE_ALLOCATE_TILE_GRID;
-  n_allocate.run = NodeAllocateTiles;
-  n_graph.type = MAP_NODE_BUILD_GRAPH;
-  n_graph.run  = NodeBuildRoomGraph;
-*/
+  return MAP_NODE_SUCCESS;
+}
 
-  /*n_connect.type = MAP_NODE_CONNECT_HALLS;
-  n_connect.run  = NodeConnectHalls;
-  n_carve.type = MAP_NODE_CARVE_TO_TILES;
-  n_carve.run  = NodeCarveToTiles;
-*/
-/*
- * n_spawns.type = MAP_NODE_PLACE_SPAWNS;
-  n_spawns.run  = NodePlaceSpawns;
-*/
-  n_decor.type = MAP_NODE_DECORATE;
-  n_decor.run  = NodeDecorate;
+MapNodeResult MapGenScan(map_context_t *ctx, map_node_t *node){
+  RoomFlags variations[] = {
+    ROOM_LAYOUT_ROOM | ROOM_SIZE_SMALL  | ROOM_PURPOSE_SIMPLE | ROOM_SHAPE_SQUARE,
+    ROOM_LAYOUT_ROOM | ROOM_SIZE_MEDIUM | ROOM_PURPOSE_SIMPLE   | ROOM_SHAPE_RECT,
+    ROOM_LAYOUT_ROOM | ROOM_SIZE_MEDIUM | ROOM_PURPOSE_CHALLENGE | ROOM_SHAPE_SQUARE,
+    ROOM_LAYOUT_ROOM | ROOM_SIZE_LARGE  | ROOM_PURPOSE_CHALLENGE | ROOM_SHAPE_CIRCLE,
+    ROOM_LAYOUT_ROOM | ROOM_SIZE_SMALL  | ROOM_PURPOSE_SIMPLE | ROOM_SHAPE_CIRCLE
+  };
 
-  seq.type = MAP_NODE_SEQUENCE;
-  seq.run  = MapNodeRunSequence;
-  seq.num_children = 10;
-  seq.children[0] = &n_genRooms;
-  seq.children[1] = &n_place;
-  seq.children[2] = &n_shape;
-  seq.children[3] = &n_bounds;
-  seq.children[4] = &n_allocate;
-  seq.children[5] = &n_graph;
-  seq.children[6] = &n_carve;
-  seq.children[7] = &n_connect;
-  seq.children[8] = &n_spawns;
-  seq.children[9] = &n_decor;
+  map_gen_t* gen = ctx->map_rules; 
+  for (int row = 0; row < gen->quad_row; row++) {
+    for (int col = 0; col < gen->quad_col; col++) {
+      if(map_pool.count >= MAX_OPTIONS)
+        return MAP_NODE_SUCCESS;
 
-  return &seq;
+      room_quad_t *rquad = gen->quads[row][col];
+      
+      *rquad = (room_quad_t){
+        .top_left = CELL_NEW(row * QUAD_SIZE,col * QUAD_SIZE),
+          .wid = QUAD_SIZE,
+          .hei = QUAD_SIZE,
+          .num_rooms = 0
+      };
+
+      for(int y = 0; y < QUAD_SIZE; y++){
+        for(int x = 0; x < QUAD_SIZE; x++){
+          if(QuadHasRoomAt(rquad,x,y))
+            continue;
+
+          int i = RandRange(0,4);
+          option_t opt = TryRoomOption(gen, variations[i], row, col, x, y);
+          if (opt.score > 51+APPLIED)
+            MapAddOption(opt);
+
+          continue;
+          // Example: corridor option
+          option_t hall = TryCorridorOption(ctx, x, y);
+          if (hall.score > 0) MapAddOption(hall);
+        }
+      }
+      // More options later...
+    }
+  }
+
+  return MAP_NODE_SUCCESS;
+}
+
+MapNodeResult MapGenRun(map_context_t *ctx, map_node_t *node){
+  MapGenScan(ctx, node);
+  for (int iter = 0; iter < 1000; iter++) {
+
+    option_t *best = PickBestOption(ctx);
+    if (!best) continue;
+
+    // Apply top-scoring candidate
+    best->apply(best, ctx->map_rules);
+    APPLIED++;
+    // Rebuild candidate pool
+    RefreshOptionPool(ctx, node);
+  }
+
+  return MAP_NODE_SUCCESS;
 }
 
 bool MapGenerate(map_context_t *ctx){
-
   map_node_t *root = MapBuildNodeRules(ctx->map_rules->node_rules);
   return root->run(ctx, root) == MAP_NODE_SUCCESS;
 }
 
 MapNodeResult MapFillMissing(map_context_t *ctx, map_node_t *node){
- 
-  int temp_id = ctx->map_rules->num_rooms-1;
-
-  for(int i = temp_id; i  < ctx->map_rules->max_rooms; i++){
-    if(i > temp_id)
-      ctx->map_rules->num_rooms++;
-
-    RoomFlags rules= ctx->map_rules->rooms[i];
-    RoomFlags dir= rules & ROOM_PLACING_MASK;
-    RoomFlags purpool = rules & ROOM_PURPOSE_MASK;
-    if((ctx->map_rules->rooms[i]&ROOM_LAYOUT_MASK)!=ROOM_LAYOUT_NONE)
+  /*for(int i = 0; i  < ctx->num_rooms; i++){
+    room_gen_t root = ctx->map_rules->rooms[i];
+    room_t* ctx_inst = &ctx->rooms[i];
+    if(!ctx_inst)
       continue;
+    RoomFlags rules= ctx->map_rules->rooms[i].flags;
+    RoomFlags p_dir= rules & ROOM_PLACING_MASK;
+    RoomFlags p_ori= rules & ROOM_ORIENT_MASK;
+    for(int j = 0; j < root.num_children; j++){
+      RoomFlags dir= root.placements[j];
+      room_t* sub = calloc(1,sizeof(room_t));
+      sub->flags = ROOM_LAYOUT_ROOM 
+        | dir
+        | PurposeByWeight(ROOM_PURPOSE_LAIR,77+i)
+        | RandomShape()
+        | SizeByWeight(ROOM_SIZE_MAX,69+i);
 
-    ctx->map_rules->rooms[i] = ROOM_LAYOUT_ROOM 
-      | dir
-      | PurposeByWeight(ROOM_PURPOSE_LAIR,77+i)
-      | RandomShape()
-      | SizeByWeight(ROOM_SIZE_MAX,69+i);
 
+      ctx_inst->openings[ctx_inst->num_children++] = (room_opening_t){
+        .dir = dir,
+          .sub = sub
+      };
+    }
   }
-
- return MAP_NODE_SUCCESS;
+*/
+  return MAP_NODE_SUCCESS;
 }
 
 MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node){
   Cell prev_pos = CELL_EMPTY;
-  Cell border =CELL_NEW(ctx->map_rules->border,ctx->map_rules->border);
-  Cell spacing =CELL_NEW(ctx->map_rules->spacing,ctx->map_rules->spacing);
+  Cell border =CELL_NEW(4,4);//ctx->map_rules->border,ctx->map_rules->border);
+  Cell spacing =CELL_NEW(1,1);//ctx->map_rules->spacing,ctx->map_rules->spacing);
   Cell prev_dis = border;
   int num_root_rooms = 0;
   for (int i = 0 ; i < ctx->num_rooms; i++){
@@ -523,7 +565,11 @@ MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node){
   map_gen_t *gen = ctx->map_rules;
 
   for (int i = 0; i < gen->num_rooms; i++){
-    RoomFlags flags = gen->rooms[i];
+    room_gen_t* rgen = &gen->rooms[i];
+    RoomFlags flags = rgen->flags;
+    room_quad_t* rquad = gen->quads[rgen->col][rgen->row];
+    rquad->rooms[rquad->num_rooms++]= CELL_NEW(0,0);
+
     room_t *room = &ctx->rooms[ctx->num_rooms++];
 
     room->flags = flags;
@@ -532,35 +578,7 @@ MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node){
   return ctx->num_rooms > 0 ? MAP_NODE_SUCCESS : MAP_NODE_FAILURE;
 }
 
-MapNodeResult MapGraphRooms(map_context_t *ctx, map_node_t *node) {
-  /*
-  ctx->num_edges = 0;
-
-  for (int i = 0; i < ctx->num_rooms; i++) {
-    int best_j = -1;
-    int best_d2 = 0;
-
-    for (int j = 0; j < ctx->num_rooms; j++) {
-      if (i == j) continue;
-
-      int dx = ctx->rooms[i].center.x - ctx->rooms[j].center.x;
-      int dy = ctx->rooms[i].center.y - ctx->rooms[j].center.y;
-      int d2 = dx*dx + dy*dy;
-
-      if (best_j < 0 || d2 < best_d2) {
-        best_j = j;
-        best_d2 = d2;
-      }
-    }
-
-    if (best_j >= 0 && ctx->num_edges < MAX_EDGES) {
-      room_edge_t *e = &ctx->edges[ctx->num_edges++];
-      e->a = i;
-      e->b = best_j;
-      e->length = best_d2;
-    }
-  }
-*/
+MapNodeResult MapGraphRooms(map_context_t *ctx, map_node_t *node) {  
   return MAP_NODE_SUCCESS;
 }
 
@@ -936,24 +954,20 @@ MapNodeResult MapPlaceSubrooms(map_context_t *ctx, map_node_t *node) {
             break;
         }
         root->openings[k].pos = pos;
-
       }
 
-
-      Cell opening = CellScale(o_dir,ctx->map_rules->spacing);
+      Cell opening = CellScale(o_dir,2);//ctx->map_rules->spacing);
       Cell disp = CellInc(CellMul(subDim,o_dir),opening);
       opening = CellInc(opening,pos);
       sub->center = CELL_EMPTY;
       RoomAdjustPosition(sub,CellInc(root->openings[k].pos,disp));
 
       sub->openings[sub->num_children++] = (room_opening_t){
-      .entrance = true,
-      .pos = opening,
-      .dir = cell_dir(sub->center, opening)
-    };
-
+        .entrance = true,
+          .pos = opening,
+          .dir = cell_dir(sub->center, opening)
+      };
     }
-
   }
 
   return MAP_NODE_SUCCESS;
@@ -991,7 +1005,7 @@ MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node)
   }
 
   // Expand slightly if you want padding around the dungeon:
-  int padding = ctx->map_rules->border;
+  int padding = 4;//ctx->map_rules->border;
   minx -= padding;
   miny -= padding;
   maxx += padding;
@@ -1055,11 +1069,11 @@ MapNodeResult MapPlayerSpawn(map_context_t *ctx, map_node_t *node){
       continue;
 
     ctx->player_start = ctx->rooms[i].center;
-      return MAP_NODE_SUCCESS;
+    return MAP_NODE_SUCCESS;
 
   }
 
-return MAP_NODE_FAILURE;
+  return MAP_NODE_FAILURE;
 }
 
 MapNodeResult MapFillWalls(map_context_t *ctx, map_node_t *node){
@@ -1082,7 +1096,6 @@ MapNodeResult MapFillWalls(map_context_t *ctx, map_node_t *node){
             ctx->tiles[nx][ny] = TILEFLAG_WALL;
         }
       }
-
     }
   }
     
@@ -1096,4 +1109,195 @@ TileFlags RoomSpecialDecor(RoomFlags p) {
     case ROOM_PURPOSE_SECRET:      return TILEFLAG_DEBRIS | TILEFLAG_DECOR;
     default:             return 0;
   }
+}
+
+option_t TryRoomOption(map_gen_t *map, RoomFlags flags, int row, int col, int x, int y){
+  option_t opt = {0};
+  opt.type = OPT_ROOM;
+  opt.flags = flags;
+  // room size
+
+  opt.row = row;
+  opt.col = col;
+  room_quad_t* quad = map->quads[row][col]; 
+  if(quad->num_rooms >= map->density)
+    return opt;
+
+  int real_x = quad->top_left.x + x;
+  int real_y = quad->top_left.y + y;
+  RoomDimensionsFromFlags(flags, &opt.w, &opt.h);
+  opt.pos = CELL_NEW(x,y);
+  int m_wid = map->quad_col * QUAD_SIZE;
+  int m_hei = map->quad_row * QUAD_SIZE;
+  if (real_x + opt.w >= m_wid) return opt;
+  if (real_y + opt.h >= m_hei) return opt;
+
+  // HEURISTIC SCORE
+  opt.score = 10;
+
+  int neighbor_weight = imax(10,imin(20,APPLIED));
+  // Adjacent to existing rooms? Encourage growth
+  opt.score += neighbor_weight * QuadNeighbors(map, row, col) *map->density;
+
+  switch (GetRoomShape(flags)) {
+    case ROOM_SHAPE_CIRCLE: opt.score += 5; break;
+    case ROOM_SHAPE_SQUARE:  opt.score += 10; break;
+    case ROOM_SHAPE_RECT: opt.score += 12; break;
+    default: opt.score+=5;  break;
+  }
+  // purpose-specific
+  switch (GetRoomPurpose(flags)) {
+    case ROOM_PURPOSE_SIMPLE:
+      opt.score += 24; // valuable
+      break;
+    case ROOM_PURPOSE_CHALLENGE:
+      opt.score += 18; // leads to big fights
+      break;
+    case ROOM_PURPOSE_LAIR:
+      opt.score -= 5;
+      break;
+    case ROOM_PURPOSE_SECRET:
+      //if (!HasFloorNeighbor(map, x, y)) opt.score += 30;
+      break;
+  }
+  
+  opt.apply = ApplyRoom;
+
+  return opt;
+}
+
+void MapAddOption(option_t opt){ 
+  if (map_pool.count < MAX_OPTIONS) {
+    map_pool.items[map_pool.count++] = opt;
+  }
+}
+
+option_t TryCorridorOption(map_context_t *map, int x, int y){
+
+}
+
+int QuadNeighbors(map_gen_t* map, int row, int col){
+  int count = 0;
+  for (int dy = -1; dy <= 1; dy++) {
+    for (int dx = -1; dx <= 1; dx++) {
+
+      if (dx == 0 && dy == 0) continue;
+
+      int nx = col + dx;
+      int ny = row + dy;
+
+      if(nx < 0 || ny < 0 || nx >= map->quad_col || ny >= map->quad_row)
+        continue;
+
+      room_quad_t* neighbor = map->quads[ny][nx];
+      if(neighbor == NULL)
+        continue;
+
+      if (neighbor->num_rooms > 0)
+        count+=neighbor->num_rooms;
+    }
+  }
+  return count;
+
+}
+
+bool HasFloorNeighbor(map_context_t* ctx, int x, int y){
+  for (int dy = -1; dy <= 1; dy++) {
+    for (int dx = -1; dx <= 1; dx++) {
+
+      if (dx == 0 && dy == 0) continue;
+
+      int nx = x + dx;
+      int ny = y + dy;
+
+      if (nx < 0 || nx >= ctx->width)  continue;
+      if (ny < 0 || ny >= ctx->height) continue;
+
+      if (ctx->tiles[ny][nx] & TILEFLAG_FLOOR)
+        return true;
+    }
+  }
+  return false;
+}
+
+void ApplyRoomCircle(option_t *opt, map_context_t *map){
+  int cx = opt->pos.x + opt->w / 2;
+  int cy = opt->pos.y + opt->h / 2;
+
+  int radius = (opt->w < opt->h ? opt->w : opt->h) / 2;
+  int r2 = radius * radius;
+
+  for (int y = 0; y < opt->h; y++) {
+    for (int x = 0; x < opt->w; x++) {
+
+      int gx = opt->pos.x + x;
+      int gy = opt->pos.y + y;
+
+      int dx = gx - cx;
+      int dy = gy - cy;
+
+      if (dx*dx + dy*dy <= r2) {
+        map->tiles[gy][gx] = TILEFLAG_FLOOR;
+      }
+    }
+  }
+}
+  
+void ApplyRoomRect(option_t *opt, map_context_t *map){
+  for (int y = 0; y < opt->h; y++) {
+    for (int x = 0; x < opt->w; x++) {
+      map->tiles[opt->pos.y + y][opt->pos.x + x] = TILEFLAG_FLOOR;
+    }
+  }
+}
+
+void ApplyRoom(option_t *opt, map_gen_t *map){
+  room_quad_t* q = map->quads[opt->col][opt->row];
+  
+  q->rooms[q->num_rooms++] = opt->pos;
+  /*
+  switch(GetRoomShape(opt->flags)){
+    case ROOM_SHAPE_RECT:
+    case ROOM_SHAPE_SQUARE:
+      ApplyRoomRect(opt, map);
+      break;
+    case ROOM_SHAPE_CIRCLE:
+      ApplyRoomCircle(opt, map);
+      break;
+    default:
+      ApplyRoomRect(opt, map);
+      break;
+  }
+  */
+}
+
+void RefreshOptionPool(map_context_t *context, map_node_t* node){
+    map_pool.count = 0;
+    MapGenScan(context, node);
+}
+
+option_t *PickBestOption(map_context_t *context){
+  if (map_pool.count == 0) return NULL;
+
+  int best_index = 0;
+
+  for (int i = 1; i < map_pool.count; i++) {
+    if (map_pool.items[i].score > map_pool.items[best_index].score) {
+      best_index = i;
+    }
+  }
+
+  return &map_pool.items[best_index];
+}
+
+bool QuadHasRoomAt(room_quad_t* q, int x, int y){
+  if (q->num_rooms == 0)
+    return false;
+  Cell pos = CELL_NEW(x,y);
+  for(int i = 0; i < q->num_rooms; i++){
+    if(cell_compare(q->rooms[i] , pos))
+      return true;
+  }
+
+  return false;
 }

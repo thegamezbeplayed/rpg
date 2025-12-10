@@ -46,6 +46,7 @@
 #define CellSub(c1,c2) (Cell){(c1.x - c2.x),(c1.y - c2.y)}
 #define CellFlip(c) (Cell){(c.y),(c.x)}
 
+bool SaveCharGrid( int width, int height, char grid[][width],const char *filename);
 static void shuffle_array(void *base, size_t n, size_t size) {
     char *arr = base;
     for (size_t i = n - 1; i > 0; i--) {

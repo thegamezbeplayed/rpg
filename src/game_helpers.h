@@ -403,4 +403,47 @@ static int weighted_choice(const int* weights, int count){
     return -1; // Should not happen
 
 }
+static inline RoomFlags GetRoomSize(RoomFlags f) {
+    return (f & ROOM_SIZE_MASK);
+}
+
+static inline RoomFlags GetRoomLayout(RoomFlags f) {
+    return (f & ROOM_LAYOUT_MASK);
+}
+
+static inline RoomFlags GetRoomPurpose(RoomFlags f) {
+    return (f & ROOM_PURPOSE_MASK);
+}
+
+static inline RoomFlags GetRoomShape(RoomFlags f) {
+    return (f & ROOM_SHAPE_MASK);
+}
+
+static inline RoomFlags GetRoomOrient(RoomFlags f) {
+    return (f & ROOM_ORIENT_MASK);
+}
+
+static inline RoomFlags GetRoomPlacing(RoomFlags f) {
+    return (f & ROOM_PLACING_MASK);
+}
+
+static inline RoomFlags GetRoomSpawn(RoomFlags f) {
+    return (f & ROOM_SPAWN_MASK);
+}
+static void RoomDimensionsFromFlags(RoomFlags f, int *w, int *h) {
+    switch (GetRoomSize(f) ) {
+        case ROOM_SIZE_SMALL:   *w = 4; *h = 3; break;
+        case ROOM_SIZE_MEDIUM:  *w = 6; *h = 4; break;
+        case ROOM_SIZE_LARGE:   *w = 8; *h = 6; break;
+        case ROOM_SIZE_XL:      *w = 10; *h = 8; break;
+        case ROOM_SIZE_HUGE:    *w = 12; *h = 9; break;
+        case ROOM_SIZE_MASSIVE: *w = 14; *h = 12; break;
+        default:                *w = 6; *h = 4; break;
+    }
+}
+
+static char TileToChar(RoomFlags flags) {
+    if (flags & TILEFLAG_FLOOR) return 'X';
+    return 'O';
+}
 #endif

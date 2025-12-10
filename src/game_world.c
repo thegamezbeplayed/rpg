@@ -4,6 +4,7 @@
 #include "game_tools.h"
 #include "game_utils.h"
 #include "game_ui.h"
+#include "game_info.h"
 
 game_process_t game_process;
 TreeCacheEntry tree_cache[18] = {0};
@@ -34,6 +35,27 @@ void GameSetState(GameState state){
 void GameReady(void){
   WorldInitOnce();
   game_process.state[SCREEN_GAMEPLAY] = GAME_READY;
+}
+
+void WorldTestPrint(){
+  stat_sheet_t* sb = calloc(1,sizeof(stat_sheet_t));
+  element_value_t* header[2];
+  int title_len = EntGetNamePretty(header, player);
+  
+  sb->ln[sb->lines++] = InfoInitLineItem(header,title_len, "%s %s");
+  
+  element_value_t* base[2];
+  int items = EntGetStatPretty(base, player->stats[STAT_HEALTH]);
+  sb->ln[sb->lines++] = InfoInitLineItem(base,items, "%s: %s");
+
+  items = EntGetStatPretty(base, player->stats[STAT_ARMOR]);
+
+  sb->ln[sb->lines++] = InfoInitLineItem(base,items, "%s: %s");
+
+  for(int i = 0; i < sb->lines; i++){
+    PrintSyncLine(sb->ln[i],FETCH_ONCE);
+    TraceLog(LOG_INFO,"%s\n",TextFormatLineItem(sb->ln[i]));
+  }
 }
 
 void AddFloatingText(render_text_t *rt){
@@ -246,8 +268,11 @@ bool RegisterEnt( ent_t *e){
   if(status > TILE_ISSUES)
     TraceLog(LOG_WARNING,"Issue %i at tile %i,%i ",status,e->pos.x,e->pos.y);
 
-  if(e->type == ENT_PERSON)
+  if(e->type == ENT_PERSON){
     player = e;
+
+    WorldTestPrint();
+  }
 
   if(e->sprite)
     RegisterSprite(e->sprite);

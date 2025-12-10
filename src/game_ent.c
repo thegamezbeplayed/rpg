@@ -18,7 +18,7 @@ ent_t* InitEnt(ObjectInstance data,Cell pos){
   e->sprite = InitSpriteByID(data.id,SHEET_ENT);
   e->sprite->owner = e;
 
-  strcpy(e->name,data.name);
+  strcpy(e->name, "Michael");
   e->events = InitEvents();
 
   e->control = InitController();
@@ -638,7 +638,7 @@ void EntResetRegen(stat_t* self, float old, float cur){
 
   StatType rel = STAT_NONE;
 
-  switch(self->attribute){
+  switch(self->type){
     case STAT_STAMINA:
       rel = STAT_STAMINA_REGEN_RATE;
       break;
@@ -659,7 +659,7 @@ void EntRestoreResource(stat_t* self, float old, float cur){
 
   StatType resource = STAT_NONE;
   int amount = 0;
-  switch(self->attribute){
+  switch(self->type){
     case STAT_STAMINA_REGEN_RATE:
       amount = self->owner->stats[STAT_STAMINA_REGEN]->current;
       resource = STAT_STAMINA;
@@ -1267,4 +1267,8 @@ item_def_t* BuildWeapon(weapon_def_t def, ItemQuality rarity){
 ability_t AbilityLookup(AbilityID id){
   if(id >= ABILITY_NONE && id < ABILITY_DONE)
     return ABILITIES[id];
+}
+
+char* EntGetClassNamePretty(ent_t* e){
+  return "Paragon";
 }

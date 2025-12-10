@@ -116,19 +116,24 @@ typedef enum{
 
 typedef struct ent_s ent_t;
 struct ui_element_s;
+struct element_value_s;
 typedef bool (*ElementCallback)(struct ui_element_s* self);
 typedef enum { VAL_INT, VAL_FLOAT, VAL_CHAR } ValueType;
-typedef struct {
+typedef struct element_value_s* (*ElementFetchValue)(struct element_value_s* e, void* context);
+
+typedef struct element_value_s{
   FetchRate   rate;
     ValueType type;
     union {
         int   *i;
         float *f;
-        const char*  c;
+        char*  c;
     };
-} ElementValue;
+  void*             context;
+  ElementFetchValue get_val;
+} element_value_t;
 
-typedef ElementValue (*ElementValueSync)(struct ui_element_s* e);
+typedef void (*ElementValueSync)(struct element_value_s* e, FetchRate poll);
 
 typedef struct ui_element_s{
   uint32_t            hash;
@@ -145,8 +150,8 @@ typedef struct ui_element_s{
   UIAlignment         align;
   float               spacing[UI_POSITIONING];
   char                text[65];
-  ElementValueSync    get_val;
-  ElementValue        *value;
+  ElementValueSync    sync_val;
+  element_value_t        *value;
   int                 num_children;
   struct ui_element_s *children[16];
   ent_t*              ent;
@@ -167,10 +172,10 @@ ui_element_t* InitGameElement(ent_t* e);
 struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
-ElementValue GetDisplayHealth(ui_element_t* e);
-ElementValue GetPlayerAttribute(ui_element_t* e);
-ElementValue GetSelectionRoll(ui_element_t* e);
-ElementValue GetDisplayTime(ui_element_t* e);
+element_value_t GetDisplayHealth(ui_element_t* e);
+element_value_t GetPlayerAttribute(ui_element_t* e);
+element_value_t GetSelectionRoll(ui_element_t* e);
+element_value_t GetDisplayTime(ui_element_t* e);
 typedef struct ui_menu_s{
   ui_element_t  *element;
   MenuCallback  cb[MENU_END];

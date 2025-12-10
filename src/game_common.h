@@ -219,7 +219,7 @@ typedef bool (*StatOwnerCallback)(struct ent_s* owner);
 typedef void (*StatCallback)(struct stat_s* self, float old, float cur);
 typedef float (*StatGetter)(struct stat_s* self);
 typedef struct stat_s{
-  StatType      attribute;
+  StatType      type;
   StatType      related;
   float         min;
   float         max;
@@ -250,7 +250,6 @@ bool SkillIncrease(struct skill_s* self, int amnt);
 void FormulaDieAddAttr(stat_t* self);
 void FormulaDie(stat_t* self);
 
-stat_t* InitStatHealth(float val);
 stat_t* InitStatOnMin(StatType attr, float min, float max);
 stat_t* InitStatOnMax(StatType attr, float val, AttributeType modified_by);
 stat_t* InitStatEmpty(void);

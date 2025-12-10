@@ -106,6 +106,7 @@ typedef struct {
 typedef struct ent_s{
   int                   uid;
   char                  name[MAX_NAME_LEN];
+  uint64_t              class_id;
   MonsterSize           size;
   stat_t*               stats[STAT_DONE];
   attribute_t*          attribs[ATTR_DONE];
@@ -172,6 +173,8 @@ void ItemApplyWeaponProps(item_def_t * w, weapon_def_t* def, ItemQuality rarity)
 int GetWeaponByTrait(MonsterTraits t, weapon_def_t *arms);
 item_def_t* BuildWeapon(weapon_def_t def, ItemQuality rarity);
 bool EntSyncSight(ent_t* e, ActionType a);
+
+char* EntGetClassNamePretty(ent_t* e);
 void EntActionsTaken(stat_t* self, float old, float cur);
 bool EntCanTakeAction(ent_t* e);
 void InitActions(action_turn_t* actions[ACTION_DONE]);
