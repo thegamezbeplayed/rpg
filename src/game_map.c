@@ -5,6 +5,9 @@ static map_context_t world_map;
 static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
 static option_pool_t map_pool;
 static int APPLIED = 0;
+
+static sprite_t MARKERS[4];
+
 void MapToCharGrid(map_context_t *ctx, char out[][ctx->width+1]) {
     for (int y = 0; y < ctx->height; y++) {
         for (int x = 0; x < ctx->width; x++) {
@@ -32,6 +35,35 @@ bool InitMap(void){
     }
 
   return gen;
+}
+TileFlags GetQuadRoom(int x, int y){
+  map_gen_t *gen = world_map.map_rules;
+  int col = (int)x/QUAD_SIZE;
+  int row = (int)y/QUAD_SIZE;
+
+  int qx = x%QUAD_SIZE;
+  int qy = y%QUAD_SIZE;
+
+  if(col >= gen->quad_col || row >= gen->quad_row)
+    return TILEFLAG_EMPTY;
+/*
+  if(QuadHasRoomAt(gen->quads[col][row],x,y))
+    return gen->quads[col][row]->flags;
+*/
+  return TILEFLAG_WALL;
+}
+
+void DrawNode(room_node_t* node){
+  DrawRectangleRec(node->bounds, GREEN);
+  for(int i = 0; i < node->num_children; i++)
+    DrawNode(node->children[i]);
+}
+
+void MapRender(void){
+  if(!world_map.root)
+    return;
+
+  DrawNode(world_map.root);
 }
 
 map_grid_t* InitMapGrid(void){
@@ -398,7 +430,7 @@ MapNodeResult MapGenInit(map_context_t *ctx, map_node_t *node){
   map_gen_t* gen = ctx->map_rules;
   for (int row = 0; row < gen->quad_row; row++) {
     for (int col = 0; col < gen->quad_col; col++) {
-      gen->quads[row][col] = calloc(1,sizeof(room_quad_t));
+      gen->quads[col][row] = calloc(1,sizeof(room_quad_t));
     }
   }
 
@@ -420,17 +452,14 @@ MapNodeResult MapGenScan(map_context_t *ctx, map_node_t *node){
       if(map_pool.count >= MAX_OPTIONS)
         return MAP_NODE_SUCCESS;
 
-      room_quad_t *rquad = gen->quads[row][col];
+      room_quad_t *rquad = gen->quads[col][row];
       
-      *rquad = (room_quad_t){
-        .top_left = CELL_NEW(row * QUAD_SIZE,col * QUAD_SIZE),
-          .wid = QUAD_SIZE,
-          .hei = QUAD_SIZE,
-          .num_rooms = 0
-      };
+      rquad->top_left = CELL_NEW(col * QUAD_SIZE, row * QUAD_SIZE);
+      rquad->hei = QUAD_SIZE;
+      rquad->wid = QUAD_SIZE;
 
-      for(int y = 0; y < QUAD_SIZE; y++){
-        for(int x = 0; x < QUAD_SIZE; x++){
+      for(int y = 0; y < QUAD_SIZE; y+=QUAD_SIZE/2){
+        for(int x = 0; x < QUAD_SIZE; x+=QUAD_SIZE/2){
           if(QuadHasRoomAt(rquad,x,y))
             continue;
 
@@ -560,26 +589,108 @@ MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node){
   return MAP_NODE_FAILURE;
 }
 
+room_node_t* MapAddNode(room_node_t* root, room_node_t* child){
+  root->children[root->num_children] = calloc(1,sizeof(room_node_t));
+
+  Cell dir = RoomFacingFromFlag(root->flags);
+  Cell c_size = CellScale(child->size,0.5);
+  Cell disp = CellMul(dir, c_size);
+  Rectangle offset = RectInc(root->bounds,disp.x,disp.y);
+  offset.width*= dir.x;
+  offset.height*= dir.y;
+  child->center = cell_inc_rect(child->center, offset);
+  child->bounds = RectPos(child->center,child->bounds);
+  root->children[root->num_children++] = child;
+}
+
+room_node_t* MapBuildNode(RoomFlags flags, Cell pos){
+  room_node_t* node = calloc(1,sizeof(room_node_t));
+
+  *node = (room_node_t){
+    .center = pos,
+    .flags = flags,
+    .children = malloc(sizeof(room_node_t))
+  };
+
+  RoomDimensionsFromFlags(flags,&node->size.x,&node->size.y);
+
+  node->bounds = Rect(pos.x,pos.y,node->size.x,node->size.y);
+
+  return node;
+}
+
 MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node){
-  int attempts = 0;
   map_gen_t *gen = ctx->map_rules;
 
   for (int i = 0; i < gen->num_rooms; i++){
     room_gen_t* rgen = &gen->rooms[i];
     RoomFlags flags = rgen->flags;
-    room_quad_t* rquad = gen->quads[rgen->col][rgen->row];
-    rquad->rooms[rquad->num_rooms++]= CELL_NEW(0,0);
 
-    room_t *room = &ctx->rooms[ctx->num_rooms++];
+    switch(GetRoomPurpose(flags)){
+      case ROOM_PURPOSE_START:
+        ctx->root = MapBuildNode(flags, CELL_EMPTY);
+        break;
+      case ROOM_PURPOSE_CONNECT:
+        MapAddNode(ctx->root,MapBuildNode(flags,CELL_EMPTY));
+        break;
+      case ROOM_PURPOSE_MAX:
+      case ROOM_PURPOSE_LAIR:
+        room_node_t* subroot = ctx->root->children[ctx->root->num_children-1];
+        MapAddNode(subroot,MapBuildNode(flags, CELL_EMPTY));
+        break;
+    }
 
-    room->flags = flags;
   }
 
-  return ctx->num_rooms > 0 ? MAP_NODE_SUCCESS : MAP_NODE_FAILURE;
+  return ctx->root ? MAP_NODE_SUCCESS : MAP_NODE_FAILURE;
 }
 
 MapNodeResult MapGraphRooms(map_context_t *ctx, map_node_t *node) {  
   return MAP_NODE_SUCCESS;
+}
+
+void ApplyCorridorBetween(map_context_t *ctx, room_quad_t* a, room_quad_t* b, Cell facing) {
+  Cell dist = cell_dist(a->top_left,a->top_left);
+  
+  Cell start = CELL_NEW(a->rooms[0]->col,a->rooms[0]->row);
+  Cell end = CELL_NEW(b->rooms[0]->col,b->rooms[0]->row);
+  
+  int row_needs = dist.y/QUAD_SIZE;
+  int col_needs = dist.x/QUAD_SIZE;
+  room_gen_t corr = {
+    0,0,ROOM_LAYOUT_HALL | ROOM_SIZE_SMALL
+  };
+
+  Cell cur = CellInc(start,facing);
+
+  Cell dir = cell_dir(cur,end);
+  for (int x = 0; x < col_needs; x++){
+    Cell xdir = CellMul(dir,CELL_NEW(1,0));
+    room_quad_t *q = ctx->map_rules->quads[cur.x][cur.y];
+
+    q->rooms[q->num_rooms++] = &(room_gen_t){
+      0,0,ROOM_LAYOUT_HALL | ROOM_SIZE_SMALL
+    };
+    q->rooms[q->num_rooms++] = &(room_gen_t){
+      8,0,ROOM_LAYOUT_HALL | ROOM_SIZE_SMALL
+    };
+
+    cur = CellInc(cur,xdir);
+  }
+  
+  for (int y = 0; y < row_needs; y++){
+    Cell ydir = CellMul(dir,CELL_NEW(0,1));
+    room_quad_t *q = ctx->map_rules->quads[cur.x][cur.y];
+
+    q->rooms[q->num_rooms++] = &(room_gen_t){
+    0,0,ROOM_LAYOUT_HALL | ROOM_SIZE_SMALL
+  };
+    q->rooms[q->num_rooms++] = &(room_gen_t){
+    0,8,ROOM_LAYOUT_HALL | ROOM_SIZE_SMALL
+  };   
+    cur = CellInc(cur,ydir);
+  }   
+
 }
 
 void CarveHallBetween(map_context_t *ctx, Cell a, Cell b) {
@@ -605,6 +716,41 @@ void CarveHallBetween(map_context_t *ctx, Cell a, Cell b) {
     ctx->tiles[cur.x][cur.y] = RandRange(0,100)<ctx->decor_density?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
   }
 }
+
+MapNodeResult MapGenConnectRoots(map_context_t *ctx, map_node_t *node) {
+  for (int i = 1; i < ctx->map_rules->num_rooms; i++) {
+    room_quad_t *root = ctx->map_rules->roots[i-1];
+    room_quad_t *next = ctx->map_rules->roots[i];
+    RoomFlags flags = root->rooms[0]->flags;  
+
+    Cell dir = CELL_EMPTY;
+    switch(GetRoomPlacing(flags)){
+      case ROOM_PLACING_N:
+        dir = CELL_UP;
+        break;
+      case ROOM_PLACING_S:
+        dir = CELL_DOWN;
+        break;
+      case ROOM_PLACING_E:
+        dir = CELL_RIGHT;
+        break;
+      case ROOM_PLACING_W:
+        dir = CELL_LEFT;
+        break;
+    }
+
+    ApplyCorridorBetween(ctx,root,next, dir );
+    /*
+
+
+    Cell dist = cell_dist(root->top_left,next->top_left);
+*/
+
+  }
+
+  return MAP_NODE_SUCCESS;
+}
+
 
 MapNodeResult MapConnectSubrooms(map_context_t *ctx, map_node_t *node) {
   for (int i = 0; i < ctx->num_rooms; i++) {
@@ -1119,7 +1265,7 @@ option_t TryRoomOption(map_gen_t *map, RoomFlags flags, int row, int col, int x,
 
   opt.row = row;
   opt.col = col;
-  room_quad_t* quad = map->quads[row][col]; 
+  room_quad_t* quad = map->quads[col][row]; 
   if(quad->num_rooms >= map->density)
     return opt;
 
@@ -1135,23 +1281,29 @@ option_t TryRoomOption(map_gen_t *map, RoomFlags flags, int row, int col, int x,
   // HEURISTIC SCORE
   opt.score = 10;
 
-  int neighbor_weight = imax(10,imin(20,APPLIED));
+  int neighbor_weight = imax(15,imin(20,APPLIED));
+  int num_neighbors = QuadNeighbors(map, row, col);
   // Adjacent to existing rooms? Encourage growth
-  opt.score += neighbor_weight * QuadNeighbors(map, row, col) *map->density;
+  opt.score += neighbor_weight * num_neighbors *map->density;
+
+  if(num_neighbors == 0){
+    for(int i = 0; i< map->num_rooms; i++)
+      opt.score -= map->density * CellDistGrid(map->roots[i]->top_left, opt.pos);
+  }
 
   switch (GetRoomShape(flags)) {
-    case ROOM_SHAPE_CIRCLE: opt.score += 5; break;
-    case ROOM_SHAPE_SQUARE:  opt.score += 10; break;
+    case ROOM_SHAPE_CIRCLE: opt.score += 6; break;
+    case ROOM_SHAPE_SQUARE:  opt.score += 9; break;
     case ROOM_SHAPE_RECT: opt.score += 12; break;
     default: opt.score+=5;  break;
   }
   // purpose-specific
   switch (GetRoomPurpose(flags)) {
     case ROOM_PURPOSE_SIMPLE:
-      opt.score += 24; // valuable
+      opt.score += 18; // valuable
       break;
     case ROOM_PURPOSE_CHALLENGE:
-      opt.score += 18; // leads to big fights
+      opt.score += 14; // leads to big fights
       break;
     case ROOM_PURPOSE_LAIR:
       opt.score -= 5;
@@ -1253,8 +1405,15 @@ void ApplyRoomRect(option_t *opt, map_context_t *map){
 
 void ApplyRoom(option_t *opt, map_gen_t *map){
   room_quad_t* q = map->quads[opt->col][opt->row];
-  
-  q->rooms[q->num_rooms++] = opt->pos;
+ 
+  room_gen_t* o_room = calloc(1,sizeof(room_gen_t));
+  *o_room = (room_gen_t){
+    .col = opt->pos.x,
+    .row = opt->pos.y,
+    .flags = opt->flags
+  };
+
+  q->rooms[q->num_rooms++] = o_room;
   /*
   switch(GetRoomShape(opt->flags)){
     case ROOM_SHAPE_RECT:
@@ -1295,7 +1454,8 @@ bool QuadHasRoomAt(room_quad_t* q, int x, int y){
     return false;
   Cell pos = CELL_NEW(x,y);
   for(int i = 0; i < q->num_rooms; i++){
-    if(cell_compare(q->rooms[i] , pos))
+    Cell rpos = CELL_NEW( q->rooms[i]->col,q->rooms[i]->row);
+    if(cell_compare(rpos, pos))
       return true;
   }
 

@@ -432,14 +432,33 @@ static inline RoomFlags GetRoomSpawn(RoomFlags f) {
 }
 static void RoomDimensionsFromFlags(RoomFlags f, int *w, int *h) {
     switch (GetRoomSize(f) ) {
-        case ROOM_SIZE_SMALL:   *w = 4; *h = 3; break;
-        case ROOM_SIZE_MEDIUM:  *w = 6; *h = 4; break;
-        case ROOM_SIZE_LARGE:   *w = 8; *h = 6; break;
-        case ROOM_SIZE_XL:      *w = 10; *h = 8; break;
-        case ROOM_SIZE_HUGE:    *w = 12; *h = 9; break;
-        case ROOM_SIZE_MASSIVE: *w = 14; *h = 12; break;
-        default:                *w = 6; *h = 4; break;
+        case ROOM_SIZE_SMALL:   *w = 3; *h = 3; break;
+        case ROOM_SIZE_MEDIUM:  *w = 5; *h = 5; break;
+        case ROOM_SIZE_LARGE:   *w = 7; *h = 7; break;
+        case ROOM_SIZE_XL:      *w = 9; *h = 9; break;
+        case ROOM_SIZE_HUGE:    *w = 11; *h = 11; break;
+        case ROOM_SIZE_MASSIVE: *w = 13; *h = 13; break;
+        default:                *w = 4; *h = 4; break;
     }
+}
+static inline Cell RoomFacingFromFlag(RoomFlags f){
+  Cell dir = CELL_EMPTY;
+  switch(GetRoomPlacing(f)){
+    case ROOM_PLACING_N:
+      dir = CELL_UP;
+      break;
+    case ROOM_PLACING_S:
+      dir = CELL_DOWN;
+      break;
+    case ROOM_PLACING_E:
+      dir = CELL_RIGHT;
+      break;
+    case ROOM_PLACING_W:
+      dir = CELL_LEFT;
+      break;
+  }
+
+  return dir;
 }
 
 static char TileToChar(RoomFlags flags) {

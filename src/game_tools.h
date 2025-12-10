@@ -135,6 +135,11 @@ static inline int CellClusterAround(Cell c, int amnt, int space, int dist, Cell*
 
   return num;
 }
+static inline Cell cell_inc_rect(Cell c, Rectangle r){
+  Cell start = CellInc(CELL_NEW(r.x,r.y),CELL_NEW(r.width,r.height));
+
+  return CellInc(start, c);
+}
 
 static inline Cell cell_dir(Cell start, Cell end){
   int tx = end.x;

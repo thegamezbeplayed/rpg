@@ -16,7 +16,7 @@
 #define MOB_ROOM_MAX 10
 #define MOB_MAP_MAX 64
 #define QUAD_SIZE 16
-#define MAX_OPTIONS 512  
+#define MAX_OPTIONS 7000  
 #define ROOM_MOBS_SHIFT 20
 #define ROOM_LAYOUT_SHIFT 8
 
@@ -103,7 +103,8 @@ typedef enum {
     ROOM_LAYOUT_ROOM  = 0x0100,
     ROOM_LAYOUT_HALL  = 0x0200,
     ROOM_LAYOUT_OPEN  = 0x0300,
-    ROOM_LAYOUT_MAZE  = 0x0400,
+    ROOM_LAYOUT_SUB   = 0x0400,
+    ROOM_LAYOUT_MAZE  = 0x0500,
     ROOM_LAYOUT_MASK  = 0x0F00,
     
     // ----- Purpose (bits 4–7) -----
@@ -280,6 +281,7 @@ typedef enum {
   MN_OPT,
   MN_OPT_INIT,
   MN_SCAN,
+  MN_ROUTE_ROOTS,
   MAP_NODE_PLACE_ROOMS,
   MAP_NODE_BUILD_GRAPH,
   MAP_NODE_CONNECT_HALLS,
@@ -294,10 +296,19 @@ typedef struct room_gen_s{
   RoomFlags          flags;
 }room_gen_t;
 
+typedef struct room_node_s room_node_t;
+struct room_node_s{
+  Cell        center, size, entrance, exit;
+  RoomFlags   flags;
+  Rectangle   bounds;
+  int         num_children;
+  room_node_t **children;
+};
+
 typedef struct {
-Cell  top_left;
-int   wid,hei, num_rooms;
-Cell  rooms[4];
+Cell        top_left;
+int         wid,hei, num_rooms;
+room_gen_t  *rooms[4];
 }room_quad_t;
 
 bool QuadHasRoomAt(room_quad_t* q, int x, int y);
@@ -309,11 +320,13 @@ typedef struct{
   spawn_rules_t   mobs;
   room_gen_t      rooms[12];
   MapNodeID       node_rules;
+  room_quad_t     *roots[8];
 }map_gen_t;
 
 typedef struct {
   map_gen_t   *map_rules;
   int         width, height, num_rooms;
+  room_node_t *root;
   room_t      rooms[MAX_ROOMS];
   Cell        player_start;
   TileFlags **tiles;
@@ -341,7 +354,6 @@ typedef struct option_s {
     // placement information
     Cell       pos;
     int        row,col,w, h;   // room size or corridor length
-
     ApplyFn apply;
 } option_t;
 
@@ -368,6 +380,7 @@ MapNodeResult MapGenScan(map_context_t *context, map_node_t *node);
 MapNodeResult MapGenRun(map_context_t *context, map_node_t *node);
 
 MapNodeResult MapFillMissing(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapGenConnectRoots(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapPlayerSpawn(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapFillWalls(map_context_t *ctx, map_node_t *node);
@@ -383,11 +396,11 @@ MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapConnectSubrooms(map_context_t *ctx, map_node_t *node);
 
 struct map_node_s {
-    MapNodeType type;
-    MapNodeID   id;
-    MapNodeFn   run;
-    int         num_children;
-    map_node_t  **children;
+  MapNodeType type;
+  MapNodeID   id;
+  MapNodeFn   run;
+  int         num_children;
+  map_node_t  **children;
 };
 
 typedef struct{
@@ -402,6 +415,7 @@ map_node_t* MapCreateLeafNode(MapNodeFn fn, MapNodeID id);
 map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count);
 
 static inline map_node_t* LeafMapFillMissing(MapNodeID id)  { return MapCreateLeafNode(MapFillMissing,id); }
+static inline map_node_t* LeafMapGenConnectRoots(MapNodeID id)  { return MapCreateLeafNode(MapGenConnectRoots,id); }
 static inline map_node_t* LeafMapGenRun(MapNodeID id)  { return MapCreateLeafNode(MapGenRun,id); }
 static inline map_node_t* LeafMapGenInit(MapNodeID id)  { return MapCreateLeafNode(MapGenInit,id); }
 static inline map_node_t* LeafMapPlaceSpawns(MapNodeID id)  { return MapCreateLeafNode(MapPlaceSpawns,id); }
@@ -430,6 +444,7 @@ MapNodeResult NodeCarveToTiles(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeConnectHalls(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node);
 TileFlags RoomSpecialDecor(RoomFlags p);
+void MapRender(void);
 
 bool TooClose(Cell a, Cell b, int min_dist);
 int QuadNeighbors(map_gen_t* map, int row, int col);

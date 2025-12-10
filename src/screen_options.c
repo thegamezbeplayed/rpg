@@ -5,7 +5,8 @@
 // Options Screen Initialization logic
 void InitOptionsScreen(void)
 {
-  MenuSetState(&ui.menus[MENU_OPTIONS],MENU_ACTIVE);
+  //MenuSetState(&ui.menus[MENU_OPTIONS],MENU_ACTIVE);
+  InitMap();
 }
 
 // Options Screen Update logic
@@ -18,9 +19,11 @@ void UpdateOptionsScreen(void)
 void DrawOptionsScreen(void)
 {
   BeginDrawing();
-  ClearBackground(RAYWHITE);
+  ClearBackground(BROWN);
 
-  UISync();
+  MapRender();
+
+  //UISync();
   EndDrawing();
 }
 
