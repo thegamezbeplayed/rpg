@@ -54,9 +54,14 @@ TileFlags GetQuadRoom(int x, int y){
 }
 
 void DrawNode(room_node_t* node){
-  DrawRectangleRec(node->bounds, GREEN);
-  for(int i = 0; i < node->num_children; i++)
-    DrawNode(node->children[i]);
+  Rectangle out = RectScale(node->bounds,16);
+  out.x*=16;
+  out.y *=16;
+  DrawRectangleRec(out, GREEN);
+  for(int i = 0; i < node->max_children; i++){
+    if(node->children[i]->used)
+    DrawNode(node->children[i]->room);
+  }
 }
 
 void MapRender(void){
@@ -589,18 +594,43 @@ MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node){
   return MAP_NODE_FAILURE;
 }
 
-room_node_t* MapAddNode(room_node_t* root, room_node_t* child){
-  root->children[root->num_children] = calloc(1,sizeof(room_node_t));
+bool MapAddNode(room_node_t* root, room_node_t* child){
+  //root->children[root->num_children] = calloc(1,sizeof(room_node_t));
 
-  Cell dir = RoomFacingFromFlag(root->flags);
-  Cell c_size = CellScale(child->size,0.5);
-  Cell disp = CellMul(dir, c_size);
-  Rectangle offset = RectInc(root->bounds,disp.x,disp.y);
-  offset.width*= dir.x;
-  offset.height*= dir.y;
-  child->center = cell_inc_rect(child->center, offset);
-  child->bounds = RectPos(child->center,child->bounds);
-  root->children[root->num_children++] = child;
+  for(int i = 0; i < root->max_children; i++){
+    if(root->children[i]->used)
+      continue;
+
+    Cell dir = RoomFacingFromFlag(child->flags);
+
+    if(!cell_compare(dir,root->children[i]->dir))
+      continue;
+    Cell c_size = CellScale(child->size,0.5);
+    Cell disp = dir;
+    Rectangle offset = RectInc(root->children[i]->range,disp.x,disp.y);
+    offset.width*= dir.x;
+    offset.height*= dir.y;
+    child->center = cell_inc_rect(child->center, offset);
+    child->bounds = RoomBoundsRect(child->flags,child->center);
+
+    root->children[i]->used = true; 
+    root->children[i]->room = child;
+    root->num_children++;
+    return true;
+  }
+  return false;
+}
+
+bool MapAddSubNode(room_node_t* root, room_node_t* child){
+  for(int i = 0; i < root->max_children; i++){
+    if(!root->children[i]->used)
+      continue;
+    
+    if(MapAddNode(root->children[i]->room, child))
+      return true;
+  }
+
+  return false;
 }
 
 room_node_t* MapBuildNode(RoomFlags flags, Cell pos){
@@ -612,10 +642,10 @@ room_node_t* MapBuildNode(RoomFlags flags, Cell pos){
     .children = malloc(sizeof(room_node_t))
   };
 
-  RoomDimensionsFromFlags(flags,&node->size.x,&node->size.y);
+  node->bounds = RoomBoundsRect(flags,pos);
 
-  node->bounds = Rect(pos.x,pos.y,node->size.x,node->size.y);
-
+  node->size = CELL_NEW(node->bounds.width,node->bounds.height); 
+  node->max_children = RoomConnectionsFromFlags(node, node->children); 
   return node;
 }
 
@@ -628,15 +658,14 @@ MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node){
 
     switch(GetRoomPurpose(flags)){
       case ROOM_PURPOSE_START:
-        ctx->root = MapBuildNode(flags, CELL_EMPTY);
+        ctx->root = MapBuildNode(flags, CELL_NEW(10,10));
         break;
       case ROOM_PURPOSE_CONNECT:
         MapAddNode(ctx->root,MapBuildNode(flags,CELL_EMPTY));
         break;
       case ROOM_PURPOSE_MAX:
       case ROOM_PURPOSE_LAIR:
-        room_node_t* subroot = ctx->root->children[ctx->root->num_children-1];
-        MapAddNode(subroot,MapBuildNode(flags, CELL_EMPTY));
+        MapAddSubNode(ctx->root,MapBuildNode(flags, CELL_EMPTY));
         break;
     }
 

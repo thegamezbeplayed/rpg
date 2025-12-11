@@ -23,7 +23,9 @@
 #define Vector2Y(y) ((Vector2){ 0.0f, (y) })
 #define Vector2Inc(v,xi,yi) ((Vector2){ (v.x+xi), (v.y+yi) })
 #define RectStart(r1,r2) ((Vector2){(r1.width / 2 - r2.width/2),(r1.height/2 - r2.height/2)})
+#define RectCell(r) (Cell){(r.x),(r.y)}
 #define RectPos(v,r) ((Rectangle){(v.x),(v.y),(r.width),(r.height)})
+#define RectShift(v,r) ((Rectangle){(r.x+v.x),(r.x+v.y),(r.width),(r.height)})
 #define RectSize(r) ((Vector2){(r.width),(r.height)})
 #define RectXY(r) ((Vector2){(r.x),(r.y)})
 #define Rect(px,py,sx,sy) ((Rectangle){ (px),(py), (sx), (sy) })
@@ -242,6 +244,55 @@ static inline Vector2 rand_unit(){
   float a = ((float)rand() / (float)RAND_MAX) * 6.28318530718f;
   return (Vector2){cosf(a), sinf(a)};
 }
+
+static int SplitRect(Rectangle base, int sect_size, Rectangle *fill, int max_sec){
+
+  int count = 0;
+
+  int hchunks = imax(1, base.width / sect_size);
+  //hchunks = imin(2, hchunks);
+
+  int vchunks = imax(1, base.height / sect_size);
+  //vchunks = imin(2, vchunks);
+
+  float chunk_w = base.width / hchunks;
+  float chunk_h = base.height / vchunks;
+
+  // ---- TOP edge ----
+  for (int i = 0; i < hchunks && count < max_sec; i++) {
+    fill[count++] = (Rectangle){
+      base.x + i * chunk_w, base.y,
+        chunk_w, 1
+    };
+  }
+
+  // ---- BOTTOM edge ----
+  for (int i = 0; i < hchunks && count < max_sec; i++) {
+    fill[count++] = (Rectangle){
+      base.x + i * chunk_w, base.y + base.height ,
+        chunk_w, 1
+    };
+  }
+
+  // ---- LEFT edge ----
+  for (int i = 0; i < vchunks && count < max_sec; i++) {
+    fill[count++] = (Rectangle){
+      base.x, base.y + i * chunk_h,
+        1, chunk_h
+    };
+  }
+
+  // ---- RIGHT edge ----
+  for (int i = 0; i < vchunks && count < max_sec; i++) {
+    fill[count++] = (Rectangle){
+      base.x + base.width, base.y + i * chunk_h,
+        1, chunk_h
+    };
+  }
+
+  return count;
+}
+
 static inline Rectangle clamp_rect_to_bounds(Rectangle r, Rectangle b){
   Cell pos = clamp_cell_to_bounds(CELL_NEW(r.x,r.y),b);
   Cell end = CellInc(pos,CELL_NEW(r.width,r.height));

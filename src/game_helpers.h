@@ -209,6 +209,79 @@ static cell_bounds_t RoomBounds(room_t* r,Cell c){
   return output;
 }
 
+static Rectangle RoomBoundsRect(RoomFlags flags,Cell c){
+
+  RoomFlags size = flags & ROOM_SIZE_MASK;
+  RoomFlags purpose = flags & ROOM_PURPOSE_MASK;
+  RoomFlags layout = flags & ROOM_LAYOUT_MASK;
+  RoomFlags orient = flags & ROOM_ORIENT_MASK;
+  RoomFlags shape = flags & ROOM_SHAPE_MASK;
+
+  int isize = size >> 12;
+  int bstep = 0;
+  int lstep = 0;
+
+  int special = 0;
+
+  switch(layout){
+    case ROOM_LAYOUT_HALL:
+      isize = size>>11;
+      bstep = size>>15;
+      lstep = imax(-1+size>>11,2);
+     break;
+    case ROOM_LAYOUT_OPEN:
+     lstep = bstep = CLAMP(size>>12,1,3);
+    default:
+     break;
+  }
+
+  switch(purpose){
+    case ROOM_PURPOSE_CONNECT:
+      bstep=0;
+      lstep-=1;
+      break;
+    default:
+      break;
+  }
+
+  if(size == ROOM_SIZE_SMALL)
+    special = 1;
+
+  int x = c.x-isize/2;
+  int y = c.y-isize/2;
+  int wid = isize+special;
+  int hei = isize+special;
+
+
+  switch(orient){
+    case ROOM_ORIENT_HOR:
+      if(size>ROOM_SIZE_SMALL)
+        y+=lstep;
+
+      hei-=lstep;
+
+      x-=bstep;
+      wid+=bstep;
+
+      break;
+    case ROOM_ORIENT_VER:
+      if(size>ROOM_SIZE_SMALL)
+        x+=lstep;
+      if(purpose == ROOM_PURPOSE_CONNECT)
+        lstep = 0;
+
+      wid-=lstep;
+      y-=bstep;
+      hei+=bstep;
+      break;
+    default:
+      break;
+  }
+
+  return Rect(x,y,wid,hei);
+}
+
+
 static Cell RoomSize(room_t* r){
   Cell output = CELL_EMPTY;
   cell_bounds_t bounds = RoomBounds(r,CELL_EMPTY);
@@ -441,6 +514,21 @@ static void RoomDimensionsFromFlags(RoomFlags f, int *w, int *h) {
         default:                *w = 4; *h = 4; break;
     }
 }
+
+static int RoomConnectionsFromFlags(room_node_t *r, node_connector_t ** con){
+
+  Rectangle rec_sec[8];
+  int sections = SplitRect(r->bounds, 4, rec_sec, 8);
+
+  for(int i = 0; i < sections; i++){
+    con[i] = calloc(1,sizeof(node_connector_t));
+
+    con[i]->range = rec_sec[i];
+    con[i]->dir = cell_dir(r->center,RectCell(rec_sec[i]));
+  }
+  return sections;
+}
+
 static inline Cell RoomFacingFromFlag(RoomFlags f){
   Cell dir = CELL_EMPTY;
   switch(GetRoomPlacing(f)){

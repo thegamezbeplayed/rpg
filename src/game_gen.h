@@ -297,12 +297,20 @@ typedef struct room_gen_s{
 }room_gen_t;
 
 typedef struct room_node_s room_node_t;
+
+typedef struct{
+  bool          used;
+  Rectangle     range;
+  Cell          dir,pos;
+  room_node_t   *room;
+}node_connector_t;
+
 struct room_node_s{
-  Cell        center, size, entrance, exit;
-  RoomFlags   flags;
-  Rectangle   bounds;
-  int         num_children;
-  room_node_t **children;
+  Cell              center, size, entrance, exit;
+  RoomFlags         flags;
+  Rectangle         bounds;
+  int               num_children, max_children;
+  node_connector_t  **children;
 };
 
 typedef struct {
