@@ -72,6 +72,9 @@ typedef struct {
   int x,y;
 } Cell;
 
+static inline int CELL_LEN(Cell c){
+  return isqrt((c.x * c.x) + (c.y*c.y));
+}
 static inline int CellDistGrid(Cell c1,Cell c2){
   return abs( c2.x-c1.x) + abs( c2.y-c1.y);
 
@@ -239,6 +242,55 @@ static inline Cell clamp_cell_to_bounds(Cell c, Rectangle r){
   };
 
 }
+
+static inline Cell cell_along_rect(Cell p, Rectangle r)
+{
+  int left   = (int)r.x;
+  int right  = (int)(r.x + r.width);
+  int top    = (int)r.y;
+  int bottom = (int)(r.y + r.height);
+
+  bool on_left   = (p.x == left  && p.y >= top && p.y <= bottom);
+  bool on_right  = (p.x == right && p.y >= top && p.y <= bottom);
+  bool on_top    = (p.y == top   && p.x >= left && p.x <= right);
+  bool on_bottom = (p.y == bottom&& p.x >= left && p.x <= right);
+
+  // Already along the rectangle → no displacement needed
+  if (on_left || on_right || on_top || on_bottom)
+    return (Cell){0,0};
+
+  // Otherwise: compute displacement to nearest edge
+  int dx_left   = p.x - left;
+  int dx_right  = p.x - right;
+  int dy_top    = p.y - top;
+  int dy_bottom = p.y - bottom;
+
+  // Choose the smallest absolute move
+  int best_dx = 0;
+  int best_dy = 0;
+
+  int best = abs(dx_left);
+  best_dx = -dx_left; // move horizontally toward left edge
+
+  if (abs(dx_right) < best) {
+    best = abs(dx_right);
+    best_dx = -dx_right; // move horizontally toward right edge
+    best_dy = 0;
+  }
+  if (abs(dy_top) < best) {
+    best = abs(dy_top);
+    best_dx = 0;
+    best_dy = -dy_top; // move vertically toward top
+  }
+  if (abs(dy_bottom) < best) {
+    best_dx = 0;
+    best_dy = -dy_bottom; // move vertically toward bottom
+  }
+
+  return (Cell){ best_dx, best_dy };
+
+}
+
 // Random unit vector (use your RNG if needed)
 static inline Vector2 rand_unit(){
   float a = ((float)rand() / (float)RAND_MAX) * 6.28318530718f;
@@ -293,10 +345,34 @@ static int SplitRect(Rectangle base, int sect_size, Rectangle *fill, int max_sec
   return count;
 }
 
+
 static inline Rectangle clamp_rect_to_bounds(Rectangle r, Rectangle b){
   Cell pos = clamp_cell_to_bounds(CELL_NEW(r.x,r.y),b);
   Cell end = CellInc(pos,CELL_NEW(r.width,r.height));
   Cell size = cell_dist(clamp_cell_to_bounds(end, b),pos);
   return Rect(pos.x,pos.y,size.x,size.y);
+}
+
+static bool GetRectOverlap(Rectangle a, Rectangle b, Vector2 *overlap)
+{
+  bool result = true;  
+  float ax2 = a.x + a.width;
+  float ay2 = a.y + a.height;
+  float bx2 = b.x + b.width;
+  float by2 = b.y + b.height;
+
+  float ox = fminf(ax2, bx2) - fmaxf(a.x, b.x); // overlap width
+  float oy = fminf(ay2, by2) - fmaxf(a.y, b.y); // overlap height
+
+  if (ox <= 0.0f || oy <= 0.0f)
+    result =  false; // no overlap
+
+  if (overlap)
+  {
+    overlap->x = ox;
+    overlap->y = oy;
+  }
+
+  return result; // they overlap
 }
 #endif

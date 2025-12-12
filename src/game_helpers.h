@@ -136,76 +136,182 @@ static float Noise2D(float x, float y) {
     return lerp(ix0, ix1, sy);
 }
 
-static cell_bounds_t RoomBounds(room_t* r,Cell c){
+static inline cell_bounds_t BoundsFromRec(Rectangle r){
+  cell_bounds_t out = {
+    .min = CELL_NEW(r.x-r.width/2,r.y-r.height/2),
+    .center = CELL_NEW(r.x, r.y),
+    .max = CELL_NEW(r.x+r.width/2,r.y+r.height/2)
+  };
 
-  RoomFlags size = r->flags & ROOM_SIZE_MASK;
-  RoomFlags purpose = r->flags & ROOM_PURPOSE_MASK;
-  RoomFlags layout = r->flags & ROOM_LAYOUT_MASK;
-  RoomFlags orient = r->flags & ROOM_ORIENT_MASK;
-  RoomFlags shape = r->flags & ROOM_SHAPE_MASK;
+  return out;
+}
 
-  int isize = size >> 12;
-  int bstep = 0;
-  int lstep = 0;
+static inline Rectangle RecFromBounds(cell_bounds_t* bounds){
+  Cell dist = CellSub(bounds->max,bounds->min);
 
-  int special = 0;
+  return (Rectangle){bounds->min.x,bounds->min.y, dist.x,dist.y};
+}
+
+static int SplitBoundsFromRec(Rectangle base, int sect_size, node_connector_t **fill, int max_sec){
+  int count = 0;
+
+  int hchunks = imax(1, base.width / sect_size);
+  //hchunks = imin(2, hchunks);
+
+  int vchunks = imax(1, base.height / sect_size);
+  //vchunks = imin(2, vchunks);
+
+  float chunk_w = base.width / hchunks;
+  float chunk_h = base.height / vchunks;
+
+  // ---- TOP edge ----
+  for (int i = 0; i < hchunks && count < max_sec; i++) {
+    Rectangle t = {
+      base.x + i * chunk_w, base.y,
+        chunk_w, 1
+    };
+    node_connector_t * t_con = calloc(1,sizeof(node_connector_t));
+    
+    t_con->range = BoundsFromRec(t);
+    t_con->dir = CELL_UP;
+    fill[count++] = t_con;
+  }
+
+  // ---- BOTTOM edge ----
+  for (int i = 0; i < hchunks && count < max_sec; i++) {
+    Rectangle b = {
+      base.x + i * chunk_w, base.y + base.height ,
+        chunk_w, 1
+    };
+
+    node_connector_t * b_con = calloc(1,sizeof(node_connector_t));
+    
+    b_con->range = BoundsFromRec(b);
+    b_con->dir = CELL_DOWN;
+    fill[count++] = b_con;
+
+  }
+
+  // ---- LEFT edge ----
+  for (int i = 0; i < vchunks && count < max_sec; i++) {
+    Rectangle l = {
+      base.x, base.y + i * chunk_h,
+        1, chunk_h
+    };
+
+    node_connector_t * l_con = calloc(1,sizeof(node_connector_t));
+
+    l_con->range = BoundsFromRec(l);
+    l_con->dir = CELL_LEFT;
+    fill[count++] = l_con;
+  }
+
+  // ---- RIGHT edge ----
+  for (int i = 0; i < vchunks && count < max_sec; i++) {
+    Rectangle r = {
+      base.x + base.width, base.y + i * chunk_h,
+        1, chunk_h
+    }; 
+
+    node_connector_t * r_con = calloc(1,sizeof(node_connector_t));
+
+    r_con->range = BoundsFromRec(r);
+    r_con->dir = CELL_RIGHT;
+    fill[count++] = r_con;
+
+  } 
+    
+  return count; 
+
+
+}
+
+static cell_bounds_t RoomBounds(RoomFlags flags,Cell c){
+
+  RoomFlags size = flags & ROOM_SIZE_MASK;
+  RoomFlags purpose = flags & ROOM_PURPOSE_MASK;
+  RoomFlags layout = flags & ROOM_LAYOUT_MASK;
+  RoomFlags orient = flags & ROOM_ORIENT_MASK;
+  RoomFlags shape = flags & ROOM_SHAPE_MASK;
+
+
+  int area = 9;
+  switch(size){
+    case ROOM_SIZE_MEDIUM:
+      area = 16;
+      break;
+    case ROOM_SIZE_LARGE:
+      area =25;
+      break;
+    case ROOM_SIZE_XL:
+      area = 36;
+      break;
+    case ROOM_SIZE_HUGE:
+      area = 49;
+      break;
+    case ROOM_SIZE_MASSIVE:
+      area = 64;
+      break;
+    case ROOM_SIZE_MAX:
+      area = 81;
+      break;
+  }
+
+  int w = isqrt(area);
+  int h = isqrt(area);
 
   switch(layout){
     case ROOM_LAYOUT_HALL:
-      isize = size>>11;
-      bstep = size>>15;
-      lstep = imax(-1+size>>11,2);
-     break;
+      h = imin(1,(w/2)-w%2);
+      w*=2;
+      break;
     case ROOM_LAYOUT_OPEN:
-     lstep = bstep = CLAMP(size>>12,1,3);
+     w++;
+     h++;
+     break;
+    case ROOM_LAYOUT_SUB:
+     w--;
+     h--;
+     break;
     default:
      break;
   }
 
   switch(purpose){
     case ROOM_PURPOSE_CONNECT:
-      bstep=0;
-      lstep-=1;
+    case ROOM_PURPOSE_LAIR:
+      w++;
+      h++;
       break;
     default:
       break;
   }
 
-  if(size == ROOM_SIZE_SMALL)
-    special = 1;
+  switch(shape){
+    case ROOM_SHAPE_RECT:
+      h--;
+      w++;
+      break;
+    default:
+      break;
+  }
 
-  int minx = c.x-isize;
-  int miny = c.y-isize;
-  int maxx = c.x+isize+special;
-  int maxy = c.y+isize+special;
+  h = imax(1,h);
+  w = imax(1,w);
 
-
+  Rectangle r = Rect(c.x,c.y,w,h);
   switch(orient){
     case ROOM_ORIENT_HOR:
-      if(size>ROOM_SIZE_SMALL)
-        miny+=lstep;
-
-      maxy-=lstep;
-
-      minx-=bstep;
-      maxx+=bstep;
-
+      r = Rect(c.x,c.y,w,h);
       break;
     case ROOM_ORIENT_VER:
-      if(size>ROOM_SIZE_SMALL)
-        minx+=lstep;
-      if(purpose == ROOM_PURPOSE_CONNECT)
-        lstep = 0;
-
-      maxx-=lstep;
-      miny-=bstep;
-      maxy+=bstep;
+      r = Rect(c.x,c.y,h,w);
       break;
     default:
       break;
   }
 
-  cell_bounds_t output= {CELL_NEW(minx,miny),CELL_NEW(maxx,maxy)};
+  cell_bounds_t output = BoundsFromRec(r);
   return output;
 }
 
@@ -284,7 +390,7 @@ static Rectangle RoomBoundsRect(RoomFlags flags,Cell c){
 
 static Cell RoomSize(room_t* r){
   Cell output = CELL_EMPTY;
-  cell_bounds_t bounds = RoomBounds(r,CELL_EMPTY);
+  cell_bounds_t bounds = RoomBounds(r->flags,CELL_EMPTY);
 
   output = CellScale(cell_dist(bounds.min,bounds.max),0.5);
   /*
@@ -374,16 +480,30 @@ static inline RoomFlags SizeByWeight(RoomFlags max, int budget){
   return 1<<12;
 }
 
+static inline RoomFlags LayoutByWeight(RoomFlags max, int budget){
+  int r = RandRange(0,budget);
+
+  int category_size = (max>>ROOM_LAYOUT_SHIFT)-1;
+  for (int i = category_size; i > 1; i--){
+    if(room_layout_weights[i] < r)
+      return i<<ROOM_LAYOUT_SHIFT;
+  }
+
+  return 1<<ROOM_LAYOUT_SHIFT;
+}
+
+
+
 static inline RoomFlags PurposeByWeight(RoomFlags max, int budget){
   int r = RandRange(0,budget);
 
-  int category_size = (max>>12)-1;
+  int category_size = (max>>ROOM_PURPOSE_SHIFT)-1;
   for (int i = category_size; i > 1; i--){
     if(room_purpose_weights[i] < r)
-      return i<<12;
+      return i<<ROOM_PURPOSE_SHIFT;
   }
 
-  return 1<<12;
+  return 1<ROOM_PURPOSE_SHIFT;
 }
 
 
@@ -449,10 +569,12 @@ static inline RoomFlags RandomPurpose(RoomFlags pool) {
   return options[pick];
 }
 static inline RoomFlags RandomLayout(void) {
-    int count = (ROOM_LAYOUT_MASK) >> ROOM_LAYOUT_SHIFT; // = 4 layouts
-    int pick  = RandRange(0, count - 1);                   // 0..3
-    return (RoomFlags)((pick + 1) << 8);
+    int count = (ROOM_LAYOUT_MAX) >> ROOM_LAYOUT_SHIFT; // = 4 layouts
+    int pick  = RandRange(1, count - 1);                   // 0..3
+    return (RoomFlags)((pick) << 8);
 }
+
+
 
 static int weighted_choice(const int* weights, int count){
   int total = 0;
@@ -503,6 +625,7 @@ static inline RoomFlags GetRoomPlacing(RoomFlags f) {
 static inline RoomFlags GetRoomSpawn(RoomFlags f) {
     return (f & ROOM_SPAWN_MASK);
 }
+
 static void RoomDimensionsFromFlags(RoomFlags f, int *w, int *h) {
     switch (GetRoomSize(f) ) {
         case ROOM_SIZE_SMALL:   *w = 3; *h = 3; break;
@@ -514,18 +637,25 @@ static void RoomDimensionsFromFlags(RoomFlags f, int *w, int *h) {
         default:                *w = 4; *h = 4; break;
     }
 }
+static cell_bounds_t AdjustCellBounds(cell_bounds_t * bounds, Cell adj){
+
+  cell_bounds_t out = {
+    .center = CellInc(adj,bounds->center),
+    .min = CellInc(adj,bounds->min),
+    .max = CellInc(adj,bounds->max),
+  };
+  
+  return out;
+}
 
 static int RoomConnectionsFromFlags(room_node_t *r, node_connector_t ** con){
 
-  Rectangle rec_sec[8];
-  int sections = SplitRect(r->bounds, 4, rec_sec, 8);
+  Rectangle bounds = RecFromBounds(&r->bounds);
+  Rectangle inner = RectInner(bounds,1); 
+  int sections = SplitBoundsFromRec(inner, 4, r->children, 8);
+  for(int i = 0; i < sections; i++)
+    r->children[i]->owner = r;
 
-  for(int i = 0; i < sections; i++){
-    con[i] = calloc(1,sizeof(node_connector_t));
-
-    con[i]->range = rec_sec[i];
-    con[i]->dir = cell_dir(r->center,RectCell(rec_sec[i]));
-  }
   return sections;
 }
 
@@ -552,5 +682,24 @@ static inline Cell RoomFacingFromFlag(RoomFlags f){
 static char TileToChar(RoomFlags flags) {
     if (flags & TILEFLAG_FLOOR) return 'X';
     return 'O';
+}
+
+static char* GetPurposeName(RoomFlags f){
+  switch(GetRoomPurpose(f)){
+    case ROOM_PURPOSE_SECRET:
+      return "SECRET";
+      break;
+    case ROOM_PURPOSE_TREASURE:
+      return "TREASURE";
+      break;
+    case ROOM_PURPOSE_CHALLENGE:
+      return "CHALLENGE";
+      break;
+    case ROOM_PURPOSE_LAIR:
+      return "LAIR";
+    default:
+      return "PLAIN";
+      break;
+  }
 }
 #endif

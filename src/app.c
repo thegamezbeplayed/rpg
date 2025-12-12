@@ -8,8 +8,8 @@
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
 #endif
-float screenWidth = 1200.0f;
-float screenHeight = 900.0f; 
+float screenWidth = 1600.0f;
+float screenHeight = 1200.0f; 
 double currentTime = 0.0;           // Current time measure
 double updateDrawTime = 0.0;        // Update + Draw time
 double previousTime = 0.0;    // Previous time measure

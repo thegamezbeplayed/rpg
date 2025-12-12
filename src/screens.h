@@ -7,8 +7,8 @@
 #define DESIGN_HEIGHT 1920.0f
 #else
 */
-#define DESIGN_WIDTH 1280.0f
-#define DESIGN_HEIGHT 960.0f
+#define DESIGN_WIDTH 1600.0f
+#define DESIGN_HEIGHT 1000.0f
 //#endif
 
 static float SPRITE_SCALE = 1.0f;

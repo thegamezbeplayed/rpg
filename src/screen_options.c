@@ -23,6 +23,7 @@ void DrawOptionsScreen(void)
 
   MapRender();
 
+DrawFPS(5,5);
   //UISync();
   EndDrawing();
 }
