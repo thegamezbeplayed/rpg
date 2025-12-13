@@ -146,6 +146,16 @@ static inline cell_bounds_t BoundsFromRec(Rectangle r){
   return out;
 }
 
+static inline cell_bounds_t ShiftCellBounds(cell_bounds_t b, Cell shift){
+  cell_bounds_t out = b;
+
+  CellInc(b.min,shift);
+  CellInc(b.center,shift);
+  CellInc(b.max,shift);
+
+  return out;
+}
+
 static inline Rectangle RecFromBounds(cell_bounds_t* bounds){
   Cell dist = CellSub(bounds->max,bounds->min);
 
@@ -235,25 +245,25 @@ static cell_bounds_t RoomBounds(RoomFlags flags,Cell c){
   RoomFlags shape = flags & ROOM_SHAPE_MASK;
 
 
-  int area = 9;
+  int area = 16;
   switch(size){
     case ROOM_SIZE_MEDIUM:
-      area = 16;
+      area = 25;
       break;
     case ROOM_SIZE_LARGE:
-      area =25;
+      area =36;
       break;
     case ROOM_SIZE_XL:
-      area = 36;
-      break;
-    case ROOM_SIZE_HUGE:
       area = 49;
       break;
-    case ROOM_SIZE_MASSIVE:
+    case ROOM_SIZE_HUGE:
       area = 64;
       break;
-    case ROOM_SIZE_MAX:
+    case ROOM_SIZE_MASSIVE:
       area = 81;
+      break;
+    case ROOM_SIZE_MAX:
+      area = 100;
       break;
   }
 
@@ -262,7 +272,7 @@ static cell_bounds_t RoomBounds(RoomFlags flags,Cell c){
 
   switch(layout){
     case ROOM_LAYOUT_HALL:
-      h = imin(1,(w/2)-w%2);
+      h = imin(3,(w/2)-w%2);
       w*=2;
       break;
     case ROOM_LAYOUT_OPEN:
@@ -296,8 +306,8 @@ static cell_bounds_t RoomBounds(RoomFlags flags,Cell c){
       break;
   }
 
-  h = imax(1,h);
-  w = imax(1,w);
+  h = imax(3,h);
+  w = imax(3,w);
 
   Rectangle r = Rect(c.x,c.y,w,h);
   switch(orient){
@@ -573,8 +583,6 @@ static inline RoomFlags RandomLayout(void) {
     int pick  = RandRange(1, count - 1);                   // 0..3
     return (RoomFlags)((pick) << 8);
 }
-
-
 
 static int weighted_choice(const int* weights, int count){
   int total = 0;

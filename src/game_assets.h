@@ -252,6 +252,7 @@ void SpriteLoadSlicedTextures();
 //SPRITE_T===>
 typedef struct {
   int             suid;
+  int             tag;
   AnimState       state;
   anim_t          *anim;
   Texture2D       *sheet;

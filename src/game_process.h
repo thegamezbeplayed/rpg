@@ -1,6 +1,8 @@
 #ifndef __GAME_PROCESS__
 #define __GAME_PROCESS__
 
+#include <unistd.h>
+#include <pthread.h>
 #include "game_types.h"
 #include "game_common.h"
 #include "screens.h"

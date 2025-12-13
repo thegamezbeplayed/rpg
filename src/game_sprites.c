@@ -42,6 +42,7 @@ sprite_t* InitSpriteByID(int id, SheetID sid){
   spr->anim = malloc(sizeof(anim_t));
 
   sprite_sheet_data_t data = SHEETS[sid];
+  spr->tag = id; 
   spr->state = ANIM_IDLE;
   spr->anim->duration = 67;
   for (int i = 0; i < data.num_sprites; i++){

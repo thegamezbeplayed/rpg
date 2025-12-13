@@ -44,7 +44,7 @@ int main(void)
   InitPlayArea();
   InitGameProcess();
 
-  SetTargetFPS(60);
+  SetTargetFPS(10);
 #if defined(PLATFORM_WEB)
   emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
 #else

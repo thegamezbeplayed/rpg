@@ -1,12 +1,21 @@
 #include "game_ui.h"
 #include "screens.h"
+#include <pthread.h>
+
 #define RAYGUI_IMPLEMENTATION
+void* GenerateMap(void* arg){
+  if(InitMap())
+    InitMapGrid();
+}
 
 // Options Screen Initialization logic
 void InitOptionsScreen(void)
 {
+  pthread_t t;
   //MenuSetState(&ui.menus[MENU_OPTIONS],MENU_ACTIVE);
-  InitMap();
+  pthread_create(&t, NULL, GenerateMap, NULL);
+  
+    //InitMapGrid();
 }
 
 // Options Screen Update logic
