@@ -31,7 +31,7 @@
 #define Rect(px,py,sx,sy) ((Rectangle){ (px),(py), (sx), (sy) })
 #define RECT_ZERO   (Rectangle){ 0.0f, 0.0f,0.0f,0.0f}
 #define RectArea(r) (int){(r.width)*(r.height)}
-#define RectInner(r,i) (Rectangle){(r.x+i),(r.y+i),(r.width-2*i),(r.height-2*i)}
+#define RectInner(r,i) (Rectangle){(r.x+i),(r.y+i),(r.width-i),(r.height-i)}
 #define RectInc(r,xi,yi) ((Rectangle){ (r.x+xi), (r.y+yi),(r.width),(r.height) })
 #define RectScale(r,s) ((Rectangle){ (r.x), (r.y),(r.width * s),(r.height * s) })
 #define CELL_EMPTY (Cell){0,0}
@@ -47,6 +47,10 @@
 #define CellMul(c1,c2) (Cell){(c1.x * c2.x),(c1.y * c2.y)}
 #define CellSub(c1,c2) (Cell){(c1.x - c2.x),(c1.y - c2.y)}
 #define CellFlip(c) (Cell){(c.y),(c.x)}
+
+static int IntGridIndex(int x, int y){
+  return x*1000 + y;
+}
 
 bool SaveCharGrid( int width, int height, char grid[][width],const char *filename);
 static void shuffle_array(void *base, size_t n, size_t size) {
@@ -78,11 +82,15 @@ static inline int CELL_LEN(Cell c){
 static inline int CellDistGrid(Cell c1,Cell c2){
   return abs( c2.x-c1.x) + abs( c2.y-c1.y);
 
+}
 
+// Manhattan distance (or switch to Euclidean easily)
+static inline int cell_distance(Cell a, Cell b) {
+    return abs(a.x - b.x) + abs(a.y - b.y);
 }
 
 static inline Cell cell_dist(Cell c1, Cell c2){
-  return CELL_NEW(abs(c1.x)+abs(c2.x),abs(c1.y)+abs(c2.y));
+  return CELL_NEW(abs(c1.x - c2.x),abs(c1.y -c2.y));
 }
 
 static inline Cell random_direction(void){
@@ -120,7 +128,6 @@ static inline bool cell_compare(Cell c1,Cell c2){
 static bool cells_linear(Cell a, Cell b) {
     return (a.x == b.x) || (a.y == b.y);
 }
-
 static inline int CellClusterAround(Cell c, int amnt, int space, int dist, Cell* output){
 
   int num = 0;
@@ -297,55 +304,6 @@ static inline Vector2 rand_unit(){
   return (Vector2){cosf(a), sinf(a)};
 }
 
-static int SplitRect(Rectangle base, int sect_size, Rectangle *fill, int max_sec){
-
-  int count = 0;
-
-  int hchunks = imax(1, base.width / sect_size);
-  //hchunks = imin(2, hchunks);
-
-  int vchunks = imax(1, base.height / sect_size);
-  //vchunks = imin(2, vchunks);
-
-  float chunk_w = base.width / hchunks;
-  float chunk_h = base.height / vchunks;
-
-  // ---- TOP edge ----
-  for (int i = 0; i < hchunks && count < max_sec; i++) {
-    fill[count++] = (Rectangle){
-      base.x + i * chunk_w, base.y,
-        chunk_w, 1
-    };
-  }
-
-  // ---- BOTTOM edge ----
-  for (int i = 0; i < hchunks && count < max_sec; i++) {
-    fill[count++] = (Rectangle){
-      base.x + i * chunk_w, base.y + base.height ,
-        chunk_w, 1
-    };
-  }
-
-  // ---- LEFT edge ----
-  for (int i = 0; i < vchunks && count < max_sec; i++) {
-    fill[count++] = (Rectangle){
-      base.x, base.y + i * chunk_h,
-        1, chunk_h
-    };
-  }
-
-  // ---- RIGHT edge ----
-  for (int i = 0; i < vchunks && count < max_sec; i++) {
-    fill[count++] = (Rectangle){
-      base.x + base.width, base.y + i * chunk_h,
-        1, chunk_h
-    };
-  }
-
-  return count;
-}
-
-
 static inline Rectangle clamp_rect_to_bounds(Rectangle r, Rectangle b){
   Cell pos = clamp_cell_to_bounds(CELL_NEW(r.x,r.y),b);
   Cell end = CellInc(pos,CELL_NEW(r.width,r.height));
@@ -374,5 +332,31 @@ static bool GetRectOverlap(Rectangle a, Rectangle b, Vector2 *overlap)
   }
 
   return result; // they overlap
+}
+
+static void MakeTriangleFromRect(Rectangle r, Cell dir, Vector2 out[3]) {
+    float cx = r.x + r.width  * 0.5f;
+    float cy = r.y + r.height * 0.5f;
+
+    if(cell_compare(dir, CELL_UP)){
+      out[0] = (Vector2){ cx, r.y };                        // apex top center
+      out[1] = (Vector2){ r.x, r.y + r.height };            // bottom-left
+      out[2] = (Vector2){ r.x + r.width, r.y + r.height };  // bottom-right
+    }
+    if(cell_compare(dir, CELL_DOWN)){
+      out[0] = (Vector2){ cx, r.y + r.height };             // apex bottom center
+      out[1] = (Vector2){ r.x, r.y };                       // top-left
+      out[2] = (Vector2){ r.x + r.width, r.y };             // top-right
+    }
+    if(cell_compare(dir, CELL_LEFT)){
+      out[0] = (Vector2){ r.x, cy };                        // apex left center
+      out[1] = (Vector2){ r.x + r.width, r.y };             // top-right
+      out[2] = (Vector2){ r.x + r.width, r.y + r.height };  // bottom-right
+    }
+    if(cell_compare(dir, CELL_RIGHT)){
+      out[0] = (Vector2){ r.x + r.width, cy };              // apex right center
+      out[1] = (Vector2){ r.x, r.y };                       // top-left
+      out[2] = (Vector2){ r.x, r.y + r.height };            // bottom-left
+    }
 }
 #endif

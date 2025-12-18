@@ -4,8 +4,8 @@
 
 #define RAYGUI_IMPLEMENTATION
 void* GenerateMap(void* arg){
-  if(InitMap())
-    InitMapGrid();
+ if( InitMap())
+   TraceLog(LOG_INFO,"MAP GEN THREAD DONE");
 }
 
 // Options Screen Initialization logic

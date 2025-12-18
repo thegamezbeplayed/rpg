@@ -46,6 +46,7 @@ void DrawGameplayScreen(void)
   //  if(game_process.state == GAME_LOADING)
   //  return;
   BeginDrawing();
+
   ScreenCameraToggle();
 
   WorldRender();
@@ -53,7 +54,10 @@ void DrawGameplayScreen(void)
   ScreenCameraToggle();
   DrawTextEx(ui.font,GetWorldTime(),Vector2XY(VECTOR2_CENTER_SCREEN.x, 32) ,28,1,BLUE);
 
+  MapRender();
   UISync();
+  DrawFPS(5,5);
+
   EndDrawing();
 }
 

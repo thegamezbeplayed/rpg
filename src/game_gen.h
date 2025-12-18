@@ -1,8 +1,6 @@
 #ifndef __GAME_GEN__ 
 #define __GAME_GEN__ 
 
-
-#define SECTION_SIZE 16
 #define MAX_ROOMS  128
 #define HAS_ANY_IN_CATEGORY(value, mask) ((value) & (mask))
 #define IS_TRAIT(value, mask, trait) (((value) & (mask)) == (trait))
@@ -24,9 +22,11 @@ typedef enum{
   GEN_RUNNING,
   GEN_ISSUES,
 }GenStatus;
+GenStatus MapGetStatus(void);
 
 typedef enum{
   RS_CHECK,
+  RS_ORPHANED,
   RS_WHERE_IS_THE_DOOR,
   RS_DOOR_INSIDE,
   RS_NO_PATH,
@@ -35,7 +35,13 @@ typedef enum{
   RS_ISSUE,
   RS_NO_VIABLE_PATH,
   RS_NO_VIABLE_DOOR,
+  RS_NO_ISSUE,
+  RS_CARVE_DOOR,
+  RS_PATH_FOUND,
+  RS_FIXED,
   RS_GTG,
+  RS_CARVED,
+  RS_CORRECTED
 }RoomStatus;
 
 typedef enum{
@@ -178,7 +184,7 @@ typedef enum {
 
 static int room_size_weights[7] = {0,9,16,21,67,82,96};
 static int room_layout_weights[6] = {0,25,70,75,80,98};
-static int room_purpose_weights[8] = {5,20,23,29,32,34,59,99};
+static int room_purpose_weights[8] = {5,52,55,57,59,64,69,99};
 static int room_shape_weights[7] = {50,20,10,10,5,20,15};
 
 typedef uint64_t MobRules;
@@ -195,6 +201,7 @@ typedef enum{
   MOB_MOD_ENLARGE       = BIT64(8),
   MOB_MOD_WEAPON        = BIT64(9),
   MOB_MOD_ARMOR         = BIT64(10),
+  MOB_MOD_BEEF          = BIT64(11),
   MOB_MOD_MASK          = 0xFFULL << 8,
 
   MOB_LOC_DUNGEON       = BIT64(16),
@@ -252,7 +259,7 @@ typedef struct room_s room_t;
 typedef struct room_node_s room_node_t;
 
 typedef struct{
-  bool          entrance;
+  bool          entrance,rebound;
   struct room_s *sub;
   Cell          dir, pos;
   cell_bounds_t range;
@@ -261,11 +268,11 @@ typedef struct{
 struct room_s{
   room_node_t*    ref;
   cell_bounds_t   bounds;
-  int             num_children;
+  int             num_mobs,depth,num_children;
   RoomFlags       flags;
   room_opening_t  *openings[16];
   Cell            center,dir;
-  int             num_mobs;
+  bool            is_root,is_reachable;
   ent_t           *mobs[MOB_ROOM_MAX];
 };
 
@@ -283,10 +290,10 @@ typedef enum {
 
 typedef enum {
   MN_GRID,
-  MN_SELECT_ROOMS,
+  MN_ANCHORS,
   MN_GENERATE_ROOMS,
   MN_GRID_GEN,
-  MN_MAP_OUT_GRID,
+  MN_LAYOUT,
   MN_APPLY_SHAPES,
   MN_PLACE_ROOMS,
   MN_COMPUTE_BOUNDS,
@@ -294,22 +301,19 @@ typedef enum {
   MN_CARVE_TILES,
   MN_GRAPH_ROOTS,
   MN_BUILD,
-  MN_CONNECT_SUB,
   MN_DETAIL,
   MN_ENCASE_FLOORS,
   MN_PLACE_POI,
   MN_SET_PLAYER,
   MN_PLACE_SPAWNS,
-  MN_OPT,
-  MN_OPT_INIT,
-  MN_SCAN,
-  MN_ROUTE_ROOTS,
   MN_ALIGN_ROOMS,
   MN_CLEANUP,
   MN_APPLY_NODES,
   MN_PATHS,
   MN_CHECK_MAP,
   MN_ISSUES,
+  MN_GRAPH,
+  MN_FIX,
   MAP_NODE_PLACE_ROOMS,
   MAP_NODE_BUILD_GRAPH,
   MAP_NODE_CONNECT_HALLS,
@@ -318,14 +322,15 @@ typedef enum {
   MAP_NODE_DONE
 } MapNodeID;
 
-struct room_gen_s;
-typedef struct room_gen_s{
-  int                col,row,cap;
+typedef struct room_gen_s room_gen_t;
+struct room_gen_s{
+  int                cap,num_children;
   RoomFlags          flags;
-}room_gen_t;
-
+  struct room_gen_s* children[4];
+};
 
 typedef struct{
+  int           index;
   room_node_t*  owner;
   bool          used,enter;
   int           depth;
@@ -339,26 +344,28 @@ struct room_node_s{
   Cell              center, size;
   RoomFlags         flags;
   cell_bounds_t     bounds, section;
-  int               num_children, max_children, total, cap, depth;
+  int               sector,num_children, max_children, total, cap, depth, num_orphans;
   int               entrance_index;
-  bool              is_root,applied;
+  bool              is_root,applied, is_reachable;
   Color             col;
   node_connector_t  **children;
+  room_node_t       *orphans[MAX_NODE_DEPTH];
 };
 
 typedef struct{
   MapID           id;
   TileFlags       map_flag;
-  int             density,min_rooms,num_rooms;
+  int             density,min_rooms,min_mobs,max_rooms;
   spawn_rules_t   mobs;
-  int             margin_error,buffer;
-  room_gen_t      rooms[12];
+  int             margin_error;
+  room_gen_t      root;
   MapNodeID       node_rules;
 }map_gen_t;
 
 typedef struct{
+  int       grid_iid;
   room_t*   from, *to;
-  cell_bounds_t *range;
+  room_opening_t  *opening,*in,*out;
   RoomStatus    status;
 }room_connection_t;
 
@@ -371,41 +378,28 @@ typedef struct {
   Rectangle   room_bounds[MAX_ROOMS];
   room_t      *rooms[MAX_ROOMS];
   Cell        player_start;
-  TileFlags   **tiles;
-  int                num_issues, num_conn;
-  room_connection_t* connections[MAX_ROOMS*2];
-  room_connection_t* issues[MAX_ROOMS];
+  int                num_conn;
+  room_connection_t* connections[MAX_ROOMS*3];
   int         alloc_w, alloc_h;
   // random seed etc if you want
   cell_bounds_t level;
   unsigned int seed;
   int         decor_density;
+  TileFlags   **tiles;
 } map_context_t;
 
 typedef enum {
-    OPT_ROOM,
-    OPT_CORRIDOR,
-    OPT_FEATURE,
+  OPT_CONN,
+  OPT_ROOM,
+  OPT_CORRIDOR,
+  OPT_FEATURE,
 } OptionType;
 
-// forward declare
-struct option_s;
-
-typedef void (*ApplyFn)(struct option_s *opt, map_gen_t *ctx);
-
-typedef struct option_s {
-    OptionType type;
-    int        score;
-    RoomFlags  flags;
-    // placement information
-    Cell       pos;
-    int        w, h;   // room size or corridor length
-    ApplyFn apply;
-} option_t;
-
 typedef struct node_option_s{
+  OptionType        type;
   int               score;
   RoomFlags         flags;
+  void*             context;
   node_connector_t* connect;
 } node_option_t;
 
@@ -414,16 +408,6 @@ typedef struct {
   int count; 
 }node_option_pool_t;
 
-typedef struct {
-    option_t items[MAX_OPTIONS];
-    int count;
-} option_pool_t;
-
-option_t *PickBestOption(map_context_t *context);
-void MapAddOption(option_t opt);
-void ApplyRoom(option_t *opt, map_gen_t *map);
-option_t TryRoomOption(map_gen_t *map, RoomFlags flags, int x, int y);
-option_t TryCorridorOption(map_context_t *map, int x, int y);
 bool HasFloorNeighbor(map_context_t* ctx, int x, int y);
 struct map_node_s;
 typedef struct map_node_s map_node_t;
@@ -432,16 +416,14 @@ typedef MapNodeResult (*MapNodeFn)(map_context_t *ctx, map_node_t *node);
 
 void RefreshOptionPool(map_context_t *context, map_node_t* node);
 
-MapNodeResult MapGenInit(map_context_t *context, map_node_t *node);
 MapNodeResult MapGenScan(map_context_t *context, map_node_t *node);
-MapNodeResult MapGenRun(map_context_t *context, map_node_t *node);
 
 MapNodeResult MapGraphNodes(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapApplyFixes(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapFixIssues(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapCheckPaths(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapNodesToGrid(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapAlignNodes(map_context_t *ctx, map_node_t *node);
-MapNodeResult MapGenConnectRoots(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapPlayerSpawn(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapFillWalls(map_context_t *ctx, map_node_t *node);
@@ -454,7 +436,6 @@ MapNodeResult MapAssignPositions(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node);
-MapNodeResult MapConnectSubrooms(map_context_t *ctx, map_node_t *node);
 
 struct map_node_s {
   MapNodeType type;
@@ -475,14 +456,11 @@ typedef struct{
 map_node_t* MapCreateLeafNode(MapNodeFn fn, MapNodeID id);
 map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count);
 
-static inline map_node_t* LeafMapGenConnectRoots(MapNodeID id)  { return MapCreateLeafNode(MapGenConnectRoots,id); }
-static inline map_node_t* LeafMapGenRun(MapNodeID id)  { return MapCreateLeafNode(MapGenRun,id); }
-static inline map_node_t* LeafMapGenInit(MapNodeID id)  { return MapCreateLeafNode(MapGenInit,id); }
 static inline map_node_t* LeafMapPlaceSpawns(MapNodeID id)  { return MapCreateLeafNode(MapPlaceSpawns,id); }
 static inline map_node_t* LeafMapFillWalls(MapNodeID id)  { return MapCreateLeafNode(MapFillWalls,id); }
 static inline map_node_t* LeafMapPlayerSpawn(MapNodeID id)  { return MapCreateLeafNode(MapPlayerSpawn,id); }
-static inline map_node_t* LeafMapConnectSubrooms(MapNodeID id)  { return MapCreateLeafNode(MapConnectSubrooms,id); }
 static inline map_node_t* LeafMapGraphNodes(MapNodeID id)  { return MapCreateLeafNode(MapGraphNodes,id); }
+static inline map_node_t* LeafMapApplyFixes(MapNodeID id)  { return MapCreateLeafNode(MapApplyFixes,id); }
 static inline map_node_t* LeafMapFixIssues(MapNodeID id)  { return MapCreateLeafNode(MapFixIssues,id); }
 static inline map_node_t* LeafMapCheckPaths(MapNodeID id)  { return MapCreateLeafNode(MapCheckPaths,id); }
 static inline map_node_t* LeafMapNodesToGrid(MapNodeID id)  { return MapCreateLeafNode(MapNodesToGrid,id); }
@@ -522,14 +500,22 @@ static int RoomsOverlap(room_t *a, room_t *b, int spacing) {
     return imax(ar-dist,br-dist);
 }
 
+bool MapAddNodeToConnector(node_connector_t* conn, room_node_t* node);
+void RoomAdjustPosition(room_t *r, Cell disp, bool all);
 bool room_is_enclosed(map_context_t* ctx, cell_bounds_t room);
 bool CheckPath(map_context_t* m, Cell start, Cell end, Cell *block);
 bool MapCheckOverlap(Rectangle bounds, Vector2 *overlap);
 void RefreshNodeOptions(void);
 bool MapRoomGraphNodes(void);
-MapNodeResult MapRoomNodeScan(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapGenNodeScan(map_context_t *ctx, map_node_t *node);
 bool ApplyNode(node_option_t *opt);
 node_option_t *PickBestNodeOption(void);
 void MapAddNodeOption(node_option_t opt);
 bool NodeFindOptions(room_node_t* node, bool ignore_depth);
+
+int ConnectionsByIID(room_connection_t* conn, room_connection_t** pairs);
+void ConnectionSetIID(room_connection_t* conn);
+void ConnectionSetStatus(Cell pos, RoomStatus status);
+int ConnectionGetNeighbors(room_connection_t* conn, room_connection_t** pairs, int range, int cap);
+int GetNeighborFlags(map_context_t* ctx, Cell c, RoomFlags f, Cell *filter);
 #endif

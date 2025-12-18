@@ -2,6 +2,7 @@
 #include "game_utils.h"
 #include "game_process.h"
 #include "game_tools.h"
+#include "game_helpers.h"
 
 behavior_tree_node_t *BehaviorGetTree(BehaviorID id) {
    for (int i = 0; i < tree_cache_count; i++){
@@ -117,7 +118,7 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
 
   ent_t* tar = e->control->target;
   Cell next;
-  if (!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next))
+  if (!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next,70))
     return BEHAVIOR_FAILURE;
 
   e->control->destination = cell_dir(e->pos,next);
@@ -154,12 +155,11 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
 
   Cell tar = CellInc(e->pos,e->control->destination);
   Cell next;
-  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next)){
+  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next,35)){
     e->control->destination = CELL_UNSET;
     return BEHAVIOR_FAILURE;
   }
 
-  TraceLog(LOG_INFO,"Moving to %i | %i", e->control->destination.x, e->control->destination.y);
   return BEHAVIOR_SUCCESS;
 }
 

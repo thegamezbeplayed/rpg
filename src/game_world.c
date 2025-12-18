@@ -307,8 +307,9 @@ void WorldPreUpdate(){
 }
 
 void WorldFixedUpdate(){
+  bool control_step = false;
   if(player)
-    ActionInput();
+    control_step = ActionInput();
   
   for(int i = 0; i < world.num_ent; i++){
     switch(world.ents[i]->state){
@@ -319,6 +320,9 @@ void WorldFixedUpdate(){
         //EntDestroy(world.ents[i]);
         break;
       default:
+        if(control_step)
+          EntControlStep(world.ents[i]);
+
         EntSync(world.ents[i]);
         break;
     }
@@ -350,9 +354,8 @@ void WorldTurnUpdate(void* context){
     ActionSync(world.ents[i]);
   }
 }
-
-void InitWorld(world_data_t data){
-  world = (world_t){0};
+void PrepareWorldRegistry(void){
+world = (world_t){0};
 
   world.time = InitStatOnMin(STAT_TIME,0,180);
   world.time->on_stat_full = StatReverse; 
@@ -366,7 +369,10 @@ void InitWorld(world_data_t data){
     RegisterItem(room_items[i]);
   }
 
-  if(InitMap()){
+}
+
+void InitWorld(world_data_t data){
+    if(MapGetStatus()==GEN_DONE){
     world.map =  InitMapGrid();
     Cell player_pos = MapApplyContext(world.map);
 
@@ -469,6 +475,7 @@ void InitGameProcess(){
 
   game_process.next[SCREEN_OPTIONS] = SCREEN_GAMEPLAY;
   game_process.init[SCREEN_OPTIONS] = InitOptionsScreen;
+  game_process.prep[SCREEN_OPTIONS] = PrepareWorldRegistry;
   game_process.finish[SCREEN_OPTIONS] = UnloadOptionsScreen;
   game_process.finish[SCREEN_OPTIONS] = UnloadOptionsScreen;
   game_process.update_steps[SCREEN_OPTIONS][UPDATE_DRAW] = DrawOptionsScreen;
@@ -504,7 +511,7 @@ void InitGameEvents(){
   game_process.children[SCREEN_GAMEPLAY].process = PROCESS_LEVEL;
   game_process.game_frames = 0;
 
-  cooldown_t* turnEvent = InitCooldown(20,EVENT_TURN,WorldTurnUpdate,NULL);
+  cooldown_t* turnEvent = InitCooldown(10,EVENT_TURN,WorldTurnUpdate,NULL);
   turnEvent->is_recycled = true;
   AddEvent(game_process.events,turnEvent);
 }
@@ -514,6 +521,8 @@ bool GameTransitionScreen(){
   GameScreen prepare = game_process.next[current];
   if(game_process.state[current] >= GAME_FINISHED)
     return false;
+  if(game_process.prep[prepare])
+    game_process.prep[prepare]();
   game_process.init[prepare]();
   game_process.state[current] = GAME_FINISHED;
   game_process.finish[current]();

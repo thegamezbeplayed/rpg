@@ -17,6 +17,7 @@ typedef struct {
     bool open;
     bool closed;
 } path_node_t;
+static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
 
 static inline int Heuristic(int x1, int y1, int x2, int y2) {
     return abs(x1 - x2) + abs(y1 - y2);
@@ -149,9 +150,9 @@ static inline cell_bounds_t BoundsFromRec(Rectangle r){
 static inline cell_bounds_t ShiftCellBounds(cell_bounds_t b, Cell shift){
   cell_bounds_t out = b;
 
-  CellInc(b.min,shift);
-  CellInc(b.center,shift);
-  CellInc(b.max,shift);
+  out.min = CellInc(b.min,shift);
+  out.center = CellInc(b.center,shift);
+  out.max = CellInc(b.max,shift);
 
   return out;
 }
@@ -162,78 +163,87 @@ static inline Rectangle RecFromBounds(cell_bounds_t* bounds){
   return (Rectangle){bounds->min.x,bounds->min.y, dist.x,dist.y};
 }
 
-static int SplitBoundsFromRec(Rectangle base, int sect_size, node_connector_t **fill, int max_sec){
-  int count = 0;
+static int SplitBoundsFromRec(Rectangle base, int sect_size,
+                              node_connector_t **fill, int max_sec)
+{
+    int count = 0;
 
-  int hchunks = imax(1, base.width / sect_size);
-  //hchunks = imin(2, hchunks);
+    // Compute how many chunks along each axis (min 1)
+    int hchunks = imax(1, (int)base.width  / sect_size);
+    int vchunks = imax(1, (int)base.height / sect_size);
 
-  int vchunks = imax(1, base.height / sect_size);
-  //vchunks = imin(2, vchunks);
+    // EXCLUDE CORNERS → usable span is width-2, height-2
+    int inner_w = (int)base.width  - 2;
+    int inner_h = (int)base.height - 2;
+    if (inner_w < 1) inner_w = 1;
+    if (inner_h < 1) inner_h = 1;
 
-  float chunk_w = base.width / hchunks;
-  float chunk_h = base.height / vchunks;
+    int chunk_w = inner_w / hchunks;
+    int chunk_h = inner_h / vchunks;
+    if (chunk_w < 1) chunk_w = 1;
+    if (chunk_h < 1) chunk_h = 1;
 
-  // ---- TOP edge ----
-  for (int i = 0; i < hchunks && count < max_sec; i++) {
-    Rectangle t = {
-      base.x + i * chunk_w, base.y,
-        chunk_w, 1
-    };
-    node_connector_t * t_con = calloc(1,sizeof(node_connector_t));
-    
-    t_con->range = BoundsFromRec(t);
-    t_con->dir = CELL_UP;
-    fill[count++] = t_con;
-  }
+    // Starting positions skipping corners
+    int start_x = (int)base.x + 1;
+    int start_y = (int)base.y + 1;
 
-  // ---- BOTTOM edge ----
-  for (int i = 0; i < hchunks && count < max_sec; i++) {
-    Rectangle b = {
-      base.x + i * chunk_w, base.y + base.height ,
-        chunk_w, 1
-    };
+    // ---- TOP edge (1 row above) ----
+    for (int i = 0; i < hchunks && count < max_sec; i++) {
+        Rectangle r = {
+            start_x + i * chunk_w,
+            base.y - 1,    // 1 CELL OUTSIDE
+            chunk_w,
+            1
+        };
+        node_connector_t *c = calloc(1, sizeof(*c));
+        c->range = BoundsFromRec(r);
+        c->dir = CELL_UP;
+        fill[count++] = c;
+    }
 
-    node_connector_t * b_con = calloc(1,sizeof(node_connector_t));
-    
-    b_con->range = BoundsFromRec(b);
-    b_con->dir = CELL_DOWN;
-    fill[count++] = b_con;
+    // ---- BOTTOM edge (1 row below) ----
+    for (int i = 0; i < hchunks && count < max_sec; i++) {
+        Rectangle r = {
+            start_x + i * chunk_w,
+            base.y + base.height,   // 1 CELL OUTSIDE
+            chunk_w,
+            1
+        };
+        node_connector_t *c = calloc(1, sizeof(*c));
+        c->range = BoundsFromRec(r);
+        c->dir = CELL_DOWN;
+        fill[count++] = c;
+    }
 
-  }
+    // ---- LEFT edge (1 column to the left) ----
+    for (int i = 0; i < vchunks && count < max_sec; i++) {
+        Rectangle r = {
+            base.x - 1,   // 1 CELL OUTSIDE
+            start_y + i * chunk_h,
+            1,
+            chunk_h
+        };
+        node_connector_t *c = calloc(1, sizeof(*c));
+        c->range = BoundsFromRec(r);
+        c->dir = CELL_LEFT;
+        fill[count++] = c;
+    }
 
-  // ---- LEFT edge ----
-  for (int i = 0; i < vchunks && count < max_sec; i++) {
-    Rectangle l = {
-      base.x, base.y + i * chunk_h,
-        1, chunk_h
-    };
+    // ---- RIGHT edge (1 column to the right) ----
+    for (int i = 0; i < vchunks && count < max_sec; i++) {
+        Rectangle r = {
+            base.x + base.width,   // 1 CELL OUTSIDE
+            start_y + i * chunk_h,
+            1,
+            chunk_h
+        };
+        node_connector_t *c = calloc(1, sizeof(*c));
+        c->range = BoundsFromRec(r);
+        c->dir = CELL_RIGHT;
+        fill[count++] = c;
+    }
 
-    node_connector_t * l_con = calloc(1,sizeof(node_connector_t));
-
-    l_con->range = BoundsFromRec(l);
-    l_con->dir = CELL_LEFT;
-    fill[count++] = l_con;
-  }
-
-  // ---- RIGHT edge ----
-  for (int i = 0; i < vchunks && count < max_sec; i++) {
-    Rectangle r = {
-      base.x + base.width, base.y + i * chunk_h,
-        1, chunk_h
-    }; 
-
-    node_connector_t * r_con = calloc(1,sizeof(node_connector_t));
-
-    r_con->range = BoundsFromRec(r);
-    r_con->dir = CELL_RIGHT;
-    fill[count++] = r_con;
-
-  } 
-    
-  return count; 
-
-
+    return count;
 }
 
 static cell_bounds_t RoomBounds(RoomFlags flags,Cell c){
@@ -245,25 +255,25 @@ static cell_bounds_t RoomBounds(RoomFlags flags,Cell c){
   RoomFlags shape = flags & ROOM_SHAPE_MASK;
 
 
-  int area = 16;
+  int area = 25;
   switch(size){
     case ROOM_SIZE_MEDIUM:
-      area = 25;
+      area = 36;
       break;
     case ROOM_SIZE_LARGE:
-      area =36;
+      area =49;
       break;
     case ROOM_SIZE_XL:
-      area = 49;
-      break;
-    case ROOM_SIZE_HUGE:
       area = 64;
       break;
-    case ROOM_SIZE_MASSIVE:
+    case ROOM_SIZE_HUGE:
       area = 81;
       break;
-    case ROOM_SIZE_MAX:
+    case ROOM_SIZE_MASSIVE:
       area = 100;
+      break;
+    case ROOM_SIZE_MAX:
+      area = 111;
       break;
   }
 
@@ -325,79 +335,6 @@ static cell_bounds_t RoomBounds(RoomFlags flags,Cell c){
   return output;
 }
 
-static Rectangle RoomBoundsRect(RoomFlags flags,Cell c){
-
-  RoomFlags size = flags & ROOM_SIZE_MASK;
-  RoomFlags purpose = flags & ROOM_PURPOSE_MASK;
-  RoomFlags layout = flags & ROOM_LAYOUT_MASK;
-  RoomFlags orient = flags & ROOM_ORIENT_MASK;
-  RoomFlags shape = flags & ROOM_SHAPE_MASK;
-
-  int isize = size >> 12;
-  int bstep = 0;
-  int lstep = 0;
-
-  int special = 0;
-
-  switch(layout){
-    case ROOM_LAYOUT_HALL:
-      isize = size>>11;
-      bstep = size>>15;
-      lstep = imax(-1+size>>11,2);
-     break;
-    case ROOM_LAYOUT_OPEN:
-     lstep = bstep = CLAMP(size>>12,1,3);
-    default:
-     break;
-  }
-
-  switch(purpose){
-    case ROOM_PURPOSE_CONNECT:
-      bstep=0;
-      lstep-=1;
-      break;
-    default:
-      break;
-  }
-
-  if(size == ROOM_SIZE_SMALL)
-    special = 1;
-
-  int x = c.x-isize/2;
-  int y = c.y-isize/2;
-  int wid = isize+special;
-  int hei = isize+special;
-
-
-  switch(orient){
-    case ROOM_ORIENT_HOR:
-      if(size>ROOM_SIZE_SMALL)
-        y+=lstep;
-
-      hei-=lstep;
-
-      x-=bstep;
-      wid+=bstep;
-
-      break;
-    case ROOM_ORIENT_VER:
-      if(size>ROOM_SIZE_SMALL)
-        x+=lstep;
-      if(purpose == ROOM_PURPOSE_CONNECT)
-        lstep = 0;
-
-      wid-=lstep;
-      y-=bstep;
-      hei+=bstep;
-      break;
-    default:
-      break;
-  }
-
-  return Rect(x,y,wid,hei);
-}
-
-
 static Cell RoomSize(room_t* r){
   Cell output = CELL_EMPTY;
   cell_bounds_t bounds = RoomBounds(r->flags,CELL_EMPTY);
@@ -421,23 +358,6 @@ static Cell RoomSize(room_t* r){
       break;
   }
 */
-  return output;
-}
-
-
-static int SizeToRadius(RoomFlags size, RoomFlags layout) {
-  int output = 0;
-  switch(layout){
-    case ROOM_LAYOUT_HALL:
-      output = imax(1,size >> 13);
-      break;
-    case ROOM_LAYOUT_OPEN:
-      output = size >> 11;
-      break;
-    default:
-      output = size >> 12;
-      break;
-  }
   return output;
 }
 
@@ -548,10 +468,6 @@ static inline int SpawnPoints(RoomFlags f){
   return count;
 }
 
-static inline RoomFlags MobCountBySize(RoomFlags size){
-  return (RoomFlags)(size<<12);
-}
-
 static inline RoomFlags RandomSize(void) {
     int count = (ROOM_SIZE_MAX - ROOM_SIZE_SMALL) >> 12;  // 7 - 1 = 6 valid sizes
     int pick  = RandRange(0, count - 1);                  // 0..5
@@ -578,6 +494,10 @@ static inline RoomFlags RandomPurpose(RoomFlags pool) {
   int pick = RandRange(0, count - 1);
   return options[pick];
 }
+static inline RoomFlags RandomOrient(void){
+  return RandRange(0,5)&2==0?ROOM_ORIENT_HOR:ROOM_ORIENT_VER;
+}
+
 static inline RoomFlags RandomLayout(void) {
     int count = (ROOM_LAYOUT_MAX) >> ROOM_LAYOUT_SHIFT; // = 4 layouts
     int pick  = RandRange(1, count - 1);                   // 0..3
@@ -659,10 +579,14 @@ static cell_bounds_t AdjustCellBounds(cell_bounds_t * bounds, Cell adj){
 static int RoomConnectionsFromFlags(room_node_t *r, node_connector_t ** con){
 
   Rectangle bounds = RecFromBounds(&r->bounds);
-  Rectangle inner = RectInner(bounds,1); 
-  int sections = SplitBoundsFromRec(inner, 4, r->children, 8);
-  for(int i = 0; i < sections; i++)
+  Rectangle inner = bounds;
+  int sections = SplitBoundsFromRec(inner, 4, r->children, 16);
+  for(int i = 0; i < sections; i++){
+    r->children[i]->index = i;
     r->children[i]->owner = r;
+    
+    r->children[i]->pos = r->children[i]->range.center;
+  }
 
   return sections;
 }
@@ -710,4 +634,293 @@ static char* GetPurposeName(RoomFlags f){
       break;
   }
 }
+
+static bool openings_face_each_other(room_opening_t *A, room_opening_t *B)
+{
+    // Example: A.dir = {1,0}, B.dir = {-1,0}
+    return (A->dir.x == -B->dir.x) && (A->dir.y == -B->dir.y);
+}
+static int ClosestPointsBetweenBounds(
+    cell_bounds_t *A,
+    cell_bounds_t *B,
+    Cell *outA,
+    Cell *outB)
+{
+    // All candidate points in A
+    Cell a_pts[3] = { A->min, A->center, A->max };
+    Cell b_pts[3] = { B->min, B->center, B->max };
+
+    int bestDist = 999;
+    Cell bestA = {0};
+    Cell bestB = {0};
+
+    // Check all 9 combinations
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+
+            int dist = cell_distance(a_pts[i], b_pts[j]);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestA = a_pts[i];
+                bestB = b_pts[j];
+            }
+        }
+    }
+
+    // Write results
+    if (outA) *outA = bestA;
+    if (outB) *outB = bestB;
+
+    return bestDist;
+}
+static int overlap_value(cell_bounds_t a, cell_bounds_t b)
+{
+    int x0 = (a.min.x > b.min.x) ? a.min.x : b.min.x;
+    int x1 = (a.max.x < b.max.x) ? a.max.x : b.max.x;
+
+    int y0 = (a.min.y > b.min.y) ? a.min.y : b.min.y;
+    int y1 = (a.max.y < b.max.y) ? a.max.y : b.max.y;
+
+    int w = x1 - x0 + 1;
+    int h = y1 - y0 + 1;
+
+    if (w <= 0 || h <= 0)
+        return -1;
+
+    return w * h; // area of overlap
+}
+
+static bool TileFlagHasAccess(TileFlags f) {
+              
+  return (f & TILEFLAG_DOOR) || (f & TILEFLAG_FLOOR) || (f & TILEFLAG_EMPTY);
+}             
+
+
+static bool TileFlagBlocksMovement(TileFlags f)
+{
+    // Treat ANY of these as blocking
+    return
+        (f & TILEFLAG_SOLID)   ||
+        (f & TILEFLAG_BORDER)  ||
+        (f & TILEFLAG_WALL);
+        // Add more if needed  
+} 
+
+static bool TileCellBlocksMovement(map_context_t* ctx, Cell c){
+  RoomFlags f = ctx->tiles[c.x][c.y];
+
+  return TileFlagBlocksMovement(f);
+}
+static bool TileBlocksMovement(map_cell_t *c) {
+  if(c->tile==NULL)
+    return false;
+
+  uint32_t f = EnvTileFlags[c->tile->type];
+  return (f & TILEFLAG_SOLID) || (f & TILEFLAG_BORDER);
+} 
+    
+static bool TileBlocksSight(map_cell_t *c) {
+  if(c->tile==NULL)
+    return false;
+
+  uint32_t f = EnvTileFlags[c->tile->type];
+  return (f & TILEFLAG_SOLID) || (f & TILEFLAG_OBSTRUCT);
+}
+
+   
+static bool FindBestOpeningPair(room_t *A, room_t *B,room_opening_t **outA,room_opening_t **outB){
+  int bestScore = -1; 
+  room_opening_t *bestA = NULL;
+  room_opening_t *bestB = NULL;  
+    
+  for (int i = 0; i < A->num_children; i++) {
+    room_opening_t *oa = A->openings[i];
+    if (!oa) continue;
+
+    for (int j = 0; j < B->num_children; j++) {
+      room_opening_t *ob = B->openings[j];
+      if (!ob) continue;
+  
+      // Must point directly toward each other
+      if (!openings_face_each_other(oa, ob))
+        continue;
+
+      // Score by overlapping bounds
+      int score = overlap_value(oa->range, ob->range);
+      if (score > bestScore) {
+        bestScore = score;
+        bestA = oa;
+        bestB = ob;
+      }
+    }
+  }
+
+  if (!bestA || !bestB)
+    return false;
+
+  *outA = bestA;
+  *outB = bestB;
+  return true;
+}
+
+static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
+    return (EnvTileFlags[t] & flag) != 0;
+} 
+
+static inline bool TileHasAllFlags(EnvTile t, uint32_t flags) {
+    return ( (EnvTileFlags[t] & flags) == flags );
+} 
+  
+static inline bool TileHasAnyFlags(EnvTile t, uint32_t flags) {
+    return (EnvTileFlags[t] & flags) != 0;
+} 
+
+static inline EnvTile GetTileByFlags(uint32_t flags) {
+    for (int i = 0; i < ENV_DONE; i++) {
+        if (TileHasAllFlags(i, flags))
+            return (EnvTile)i;
+    }
+    return (EnvTile)-1; // NONE
+}
+static bool TileCellHasFlag(map_context_t* ctx, Cell c, RoomFlags f){
+  EnvTile t = ctx->tiles[c.x][c.y];
+
+  return TileHasFlag(t,f); 
+}   
+
+static bool room_has_access(map_context_t* ctx, cell_bounds_t room,Cell *access){
+    int left   = room.min.x;
+    int right  = room.max.x;
+    int top    = room.min.y;
+    int bottom = room.max.y;
+    
+    int map_h = ctx->height;
+    int map_w = ctx->width;
+    // Loop over room perimeter
+    for (int x = left; x <= right; x++) {
+        for (int y = top; y <= bottom; y++) {
+    
+            bool is_edge = (x == left || x == right || y == top || y == bottom);
+            if (!is_edge) continue; // skip interior tiles
+
+            // If touching outside of map, it counts as enclosed
+            if (x < 0 || x >= map_w || y < 0 || y >= map_h)
+                continue;
+ 
+            if (TileFlagHasAccess(ctx->tiles[x][y])){
+              access->x = x;
+              access->y = y;
+              return true;
+            }
+        }
+    }
+  
+    return false;
+}   
+static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep, int depth){
+    // Early out: same tile
+    if (sx == tx && sy == ty)
+        return false;
+
+    // Init nodes
+    for (int y = 0; y < m->height; y++)
+    for (int x = 0; x < m->width; x++) {
+        nodes[x][y] = (path_node_t){
+            .x = x, .y = y,
+            .gCost = 999999,
+            .hCost = 0,
+            .fCost = 999999,
+            .open = false,
+            .closed = false,
+            .parentX = -1,
+            .parentY = -1
+        };
+    }
+
+    // Pointer to nodes
+    path_node_t *start = &nodes[sx][sy];
+    path_node_t *goal  = &nodes[tx][ty];
+
+    start->gCost = 0;
+    start->hCost = Heuristic(sx, sy, tx, ty);
+    start->fCost = start->hCost;
+    start->open = true;
+
+    depth = CLAMP(depth,20,80);
+    int passes = 0;
+    while (depth > passes)
+    {
+        // Step 1: Find lowest fCost open node
+        path_node_t *current = NULL;
+
+        for (int y = 0; y < m->height; y++)
+        for (int x = 0; x < m->width; x++) {
+            path_node_t *n = &nodes[x][y];
+            if (n->open && !n->closed) {
+                if (!current || n->fCost < current->fCost)
+                    current = n;
+            }
+        }
+
+        if (!current) {
+            return false; // no path
+        }
+
+        // Reached target
+        if (current == goal)
+            break;
+
+        current->open = false;
+        current->closed = true;
+
+        // Step 2: Explore neighbors
+        const int dirs[4][2] = {
+            { 1, 0 }, {-1, 0},
+            { 0, 1 }, { 0,-1}
+        };
+
+        for (int i = 0; i < 4; i++)
+        {
+            int nx = current->x + dirs[i][0];
+            int ny = current->y + dirs[i][1];
+
+            if (!InBounds(m, nx, ny)) continue;
+            if (TileBlocksMovement(&m->tiles[nx][ny])) continue;
+
+            path_node_t *neighbor = &nodes[nx][ny];
+            if (neighbor->closed) continue;
+
+            int cost = current->gCost + 1;
+
+            if (!neighbor->open || cost < neighbor->gCost) {
+                neighbor->gCost = cost;
+                neighbor->hCost = Heuristic(nx, ny, tx, ty);
+                neighbor->fCost = neighbor->gCost + neighbor->hCost;
+
+                neighbor->parentX = current->x;
+                neighbor->parentY = current->y;
+
+                neighbor->open = true;
+            }
+        }
+
+        passes++;
+    }
+
+    // Step 3: Backtrack from goal to start to find next step
+    path_node_t *node = goal;
+
+    while (node->parentX != sx || node->parentY != sy) {
+        if (node->parentX < 0 || node->parentY < 0)
+            return false;
+        node = &nodes[node->parentX][node->parentY];
+    }
+
+    // Write next step
+    outNextStep->x = node->x;
+    outNextStep->y = node->y;
+
+    return true;
+}
+
 #endif

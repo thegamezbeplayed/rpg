@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.21)
 project(index)
 
 include(FetchContent)
-if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
-endif()
+  #if(NOT CMAKE_BUILD_TYPE)
+  #endif()
 
 find_package(PkgConfig REQUIRED)
 set(CMAKE_C_STANDARD 99)
@@ -21,7 +21,6 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(raylib)
 #include_directories(include)         # Your config.h
 add_executable(${PROJECT_NAME})
-
 add_subdirectory(src)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 add_subdirectory(resources)
@@ -32,7 +31,7 @@ target_include_directories(${PROJECT_NAME}
     ${raylib_SOURCE_DIR}/src
     includes
 )
-
+add_compile_options(-pg -g -O0)
 if("${PLATFORM}" MATCHES "Web")
     add_custom_command(
         TARGET ${PROJECT_NAME} PRE_BUILD
@@ -57,7 +56,7 @@ else()
   #DEPENDS ${PROJECT_NAME}
 
   #endif()
-
+  target_link_options(index PRIVATE -pg)
 if(APPLE)
   target_link_libraries(${PROJECT_NAME} m dl pthread GL X11 Xrandr Xinerama Xcursor Xi)
 elseif(APPLE)

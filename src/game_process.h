@@ -91,6 +91,7 @@ typedef struct{
   events_t       *events;
   int            album_id[SCREEN_DONE];
   UpdateFn       init[SCREEN_DONE];
+  UpdateFn       prep[SCREEN_DONE];
   UpdateFn       update_steps[SCREEN_DONE][UPDATE_DONE];
   UpdateFn       finish[SCREEN_DONE];
 }game_process_t;
@@ -124,6 +125,7 @@ typedef struct world_s{
   stat_t        *time;
 } world_t;
 
+void PrepareWorldRegistry(void);
 ent_t* WorldGetEnt(const char* name);
 ent_t* WorldGetEntById(unsigned int uid);
 ent_t* WorldPlayer(void);

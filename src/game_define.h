@@ -218,26 +218,6 @@ static inline int trait_index(uint64_t trait, uint64_t mask_shift) {
     return __builtin_ctzll(trait) -  __builtin_ctzll(mask_shift);
 }
 
-static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
-    return (EnvTileFlags[t] & flag) != 0;
-}
-
-static inline bool TileHasAllFlags(EnvTile t, uint32_t flags) {
-    return ( (EnvTileFlags[t] & flags) == flags );
-}
-
-static inline bool TileHasAnyFlags(EnvTile t, uint32_t flags) {
-    return (EnvTileFlags[t] & flags) != 0;
-}
-
-static inline EnvTile GetTileByFlags(uint32_t flags) {
-    for (int i = 0; i < ENV_DONE; i++) {
-        if (TileHasAllFlags(i, flags))
-            return (EnvTile)i;
-    }
-    return (EnvTile)-1; // NONE
-}
-
 typedef uint64_t RaceProps;
 
 typedef enum{

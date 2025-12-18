@@ -11,8 +11,8 @@
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
-#define GRID_WIDTH 67
-#define GRID_HEIGHT 67
+#define GRID_WIDTH 128
+#define GRID_HEIGHT 128
 #define MAX_MAP_SIZE 128
 
 #define RATIO(s) ((s)->ratio((s)))
@@ -38,6 +38,41 @@ static inline int FilterAbilities(AbilityID *pool, Archetype arch, SpeciesType r
   }
   return count;
 }
+
+static inline int MobGetFrequencyTier(uint64_t rules)
+{
+    uint64_t f = rules & MOB_FREQ_MASK;
+    if (!f) return -1; // none or invalid
+
+    return __builtin_ctzll(f) - 32;
+}
+
+static inline mob_define_t GetMobByFrequencyLTE(uint64_t rules)
+{
+    int reqTier = MobGetFrequencyTier(rules);
+
+    mob_define_t best = MONSTER_MASH[0]; // fallback
+    for (int i = 0; i < ENT_DONE; i++) {
+        int mobTier = MobGetFrequencyTier(MONSTER_MASH[i].rules);
+        if (mobTier < 0) continue;
+
+        if (mobTier <= reqTier)
+            return MONSTER_MASH[i];
+    }
+    return best;
+}
+
+static inline bool MobFitsRule(EntityType t, uint64_t rule) {
+  int reqTier = MobGetFrequencyTier(rule);
+
+  int mobTier = MobGetFrequencyTier(MONSTER_MASH[t].rules);
+
+  if (mobTier <= reqTier)
+    return true;
+
+  return false;
+}
+
 static inline bool MobHasRule(EntityType t, uint64_t rule) {
     return (MONSTER_MASH[t].rules & rule) != 0;
 }
@@ -58,7 +93,32 @@ static inline mob_define_t GetMobByRules(uint64_t rules) {
     return MONSTER_MASH[0]; // NONE
 }
 
-static inline int FilterMobsByRules(uint64_t rules, mob_define_t *pool) {
+static inline int FilterMobsInRules(uint64_t rules, mob_define_t* in, int size, mob_define_t *pool) {
+    int count = 0;
+
+
+    for (int i = 0; i < size; i++) {
+      if(MobFitsRule(in[i].id,rules))
+        pool[count++] = in[i];
+    }
+    return count;
+
+}
+ 
+static inline int FilterMobsByRules(uint64_t rules, mob_define_t* in, int size, mob_define_t *pool) {
+    int count = 0;
+
+    for (int i = 0; i < size; i++) {
+
+        if (!MobHasAnyRules(in[i].id, rules))
+          continue;
+
+        pool[count++] = in[i];
+    }
+    return count;
+}
+
+static inline int GetMobsByRules(uint64_t rules, mob_define_t *pool) {
     int count = 0;
 
     for (int i = 0; i < ENT_DONE; i++) {
@@ -354,7 +414,6 @@ typedef struct{
 typedef struct{
   MapID        id;
   map_cell_t   **tiles;
-  map_section_t **sections;
   int          x,y,width,height;
   int          step_size;
   Color        floor;
@@ -372,7 +431,6 @@ void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);
 void MapSpawn(TileFlags flags, int x, int y);
 void MapSpawnMob(map_grid_t* m, int x, int y);
 void RoomSpawnMob(map_grid_t* m, room_t* r);
-bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep);
 
 Cell MapApplyContext(map_grid_t* m);
 

@@ -104,9 +104,6 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
 
   strcpy(e->name, TextFormat("%s %s",racial.name,arch.b_name));
 
-  if(strcmp(e->name,"Goblin ") == 0)
-    DO_NOTHING();
-
   e->size = todoremove.size;
   e->pos = CELL_UNSET;
   e->facing = CELL_UNSET;
@@ -116,7 +113,7 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
 
   e->control = InitController();
 
-  e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,1,20);
+  e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,0,20);
 
   e->traits = calloc(1,sizeof(traits_t));
   InitActions(e->actions);
@@ -213,6 +210,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
 
   int class_weight[7] = {0};
   
+  int beef = 0;
   bool enlarge = false,arm=false,don=false;
 
   if(modif > 0){
@@ -229,6 +227,9 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
         case MOB_MOD_ARMOR:
           don = true;
           break;
+        case MOB_MOD_BEEF:
+          beef++;
+          break;
         default:
           break;
       }
@@ -236,7 +237,6 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   }
 
   bool diverse=false,pat=false,suprise=false,elite=false;
-  int beef = 0;
   if(spawn > 0){
     while(spawn){
       uint64_t stype = spawn & -spawn;
@@ -252,13 +252,13 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
           elite = true;
           break;
         case MOB_SPAWN_CHALLENGE:
-          beef = 1;
+          beef++;
           diverse = true;
           break;
         case MOB_SPAWN_CAMP:
           count+=2;
           diverse = true;
-          beef = 1;
+          beef++;
           arm = true;
           don =true;
           break;
@@ -342,7 +342,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
 
   int amount = 0;
   if(max>min)
-    CLAMP(RandRange(min,max+count),1,MOB_ROOM_MAX);
+    amount = CLAMP(RandRange(min,max+count),1,MOB_ROOM_MAX);
   else
     amount = max+count;
 
@@ -390,6 +390,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
             medics+=amount;
             captain_w+=2;
           }
+          break;
         default:
           break;
       }
@@ -434,6 +435,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
       }
 */
     }
+    EntAddExp(e, 300);
     for(int j = 0; j < beef; j++)
       EntAddExp(e, 300);
 
@@ -789,8 +791,10 @@ bool EntTarget(ent_t* e, ability_t* a, ent_t* source){
   int damage = -1 * reduced; 
   e->last_hit_by = source; 
   if(StatChangeValue(e,e->stats[a->damage_to], damage)){
-   TraceLog(LOG_INFO,"%s hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
-       source->name, e->name,
+   TraceLog(LOG_INFO,"%s level %i hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
+       source->name, 
+       source->skills[SKILL_LVL]->val,
+       e->name,
        damage*-1,
        DAMAGE_STRING[a->school],
        e->name,
@@ -1026,9 +1030,6 @@ void EntTurnSync(ent_t* e){
 }
 
 void EntSync(ent_t* e){
-  if(e->control)  
-    EntControlStep(e);
-
   if(e->events)
     StepEvents(e->events);
 
@@ -1129,10 +1130,9 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s){
   switch(s){
     case STATE_DIE:
       if(e->last_hit_by){
-        challenge_rating_t cr = GetChallengeScore(e->challenge);
      
-        if(e->last_hit_by->skills[SKILL_LVL]->val <= cr.out_lvl)
-          EntAddExp(e->last_hit_by, cr.exp);
+        if(e->last_hit_by->skills[SKILL_LVL]->val <= 3)
+          EntAddExp(e->last_hit_by, 67);
       }
       EntDestroy(e);
       break;
@@ -1155,7 +1155,6 @@ void EntMonsterOnLevelUp(struct skill_s* self, float old, float cur){
       e->stats[i]->lvl(e->stats[i]);
       StatMaxOut(e->stats[i]);
     }
-
 }
 
 void EntOnLevelUp(struct skill_s* self, float old, float cur){

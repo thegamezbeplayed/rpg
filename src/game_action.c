@@ -110,7 +110,7 @@ bool ActionInput(void){
     ActionKeyCallback fn = action_keys[i].fn;
     for(int j = 0; j<action_keys[i].num_keys; j++){
       KeyboardKey k = action_keys[i].keys[j];
-      if(!IsKeyPressed(k))
+      if(!IsKeyDown(k))
         continue;
 
       switch(action_keys[i].action){
@@ -150,7 +150,7 @@ bool ActionInput(void){
   if(acted > ACTION_NONE)
     return ActionTaken(player,acted);
   
-  return false;
+  return true;//false;
     
 }
 

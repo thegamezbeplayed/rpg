@@ -20,6 +20,28 @@ char* GetFileStem(const char* filename);
 static inline void DO_NOTHING(void){}
 static inline bool BOOL_DO_NOTHING(){return false;}
 static inline const char* CHAR_DO_NOTHING(){return "\0";}
+//<===== OPTION CHOOSE
+typedef struct choice_s choice_t;
+typedef struct choice_pool_s choice_pool_t;
+typedef void (*OnChosen)(choice_pool_t* pool, choice_t* self);
+
+typedef choice_pool_t (*ChoiceFn)(choice_pool_t *pool);
+choice_t* ChooseBest(choice_pool_t* pool);
+
+struct choice_s{
+  int       score;
+  void*     context;
+  OnChosen  cb;
+};
+
+struct choice_pool_s{
+  int       count;
+  ChoiceFn  choose;
+  choice_t  *choices[MAX_OPTIONS];
+};
+
+choice_pool_t* InitChoicePool(int size, ChoiceFn fn);
+bool AddChoice(choice_pool_t *pool, int score, void *ctx);
 //<===BEHAVIOR TREES
 
 //forward declare
