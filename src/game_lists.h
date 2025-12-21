@@ -26,23 +26,178 @@ static stat_name_t STAT_STRING[STAT_ENT_DONE]={
   {STAT_HEALTH,"Health"},
   {STAT_ARMOR, "Armor"},
   {STAT_AGGRO, "Sight"},
-  {STAT_STEALTH, "Stealth"},
   {STAT_ACTIONS, "Actions"},
   {STAT_ENERGY,"Spell Energy"},
   {STAT_STAMINA, "Stamina"},
   {STAT_STAMINA_REGEN,"Stamina Regen"},
   {STAT_ENERGY_REGEN, "Spell Regen"},
-  {STAT_START_FULL, "N/A"},
   {STAT_STAMINA_REGEN_RATE,"Stamina Regen Rate"},
   {STAT_ENERGY_REGEN_RATE, "Spell Regen Rate"},
+};
+
+static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
+  [STAT_REACH] = {[SC_AVERAGE] = 1, [SC_ABOVE] = 2},
+  [STAT_DAMAGE] = {
+    [SC_MIN]    = 0,
+    [SC_INFER]  = 0,
+    [SC_LESSER] = 1,
+    [SC_BELOW]  = 1,
+    [SC_AVERAGE]= 2,
+    [SC_ABOVE]  = 3,
+    [SC_SUPER]  = 5,
+    [SC_MAX]    = 8
+  },
+  [STAT_HEALTH] = {
+    [SC_MIN]     = 1,
+    [SC_INFER]   = 2,
+    [SC_LESSER]  = 3,
+    [SC_BELOW]   = 5,
+    [SC_AVERAGE] = 8,
+    [SC_ABOVE]   = 13,
+    [SC_GREATER] = 21,
+    [SC_SUPER]   = 34,
+    [SC_MAX]     = 55
+  },
+  [STAT_ARMOR] = {
+    [SC_MIN]     = 0,
+    [SC_INFER]   = 0,
+    [SC_LESSER]  = 1,
+    [SC_BELOW]   = 1,
+    [SC_AVERAGE] = 2,
+    [SC_ABOVE]   = 2,
+    [SC_GREATER] = 4,
+    [SC_SUPER]   = 4,
+    [SC_MAX]     = 6,
+  },
+  [STAT_AGGRO] = {
+    [SC_MIN]     = 0,
+    [SC_INFER]   = 1,
+    [SC_BELOW]   = 4,
+    [SC_AVERAGE] = 9,
+    [SC_ABOVE]   = 16,
+    [SC_SUPER]   = 25,
+    [SC_MAX]     = 36
+  },
+  /*
+  [STAT_STEALTH] = {
+    [SC_MIN]     = 0,
+    [SC_INFER]   = 1,
+    [SC_BELOW]   = 3,
+    [SC_AVERAGE] = 4,
+    [SC_ABOVE]   = 5,
+    [SC_SUPER]   = 7,
+    [SC_MAX]     = 8
+  },
+  */
+  [STAT_ACTIONS] = {
+    [SC_MIN]     = 1,
+    [SC_AVERAGE] = 2,
+    [SC_ABOVE]   = 3,
+    [SC_SUPER]   = 4,
+    [SC_MAX]     = 5
+  },
+  [STAT_ENERGY] = {
+    [SC_MIN]     = 1,
+    [SC_INFER]   = 2,
+    [SC_BELOW]   = 3,
+    [SC_AVERAGE] = 5,
+    [SC_ABOVE]   = 8,
+    [SC_SUPER]   = 13,
+    [SC_MAX]     = 21
+  },
+  [STAT_STAMINA] = {
+    [SC_MIN]     = 2,
+    [SC_INFER]   = 3,
+    [SC_BELOW]   = 5,
+    [SC_AVERAGE] = 7,
+    [SC_ABOVE]   = 11,
+    [SC_SUPER]   = 13,
+    [SC_MAX]     = 17
+  },
+  [STAT_STAMINA_REGEN] = {
+    [SC_MIN]     = 1,
+    [SC_INFER]   = 2,
+    [SC_BELOW]   = 3,
+    [SC_AVERAGE] = 4,
+    [SC_ABOVE]   = 5,
+    [SC_SUPER]   = 6,
+    [SC_MAX]     = 7
+  },
+  [STAT_ENERGY_REGEN] = {
+    [SC_MIN]     = 0,
+    [SC_INFER]   = 1,
+    [SC_BELOW]   = 2,
+    [SC_AVERAGE] = 3,
+    [SC_ABOVE]   = 4,
+    [SC_SUPER]   = 5,
+    [SC_MAX]     = 6
+  },
+  [STAT_STAMINA_REGEN_RATE] = {
+    [SC_MAX]    = 4,
+    [SC_SUPER]  = 6,
+    [SC_ABOVE]  = 8,
+    [SC_AVERAGE]= 10,
+    [SC_BELOW]  = 12,
+    [SC_INFER]  = 14,
+    [SC_MIN]    = 16
+  },
+  [STAT_ENERGY_REGEN_RATE] = {
+    [SC_MAX]      = 5,
+    [SC_SUPER]    = 7,
+    [SC_ABOVE]    = 9,
+    [SC_AVERAGE]  = 11,
+    [SC_BELOW]    = 13,
+    [SC_INFER]    = 15,
+    [SC_MIN]      = 17
+  }
 };
 
 static skill_name_t SKILL_STRING[SKILL_DONE] = {
   {SKILL_LVL, "Level"},
 };
 
+static define_skill_rate_t  SKILL_RATES[RATE_DONE]={
+  {RATE_NONE},
+  {RATE_LINEAR, 
+    {[IR_FAIL] = 100, [IR_SUCCESS] = 100},
+    {[IR_NONE] = 75},
+    20
+  },
+  {RATE_REWARD,
+    {[IR_FAIL] = 75, [IR_SUCCESS] = 100},
+    {[IR_FAIL] = 75, [IR_SUCCESS] = 90},
+    30
+  },
+  {RATE_RISK,
+    {[IR_FAIL] = 100, [IR_SUCCESS] = 75},
+    {[IR_NONE] = 75},
+    40
+  }
+};
+
+static skill_rate_relation_t SKILLRATE_LOOKUP[RATE_DONE]={
+  {RATE_NONE},
+  {RATE_LINEAR},
+  {RATE_REWARD,
+    {
+      [SKILL_WEAP_MART]=true,
+    }
+  },
+  {RATE_ALL_OR_NOTHING,
+    {
+      [SKILL_WEAP_SWORD] = true,
+      [SKILL_WEAP_BOW]   = true,
+    }
+  },
+  {RATE_RISK,
+    {
+      [SKILL_ARCANA] = true,
+      [SKILL_WEAP_SIMP] = true,
+    }
+  },
+};
+
 static attribute_name_t attributes[ATTR_DONE]={
-  {ATTR_NONE,"REROLL"},
   {ATTR_CON,"CONSTITUTION"},
   {ATTR_STR,"STRENGTH"},
   {ATTR_DEX,"DEXTERITY"},
@@ -54,7 +209,15 @@ static attribute_name_t attributes[ATTR_DONE]={
 
 static const race_define_t DEFINE_RACE[ 12 ] = {
   {SPEC_NONE},
-  {SPEC_HUMAN},
+  {SPEC_HUMAN, "Joseph", ENT_PERSON,
+    RACE_CLASS_SOLDIER |
+    RACE_ARMOR_SIMPLE | RACE_ARMS_SIMPLE,
+    TRAIT_EXP_SWORD,
+    PQ_BIPED,
+    MQ_SENTIENT | MQ_CAUTIOUS | MQ_DETERMINED | MQ_PATIENT | MQ_STRATEGIC | MQ_LEADER | MQ_PROTECTIVE | MQ_DISCIPLINED,
+    0,
+    1
+  },
   {SPEC_ELF},
   {SPEC_ARCHAIN},
   {SPEC_GOBLINOID, "Goblin", ENT_GOBLIN,
@@ -63,8 +226,11 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
       RACE_SIZE_SMALL | RACE_TACTICS_CRUDE |
       RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_SPELLS | RACE_DIFF_PETS | RACE_DIFF_ALPHA |
       RACE_SPECIAL_TRAPS | RACE_SPECIAL_FOCI | RACE_SPECIAL_WARDS,
-    RACE_CLASS_CLERIC, RACE_CLASS_DRUID, RACE_CLASS_ROGUE, RACE_CLASS_SOLDIER, RACE_CLASS_ARCHER, RACE_CLASS_ROGUE, RACE_CLASS_SOLDIER, RACE_CLASS_SOLDIER, RACE_CLASS_WARLOCK,
     TRAIT_POISON_RESIST | TRAIT_EXP_DAGGER | TRAIT_EXP_BOW,
+    PQ_SMALL | PQ_LIGHT | PQ_BIPED | PQ_THICK_SKIN,
+    MQ_TERRITORIAL | MQ_SENTIENT | MQ_ANXIOUS | MQ_CUNNING | MQ_CAUTIOUS | MQ_OBEDIENT,
+    0,
+    0.25
   },
   {SPEC_ORC, "Orc", ENT_ORC,
     RACE_CLASS_SOLDIER | RACE_CLASS_BERSERKER | RACE_CLASS_ARCHER | RACE_CLASS_DRUID | RACE_CLASS_WARLOCK |
@@ -74,8 +240,11 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
       RACE_TACTICS_MARTIAL | RACE_TACTICS_SIMPLE |
       RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_GEAR | RACE_DIFF_SPELLS | RACE_DIFF_ALPHA |
       RACE_SPECIAL_FOCI,
-      RACE_CLASS_CLERIC, RACE_CLASS_SOLDIER, RACE_CLASS_SOLDIER, RACE_CLASS_ARCHER, RACE_CLASS_BERSERKER, RACE_CLASS_SOLDIER, RACE_CLASS_BERSERKER, RACE_CLASS_WARLOCK,
       TRAIT_VISION_DARK,
+      PQ_LONG_LIMB | PQ_SMALL_HEAD | PQ_BIPED | PQ_LARGE_HANDS | PQ_THICK_SKIN | PQ_DENSE_MUSCLE,
+      MQ_OBLIVIOUS | MQ_SENTIENT | MQ_AGGRESSIVE | MQ_TERRITORIAL,
+      0,
+      0.33
   },
   {SPEC_ARTHROPOD},
   {SPEC_ETHEREAL},
@@ -83,7 +252,6 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
   {SPEC_VAMPIRIC},
   {SPEC_CANIFORM},
   {SPEC_RODENT},
-
 };
 
 static const define_archetype_t CLASS_DATA[11] = {
@@ -115,7 +283,7 @@ static const define_archetype_t CLASS_DATA[11] = {
   {CLASS_SUB_CHAMP, 10, ATTR_NONE, ATTR_STR, ATTR_CON},
 };
 
-static const define_race_class_t RACE_CLASS_DEFINE[12][7] = {
+static define_race_class_t RACE_CLASS_DEFINE[12][7] = {
   [__builtin_ctzll(SPEC_GOBLINOID)] = {
     [__builtin_ctzll(RACE_CLASS_SOLDIER)] = {
       RACE_CLASS_SOLDIER, 15, CLASS_BASE_FIGHTER,CLASS_BASE_ROGUE, CLASS_SUB_CHAMP,
@@ -167,38 +335,10 @@ static const define_race_class_t RACE_CLASS_DEFINE[12][7] = {
   },
 };
 
-static const size_category_t MOB_SIZE[MOB_DONE]={
-  {MOB_HUMANOID,{[SIZE_SMALL]={[STAT_HEALTH]=-2,[STAT_ARMOR]=-1},
-                  [SIZE_LARGE] = {[STAT_HEALTH]=4,[STAT_AGGRO]=1},
-                  [SIZE_HUGE] = {[STAT_HEALTH]=8,[STAT_AGGRO]=2}},
-  {[SIZE_SMALL]={[ATTR_DEX]=3,[ATTR_STR]=-2},
-    [SIZE_LARGE]={[ATTR_STR]=2,[ATTR_CON]=2},
-    [SIZE_HUGE] ={[ATTR_STR]=6,[ATTR_CON]=4,[ATTR_DEX]=-2}}
-  },
-  {MOB_MONSTROUS},
-  {MOB_BEAST,{[SIZE_TINY]={[STAT_HEALTH]=-4},
-                  [SIZE_SMALL] = {[STAT_HEALTH]=-2},
-                  [SIZE_LARGE] = {[STAT_HEALTH]=4,[STAT_ARMOR]=2,[STAT_AGGRO]=1}},
-  {[SIZE_TINY]={[ATTR_DEX]=6,[ATTR_STR]=-4},
-    [SIZE_SMALL]={[ATTR_STR]=-3,[ATTR_DEX]=4},
-    [SIZE_LARGE] ={[ATTR_STR]=2,[ATTR_CON]=2}}
-  },
-  {MOB_UNDEAD},
-  {MOB_CONSTRUCT},
-  {MOB_DEMONIC},
-  {MOB_FEY, {
-              [SIZE_TINY]={[STAT_HEALTH]=-3,[STAT_ARMOR]=-1},
-              [SIZE_SMALL]={[STAT_HEALTH]=-2},
-            },
-  {[SIZE_TINY]={[ATTR_DEX]=3,[ATTR_STR]=-1},
-    [SIZE_SMALL]={[ATTR_DEX]=2},
-    [SIZE_LARGE] ={[ATTR_STR]=1,[ATTR_CON]=1}}
-  },
-
-};
-
 static const mob_define_t MONSTER_MASH[ENT_DONE] = {
-  {ENT_PERSON},
+  {ENT_PERSON,
+    .race = SPEC_HUMAN
+  },
   {ENT_GOBLIN,
       MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
       MOB_MOD_ENLARGE | MOB_MOD_WEAPON | MOB_MOD_ARMOR |
@@ -207,7 +347,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_PRIMITIVE |
       MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_GOBLINOID,
-      10
+      10,
+      SOC_PRIMITIVE
   },
   {ENT_ORC,
       MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
@@ -217,7 +358,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_MARTIAL |
       MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_ORC,
-      30
+      30,
+      SOC_MARTIAL
   },
   {ENT_OGRE},
   {ENT_ORC_FIGHTER},
@@ -230,7 +372,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_MARTIAL |
       MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_GOBLINOID,
-      540
+      540,
+      SOC_MARTIAL
   },
   {ENT_OROG},
   {ENT_SCORPION,
@@ -260,7 +403,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_PRIMITIVE |
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS,
       SPEC_CANIFORM,
-      500
+      500,
+      SOC_INSTINCTIVE
   },
   {ENT_TROLL_CAVE,
     MOB_SPAWN_LAIR |
@@ -270,7 +414,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_FREQ_RARE|
       MOB_GROUPING_SOLO,
       SPEC_CANIFORM,
-    600
+    600,
+    SOC_INSTINCTIVE
   },
   {ENT_BEAR,
       MOB_SPAWN_LAIR |
@@ -278,7 +423,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_LOC_CAVE | MOB_LOC_FOREST |
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_SQUAD,
       SPEC_CANIFORM,
-      75
+      75,
+      SOC_FAMILY
   },
   {ENT_WOLF,
       MOB_SPAWN_LAIR |
@@ -286,7 +432,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_LOC_CAVE | MOB_LOC_FOREST |
       MOB_GROUPING_SOLO | MOB_GROUPING_SQUAD,
       SPEC_CANIFORM,
-      40
+      40,
+      SOC_FERAL
   },
   {ENT_RAT,
       MOB_MOD_ENLARGE |
@@ -295,7 +442,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_FREQ_COMMON |
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_SWARM,
       SPEC_RODENT,
-      900
+      900,
+      SOC_HIVE
   },
 
 };

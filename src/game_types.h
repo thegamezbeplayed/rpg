@@ -16,9 +16,39 @@
 typedef struct ent_s ent_t;
 typedef struct ability_s ability_t;
 
+typedef struct{
+  ent_t*    enemy;
+  int       challenge;
+  float     threat_mul, threat;
+  int       last_turn;
+}aggro_entry_t;
+
+typedef struct{
+  ent_t*         owner;
+  aggro_entry_t  *entries;
+  int            count,cap;
+  event_uid_i    event_id;
+}aggro_table_t;
+
+void InitAggroTable(aggro_table_t* t, int cap, ent_t* owner);
+static void AggroEnsureCapacity(aggro_table_t* t);
+int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul);
+void AggroDecayCallback(void* params);
+void AggroPrune(aggro_table_t* t);
+
+typedef struct{
+  SpeciesType   race;
+  float         base_diff;
+  PhysQual      body;
+  MentalQual    mind;
+  Feats         feats;
+  Traits        traits;
+}properties_t;
+properties_t* InitProperties(race_define_t racials);
+
 typedef bool (*AbilityCallback)(struct ent_s* owner,  struct ability_s* chain, struct ent_s* target);
 
-typedef struct ability_s{
+struct ability_s{
   AbilityID        id;
   DamageType       school;
   StatType         resource;
@@ -27,25 +57,26 @@ typedef struct ability_s{
   StatType         damage_to;
   AttributeType    save,mod;
   AbilityID        chain;
+  SkillType        skill;
   dice_roll_t*     dc,*hit;
-  stat_t*          stats[STAT_DONE];
+  stat_t*          stats[STAT_ENT_DONE];
   struct ability_s *on_success;
+  value_t*         values[VAL_ARMOR];
   AbilityCallback  on_success_fn;
-}ability_t;
+};
 
 extern ability_t ABILITIES[ABILITY_DONE];
-
+void AbilityApplyValues(ability_t* self, value_t* v);
 ability_t AbilityLookup(AbilityID id);
 
 typedef struct item_def_s{
   int id;
   char name[32];
   ItemCategory        category;        // weapon / armor / potion / scroll
-  DamageType          damage;
-  damage_reduction_t  *dr;
-  int                 weight;
-  stat_t              *stats[STAT_DONE];     // modifiers (e.g. +2 STR)
+  damage_reduction_t  *dr; //TODO MOVE TO VALUE_T
+  value_t             *values[VAL_ALL];
   AbilityID           ability;
+  SkillType           skill;
   sprite_t            *sprite;     // icon
 }item_def_t;
 
@@ -107,11 +138,11 @@ typedef struct ent_s{
   int                   uid;
   char                  name[MAX_NAME_LEN];
   uint64_t              class_id;
-  MonsterSize           size;
   stat_t*               stats[STAT_DONE];
   attribute_t*          attribs[ATTR_DONE];
   skill_t*              skills[SKILL_DONE];
   traits_t              *traits;
+  properties_t          *props;
   int                   num_abilities;
   ability_t*            abilities[6];
   EntityType            type;
@@ -125,12 +156,15 @@ typedef struct ent_s{
   item_t                *gear[CARRY_SIZE];
   sprite_t              *sprite;
   float                 challenge;
+  aggro_table_t*        aggro;
   struct ent_s*         last_hit_by;
 } ent_t;
 
-ent_t* InitEnt(ObjectInstance data, Cell pos);
+ent_t* InitEntByRace(mob_define_t def, MobRules rules);
+ent_t* InitEnt(EntityType id, Cell pos);
 ent_t* InitMob(EntityType mob, Cell pos);
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race);
+void PromoteEntClass(ent_t* e, race_define_t racial, define_race_class_t* race_class);
 int EntBuild(mob_define_t def, MobRules rules, ent_t** pool);
 void EntApplyTraits(traits_t* t, uint64_t mask, uint64_t shift);
 void EntCalcStats(ent_t* e, race_define_t* racial);
@@ -143,7 +177,7 @@ ability_t* InitAbility(ent_t* owner, AbilityID);
 ability_t* EntChooseWeightedAbility(ent_t* e, int budget);
 //attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
-bool EntTarget(ent_t* e, ability_t* a, ent_t* source);
+InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source);
 bool EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
 void EntSync(ent_t* e);
 void EntTurnSync(ent_t* e);
@@ -154,13 +188,14 @@ void EntDestroy(ent_t* e);
 bool FreeEnt(ent_t* e);
 void EntPrepStep(ent_t *e);
 void EntOnLevelUp(struct skill_s* self, float old, float cur);
-void EntMonsterOnLevelUp(struct skill_s* self, float old, float cur);
 TileStatus EntGridStep(ent_t *e, Cell step);
 void EntSetCell(ent_t *e, Cell pos);
 void EntAddExp(ent_t *e, int exp);
 void EntAddPos(ent_t *e, Vector2 pos);
 void EntSetPos(ent_t *e, Vector2 pos);
 void EntControlStep(ent_t *e);
+int EntGetChallengeRating(ent_t* e, ent_t* t);
+
 typedef void (*StateChangeCallback)(ent_t *e, EntityState old, EntityState s);
 void SetViableTile(ent_t*, EntityState old, EntityState s);
 bool CheckEntAvailable(ent_t* e);
@@ -169,9 +204,9 @@ bool SetState(ent_t *e, EntityState s,StateChangeCallback callback);
 void StepState(ent_t *e);
 void OnStateChange(ent_t *e, EntityState old, EntityState s);
 bool CanChangeState(EntityState old, EntityState s);
-void ItemApplyWeaponProps(item_def_t * w, weapon_def_t* def, ItemQuality rarity);
-int GetWeaponByTrait(MonsterTraits t, weapon_def_t *arms);
-item_def_t* BuildWeapon(weapon_def_t def, ItemQuality rarity);
+void ApplyWeapProps(item_def_t * w, weapon_def_t* def, ItemProps props, WeaponProps w_props);
+int GetWeaponByTrait(Traits t, weapon_def_t *arms);
+item_def_t* BuildWeapon(weapon_def_t def, ItemProps props, WeaponProps w_props);
 bool EntSyncSight(ent_t* e, ActionType a);
 
 char* EntGetClassNamePretty(ent_t* e);
@@ -196,8 +231,8 @@ void ActionSetTarget(ent_t* e, ActionType a, void* target);
 static action_key_t action_keys[ACTION_DONE] = {
   {ACTION_NONE},
   {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ActionMove},
-  {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack,1},
-  {ACTION_MAGIC,1,{KEY_M},ActionPlayerAttack,0},
+  {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack,0},
+  {ACTION_MAGIC,1,{KEY_M},ActionPlayerAttack,1},
 };
 
 typedef struct env_s{

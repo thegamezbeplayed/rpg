@@ -187,7 +187,7 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
   if( !e->control->target)
     return BEHAVIOR_FAILURE;
 
-  if(CellDistGrid(e->pos,e->control->target->pos) >  e->stats[STAT_REACH]->current)
+  if(cell_distance(e->pos,e->control->target->pos) >  e->stats[STAT_REACH]->current)
     return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;

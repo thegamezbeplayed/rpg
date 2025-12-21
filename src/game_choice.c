@@ -61,3 +61,35 @@ choice_t* ChooseBest(choice_pool_t* pool){
 
 }
 
+choice_t* ChooseByWeight(choice_pool_t* pool){
+  if(!pool || pool->count == 0)
+    return NULL;
+
+  // 1. Compute total weight
+  int total = 0;
+  for (int i = 0; i < pool->count; i++) {
+    int w = pool->choices[i]->score;
+    if (w > 0) total += w;
+  }
+
+  if (total <= 0)
+    return NULL; // all weights were zero or negative
+
+  // 2. Pick random number in range
+  int r = rand() % total;
+
+  // 3. Find the weighted entry
+  int running = 0;
+  for (int i = 0; i < pool->count; i++) {
+    int w = pool->choices[i]->score;
+    if (w <= 0) continue;
+
+    running += w;
+    if (r < running)
+      return pool->choices[i];
+  }
+
+  return NULL;
+}
+
+

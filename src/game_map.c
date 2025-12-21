@@ -12,7 +12,7 @@ static int NUM_ANCHORS = 0;
 static int NUM_MOBS = 0;
 static sprite_t* mark_spr[16];
 static int markers;
-static int PAUSE = 1000;
+static int PAUSE = 1;
 static node_option_pool_t NODE_OPTIONS;
 static map_context_t world_map;
 static int GEN_SCALE = 16;
@@ -400,6 +400,7 @@ TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c){
   m->tiles[c.x][c.y].occupant =e;
   m->tiles[c.x][c.y].status = TILE_OCCUPIED;
 
+  e->map = m;
   return TILE_SUCCESS;
 }
 
@@ -2021,6 +2022,10 @@ MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node)
   maxx += padding;
   maxy += padding;
 
+  ctx->level.min.x = minx;
+  ctx->level.min.y = miny;
+  ctx->level.max.x = maxx;
+  ctx->level.max.y = maxy;
   // --- 2. Compute width + height of final map ---
   ctx->width  = abs(maxx) + abs(minx);// + ctx->map_rules->border;
   ctx->height = abs(maxy) + abs(miny);// + ctx->map_rules->border;;

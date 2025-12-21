@@ -271,6 +271,7 @@ bool RegisterEnt( ent_t *e){
   if(e->type == ENT_PERSON){
     player = e;
 
+    EntAddExp(player,400);
     WorldTestPrint();
   }
 
@@ -300,7 +301,9 @@ void WorldInitOnce(){
 
 void WorldPreUpdate(){
   InteractionStep();
-  
+ 
+  StepEvents(world.events[STEP_FIXED]);
+
   for(int i = 0; i < world.num_spr; i++){
     SpriteSync(world.sprs[i]);
   }
@@ -344,10 +347,13 @@ void WorldPostUpdate(){
 }
 
 void WorldEndTurn(void){
+  world.data->num_turn++;
   ResetEvent(game_process.events,EVENT_TURN);
 }
 
 void WorldTurnUpdate(void* context){
+  StepEvents(world.events[STEP_TURN]);
+
   StatIncrementValue(world.time,true);
   for(int i = 0; i < world.num_ent; i++){
     EntTurnSync(world.ents[i]);
@@ -371,16 +377,28 @@ world = (world_t){0};
 
 }
 
-void InitWorld(world_data_t data){
-    if(MapGetStatus()==GEN_DONE){
+void InitWorld(void){
+  world.data = InitWorldData();
+  if(MapGetStatus()==GEN_DONE){
     world.map =  InitMapGrid();
     Cell player_pos = MapApplyContext(world.map);
 
     if(!cell_compare(player_pos,CELL_UNSET))
-      RegisterEnt(InitEnt(room_instances[0],player_pos));
-   GameReady(); 
+      RegisterEnt(InitEnt(ENT_PERSON,player_pos));
+    GameReady(); 
     ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
+
   }
+  for(int i = 0; i < STEP_DONE; i++){
+    world.events[i] = InitEvents();
+  }
+
+}
+
+world_data_t* InitWorldData(void){
+  world_data_t* wd = calloc(1,sizeof(world_data_t));
+
+  return wd;
 }
 
 void FreeWorld(){
@@ -505,15 +523,18 @@ void InitGameProcess(){
 }
 
 void InitGameEvents(){
-  world_data_t wdata = {0};
-
-  InitWorld(wdata);
+  InitWorld();
   game_process.children[SCREEN_GAMEPLAY].process = PROCESS_LEVEL;
   game_process.game_frames = 0;
 
   cooldown_t* turnEvent = InitCooldown(10,EVENT_TURN,WorldTurnUpdate,NULL);
   turnEvent->is_recycled = true;
   AddEvent(game_process.events,turnEvent);
+
+}
+
+bool WorldAddEvent(event_uid_i eid, cooldown_t* cd, StepType when){
+
 }
 
 bool GameTransitionScreen(){
@@ -584,4 +605,8 @@ const char* GetWorldTime(){
 
 const char* GetGameTime(){
   return TextFormat("%09i",(int)(game_process.game_frames/fixedFPS));
+}
+
+int WorldGetTurn(void){
+  return world.data->num_turn;
 }

@@ -922,5 +922,76 @@ static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNex
 
     return true;
 }
+static inline define_race_class_t* GetRaceClassForSpec(uint64_t spec, uint64_t class_flag)
+{
+    // Convert bitflags to array indices
+    int spec_idx  = __builtin_ctzll(spec);
+    int class_idx = __builtin_ctzll(class_flag);
+
+    // Safety: prevent out-of-range access
+    if (spec_idx < 0 || spec_idx >= 12)
+        return NULL;
+
+    if (class_idx < 0 || class_idx >= 7)
+        return NULL;
+
+    define_race_class_t *entry = &RACE_CLASS_DEFINE[spec_idx][class_idx];
+
+    // Check if this SPEC actually has an entry for this CLASS
+    if (entry->race_class == 0)
+        return NULL;
+
+    return entry;
+}
+
+static inline asi_bonus_t* GetAsiBonus(AttributeType attr,PhysQual mob_pq,
+    MentalQual mob_mq,
+        AsiEvent event)
+{
+    asi_bonus_t *out = calloc(1,sizeof(asi_bonus_t));
+
+    const attribute_quality_t *aq = &ATTR_QUAL[attr];
+
+    // Only give the bonus if the mob actually has the required qualities
+    PhysQual required_pq = aq->body[event];
+    MentalQual required_mq = aq->mind[event];
+
+    if (required_pq & mob_pq)
+        out->pq = true;
+
+    if (required_mq & mob_mq)
+        out->mq = true;
+
+    if(out->mq||out->pq)
+      return out;
+    else
+      return NULL;
+}
+
+static inline StatClassif GetStatClassif(
+        StatType stat,
+        PhysQual mob_pq,
+        MentalQual mob_mq)
+{
+    const stat_quality_t *sq = &STAT_QUAL[stat];
+    StatClassif best = SC_MIN;
+
+    bool matched = false;
+    for (int sc = SC_MIN; sc < SC_DONE; sc++)
+    {
+        bool matches_pq = (sq->stature[sc] & mob_pq) != 0;
+        bool matches_mq = (sq->psyche[sc]  & mob_mq) != 0;
+
+        if (matches_pq || matches_mq){
+            best = sc;
+            matched = true;
+        }
+    }
+
+    if(!matched)
+      best = SC_AVERAGE;
+
+    return best;
+}
 
 #endif

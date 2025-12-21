@@ -1,6 +1,7 @@
 #ifndef __GAME_UTIL__
 #define __GAME_UTIL__
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include "game_common.h"
@@ -13,6 +14,34 @@
 #define CALL_FUNC(type, ptr, ...) ((type)(ptr))(__VA_ARGS__)
 #define MAKE_ADAPTER(name, T) \
     static void name##_Adapter(void *p) { name((T)p); }
+
+
+typedef struct{
+  uint32_t type_id;
+  void*    data;
+  size_t   size;
+}param_t;
+
+static param_t ParamMake(uint32_t type, size_t size, const void* src) {
+    param_t o;
+    o.type_id = type;
+    o.size = size;
+    o.data = malloc(size);
+    memcpy(o.data, src, size);
+    return o;
+}
+
+static inline int ParamReadInt(const param_t* o) {
+    assert(o->type_id == DATA_INT);
+    assert(o->size == sizeof(int));
+    return *(int*)o->data;
+}
+
+static void ParamFree(param_t* o) {
+    free(o->data);
+    o->data = NULL;
+}
+
 //====FILE & STRINGS====>
 char* GetFileStem(const char* filename);
 //<==========
@@ -25,8 +54,11 @@ typedef struct choice_s choice_t;
 typedef struct choice_pool_s choice_pool_t;
 typedef void (*OnChosen)(choice_pool_t* pool, choice_t* self);
 
-typedef choice_pool_t (*ChoiceFn)(choice_pool_t *pool);
+void DiscardChoice(choice_pool_t* pool, choice_t* self);
+
+typedef choice_t* (*ChoiceFn)(choice_pool_t *pool);
 choice_t* ChooseBest(choice_pool_t* pool);
+choice_t* ChooseByWeight(choice_pool_t* pool);
 
 struct choice_s{
   int       score;

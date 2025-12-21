@@ -8,6 +8,7 @@
 #include "game_define.h"
 #include "game_lists.h"
 
+#define MAX_SKILL_GAIN 200
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
@@ -152,16 +153,48 @@ static inline MobRules GetMobRulesByMask(uint64_t rules, MobRule mask){
   return rules & mask;
 }
 
+static inline bool ProfHasAnyRules(Profession p, uint64_t rules) {
+    return (DEFINE_PROF[p].rules & rules) != 0;
+}
+
+static inline int FilterProfsByRules(uint64_t rules, define_prof_t* in, int size, define_prof_t *pool) {
+    int count = 0;
+
+    for (int i = 0; i < size; i++) {
+
+      if (!ProfHasAnyRules(in[i].id, rules))
+        continue;
+
+      pool[count++] = in[i];
+    }
+    return count;
+}
+
+static inline int GetProfessionsBySociety(SocietyType s, define_prof_t *pool) {
+    int count = 0;
+
+    for (int i = 0; i < PROF_END; i++) {
+        if (DEFINE_PROF[i].social_weights[s]==0)
+          continue;
+    
+        pool[count++] = DEFINE_PROF[i];
+    }
+    return count;
+}
+
 struct dice_roll_s;
 typedef int (*DiceRollFunction)(struct dice_roll_s* d);
-
+typedef bool (*DiceCompareCallback)(int a, int b);
 typedef struct dice_roll_s{
-  int              sides,num_die;
+  int                 sides,num_die, advantage;
+  DiceCompareCallback cb;
   DiceRollFunction roll;
 }dice_roll_t;
 
 int RollDie(dice_roll_t* d);
+int RollDieAdvantage(dice_roll_t* d);
 dice_roll_t* Die(int side, int num);
+dice_roll_t* InitDie(int side, int num, int adv, DiceRollFunction fn);
 typedef struct env_s env_t;
 static inline bool LESS_THAN(int a, int b){
   return a<b;
@@ -179,13 +212,36 @@ struct attribute_s;
 typedef bool (*AttributeCallback)(struct attribute_s *a);
 
 typedef struct attribute_s{ 
-  int                 val,min,max;
+  int                 val,min,max,cap;
   float               rollover,asi;
+  bool                event[ASI_DONE];
   AttributeCallback   expand;
+  int                 development;
 }attribute_t;
 
 bool AttributeScoreIncrease(attribute_t* a);
+bool AttributeScoreEvent(attribute_t* a);
+static void AttributeReset(attribute_t* a, int val){
+  a->max = a->min = a->val = val;
+}
+static bool AttributeMaxOut(attribute_t* a){
+  if(a->val < a->max){
+    a->val = a->max;
+    return true;
+  }
+  else
+    return false;
+}
 
+static AsiEvent GetAsiEventForLevel(int lvl) {
+    if (lvl == 20) return ASI_LVL_CAP;
+    if (is_perfect_square(lvl)) return ASI_LVL_SQUARE;
+    if (is_prime(lvl)) return ASI_LVL_PRIME;
+    if (lvl % 2 == 0) return ASI_LVL_EVEN;
+    if (is_composite(lvl)) return ASI_LVL_COMPOSITE;
+    if (lvl == 1) return ASI_INIT;
+    return ASI_LVL_EVERY; // fallback
+}
 attribute_t* InitAttribute(AttributeType type, int val);
 
 typedef bool (*ActionKeyCallback)(struct ent_s* e, ActionType a, KeyboardKey k);
@@ -245,6 +301,7 @@ struct ent_s;   // forward declaration
 typedef void (*CooldownCallback)(void* params);
 
 typedef struct{
+  event_uid_i       eid;
   EventType         type;
   int               duration;
   int               elapsed;
@@ -260,17 +317,41 @@ cooldown_t* InitCooldown(int dur, EventType type, CooldownCallback on_end_callba
 void UnloadCooldown(cooldown_t* cd);
 
 typedef struct{
+  StepType    when_step;
   cooldown_t  cooldowns[MAX_EVENTS];
   bool        cooldown_used[MAX_EVENTS];
 }events_t;
 
 events_t* InitEvents();
 void UnloadEvents(events_t* ev);
+event_uid_i RegisterEvent(EventType type, cooldown_t* cd, int ent_id, StepType when);
 int AddEvent(events_t* pool, cooldown_t* cd);
 void StepEvents(events_t* pool);
 void StartEvent(events_t* pool, EventType type);
 void ResetEvent(events_t* pool, EventType type);
 bool CheckEvent(events_t* pool, EventType type);
+static inline event_uid_i EventMakeUID(EventType type, uint64_t tick, int iid){
+    return ((uint64_t)type << 48) | ((uint64_t)iid << 32) | (tick & 0x0000FFFFFFFFFFFFULL);
+}
+typedef struct value_s value_t;
+
+typedef bool (*ValueOnChange)(value_t* self, void* ctx);
+bool ValueUpdateDie(value_t* v, void* ctx);
+struct value_s{
+  ValueCategory  cat;
+  int            base, val;
+  value_affix_t* base_app[AFF_DONE];
+  value_affix_t* affixes[AFF_DONE];
+  AttributeType  attr_aff_by, attr_relates_to;
+  StatType       stat_aff_by, stat_relates_to;
+  ValueOnChange  on_change;
+  void*          context;
+};
+
+value_t* InitValue(ValueCategory cat, int base);
+int ValueRebase(value_t* self);
+int ValueApplyModsToVal(int val, value_affix_t* aff);
+void ValueAddBaseMod(value_t* self, item_prop_mod_t mod);
 
 struct stat_s;
 typedef void (*StatFormula)(struct stat_s* self);
@@ -289,26 +370,87 @@ typedef struct stat_s{
   dice_roll_t*  die;
   StatFormula   start,lvl;
   ModifierType  modified_by[ATTR_DONE];
+  bool          reverse;
   struct ent_s  *owner;
+  StatClassif   classif;
   StatGetter ratio;
   StatCallback on_stat_change,on_stat_full, on_stat_empty,on_turn;
 } stat_t;
 
-struct skill_s;
-typedef void (*SkillCallback)(struct skill_s* self, float old, float cur);
+typedef struct{ 
+  StatType       stat; 
+  ModifierType   modifier[ATTR_DONE]; 
+  StatFormula    init,lvl;
+  bool           reverse; 
+}stat_attribute_relation_t; 
 
-typedef struct skill_s{
- SkillType     id;
- int           val,min,max;
- int           point,threshold;
- SkillCallback on_skill_up;
- struct ent_s  *owner;
-}skill_t;
+void FormulaDieAddAttr(stat_t* self);
+void FormulaAddAttr(stat_t* self);
+
+void FormulaDie(stat_t* self);
+void FormulaDieAttr(stat_t* self);
+void FormulaBaseAttr(stat_t* self);
+void FormulaBaseDie(stat_t* self);
+static void FormulaNothing(stat_t* self){}
+
+
+static stat_attribute_relation_t stat_modifiers[STAT_ENT_DONE]={
+  [STAT_REACH]={STAT_REACH,{}, FormulaBaseAttr, FormulaNothing},
+  [STAT_DAMAGE]={STAT_DAMAGE,{[ATTR_STR]=MOD_SQRT},FormulaAddAttr,FormulaAddAttr },
+  [STAT_HEALTH]={STAT_HEALTH,{[ATTR_CON]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
+  [STAT_ARMOR]={STAT_ARMOR,{[ATTR_DEX]=MOD_SQRT},FormulaAddAttr,FormulaAddAttr},
+  [STAT_AGGRO]={STAT_AGGRO,{},FormulaNothing,FormulaNothing},
+  [STAT_ACTIONS]={STAT_ACTIONS,{},FormulaNothing,FormulaNothing},
+  [STAT_ENERGY] = {STAT_ENERGY,{[ATTR_INT]=MOD_ADD,[ATTR_WIS]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
+  [STAT_STAMINA]= {STAT_STAMINA,{[ATTR_CON]=MOD_ADD,[ATTR_DEX]=MOD_ADD,[ATTR_STR]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
+  [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN,{[ATTR_CON]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
+  [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN,{[ATTR_WIS]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
+  [STAT_STAMINA_REGEN_RATE] = {STAT_STAMINA_REGEN_RATE,{[ATTR_CON]=MOD_NEG_SQRT},FormulaDieAddAttr,FormulaDieAddAttr, true},
+  [STAT_ENERGY_REGEN_RATE] = {STAT_ENERGY_REGEN_RATE,{[ATTR_WIS]=MOD_NEG_SQRT},FormulaDieAddAttr,FormulaDieAddAttr,true},
+  [STAT_RAGE] = {.init = FormulaNothing, .lvl = FormulaNothing}
+};
+
+typedef struct{
+  SkillType   skill;
+  SkillRate   rate;
+  int         weights[IR_MAX];
+  int         diminish[IR_MAX];
+  int         falloff;  
+}skill_decay_t;
+
+typedef struct skill_s skill_t;
+typedef void (*SkillCallback)(struct skill_s* self, float old, float cur);
+typedef bool (*SkillOnEvent)(skill_t* self, int gain);
+typedef void (*SkillProficiencyFormula)(skill_t* self);
+
+struct skill_s{
+ SkillType                id;
+ int                      val,min,max,threshold;
+ float                    point;
+ SkillCallback            on_skill_up;
+ SkillOnEvent             on_success,on_use,on_fail;
+ ProficiencyChecks        checks;
+ SkillProficiencyFormula  get_bonus;
+ struct ent_s             *owner;
+ SkillRate                rate;
+};
+
+typedef struct{
+  SkillType           skill;
+  uint16_t            source, target;
+  uint64_t            interact_uid;
+  int                 uses;
+  float               challenge;
+  skill_decay_t*        decay;
+}skill_event_t;
+
+skill_event_t* InitSkillEvent(skill_t* s, int challenge);
+bool SkillUse(skill_t* self, int source, int target, int gain, InteractResult result);
+skill_decay_t* SkillEventDecay(SkillType skill, int difficulty);
+bool SkillWeightedGain(skill_t* self, int gain);
 
 skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max);
 bool SkillIncrease(struct skill_s* self, int amnt);
-void FormulaDieAddAttr(stat_t* self);
-void FormulaDie(stat_t* self);
 
 stat_t* InitStatOnMin(StatType attr, float min, float max);
 stat_t* InitStatOnMax(StatType attr, float val, AttributeType modified_by);
@@ -356,48 +498,10 @@ typedef struct {
 typedef struct{
   int          id;
   ItemCategory cat;
-  int          equip_type,rarity;
+  int          equip_type;
+  ItemProps    props;
+  uint64_t     et_props;
 }ItemInstance;
-
-typedef struct{
-  ArmorType          type;
-  int                armor_class;
-  damage_reduction_t dr_base,dr_rarity;
-  int                weight,cost;
-  AttributeType      modifier,required;
-  int                mod_max, req_min;
-  bool               disadvantage[STAT_DONE];
-}armor_def_t;
-
-typedef struct{
-  WeaponType      type;
-  int             cost,weight,die,side;
-  DamageType      dtype;
-  int             stats[STAT_ENT_DONE];
-  bool            props[PROP_ALL];
-  AbilityID       ability;
-  uint64_t        skill;
-}weapon_def_t;
-
-extern armor_def_t ARMOR_TEMPLATES[ARMOR_DONE];
-extern weapon_def_t WEAPON_TEMPLATES[WEAP_DONE];
-
-typedef struct{
-  int     propID;
-  int     stat_change[STAT_DONE];
-}item_prop_mod_t;
-
-typedef struct {
-  int         id;
-  MonsterSize size;
-  char        name[MAX_NAME_LEN];
-  int         min,max;
-  float       cr;
-  int         budget;
-  SpawnType   spawn;
-  GearID      items[ITEM_DONE];
-  AbilityID   abilities[6];
-} ObjectInstance;
 
 typedef struct{
   Cell        coords;
@@ -438,8 +542,6 @@ Cell MapApplyContext(map_grid_t* m);
 EntityType MobGetByRules(MobRules rules);
 MobCategory GetEntityCategory(EntityType t);
 SpeciesType GetEntitySpecies(EntityType t);
-ObjectInstance GetEntityData(EntityType t);
-item_prop_mod_t GetItemProps(ItemInstance data);
 
 int ResistDmgLookup(uint64_t trait);
 #endif

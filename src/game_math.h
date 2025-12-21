@@ -99,7 +99,6 @@ static inline int imin(int a, int b) {
     return (a < b) ? a : b;
 }
 
-
 static inline int imax(int a, int b) {
     return (a > b) ? a : b;
 }
@@ -108,6 +107,27 @@ static int clamp_to_interval(int val, int ntrvl){
   if(ntrvl <=0)
     return val;
   return((val + ntrvl -1)/ntrvl)*ntrvl;
+}
 
+static inline bool is_prime(int n) {
+    if (n <= 1) return false;
+    if (n <= 3) return true;
+    if (n % 2 == 0 || n % 3 == 0) return false;
+
+    for (int i = 5; i * i <= n; i += 6) {
+        if (n % i == 0 || n % (i + 2) == 0)
+            return false;
+    }
+    return true;
+}
+
+static inline bool is_composite(int n) {
+    return (n > 1 && !is_prime(n));
+}
+
+static inline bool is_perfect_square(int n) {
+    if (n < 1) return false;
+    int r = (int)sqrt((double)n);
+    return r * r == n;
 }
 #endif

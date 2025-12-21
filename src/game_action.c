@@ -21,13 +21,13 @@ bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k){
  if(!EntCanTakeAction(e))
     return false;
 
-  if(cell_compare(e->facing,CELL_EMPTY))
+  if(cell_compare(e->facing,CELL_EMPTY) || cell_compare(e->facing,CELL_UNSET))
     return false;
 
   TileStatus* status =malloc(sizeof(TileStatus));
   ent_t* target = MapGetOccupant(e->map, e->facing, status);
   if(target)
-    return EntUseAbility(e, e->abilities[1], target);
+    return EntUseAbility(e, e->abilities[0], target);
 
   return false;
 }

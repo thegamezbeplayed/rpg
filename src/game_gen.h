@@ -207,11 +207,13 @@ typedef enum{
   MOB_LOC_DUNGEON       = BIT64(16),
   MOB_LOC_CAVE          = BIT64(17),
   MOB_LOC_FOREST        = BIT64(18),
+  MOB_LOC_ANY           = BIT64(19),
   MOB_LOC_MASK          = 0xFFULL << 16,
 
   MOB_THEME_CRITTER     = BIT64(24),
   MOB_THEME_PRIMITIVE   = BIT64(25),
   MOB_THEME_MARTIAL     = BIT64(26),
+  MOB_THEME_CIVIL       = BIT64(27),
   MOB_THEME_MASK        = 0xFFULL << 24,
 
   MOB_FREQ_COMMON      = BIT64(32),

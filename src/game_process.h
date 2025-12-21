@@ -10,6 +10,9 @@
 
 #define MAX_INTERACTIONS 256
 #define DEBUG false
+#define TURN WorldGetTurn()
+
+static int WORLD_TICK;
 static int CURRENT_ENT_IDENTIFIER = 0;
 extern ent_t* player;
 
@@ -29,14 +32,35 @@ static bool FilterEntInRect(ent_t* e, void* params){
 }
 
 //INTERACTIONS_T===>
-typedef struct {
-  int             source_uid; //uid of who interacted (body, ent)
-  int             target_uid; //uid of interactee (body, ent)
-  cooldown_t*     timer;
-} interaction_t;
+typedef struct interaction_s interaction_t;
+typedef uint64_t interaction_uid_i;
+typedef interaction_uid_i (*InteractionCB)(interaction_t* self, void* ctx, param_t payload);
+
+struct interaction_s {
+  interaction_uid_i uid;
+  EventType         event;
+  InteractResult    result;
+  void*             ctx;
+  cooldown_t*       timer;
+  bool              refresh_on_update;
+  InteractionCB     on_update, on_add;
+};
+
+static inline interaction_uid_i InteractionMakeUID(EventType type, uint16_t context_id,
+    uint16_t source_id,
+    uint16_t target_id){
+  return ((uint64_t)(type       & 0xFFFF) << 48) |
+    ((uint64_t)(context_id & 0xFFFF) << 32) |
+    ((uint64_t)(source_id  & 0xFFFF) << 16) |
+    ((uint64_t)(target_id  & 0xFFFF));  
+}
 
 int InitInteractions();
-interaction_t* EntInteraction(unsigned int source, unsigned int target, int duration);
+interaction_t* RegisterInteraction(uint16_t source, uint16_t target, EventType event, int duration, void* ctx, uint16_t ctx_id);
+interaction_t* StartInteraction(uint16_t source, uint16_t target, EventType event,
+    int duration, void* ctx, uint16_t ctx_id, param_t data, InteractionCB add, InteractionCB update, bool refresh);
+int InteractionExists(interaction_uid_i uid);
+interaction_t* GetInteractionByUID(interaction_uid_i uid);
 bool AddInteraction(interaction_t* inter);
 bool CanInteract(int source, int target);
 int GetInteractions(int source);
@@ -45,10 +69,14 @@ void FreeInteractionByIndex(int i);
 void FreeInteractions();
 void InteractionStep();
 //==INTERACTIONS_T==>
+interaction_uid_i RegisterSkillEvent(interaction_t* self, void* ctx, param_t payload);
+interaction_uid_i UpdateSkillEvent(interaction_t* self, void* ctx, param_t payload);
+
+
 //EVENTS==>
 
 typedef enum{
-  PROCESS_NONE,
+  PROCESS_NONE = -1,
   PROCESS_LEVEL,
   PROCESS_DONE
 }ProcessType;
@@ -107,9 +135,10 @@ void AddPoints(float mul,float points,Vector2 pos);
 //===WORLD_T===>
 
 typedef struct{
-  ObjectInstance  ents[1];
-  unsigned int    num_ents;
+  int     num_turn;
 }world_data_t;
+
+world_data_t* InitWorldData(void);
 
 typedef struct world_s{
   map_grid_t    *map;
@@ -122,6 +151,8 @@ typedef struct world_s{
   env_t*        envs[MAX_ENVS];
   render_text_t *texts[MAX_EVENTS];
   bool          floatytext_used[MAX_EVENTS];
+  events_t      *events[STEP_DONE]; 
+  world_data_t  *data;
   stat_t        *time;
 } world_t;
 
@@ -137,6 +168,7 @@ map_cell_t* WorldGetTile(Cell pos);
 map_grid_t* WorldGetMap(void);
 int WorldGetEnts(ent_t** results,EntFilterFn fn, void* params);
 bool WorldGetTurnState(void);
+bool WorldAddEvent(event_uid_i eid, cooldown_t* cd, StepType when);
 bool RegisterBehaviorTree(BehaviorData data);
 bool RegisterEnt( ent_t *e);
 bool RegisterEnv( env_t *e);
@@ -148,9 +180,10 @@ void WorldFixedUpdate();
 void WorldPostUpdate();
 void WorldEndTurn(void);
 void WorldTurnUpdate(void* context);
-void InitWorld(world_data_t data);
+void InitWorld(void);
 void WorldRender();
 Rectangle WorldRoomBounds();
 const char* GetWorldTime();
+int WorldGetTurn(void);
 #endif
 

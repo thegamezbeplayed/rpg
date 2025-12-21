@@ -33,6 +33,7 @@ void PostUpdate(void){
 // Gameplay Screen Update logic
 void UpdateGameplayScreen(void)
 {
+  WORLD_TICK++;
   if(player)
     ScreenCameraSync( WorldPlayer()->pos );
   

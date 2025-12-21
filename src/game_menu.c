@@ -6,8 +6,6 @@
 #include "game_ui.h"
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
-static dice_roll_t selection = {6,1,RollDie};
-
 
 void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color baseColor) { }
 ui_manager_t ui;
@@ -474,15 +472,6 @@ bool UIGetPlayerAttributeName(ui_element_t* e){
 }
 
 bool UISelectOption(ui_element_t* e){
-  ui_element_t* die = ElementGetChild(ui.menus[MENU_OPTIONS].element,hash_str("DIE_ICON"));
-
-  int* selection = die->value->i;
-
-  CATEGORY_STATS[MOB_PLAYER].attr[e->index-1] += *selection;
-
-  //*die->value = die->get_val(die);
-  strcpy(die->text,TextFormat("%i",*die->value->i));
-
 }
 
 bool UITransitionScreen(ui_element_t* e){
@@ -583,6 +572,7 @@ element_value_t GetDisplayHealth(ui_element_t* e){
 
 
 element_value_t GetSelectionRoll(ui_element_t* e){
+/*
   element_value_t ev = {0};
   ev.rate = FETCH_ACTIVE;
   ev.type = VAL_INT;
@@ -590,4 +580,5 @@ element_value_t GetSelectionRoll(ui_element_t* e){
   *ev.i = selection.roll(&selection);
 
   return ev;
+  */
 }
