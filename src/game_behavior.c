@@ -104,7 +104,12 @@ BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
   if(CellDistGrid(e->pos,player->pos) > e->stats[STAT_AGGRO]->current)
     return BEHAVIOR_FAILURE;
 
-  e->control->target = player;
+  ent_t* tar = player;
+  Cell next;
+
+  if(!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next,50,TileBlocksSight))
+    return BEHAVIOR_FAILURE;
+  e->control->target = tar;
   return BEHAVIOR_SUCCESS;
 }
 
@@ -118,7 +123,7 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
 
   ent_t* tar = e->control->target;
   Cell next;
-  if (!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next,70))
+  if (!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next,70,TileBlocksMovement))
     return BEHAVIOR_FAILURE;
 
   e->control->destination = cell_dir(e->pos,next);
@@ -155,7 +160,7 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
 
   Cell tar = CellInc(e->pos,e->control->destination);
   Cell next;
-  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next,35)){
+  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next,35,TileBlocksMovement)){
     e->control->destination = CELL_UNSET;
     return BEHAVIOR_FAILURE;
   }

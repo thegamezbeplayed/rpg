@@ -35,6 +35,7 @@ static void AggroEnsureCapacity(aggro_table_t* t);
 int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul);
 void AggroDecayCallback(void* params);
 void AggroPrune(aggro_table_t* t);
+aggro_entry_t* AggroGetEntry(aggro_table_t* table, ent_t* source);
 
 typedef struct{
   SpeciesType   race;
@@ -46,8 +47,10 @@ typedef struct{
 }properties_t;
 properties_t* InitProperties(race_define_t racials);
 
-typedef bool (*AbilityCallback)(struct ent_s* owner,  struct ability_s* chain, struct ent_s* target);
-
+typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, struct ent_s* target, InteractResult result);
+typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, ent_t* target);
+typedef InteractResult (*AbilitySave)(ent_t* owner,  ability_t* a, ability_t* source);
+bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result);
 struct ability_s{
   AbilityID        id;
   DamageType       school;
@@ -56,18 +59,38 @@ struct ability_s{
   int              weight,cost,hdie,die,side,bonus,reach;
   StatType         damage_to;
   AttributeType    save,mod;
-  AbilityID        chain;
-  SkillType        skill;
+  AbilityID        chain_id;
+  int              num_skills;
+  SkillType        skills[3];
   dice_roll_t*     dc,*hit;
   stat_t*          stats[STAT_ENT_DONE];
-  struct ability_s *on_success;
+  ability_t        *chain;
   value_t*         values[VAL_ARMOR];
-  AbilityCallback  on_success_fn;
+  AbilityCb        on_success_cb, on_use_cb;
+  AbilityFn        use_fn, chain_fn;
+  AbilitySave      save_fn;
 };
+
+typedef struct{
+  ActionSlot     id;
+  ent_t*         owner;
+  bool           filled;
+  int            count, cap, size, space, rank;
+  ability_t      *abilities;
+}action_slot_t;
+
+action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap);
 
 extern ability_t ABILITIES[ABILITY_DONE];
 void AbilityApplyValues(ability_t* self, value_t* v);
 ability_t AbilityLookup(AbilityID id);
+ability_t* InitAbility(ent_t* owner, AbilityID);
+ability_t* InitAbilityDummy(ent_t* owner, ability_t copy);
+bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target);
+ability_t* EntChooseWeightedAbility(ent_t* e, int budget);
+InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_t* source);
+InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_t* source);
+
 
 typedef struct item_def_s{
   int id;
@@ -76,7 +99,8 @@ typedef struct item_def_s{
   damage_reduction_t  *dr; //TODO MOVE TO VALUE_T
   value_t             *values[VAL_ALL];
   AbilityID           ability;
-  SkillType           skill;
+  int                 num_skills;
+  SkillType           skills[3];
   sprite_t            *sprite;     // icon
 }item_def_t;
 
@@ -98,7 +122,8 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item);
 
 typedef struct{
   ItemCategory      cat;
-  ItemEquipCallback on_equip, on_use;
+  int               num_equip;
+  ItemEquipCallback on_equip[2], on_use;
 }item_fn_t;
 extern item_fn_t item_funcs[ITEM_DONE];
 typedef struct{
@@ -143,8 +168,9 @@ typedef struct ent_s{
   skill_t*              skills[SKILL_DONE];
   traits_t              *traits;
   properties_t          *props;
-  int                   num_abilities;
-  ability_t*            abilities[6];
+  action_slot_t         *slots[SLOT_ALL];
+  int                   num_abilities;//TODO MOVE TO SLOTS ==>
+  ability_t*            abilities[6];//<===
   EntityType            type;
   map_grid_t*           map;
   Cell                  pos,facing;
@@ -173,12 +199,10 @@ item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
 bool EntAddItem(ent_t* e, item_t* item, bool equip);
 void EntToggleTooltip(ent_t* e);
 void EntInitOnce(ent_t* e);
-ability_t* InitAbility(ent_t* owner, AbilityID);
-ability_t* EntChooseWeightedAbility(ent_t* e, int budget);
 //attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source);
-bool EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
+InteractResult EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
 void EntSync(ent_t* e);
 void EntTurnSync(ent_t* e);
 void EntResetRegen(stat_t* self, float old, float cur);

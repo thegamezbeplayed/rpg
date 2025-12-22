@@ -271,7 +271,8 @@ bool RegisterEnt( ent_t *e){
   if(e->type == ENT_PERSON){
     player = e;
 
-    EntAddExp(player,400);
+    EntAddExp(player,200);
+    EntAddExp(player,200);
     WorldTestPrint();
   }
 

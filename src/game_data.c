@@ -5,29 +5,30 @@
 #include <stdio.h>
 
 ability_t ABILITIES[ABILITY_DONE]={
+  {ABILITY_NONE},
   {ABILITY_WACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 5, 1, 3,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
-    .skill = SKILL_WEAP_NONE},
+    .skills[0] = SKILL_WEAP_NONE},
   {ABILITY_BITE, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR,
-    .skill = SKILL_WEAP_NONE},
+    .skills = SKILL_WEAP_NONE},
   {ABILITY_CHEW, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2,0, 1, STAT_ARMOR, ATTR_NONE, ATTR_NONE, ABILITY_GNAW, 
-    .skill = SKILL_WEAP_NONE},
+    .skills = SKILL_WEAP_NONE},
   {ABILITY_GNAW, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
-    .skill = SKILL_WEAP_NONE},
+    .skills = SKILL_WEAP_NONE},
   {ABILITY_CLAW, DMG_SLASH, STAT_STAMINA, DES_NONE, 50,2, 6, 2, 3, 1, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
-    .skill = SKILL_WEAP_NONE},
+    .skills = SKILL_WEAP_NONE},
   {ABILITY_SWIPE, DMG_SLASH,STAT_STAMINA, DES_NONE, 50,2, 6, 2, 6, 3,1, STAT_HEALTH, ATTR_STR,
-    .skill = SKILL_WEAP_NONE},
+    .skills = SKILL_WEAP_NONE},
   {ABILITY_BITE_POISON, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, SKILL_WEAP_NONE},
   {ABILITY_POISON, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,STAT_HEALTH, ATTR_CON, ATTR_NONE,
-    .skill = SKILL_POISON},
+    .skills = SKILL_POISON},
   {ABILITY_MAGIC_MISSLE ,DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE,ABILITY_NONE, SKILL_SPELL_EVO},
   {ABILITY_ELDRITCH_BLAST,DMG_FORCE, STAT_ENERGY, DES_MULTI_TARGET, 20, 8, 0,1, 10,3, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
-   .skill = SKILL_SPELL_EVO },
+   .skills = SKILL_SPELL_EVO },
   {ABILITY_RESISTANCE,
-    .skill = SKILL_SPELL_ABJ
+    .skills = SKILL_SPELL_ABJ
   },
   {ABILITY_SACRED_FLAME, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8, 4, 1, 8, 0, 5, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
-    .skill = SKILL_SPELL_EVO},
+    .skills = SKILL_SPELL_EVO},
   {ABILITY_STARRY_WISP, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8,0 , 1, 8, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_WIS},
   {ABILITY_MAGIC_STONE, DMG_BLUNT, STAT_ENERGY, DES_MULTI_TARGET, 15, 3, 1, 1, 6, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_INT},
   {ABILITY_POISON_SPRAY, DMG_POISON, STAT_ENERGY, DES_SELECT_TARGET, 12, 8, 0, 1,10,0,3, STAT_HEALTH, ATTR_CON, ATTR_NONE},
@@ -55,12 +56,22 @@ ability_t ABILITIES[ABILITY_DONE]={
     DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1,15,1,4,0,1,STAT_HEALTH,ATTR_NONE, ATTR_DEX},
   {ABILITY_STATUS},
   {ABILITY_BLEED, DMG_BLEED, STAT_STAMINA, DES_NONE, 0, 0, 4, 1, 6, 2,1, STAT_HEALTH, ATTR_CON,ATTR_STR},
+  {ABILITY_ARMOR},
+  {ABILITY_ARMOR_SAVE, .chain_id = ABILITY_ARMOR_DR, .save_fn = EntAbilitySave},
+  {ABILITY_ARMOR_DR},
+  {ABILITY_ITEM},
+  {ABILITY_ITEM_HEAL, DMG_RADIANT, STAT_NONE, DES_SELF, 10, 1, 1, 2,4,2,0, STAT_HEALTH, ATTR_NONE, ATTR_NONE,.skills=SKILL_ALCH
+  }
 };
 
 item_fn_t item_funcs[ITEM_DONE] = {
   {ITEM_NONE},
-  {ITEM_WEAPON,.on_equip=ItemAddAbility},
-  {ITEM_ARMOR,.on_equip=ItemApplyStats},
+  {ITEM_WEAPON,.num_equip = 1, .on_equip= ItemAddAbility},
+  {ITEM_ARMOR,.num_equip = 2, .on_equip=
+    {
+      ItemApplyStats, ItemAddAbility
+    }
+  },
   {ITEM_DONE}
 };
 
@@ -255,8 +266,9 @@ int ValueApplyModsToVal(int val, value_affix_t* aff){
   return result;
 }
 
-void ValueAddBaseMod(value_t* self, item_prop_mod_t mod){
-  ValueAffix aff = mod.type;
+void ValueAddBaseMod(value_t* self, item_prop_mod_t prop_mod){
+  value_affix_t mod = prop_mod.val_change;
+  ValueAffix aff = mod.affix;
 
   if(self->base_app[aff]){
     int val = self->base_app[aff]->val;
@@ -278,34 +290,29 @@ void ValueAddBaseMod(value_t* self, item_prop_mod_t mod){
     }
   }
   else{
-    self->base_app[aff] = InitValueAffixFromMod(&mod);
+    self->base_app[aff] = InitValueAffixFromMod(&prop_mod);
   }
 }
 
 value_affix_t* InitValueAffixFromMod(item_prop_mod_t* mod){
   value_affix_t* va = calloc(1,sizeof(value_affix_t));
 
-  AffixFn fn = AffixBase;
-  switch(mod->type){
+  *va = mod->val_change;
+  va->affix_mod = AffixBase;
+  switch(va->affix){
     case AFF_ADD:
-      fn = AffixAdd;
+      va->affix_mod = AffixAdd;
       break;
     case AFF_SUB:
-      fn = AffixSub;
+      va->affix_mod = AffixSub;
       break;
     case AFF_MUL:
-      fn = AffixMul;
+      va->affix_mod = AffixMul;
       break;
     case AFF_FRACT:
-      fn = AffixFract;
+      va->affix_mod = AffixFract;
       break;
   }
-  *va = (value_affix_t){
-    .modifies = mod->modifies,
-    .affix    = mod->type,
-    .val      = mod->val,
-    .affix_mod  = fn
-  };
 
   return va;
 }
@@ -517,6 +524,10 @@ skill_event_t* InitSkillEvent(skill_t* s, int cr){
   };
 }
 
+bool SkillUseSecondary(skill_t* self, int gain, InteractResult result){
+  
+}
+ 
 bool SkillUse(skill_t* self, int source, int target, int gain, InteractResult result){
   int* cr = malloc(sizeof(int));
   *cr = gain;
@@ -532,9 +543,16 @@ bool SkillUse(skill_t* self, int source, int target, int gain, InteractResult re
   skill_event_t* skev = iter->ctx;
   skill_decay_t* sk_decay = skev->decay;
 
-  float amnt = (float)sk_decay->weights[result]/100;
-  float decay = (float)sk_decay->diminish[result]/100;
-  
+  float amnt = sk_decay->weights[result];
+  float decay = sk_decay->diminish[result];
+  if(decay == 0)
+   decay = 50; 
+
+  if(amnt == 0)
+    amnt = 75;
+
+  decay*=0.01f;
+  amnt*=0.01f;
   int increase = gain * amnt;
 
 
@@ -609,7 +627,8 @@ skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
     .max = max,
     .point = 0,
     .threshold = 350,
-    .owner = owner
+    .owner = owner,
+    .on_skill_up = SkillupRelated
   };
   return s;
 
@@ -633,6 +652,18 @@ bool SkillIncrease(struct skill_s* s, int amnt){
   TraceLog(LOG_INFO,"%s has reached %i rank %i",s->owner->name, s->id, s->val);
   if(s->on_skill_up)
     s->on_skill_up(s,old,s->val);
+}
+
+void SkillupRelated(skill_t* self, float old, float cur){
+  skill_relation_t related =  SKILLUP_RELATION[self->id];
+
+  for (int i = 0; i < MAG_DONE; i++){
+    SkillType rel = related.magnitude[i];
+    if (rel == SKILL_NONE)
+      continue;
+    SkillIncrease(self->owner->skills[rel], cur * i);
+
+  }
 }
 
 SkillRate SkillRateLookup(SkillType){

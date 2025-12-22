@@ -71,12 +71,12 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
   },
   [STAT_AGGRO] = {
     [SC_MIN]     = 0,
-    [SC_INFER]   = 1,
+    [SC_INFER]   = 2,
     [SC_BELOW]   = 4,
-    [SC_AVERAGE] = 9,
-    [SC_ABOVE]   = 16,
-    [SC_SUPER]   = 25,
-    [SC_MAX]     = 36
+    [SC_AVERAGE] = 6,
+    [SC_ABOVE]   = 8,
+    [SC_SUPER]   = 10,
+    [SC_MAX]     = 12
   },
   /*
   [STAT_STEALTH] = {
@@ -158,9 +158,9 @@ static skill_name_t SKILL_STRING[SKILL_DONE] = {
 
 static define_skill_rate_t  SKILL_RATES[RATE_DONE]={
   {RATE_NONE},
-  {RATE_LINEAR, 
+  {RATE_LINEAR,
     {[IR_FAIL] = 100, [IR_SUCCESS] = 100},
-    {[IR_NONE] = 75},
+    {[IR_FAIL] = 75,[IR_SUCCESS] = 75},
     20
   },
   {RATE_REWARD,
@@ -168,9 +168,19 @@ static define_skill_rate_t  SKILL_RATES[RATE_DONE]={
     {[IR_FAIL] = 75, [IR_SUCCESS] = 90},
     30
   },
-  {RATE_RISK,
-    {[IR_FAIL] = 100, [IR_SUCCESS] = 75},
-    {[IR_NONE] = 75},
+  {RATE_REWARD_SLOW,
+    {[IR_FAIL] = 50, [IR_SUCCESS] = 75},
+    {[IR_FAIL] = 67, [IR_SUCCESS] = 80},
+    30
+  },
+  {RATE_RISK, 
+    {
+      [IR_FAIL] = 100,
+      [IR_CRITICAL_FAIL] = 110,
+      [IR_SUCCESS] = 75,
+      [IR_TOTAL_SUCC] = 50
+    },
+    {[IR_FAIL] = 90, [IR_SUCCESS]=50},
     40
   }
 };
@@ -181,6 +191,15 @@ static skill_rate_relation_t SKILLRATE_LOOKUP[RATE_DONE]={
   {RATE_REWARD,
     {
       [SKILL_WEAP_MART]=true,
+    }
+  },
+  {RATE_REWARD_SLOW,
+    {
+      [SKILL_ARMOR_NATURAL] = true,
+      [SKILL_ARMOR_PADDED] = true,
+      [SKILL_ARMOR_LEATHER] = true,
+      [SKILL_ARMOR_CHAIN] = true,
+      [SKILL_ARMOR_PLATE] = true,
     }
   },
   {RATE_ALL_OR_NOTHING,
@@ -230,7 +249,7 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
     PQ_SMALL | PQ_LIGHT | PQ_BIPED | PQ_THICK_SKIN,
     MQ_TERRITORIAL | MQ_SENTIENT | MQ_ANXIOUS | MQ_CUNNING | MQ_CAUTIOUS | MQ_OBEDIENT,
     0,
-    0.25
+    1
   },
   {SPEC_ORC, "Orc", ENT_ORC,
     RACE_CLASS_SOLDIER | RACE_CLASS_BERSERKER | RACE_CLASS_ARCHER | RACE_CLASS_DRUID | RACE_CLASS_WARLOCK |
@@ -244,7 +263,7 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
       PQ_LONG_LIMB | PQ_SMALL_HEAD | PQ_BIPED | PQ_LARGE_HANDS | PQ_THICK_SKIN | PQ_DENSE_MUSCLE,
       MQ_OBLIVIOUS | MQ_SENTIENT | MQ_AGGRESSIVE | MQ_TERRITORIAL,
       0,
-      0.33
+      1.25
   },
   {SPEC_ARTHROPOD},
   {SPEC_ETHEREAL},
@@ -653,5 +672,18 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
     SPEC_GOBLINOID | SPEC_ORC | SPEC_ARCHAIN
   },
 
+};
+
+static skill_relation_t SKILLUP_RELATION[SKILL_DONE] = {
+  [SKILL_WEAP_SIMP] = {SKILL_WEAP_SIMP,
+    {
+     [MAG_MINOR] = SKILL_LVL
+    }
+  },
+  [SKILL_WEAP_MART] = {SKILL_WEAP_MART,
+    {
+     [MAG_MODEST] = SKILL_LVL
+    }
+  }
 };
 #endif

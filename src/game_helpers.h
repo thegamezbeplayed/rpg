@@ -3,6 +3,8 @@
 
 #include "game_common.h"
 
+typedef bool (*TileBlock)(map_cell_t *c);
+
 
 typedef struct {
     int x, y;
@@ -817,7 +819,8 @@ static bool room_has_access(map_context_t* ctx, cell_bounds_t room,Cell *access)
   
     return false;
 }   
-static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep, int depth){
+
+static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep, int depth, TileBlock fn){
     // Early out: same tile
     if (sx == tx && sy == ty)
         return false;
@@ -885,7 +888,7 @@ static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNex
             int ny = current->y + dirs[i][1];
 
             if (!InBounds(m, nx, ny)) continue;
-            if (TileBlocksMovement(&m->tiles[nx][ny])) continue;
+            if (fn(&m->tiles[nx][ny])) continue;
 
             path_node_t *neighbor = &nodes[nx][ny];
             if (neighbor->closed) continue;

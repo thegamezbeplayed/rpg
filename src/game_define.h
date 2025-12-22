@@ -7,7 +7,7 @@
 #define NUM_CLASS 15
 
 #define NUM_ITEM_PROPS 18
-#define NUM_WEAP_PROPS 7
+#define NUM_WEAP_PROPS 8
 
 typedef enum{
   SPEC_NONE       = BIT64(0),
@@ -158,6 +158,11 @@ typedef struct{
   SkillRate   rate;
   bool        skills[SKILL_DONE];
 }skill_rate_relation_t;
+
+typedef struct{
+  SkillType     main;
+  SkillType     magnitude[MAG_DONE];
+}skill_relation_t;
 
 SkillRate SkillRateLookup(SkillType);
 typedef enum {
@@ -1050,14 +1055,21 @@ typedef enum{
   PROP_WEAP_NONE        = 0,
   PROP_WEAP_LIGHT       = BIT64(0),
   PROP_WEAP_HEAVY       = BIT64(1),
-  PROP_WEAP_MARTIAL     = BIT64(2),
-  PROP_WEAP_TWO_HANDED  = BIT64(3),
-  PROP_WEAP_REACH       = BIT64(4),
-  PROP_WEAP_RANGED      = BIT64(5),
-  PROP_WEAP_AMMO        = BIT64(6),
+  PROP_WEAP_SIMP        = BIT64(2),
+  PROP_WEAP_MARTIAL     = BIT64(3),
+  PROP_WEAP_TWO_HANDED  = BIT64(4),
+  PROP_WEAP_REACH       = BIT64(5),
+  PROP_WEAP_RANGED      = BIT64(6),
+  PROP_WEAP_AMMO        = BIT64(7),
 }WeaponProp;
 
+typedef enum{
+  PROP_CONS_NONE       = 0,
+  PROP_CONS_HEAL       = BIT64(0),
+}ConsumeProp;
+
 typedef uint64_t ItemProps;
+typedef uint64_t ConsumeProps;
 typedef uint64_t WeaponProps;
 typedef struct{
   ArmorType          type;
@@ -1078,6 +1090,15 @@ typedef struct{
   AbilityID       ability;
   SkillType       skill;
 }weapon_def_t;
+
+typedef struct{
+  ConsumeType     type;
+  int             cost,weight,quanity,amount;
+  ItemProps       i_props;
+  ConsumeProps    w_props;
+  AbilityID       ability;
+  SkillType       skill;
+}consume_def_t;
 
 extern armor_def_t ARMOR_TEMPLATES[ARMOR_DONE];
 extern weapon_def_t WEAPON_TEMPLATES[WEAP_DONE];
@@ -1100,9 +1121,8 @@ struct value_affix_s{
 
 typedef struct{
   int            propID;
-  int            val;
-  ValueCategory  modifies;
-  ValueAffix     type;
+  value_affix_t  val_change;
+  SkillType      add_skill;
 }item_prop_mod_t;
 
 value_affix_t* InitValueAffixFromMod(item_prop_mod_t* mod);
@@ -1111,12 +1131,15 @@ item_prop_mod_t* GetItemPropMods(ItemProp prop);
 item_prop_mod_t* GetWeapPropMods(WeaponProp prop);
 
 static item_prop_mod_t PROP_MODS[NUM_ITEM_PROPS]={
-  {PROP_QUAL_TRASH,2,VAL_ADV_HIT,AFF_SUB},
-  {PROP_QUAL_TRASH,33,VAL_WORTH,AFF_FRACT},
-  {PROP_QUAL_TRASH,50,VAL_DURI,AFF_FRACT},
-  {PROP_QUAL_POOR,75,VAL_DURI,AFF_FRACT},
-  {PROP_QUAL_POOR,66,VAL_WORTH,AFF_FRACT},
-  {PROP_QUAL_POOR,1,VAL_ADV_HIT,AFF_SUB},
+  {PROP_QUAL_TRASH,
+    .val_change = {VAL_ADV_HIT,AFF_SUB,2}
+  },
+  {PROP_QUAL_TRASH,VAL_WORTH,AFF_FRACT,33},
+  {PROP_QUAL_TRASH,VAL_DURI,AFF_FRACT,50},
+  {PROP_QUAL_POOR,VAL_DURI,AFF_FRACT,75},
+  {PROP_QUAL_POOR,VAL_WORTH,AFF_FRACT,66},
+  {PROP_QUAL_POOR,VAL_ADV_HIT,AFF_SUB,1},
+  /*
   {PROP_QUAL_WELL,125, VAL_WORTH,AFF_FRACT},
   {PROP_QUAL_WELL,120, VAL_DURI,AFF_FRACT},
   {PROP_QUAL_FINE,150, VAL_WORTH,AFF_FRACT},
@@ -1129,13 +1152,23 @@ static item_prop_mod_t PROP_MODS[NUM_ITEM_PROPS]={
   {PROP_QUAL_MASTER,200, VAL_DURI,AFF_FRACT},
   {PROP_QUAL_ARTIFACT,250, VAL_WORTH,AFF_FRACT},
   {PROP_QUAL_ARTIFACT,300, VAL_DURI,AFF_FRACT},
+  */
 };
 
 static item_prop_mod_t WEAP_MODS[NUM_WEAP_PROPS]={
   {PROP_WEAP_LIGHT},
   {PROP_WEAP_HEAVY},
-  {PROP_WEAP_MARTIAL, 1, VAL_PENN, AFF_ADD},
-  {PROP_WEAP_TWO_HANDED, 1, VAL_PENN, AFF_ADD},
+  {PROP_WEAP_SIMP,
+    .add_skill = SKILL_WEAP_SIMP
+  },
+  {PROP_WEAP_MARTIAL,
+
+    .val_change = (value_affix_t){ VAL_PENN, AFF_ADD, 1},
+    .add_skill  = SKILL_WEAP_SIMP
+  },
+  {PROP_WEAP_TWO_HANDED,
+   .val_change = (value_affix_t){ VAL_PENN, AFF_ADD, 1},
+  },
   {PROP_WEAP_REACH},
   {PROP_WEAP_RANGED},
   {PROP_WEAP_AMMO},

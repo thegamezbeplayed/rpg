@@ -370,7 +370,7 @@ typedef struct stat_s{
   dice_roll_t*  die;
   StatFormula   start,lvl;
   ModifierType  modified_by[ATTR_DONE];
-  bool          reverse;
+  bool          reverse,internal;
   struct ent_s  *owner;
   StatClassif   classif;
   StatGetter ratio;
@@ -402,12 +402,24 @@ static stat_attribute_relation_t stat_modifiers[STAT_ENT_DONE]={
   [STAT_AGGRO]={STAT_AGGRO,{},FormulaNothing,FormulaNothing},
   [STAT_ACTIONS]={STAT_ACTIONS,{},FormulaNothing,FormulaNothing},
   [STAT_ENERGY] = {STAT_ENERGY,{[ATTR_INT]=MOD_ADD,[ATTR_WIS]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
-  [STAT_STAMINA]= {STAT_STAMINA,{[ATTR_CON]=MOD_ADD,[ATTR_DEX]=MOD_ADD,[ATTR_STR]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
+  [STAT_STAMINA]= {STAT_STAMINA,{[ATTR_CON]=MOD_ADD,MOD_ADD,[ATTR_STR]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN,{[ATTR_CON]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN,{[ATTR_WIS]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_STAMINA_REGEN_RATE] = {STAT_STAMINA_REGEN_RATE,{[ATTR_CON]=MOD_NEG_SQRT},FormulaDieAddAttr,FormulaDieAddAttr, true},
   [STAT_ENERGY_REGEN_RATE] = {STAT_ENERGY_REGEN_RATE,{[ATTR_WIS]=MOD_NEG_SQRT},FormulaDieAddAttr,FormulaDieAddAttr,true},
-  [STAT_RAGE] = {.init = FormulaNothing, .lvl = FormulaNothing}
+  [STAT_RAGE] = {.init = FormulaNothing, .lvl = FormulaNothing},
+  [STAT_ENDURANCE] = {STAT_ENDURANCE,
+    {
+      [ATTR_CON]=MOD_ADD,[ATTR_STR]=MOD_ADD,[ATTR_DEX] = MOD_ADD
+    },
+    FormulaAddAttr,FormulaAddAttr
+  },
+  [STAT_WILL] = {STAT_WILL,
+    {
+      [ATTR_CHAR]=MOD_ADD,[ATTR_CON]=MOD_SQRT,[ATTR_WIS] = MOD_SQRT, [ATTR_INT] = MOD_SQRT
+    },
+    FormulaAddAttr,FormulaAddAttr
+  }
 };
 
 typedef struct{
@@ -422,6 +434,8 @@ typedef struct skill_s skill_t;
 typedef void (*SkillCallback)(struct skill_s* self, float old, float cur);
 typedef bool (*SkillOnEvent)(skill_t* self, int gain);
 typedef void (*SkillProficiencyFormula)(skill_t* self);
+
+void SkillupRelated(skill_t* self, float old, float cur);
 
 struct skill_s{
  SkillType                id;
@@ -446,6 +460,7 @@ typedef struct{
 
 skill_event_t* InitSkillEvent(skill_t* s, int challenge);
 bool SkillUse(skill_t* self, int source, int target, int gain, InteractResult result);
+bool SkillUseSecondary(skill_t* self, int gain, InteractResult result);
 skill_decay_t* SkillEventDecay(SkillType skill, int difficulty);
 bool SkillWeightedGain(skill_t* self, int gain);
 

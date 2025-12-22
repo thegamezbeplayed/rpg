@@ -208,7 +208,7 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules){
   e->aggro = calloc(1,sizeof(aggro_table_t));
   InitAggroTable(e->aggro, 4, e);
 
-  
+  e->slots[SLOT_ATTACK] = InitActionSlot(SLOT_ATTACK, e, 1, 1);  
   for (int i = 0; i < ATTR_DONE; i++){
     if(!e->attribs[i])
       continue;
@@ -578,7 +578,8 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
         */
       }
     }
-    EntAddExp(e, 400);
+    EntAddExp(e, 200);
+    EntAddExp(e, 200);
     for(int j = 0; j < beef; j++)
       EntAddExp(e, 400);
 
@@ -662,8 +663,8 @@ item_t* InitItem(item_def_t* def){
   };
 
   if(item_funcs[def->category].cat != ITEM_NONE){
-    if(item_funcs[def->category].on_equip)
-      item->on_equip = item_funcs[def->category].on_equip;
+    for(int i = 0; i < item_funcs[def->category].num_equip; i++)
+      item->on_equip = item_funcs[def->category].on_equip[i];
   }
 
   return item;
@@ -675,6 +676,10 @@ item_pool_t* InitItemPool(void) {
     return ip;
 }
 
+item_def_t* DefineConsumable(ItemInstance data){
+
+}
+
 item_def_t* DefineItem(ItemInstance data){
   
   switch(data.cat){
@@ -683,6 +688,8 @@ item_def_t* DefineItem(ItemInstance data){
       break;
     case ITEM_WEAPON:
       return DefineWeapon(data);
+    case ITEM_CONSUMABLE:
+      return DefineConsumable(data);
     default:
       return NULL;
       break;
@@ -719,7 +726,7 @@ item_def_t* DefineWeapon(ItemInstance data){
   item->values[VAL_ADV_HIT] = InitValue(VAL_ADV_HIT,0);
   item->values[VAL_ADV_DMG] = InitValue(VAL_ADV_DMG,0);
  
-  item->skill = temp.skill; 
+  item->skills[item->num_skills++] = temp.skill; 
   item->ability = temp.ability; 
   ApplyWeapProps(item, &temp, data.props, data.et_props);
 
@@ -897,11 +904,23 @@ void EntDestroy(ent_t* e){
   e->control = NULL;
 }
 
+ability_t* InitAbilityDummy(ent_t* owner, ability_t copy){
+  ability_t* a = calloc(1,sizeof(ability_t));
+  *a = copy;
+
+  return a;
+}
+
+
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source){
   InteractResult result = IR_NONE;
   int base_dmg = a->dc->roll(a->dc);
   
   base_dmg = (base_dmg + a->stats[STAT_DAMAGE]->current);
+
+  ability_t* dummy = InitAbilityDummy(source, *a);
+
+
   int reduced =  EntDamageReduction(e,a,base_dmg); 
   int damage = -1 * reduced; 
   e->last_hit_by = source; 
@@ -920,7 +939,7 @@ InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source){
  
   result = IR_SUCCESS;
   if(StatIsEmpty(e->stats[STAT_HEALTH]))
-   result = IR_TOTAL_SUCCESS;
+   result = IR_TOTAL_SUCC;
 
   if(reduced!=base_dmg)
    TraceLog(LOG_INFO,"(%i damage reduction)",base_dmg-reduced); 
@@ -1025,7 +1044,12 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
     AbilityApplyValues(a, def->values[i]);
   }
 
-  a->skill = def->skill;
+  for(int i = 0; i < def->num_skills; i++)
+    a->skills[a->num_skills++] = def->skills[i];
+
+  if(a->chain)
+    a->chain->skills[a->chain->num_skills++] = def->skills[0];
+
   owner->abilities[owner->num_abilities++] = a;
 
   return true;
@@ -1041,7 +1065,15 @@ bool EntRollSave(ent_t* e, ability_t* a){
   return hit < save;
 }
 
-bool EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
+InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_t* source){
+
+}
+
+InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_t* source){
+
+}
+
+InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   bool success = true;
   InteractResult ires = IR_NONE;
 
@@ -1066,19 +1098,15 @@ bool EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
 
     StatMaxOut(a->stats[STAT_DAMAGE]);
     ires = EntTarget(target, a,e);
-    success =  ires>= IR_SUCCESS;
-    if(success && a->on_success_fn)
-      a->on_success_fn(e, a->on_success,target);
   }
 
-
-
   int tiid = target->uid;
+/*
   if(e->type == ENT_PERSON)
     tiid = e->map->id; //Prevents just grinding mobs 
+*/
 
-  SkillUse(e->skills[a->skill],e->uid,target->uid,cr,ires);
-  return success;
+  return ires;
 
 }
 
@@ -1116,6 +1144,11 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
 
   a->dc = Die(a->side,a->die);
 
+  if(a->use_fn == NULL)
+    a->use_fn = EntUseAbility;
+  
+  a->on_use_cb = AbilitySkillup;
+
   a->stats[STAT_REACH] = InitStat(STAT_REACH,1,a->reach,a->reach);
   a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,a->bonus,a->mod);
 
@@ -1129,7 +1162,48 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
     a->values[i] = InitValue(i,0);
   }
 
+  if(a->chain_id > ABILITY_NONE){
+    a->chain = InitAbility(owner, a->chain_id);
+    a->chain_fn = EntUseAbility;
+  }
+
   return a;
+}
+
+bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result){
+  
+  aggro_entry_t* e = AggroGetEntry(owner->aggro,target);
+
+  if(e==NULL)
+    return false;
+
+  int cr = e->challenge;
+
+  for(int i = 0; i < a->num_skills; i++)
+    SkillUse(owner->skills[a->skills[i]],owner->uid,target->uid,cr,result);
+
+  return true;
+}
+
+bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target){
+  InteractResult ires = IR_NONE;
+  if(a->use_fn == NULL)
+    return false;
+
+  ires = a->use_fn(owner, a, target);
+  if(ires > IR_NONE){
+   if(a->on_use_cb)
+    a->on_use_cb(owner, a, target, ires);
+
+   if(a->chain && a->chain_fn)
+     a->chain_fn(owner, a->chain, target);
+  }
+
+  if(ires >=IR_SUCCESS && a->on_success_cb)
+    a->on_success_cb(owner, a, target, ires);
+  
+
+  return ires>=IR_SUCCESS?true:false;
 }
 
 bool ValueUpdateDie(value_t* v, void* ctx){
@@ -1357,7 +1431,7 @@ void ApplyWeapProps(item_def_t *w, weapon_def_t* def, ItemProps props, WeaponPro
 
       item_prop_mod_t mod = PROP_MODS[i];
 
-      ValueAddBaseMod(w->values[mod.modifies], mod);
+      ValueAddBaseMod(w->values[mod.val_change.modifies], mod);
     }
   }
 
@@ -1371,7 +1445,10 @@ void ApplyWeapProps(item_def_t *w, weapon_def_t* def, ItemProps props, WeaponPro
 
       item_prop_mod_t mod = WEAP_MODS[i];
 
-      ValueAddBaseMod(w->values[mod.modifies], mod);
+      if(mod.add_skill > SKILL_LVL)
+        w->skills[w->num_skills++] = mod.add_skill;
+      if(mod.val_change.affix>AFF_NONE)
+        ValueAddBaseMod(w->values[mod.val_change.modifies], mod);
     }
   }
 

@@ -27,7 +27,7 @@ bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k){
   TileStatus* status =malloc(sizeof(TileStatus));
   ent_t* target = MapGetOccupant(e->map, e->facing, status);
   if(target)
-    return EntUseAbility(e, e->abilities[0], target);
+    return AbilityUse(e, e->abilities[0], target);
 
   return false;
 }
@@ -252,7 +252,7 @@ bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
   ent_t* target = e->control->target;
 
   if(target){
-    EntUseAbility(e, ab, target);
+    AbilityUse(e, ab, target);
     return true;
   }
   return false;
@@ -283,4 +283,17 @@ bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb){
   if(!success)
     TraceLog(LOG_WARNING,"DEBUG");
   return success;
+}
+
+action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap){
+  action_slot_t* a = calloc(1,sizeof(action_slot_t));
+
+  *a = (action_slot_t){
+    .owner  = owner,
+      .rank = rank,
+      .cap  = cap,
+  };
+
+  a->abilities = calloc(a->cap, sizeof(ability_t));
+  return a;
 }

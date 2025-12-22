@@ -375,15 +375,13 @@ int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul){
   float threat = mul * threat_gain;
   if(source->type == ENT_PERSON)
     mul = 1;
-  
-  for (int i = 0; i < table->count; i++) {
-    aggro_entry_t* e = &table->entries[i];
-    if (e->enemy == source) {
-      e->threat += threat;
-      e->last_turn = TURN;
-      //            ResetEvent(events, e->decay_event);
-      return e->challenge;
-    }
+
+  aggro_entry_t* e = AggroGetEntry(table,source);
+  if (e && e->enemy == source) {
+    e->threat += threat;
+    e->last_turn = TURN;
+    //            ResetEvent(events, e->decay_event);
+    return e->challenge;
   }
 
   // New entry
@@ -395,13 +393,24 @@ int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul){
     cr = EntGetChallengeRating(table->owner,source);
     sims++;
   }
-  aggro_entry_t* e = &table->entries[table->count++];
+  
+  e = &table->entries[table->count++];
   e->enemy = source;
   e->last_turn = TURN;
   e->challenge = cr*mul;
   e->threat = e->challenge>threat_gain?e->challenge:threat;
 
   return cr;
+}
+
+aggro_entry_t* AggroGetEntry(aggro_table_t* table, ent_t* source){
+  for (int i = 0; i < table->count; i++) {
+    aggro_entry_t* e = &table->entries[i];
+    if (e->enemy == source)
+      return e;
+  }
+
+  return NULL;
 }
 
 void AggroDecayCallback(void* params){

@@ -4,6 +4,15 @@
 #define BIT64(n) (1ULL << (n))
 
 typedef enum {
+  MAG_NONE = -1,
+  MAG_MINOR,
+  MAG_MODEST,
+  MAG_NOMINAL,
+  MAG_SIGNIF,
+  MAG_DONE
+}Magnitude;
+
+typedef enum {
     DATA_NONE,
     DATA_INT,
     DATA_FLOAT,
@@ -63,7 +72,7 @@ typedef enum{
 
 //SORTED IN APPLICATION ORDER
 typedef enum{
-  AFF_NONE = -1,
+  AFF_NONE,
   AFF_BASE,
   AFF_ADD,
   AFF_SUB,
@@ -110,6 +119,8 @@ typedef enum{
   STAT_STAMINA_REGEN_RATE,
   STAT_ENERGY_REGEN_RATE,
   STAT_RAGE,
+  STAT_ENDURANCE,
+  STAT_WILL,
   STAT_ENT_DONE,
   STAT_TIME,
   STAT_DONE,
@@ -262,7 +273,7 @@ typedef enum{
   ITEM_NONE,
   ITEM_WEAPON,
   ITEM_ARMOR,
-  ITEM_POTION,
+  ITEM_CONSUMABLE,
   ITEM_SCROLL,
   ITEM_TOME,
   ITEM_DONE
@@ -278,6 +289,7 @@ typedef enum{
   GEAR_CLOTH_ARMOR,
   GEAR_DAGGER,
   GEAR_BOW_LIGHT,
+  GEAR_POT_HEALTH,
   GEAR_DONE
 }GearID;
 
@@ -310,6 +322,14 @@ typedef enum{
   WEAP_SICKLE,
   WEAP_DONE
 }WeaponType;
+
+typedef enum{
+  CONS_NONE,
+  CONS_POT,
+  CONS_FOOD,
+  CONS_DRINK,
+  CON_DONE
+}ConsumeType;
 
 typedef enum{
   DARK_FOREST,
@@ -351,7 +371,15 @@ typedef enum{
 }ActionType;
 
 typedef enum{
-  ABILITY_NONE = -1,
+  SLOT_ATTACK,
+  SLOT_ITEM,
+  SLOT_SPELL,
+  SLOT_SAVE,
+  SLOT_ALL
+}ActionSlot;
+
+typedef enum{
+  ABILITY_NONE,
   ABILITY_WACK,
   ABILITY_BITE,
   ABILITY_CHEW,
@@ -380,7 +408,12 @@ typedef enum{
   ABILITY_WEAP_RANGE_PIERCE,
   ABILITY_STATUS,
   ABILITY_BLEED,
-  ABILITY_DONE
+  ABILITY_ARMOR,
+  ABILITY_ARMOR_SAVE,
+  ABILITY_ARMOR_DR,
+  ABILITY_ITEM,
+  ABILITY_ITEM_HEAL,
+  ABILITY_DONE,
 }AbilityID;
 
 typedef enum{
@@ -389,6 +422,7 @@ typedef enum{
   DES_SELECT_TARGET,
   DES_MULTI_TARGET,
   DES_AREA,
+  DES_SELF,
   DES_DIR,
 }DesignationType;
 
@@ -423,9 +457,9 @@ typedef enum{
 typedef enum{
   IR_NONE,
   IR_FAIL,
-  IR_CRITICAL_FAILURE,
+  IR_CRITICAL_FAIL,
   IR_SUCCESS,
-  IR_TOTAL_SUCCESS,
+  IR_TOTAL_SUCC,
   IR_MAX
 }InteractResult;
 
@@ -448,7 +482,7 @@ typedef enum{
 } EventType;
 
 typedef enum{
-  SKILL_NONE = -1,
+  SKILL_NONE,
   SKILL_LVL,
   SKILL_ACRO,
   SKILL_ALCH,
@@ -516,8 +550,10 @@ typedef enum{
   RATE_NONE,
   RATE_LINEAR,
   RATE_REWARD,
+  RATE_REWARD_SLOW,
   RATE_ALL_OR_NOTHING,
   RATE_RISK,
+  RATE_RISK_SLOW,
   RATE_DONE
 }SkillRate;
 
