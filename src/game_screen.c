@@ -157,7 +157,7 @@ bool ScreenSelectorInput(void){
       if(!IsKeyPressed(k))
         continue;
 
-      return fn(player,a,k);
+      return fn(player,a,k,SLOT_NONE);
     }
   }
 }
@@ -166,7 +166,7 @@ key_controller_t* ScreenGetSelection(void){
   return &keyctrl;
 }
 
-bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k){
+bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k, int binding){
   map_cell_t* sel = WorldGetTile(keyctrl.pos);
 
   if(keyctrl.occupied && sel->occupant==NULL)
@@ -178,7 +178,7 @@ bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k){
   return true;
 }
 
-bool ScreenMoveSelector(struct ent_s* e, ActionType a, KeyboardKey k){
+bool ScreenMoveSelector(struct ent_s* e, ActionType a, KeyboardKey k, int binding){
 
   Cell dir;
 

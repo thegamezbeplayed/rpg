@@ -35,6 +35,18 @@ static stat_name_t STAT_STRING[STAT_ENT_DONE]={
   {STAT_ENERGY_REGEN_RATE, "Spell Regen Rate"},
 };
 
+static stat_relate_t STAT_RELATION[STAT_ENT_DONE] = {
+  [STAT_HEALTH] = {STAT_HEALTH, STAT_HEALTH_REGEN_RATE},
+  [STAT_STAMINA] = {STAT_STAMINA, STAT_STAMINA_REGEN_RATE},
+  [STAT_ENERGY] = {STAT_ENERGY, STAT_ENERGY_REGEN_RATE},
+  [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN, STAT_STAMINA},
+  [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN, STAT_ENERGY},
+  [STAT_HEALTH_REGEN] = {STAT_HEALTH_REGEN, STAT_HEALTH},
+  [STAT_STAMINA_REGEN_RATE] = {STAT_STAMINA_REGEN_RATE, STAT_STAMINA_REGEN},
+  [STAT_ENERGY_REGEN_RATE] = {STAT_ENERGY_REGEN_RATE, STAT_ENERGY_REGEN},
+  [STAT_HEALTH_REGEN_RATE] = {STAT_HEALTH_REGEN_RATE, STAT_HEALTH_REGEN},
+};
+
 static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
   [STAT_REACH] = {[SC_AVERAGE] = 1, [SC_ABOVE] = 2},
   [STAT_DAMAGE] = {
@@ -149,7 +161,25 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
     [SC_BELOW]    = 13,
     [SC_INFER]    = 15,
     [SC_MIN]      = 17
-  }
+  },
+  [STAT_HEALTH_REGEN] = {
+    [SC_MIN]      = 0,
+    [SC_INFER]    = 0,
+    [SC_BELOW]    = 0,
+    [SC_AVERAGE]  = 1,
+    [SC_ABOVE]    = 2,
+    [SC_SUPER]    = 3,
+    [SC_MAX]      = 4,
+  },
+  [STAT_HEALTH_REGEN_RATE] = {
+    [SC_MAX]      = 5,
+    [SC_SUPER]    = 7,
+    [SC_ABOVE]    = 9,
+    [SC_AVERAGE]  = 11,
+    [SC_BELOW]    = 13,
+    [SC_INFER]    = 15,
+    [SC_MIN]      = 17
+  },
 };
 
 static skill_name_t SKILL_STRING[SKILL_DONE] = {
@@ -685,5 +715,21 @@ static skill_relation_t SKILLUP_RELATION[SKILL_DONE] = {
      [MAG_MODEST] = SKILL_LVL
     }
   }
+};
+
+static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {
+  {SLOT_ATTACK,
+    {
+      [ACTION_ATTACK] = true, [ACTION_WEAPON] = true,
+    }
+  },
+  {SLOT_INATE,
+    {
+      [ACTION_PASSIVE] = true,  
+    }
+  },
+  {SLOT_ITEM, {[ACTION_ITEM]=true}},
+  {SLOT_SPELL, {[ACTION_MAGIC]=true}},
+  {SLOT_SAVE, {[ACTION_SAVE]=true}},
 };
 #endif

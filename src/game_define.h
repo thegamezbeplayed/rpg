@@ -8,6 +8,7 @@
 
 #define NUM_ITEM_PROPS 18
 #define NUM_WEAP_PROPS 8
+#define NUM_ARMOR_PROPS 8
 
 typedef enum{
   SPEC_NONE       = BIT64(0),
@@ -128,6 +129,11 @@ typedef struct{
   StatType s;
   const char* name;
 }stat_name_t;
+
+typedef struct{
+  StatType   main;
+  StatType   related;
+}stat_relate_t;
 
 typedef struct{
   AttributeType t;
@@ -1075,16 +1081,16 @@ typedef struct{
   ArmorType          type;
   int                armor_class;
   damage_reduction_t dr_base,dr_rarity;
-  int                weight,cost;
+  int                weight,cost,durability;
   AttributeType      modifier,required;
   int                mod_max, req_min;
-  bool               disadvantage[STAT_DONE];
   ItemProps          i_props;
+  SkillType          skill;
 }armor_def_t;
 
 typedef struct{
   WeaponType      type;
-  int             cost,weight,penn,drain,reach_bonus,duribility;
+  int             cost,weight,penn,drain,reach_bonus,durability;
   ItemProps       i_props;
   WeaponProps     w_props;
   AbilityID       ability;
@@ -1102,6 +1108,7 @@ typedef struct{
 
 extern armor_def_t ARMOR_TEMPLATES[ARMOR_DONE];
 extern weapon_def_t WEAPON_TEMPLATES[WEAP_DONE];
+extern consume_def_t CONSUME_TEMPLATES[CONS_DONE];
 
 
 typedef struct value_affix_s value_affix_t;
@@ -1121,57 +1128,69 @@ struct value_affix_s{
 
 typedef struct{
   int            propID;
-  value_affix_t  val_change;
+  int            num_aff;
+  value_affix_t  val_change[4];
   SkillType      add_skill;
 }item_prop_mod_t;
 
-value_affix_t* InitValueAffixFromMod(item_prop_mod_t* mod);
-int GetItemPropsMods(ItemProps props, WeaponProps weaps, item_prop_mod_t **mods);
-item_prop_mod_t* GetItemPropMods(ItemProp prop);
-item_prop_mod_t* GetWeapPropMods(WeaponProp prop);
+value_affix_t* InitValueAffixFromMod(value_affix_t mod);
+int GetItemPropsMods(ItemProps props, uint64_t cat_props, ItemCategory cat, item_prop_mod_t **mods);
+item_prop_mod_t* GetItemPropMods(ItemCategory cat, uint64_t prop);
 
-static item_prop_mod_t PROP_MODS[NUM_ITEM_PROPS]={
-  {PROP_QUAL_TRASH,
-    .val_change = {VAL_ADV_HIT,AFF_SUB,2}
+static item_prop_mod_t PROP_MODS[ITEM_DONE][NUM_ITEM_PROPS]={
+  [ITEM_NONE] = {
+    {PROP_QUAL_TRASH,4,
+      .val_change = {
+        {VAL_ADV_HIT,AFF_SUB,2},
+        {VAL_ADV_SAVE,AFF_SUB,2},
+        {VAL_WORTH,AFF_FRACT,33},
+        {VAL_DURI,AFF_FRACT,50}
+      }
+    },
+    {PROP_QUAL_POOR,4,
+      .val_change = {
+        {VAL_DURI,AFF_FRACT,75},
+        {VAL_WORTH,AFF_FRACT,66},
+        {VAL_ADV_HIT,AFF_SUB,1},
+        {VAL_ADV_SAVE,AFF_SUB,1}
+      }
+    },
+    /*
+       {PROP_QUAL_WELL,125, VAL_WORTH,AFF_FRACT},
+       {PROP_QUAL_WELL,120, VAL_DURI,AFF_FRACT},
+       {PROP_QUAL_FINE,150, VAL_WORTH,AFF_FRACT},
+       {PROP_QUAL_FINE,140, VAL_DURI,AFF_FRACT},
+       {PROP_QUAL_SUPER,175, VAL_WORTH,AFF_FRACT},
+       {PROP_QUAL_SUPER,160, VAL_DURI,AFF_FRACT},
+       {PROP_QUAL_EXPERT,200, VAL_WORTH,AFF_FRACT},
+       {PROP_QUAL_EXPERT,180, VAL_DURI,AFF_FRACT},
+       {PROP_QUAL_MASTER,225, VAL_WORTH,AFF_FRACT},
+       {PROP_QUAL_MASTER,200, VAL_DURI,AFF_FRACT},
+       {PROP_QUAL_ARTIFACT,250, VAL_WORTH,AFF_FRACT},
+       {PROP_QUAL_ARTIFACT,300, VAL_DURI,AFF_FRACT},
+       */
   },
-  {PROP_QUAL_TRASH,VAL_WORTH,AFF_FRACT,33},
-  {PROP_QUAL_TRASH,VAL_DURI,AFF_FRACT,50},
-  {PROP_QUAL_POOR,VAL_DURI,AFF_FRACT,75},
-  {PROP_QUAL_POOR,VAL_WORTH,AFF_FRACT,66},
-  {PROP_QUAL_POOR,VAL_ADV_HIT,AFF_SUB,1},
-  /*
-  {PROP_QUAL_WELL,125, VAL_WORTH,AFF_FRACT},
-  {PROP_QUAL_WELL,120, VAL_DURI,AFF_FRACT},
-  {PROP_QUAL_FINE,150, VAL_WORTH,AFF_FRACT},
-  {PROP_QUAL_FINE,140, VAL_DURI,AFF_FRACT},
-  {PROP_QUAL_SUPER,175, VAL_WORTH,AFF_FRACT},
-  {PROP_QUAL_SUPER,160, VAL_DURI,AFF_FRACT},
-  {PROP_QUAL_EXPERT,200, VAL_WORTH,AFF_FRACT},
-  {PROP_QUAL_EXPERT,180, VAL_DURI,AFF_FRACT},
-  {PROP_QUAL_MASTER,225, VAL_WORTH,AFF_FRACT},
-  {PROP_QUAL_MASTER,200, VAL_DURI,AFF_FRACT},
-  {PROP_QUAL_ARTIFACT,250, VAL_WORTH,AFF_FRACT},
-  {PROP_QUAL_ARTIFACT,300, VAL_DURI,AFF_FRACT},
-  */
-};
+  [ITEM_WEAPON] = {
+    {PROP_WEAP_LIGHT},
+    {PROP_WEAP_HEAVY},
+    {PROP_WEAP_SIMP,
+      .add_skill = SKILL_WEAP_SIMP
+    },
+    {PROP_WEAP_MARTIAL,1,
 
-static item_prop_mod_t WEAP_MODS[NUM_WEAP_PROPS]={
-  {PROP_WEAP_LIGHT},
-  {PROP_WEAP_HEAVY},
-  {PROP_WEAP_SIMP,
-    .add_skill = SKILL_WEAP_SIMP
+      .val_change = (value_affix_t){ VAL_PENN, AFF_ADD, 1},
+      .add_skill  = SKILL_WEAP_SIMP
+    },
+    {PROP_WEAP_TWO_HANDED, 1,
+      .val_change = (value_affix_t){ VAL_PENN, AFF_ADD, 1},
+    },
+    {PROP_WEAP_REACH},
+    {PROP_WEAP_RANGED},
+    {PROP_WEAP_AMMO},
   },
-  {PROP_WEAP_MARTIAL,
+  [ITEM_ARMOR] = {
 
-    .val_change = (value_affix_t){ VAL_PENN, AFF_ADD, 1},
-    .add_skill  = SKILL_WEAP_SIMP
-  },
-  {PROP_WEAP_TWO_HANDED,
-   .val_change = (value_affix_t){ VAL_PENN, AFF_ADD, 1},
-  },
-  {PROP_WEAP_REACH},
-  {PROP_WEAP_RANGED},
-  {PROP_WEAP_AMMO},
+  }
 };
 
 static int CountItemPropMods(ItemProps props, WeaponProps wprops) {
@@ -1189,4 +1208,10 @@ static int CountItemPropMods(ItemProps props, WeaponProps wprops) {
 
     return count;
 }
+
+typedef struct{
+  ActionSlot  id;
+  ActionType  allowed[ACTION_SLOTTED];
+}define_slot_actions;
+
 #endif

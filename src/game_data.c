@@ -6,61 +6,64 @@
 
 ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
-  {ABILITY_WACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 5, 1, 3,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
+  {ABILITY_WACK,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 5, 1, 3,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills[0] = SKILL_WEAP_NONE},
-  {ABILITY_BITE, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR,
+  {ABILITY_BITE, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR,
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_CHEW, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2,0, 1, STAT_ARMOR, ATTR_NONE, ATTR_NONE, ABILITY_GNAW, 
+  {ABILITY_CHEW, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2,0, 1, STAT_ARMOR, ATTR_NONE, ATTR_NONE, ABILITY_GNAW, 
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_GNAW, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
+  {ABILITY_GNAW,AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_CLAW, DMG_SLASH, STAT_STAMINA, DES_NONE, 50,2, 6, 2, 3, 1, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
+  {ABILITY_CLAW,AT_DMG,ACTION_ATTACK, DMG_SLASH, STAT_STAMINA, DES_NONE, 50,2, 6, 2, 3, 1, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_SWIPE, DMG_SLASH,STAT_STAMINA, DES_NONE, 50,2, 6, 2, 6, 3,1, STAT_HEALTH, ATTR_STR,
+  {ABILITY_SWIPE, AT_DMG,ACTION_ATTACK, DMG_SLASH,STAT_STAMINA, DES_NONE, 50,2, 6, 2, 6, 3,1, STAT_HEALTH, ATTR_STR,
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_BITE_POISON, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, SKILL_WEAP_NONE},
+  {ABILITY_BITE_POISON, AT_DMG,ACTION_ATTACK, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, SKILL_WEAP_NONE},
   {ABILITY_POISON, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,STAT_HEALTH, ATTR_CON, ATTR_NONE,
     .skills = SKILL_POISON},
-  {ABILITY_MAGIC_MISSLE ,DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE,ABILITY_NONE, SKILL_SPELL_EVO},
-  {ABILITY_ELDRITCH_BLAST,DMG_FORCE, STAT_ENERGY, DES_MULTI_TARGET, 20, 8, 0,1, 10,3, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
+  {ABILITY_MAGIC_MISSLE ,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE,ABILITY_NONE, SKILL_SPELL_EVO},
+  {ABILITY_ELDRITCH_BLAST,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TARGET, 20, 8, 0,1, 10,3, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
    .skills = SKILL_SPELL_EVO },
   {ABILITY_RESISTANCE,
     .skills = SKILL_SPELL_ABJ
   },
-  {ABILITY_SACRED_FLAME, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8, 4, 1, 8, 0, 5, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
+  {ABILITY_SACRED_FLAME, ACTION_MAGIC, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8, 4, 1, 8, 0, 5, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
     .skills = SKILL_SPELL_EVO},
-  {ABILITY_STARRY_WISP, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8,0 , 1, 8, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_WIS},
-  {ABILITY_MAGIC_STONE, DMG_BLUNT, STAT_ENERGY, DES_MULTI_TARGET, 15, 3, 1, 1, 6, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_INT},
-  {ABILITY_POISON_SPRAY, DMG_POISON, STAT_ENERGY, DES_SELECT_TARGET, 12, 8, 0, 1,10,0,3, STAT_HEALTH, ATTR_CON, ATTR_NONE},
-  {ABILITY_FIRE_BOLT, DMG_FIRE, STAT_ENERGY, DES_SELECT_TARGET, 10, 8, 2, 1,10,0,4, STAT_HEALTH, ATTR_NONE, ATTR_INT},
-  {ABILITY_REND, DMG_SLASH, STAT_STAMINA, DES_NONE, 25, 8, 4, 1, 4,1,1,STAT_HEALTH, ATTR_NONE,ATTR_STR,ABILITY_BLEED},
+  {ABILITY_STARRY_WISP, ACTION_MAGIC,DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8,0 , 1, 8, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_WIS},
+  {ABILITY_MAGIC_STONE, ACTION_MAGIC,DMG_BLUNT, STAT_ENERGY, DES_MULTI_TARGET, 15, 3, 1, 1, 6, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_INT},
+  {ABILITY_POISON_SPRAY, ACTION_MAGIC,DMG_POISON, STAT_ENERGY, DES_SELECT_TARGET, 12, 8, 0, 1,10,0,3, STAT_HEALTH, ATTR_CON, ATTR_NONE},
+  {ABILITY_FIRE_BOLT, ACTION_MAGIC,DMG_FIRE, STAT_ENERGY, DES_SELECT_TARGET, 10, 8, 2, 1,10,0,4, STAT_HEALTH, ATTR_NONE, ATTR_INT},
+  {ABILITY_REND, AT_DMG,ACTION_ATTACK,DMG_SLASH, STAT_STAMINA, DES_NONE, 25, 8, 4, 1, 4,1,1,STAT_HEALTH, ATTR_NONE,ATTR_STR,ABILITY_BLEED},
   {ABILITY_HAMSTRING},
-  {ABILITY_RAGE, DMG_TRUE, STAT_RAGE, DES_NONE, 10, 1, 0,1, 2, 1,1, STAT_HEALTH, ATTR_NONE, ATTR_NONE },
+  {ABILITY_RAGE, AT_DMG,ACTION_ATTACK,DMG_TRUE, STAT_RAGE, DES_NONE, 10, 1, 0,1, 2, 1,1, STAT_HEALTH, ATTR_NONE, ATTR_NONE },
   {ABILITY_WEAP},
-  {ABILITY_WEAP_BLUDGEON,
+  {ABILITY_WEAP_BLUDGEON, AT_DMG,ACTION_WEAPON,
     DMG_BLUNT, STAT_STAMINA, DES_NONE, 25,1,17,3,2,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
   },
-  {ABILITY_WEAP_CHOP,
+  {ABILITY_WEAP_CHOP,AT_DMG,ACTION_WEAPON,
     DMG_SLASH, STAT_STAMINA, DES_NONE, 25,1,17,2,3,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
   },
-  {ABILITY_WEAP_STAB,
+  {ABILITY_WEAP_STAB,AT_DMG,ACTION_WEAPON,
     DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1,17,2,3,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
   },
-  {ABILITY_WEAP_SLASH,
+  {ABILITY_WEAP_SLASH,AT_DMG,ACTION_WEAPON,
     DMG_SLASH, STAT_STAMINA, DES_NONE, 25,1,15,1,6,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
   },
-  {ABILITY_WEAP_PIERCE,
+  {ABILITY_WEAP_PIERCE,AT_DMG,ACTION_WEAPON,
     DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1,17,2,2,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
   },
-  {ABILITY_WEAP_RANGE_PIERCE,
+  {ABILITY_WEAP_RANGE_PIERCE,AT_DMG,ACTION_WEAPON,
     DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1,15,1,4,0,1,STAT_HEALTH,ATTR_NONE, ATTR_DEX},
   {ABILITY_STATUS},
-  {ABILITY_BLEED, DMG_BLEED, STAT_STAMINA, DES_NONE, 0, 0, 4, 1, 6, 2,1, STAT_HEALTH, ATTR_CON,ATTR_STR},
+  {ABILITY_BLEED, AT_DMG, ACTION_NONE,
+    DMG_BLEED, STAT_STAMINA, DES_NONE, 0, 0, 4, 1, 6, 2,1, STAT_HEALTH, ATTR_CON,ATTR_STR},
   {ABILITY_ARMOR},
-  {ABILITY_ARMOR_SAVE, .chain_id = ABILITY_ARMOR_DR, .save_fn = EntAbilitySave},
-  {ABILITY_ARMOR_DR},
+  {ABILITY_ARMOR_SAVE, AT_SAVE, ACTION_SLOTTED,
+    .chain_id = ABILITY_ARMOR_DR, .save_fn = EntAbilitySave},
+  {ABILITY_ARMOR_DR, AT_DR},
   {ABILITY_ITEM},
-  {ABILITY_ITEM_HEAL, DMG_RADIANT, STAT_NONE, DES_SELF, 10, 1, 1, 2,4,2,0, STAT_HEALTH, ATTR_NONE, ATTR_NONE,.skills=SKILL_ALCH
+  {ABILITY_ITEM_HEAL, AT_HEAL, ACTION_ITEM,
+    DMG_RADIANT, STAT_NONE, DES_SELF, 10, 1, 1, 2,4,2,0, STAT_HEALTH, ATTR_NONE, ATTR_NONE,.skills=SKILL_ALCH, .use_fn = AbilityConsume
   }
 };
 
@@ -104,17 +107,29 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
   {ARMOR_LEATHER, 10, 
     {{[DMG_SLASH]=1,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
-    8,10,ATTR_DEX,ATTR_NONE,10,0,{}},
+    8,10,200,ATTR_DEX,ATTR_NONE,10,0,
+    .skill = SKILL_ARMOR_LEATHER
+  },
   {ARMOR_CHAIN, 12, 
     {{[DMG_SLASH]=2,[DMG_PIERCE]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
-    16,25,ATTR_DEX,ATTR_STR,2,9,{}},
+    16,25,400,ATTR_DEX,ATTR_STR,2,9,
+    .skill = SKILL_ARMOR_CHAIN
+  },
   {ARMOR_PLATE, 16,
     {{[DMG_SLASH]=2,[DMG_PIERCE]=2,[DMG_BLUNT]=1},{}},
-    {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
-    32,100,ATTR_NONE,ATTR_STR,0,12,{}},
+    {{[DMG_SLASH]=1,[DMG_PIERCE]=1}},
+    32,100,800,ATTR_NONE,ATTR_STR,0,12,
+    .skill = SKILL_ARMOR_PLATE
+  },
 };
 
+consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
+  {CONS_POT, 50, 400, 1, 2,
+    PROP_MAT_LIQUID, PROP_CONS_HEAL,
+    ABILITY_ITEM_HEAL, SKILL_ALCH
+  }
+};
 
 dice_roll_t* Die(int side, int num){
   dice_roll_t* die = malloc(sizeof(dice_roll_t));
@@ -147,7 +162,10 @@ dice_roll_t* InitDie(int side, int num, int adv, DiceRollFunction fn){
 
   return die;
 }
+int DieMax(dice_roll_t* d){
 
+  return d->sides * d->num_die;
+}
 int RollDieAdvantage(dice_roll_t* d){
   int choice = RollDie(d);
 
@@ -266,8 +284,7 @@ int ValueApplyModsToVal(int val, value_affix_t* aff){
   return result;
 }
 
-void ValueAddBaseMod(value_t* self, item_prop_mod_t prop_mod){
-  value_affix_t mod = prop_mod.val_change;
+void ValueAddBaseMod(value_t* self, value_affix_t mod){
   ValueAffix aff = mod.affix;
 
   if(self->base_app[aff]){
@@ -290,14 +307,14 @@ void ValueAddBaseMod(value_t* self, item_prop_mod_t prop_mod){
     }
   }
   else{
-    self->base_app[aff] = InitValueAffixFromMod(&prop_mod);
+    self->base_app[aff] = InitValueAffixFromMod(mod);
   }
 }
 
-value_affix_t* InitValueAffixFromMod(item_prop_mod_t* mod){
+value_affix_t* InitValueAffixFromMod(value_affix_t mod){
   value_affix_t* va = calloc(1,sizeof(value_affix_t));
 
-  *va = mod->val_change;
+  *va = mod;
   va->affix_mod = AffixBase;
   switch(va->affix){
     case AFF_ADD:
@@ -345,8 +362,11 @@ stat_t* InitStat(StatType attr,float min, float max, float amount){
  stat_t* s = malloc(sizeof(stat_t));
  stat_attribute_relation_t relate = stat_modifiers[attr];
 
+ stat_relate_t tandem = STAT_RELATION[attr];
+
  *s =(stat_t){
     .type = attr,
+      .related    = tandem.related,
       .min       = min,
       .max       = max,
       .base      = amount,
@@ -538,7 +558,7 @@ bool SkillUse(skill_t* self, int source, int target, int gain, InteractResult re
     .size = sizeof(int)
   };
  
-  interaction_t* iter = StartInteraction(source,target,EVENT_SKILL, 999, self, self->id, data, RegisterSkillEvent, UpdateSkillEvent, true);
+  interaction_t* iter = StartInteraction(source,target,EVENT_SKILL, 9, self, self->id, data, RegisterSkillEvent, UpdateSkillEvent, true);
 
   skill_event_t* skev = iter->ctx;
   skill_decay_t* sk_decay = skev->decay;
@@ -585,6 +605,7 @@ interaction_uid_i RegisterSkillEvent(interaction_t* self, void* ctx, param_t pay
 interaction_uid_i UpdateSkillEvent(interaction_t* self, void* ctx, param_t payload){
   skill_event_t* skev = ctx;
 
+  self->timer->elapsed = 0;
   skev->uses++;
 
   return self->uid;
@@ -685,43 +706,31 @@ EntityType MobGetByRules(MobRules rules){
 
 }
 
-int GetItemPropsMods(ItemProps props, WeaponProps weaps, item_prop_mod_t **mods){
+int GetItemPropsMods(ItemProps props, uint64_t cat_props, ItemCategory cat, item_prop_mod_t **mods){
   int idx = 0;
 
   while(props){
     uint64_t prop = props & -props;
     props &= props - 1;
-    mods[idx++] = GetItemPropMods(prop);
+    mods[idx++] = GetItemPropMods(ITEM_NONE,prop);
   }
 
-  while (weaps) {
-    uint64_t bit = weaps & -weaps;
-    weaps &= weaps - 1;
+  while (cat_props) {
+    uint64_t bit = cat_props & -cat_props;
+    cat_props &= cat_props - 1;
 
-    mods[idx++] = GetWeapPropMods(bit);
+    mods[idx++] = GetItemPropMods(cat,bit);
   }
 
   return idx;
 }
 
-item_prop_mod_t* GetItemPropMods(ItemProp prop){
-  for(int i = 0; i < NUM_ITEM_PROPS; i++){
-    if(PROP_MODS[i].propID != prop)
-      continue;
-
-    return &PROP_MODS[i];
-  }
-
-  return NULL;
-  
-}
-
-item_prop_mod_t* GetWeapPropMods(WeaponProp prop){
+item_prop_mod_t* GetItemPropMods(ItemCategory cat, uint64_t prop){
   for(int i = 0; i < NUM_WEAP_PROPS; i++){
-    if(WEAP_MODS[i].propID != prop)
+    if(PROP_MODS[cat][i].propID != prop)
       continue;
 
-    return &WEAP_MODS[i];
+    return &PROP_MODS[cat][i];
   }
   
   return NULL;

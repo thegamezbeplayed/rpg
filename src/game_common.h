@@ -191,6 +191,7 @@ typedef struct dice_roll_s{
   DiceRollFunction roll;
 }dice_roll_t;
 
+int DieMax(dice_roll_t* d);
 int RollDie(dice_roll_t* d);
 int RollDieAdvantage(dice_roll_t* d);
 dice_roll_t* Die(int side, int num);
@@ -244,7 +245,7 @@ static AsiEvent GetAsiEventForLevel(int lvl) {
 }
 attribute_t* InitAttribute(AttributeType type, int val);
 
-typedef bool (*ActionKeyCallback)(struct ent_s* e, ActionType a, KeyboardKey k);
+typedef bool (*ActionKeyCallback)(struct ent_s* e, ActionType a, KeyboardKey k,ActionSlot slot);
 
 typedef struct{
   ActionType        action;
@@ -351,7 +352,7 @@ struct value_s{
 value_t* InitValue(ValueCategory cat, int base);
 int ValueRebase(value_t* self);
 int ValueApplyModsToVal(int val, value_affix_t* aff);
-void ValueAddBaseMod(value_t* self, item_prop_mod_t mod);
+void ValueAddBaseMod(value_t* self, value_affix_t mod);
 
 struct stat_s;
 typedef void (*StatFormula)(struct stat_s* self);
@@ -419,7 +420,19 @@ static stat_attribute_relation_t stat_modifiers[STAT_ENT_DONE]={
       [ATTR_CHAR]=MOD_ADD,[ATTR_CON]=MOD_SQRT,[ATTR_WIS] = MOD_SQRT, [ATTR_INT] = MOD_SQRT
     },
     FormulaAddAttr,FormulaAddAttr
-  }
+  },
+  [STAT_HEALTH_REGEN] = {STAT_HEALTH_REGEN,
+    {
+      [ATTR_CON]=MOD_CBRT
+    },
+    FormulaAddAttr,FormulaAddAttr
+  },
+  [STAT_HEALTH_REGEN_RATE] = {STAT_HEALTH_REGEN_RATE,
+    {
+      [ATTR_CON]=MOD_SQRT
+    },
+    FormulaDieAddAttr,FormulaDieAddAttr,true
+  },
 };
 
 typedef struct{
@@ -483,13 +496,6 @@ bool StatIsEmpty(stat_t* s);
 float StatGetRatio(stat_t *self);
 //<====STATS
 
-typedef struct{
-  float   rating;
-  int     exp, out_lvl;
-}challenge_rating_t;
-
-challenge_rating_t GetChallengeScore(float cr);
-
 typedef bool (*StateComparator)(int a, int b);
 
 typedef struct{
@@ -524,6 +530,7 @@ typedef struct{
   env_t*      tile;
   ent_t*      occupant;
   Color       fow;
+  bool        explored;
 }map_cell_t;
 
 typedef struct{
@@ -552,7 +559,6 @@ void MapSpawnMob(map_grid_t* m, int x, int y);
 void RoomSpawnMob(map_grid_t* m, room_t* r);
 
 Cell MapApplyContext(map_grid_t* m);
-
 
 EntityType MobGetByRules(MobRules rules);
 MobCategory GetEntityCategory(EntityType t);

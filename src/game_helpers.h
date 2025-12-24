@@ -5,6 +5,12 @@
 
 typedef bool (*TileBlock)(map_cell_t *c);
 
+static const int mult[8][4] = {
+  { 1, 0, 0, 1 }, { 0, 1, 1, 0 },
+  { 0, -1, 1, 0 }, { -1, 0, 0, 1 },
+  { -1, 0, 0, -1 }, { 0, -1, -1, 0 },
+  { 0, 1, -1, 0 }, { 1, 0, 0, -1 }
+};
 
 typedef struct {
     int x, y;
@@ -819,6 +825,56 @@ static bool room_has_access(map_context_t* ctx, cell_bounds_t room,Cell *access)
   
     return false;
 }   
+
+static void CastLight(map_grid_t *m, Cell pos,
+               int row, float start, float end,
+               int radius,
+               int xx, int xy, int yx, int yy)
+{
+  int cx = pos.x;
+  int cy = pos.y;
+
+  if (start < end) return;
+
+  float new_start = start;
+  for (int i = row; i <= radius; i++) {
+    bool blocked = false;
+    for (int dx = -i, dy = -i; dx <= 0; dx++) {
+      float l_slope = (dx - 0.5f) / (dy + 0.5f);
+      float r_slope = (dx + 0.5f) / (dy - 0.5f);
+
+      if (r_slope > start) continue;
+      if (l_slope < end) break;
+
+      int x = cx + dx * xx + dy * xy;
+      int y = cy + dx * yx + dy * yy;
+
+      if (!InBounds(m, x, y)) continue;
+
+      float dist = sqrtf(dx*dx + dy*dy);
+      if (dist <= radius)
+        m->tiles[y][x].fow.a = 0;
+
+      if (blocked) {
+        if (TileBlocksSight(&m->tiles[x][y])) {
+          new_start = r_slope;
+          continue;
+        } else {
+          blocked = false;
+          start = new_start;
+        }
+      } else {
+        if (TileBlocksSight(&m->tiles[x][y]) && i < radius) {
+          blocked = true;
+          CastLight(m, pos, i+1, start, l_slope,
+                    radius, xx, xy, yx, yy);
+          new_start = r_slope;
+        }
+      }
+    }
+    if (blocked) break;
+  }
+}
 
 static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep, int depth, TileBlock fn){
     // Early out: same tile

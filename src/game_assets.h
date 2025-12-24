@@ -36,6 +36,7 @@ typedef struct{
 
 typedef enum{
   SHADER_NONE,
+  SHADER_FOW,
   SHADER_DONE
 }ShaderType;
 
@@ -68,7 +69,10 @@ typedef struct{
   void*         val;
 }shader_uniform_t;
 
-static ShaderTypeAlias shader_alias[SHADER_DONE] = {};
+static ShaderTypeAlias shader_alias[SHADER_DONE] = {
+
+
+};
 
 ShaderType ShaderTypeLookup(const char* name);
 

@@ -8,7 +8,7 @@ void InitShaders(){
   for (int i = 0; i < SHADER_DONE; i++)
     shaders[i] = (gl_shader_t){0};
   
-  FilePathList shaderfiles = LoadDirectoryFiles("resources/shaders/glsl100");
+  FilePathList shaderfiles = LoadDirectoryFiles("resources/shaders/");
   for (int i = 0; i < shaderfiles.count; i++){
     const char* filename = GetFileName(shaderfiles.paths[i]);
     char* shadername = GetFileStem(filename);

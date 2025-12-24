@@ -17,7 +17,7 @@ action_turn_t* InitAction(ActionType t, DesignationType targeting, TakeActionCal
 }
 
 
-bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k){
+bool ActionPlayerAttack(ent_t* e, ActionType type, KeyboardKey k,ActionSlot slot){
  if(!EntCanTakeAction(e))
     return false;
 
@@ -25,14 +25,26 @@ bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k){
     return false;
 
   TileStatus* status =malloc(sizeof(TileStatus));
-  ent_t* target = MapGetOccupant(e->map, e->facing, status);
+  
+  ability_t* a = e->slots[slot]->abilities[0];
+  ent_t* target = NULL;
+  switch(a->targeting){
+    case DES_NONE:
+      target = MapGetOccupant(e->map, e->facing, status);
+      break;
+    case DES_SELF:
+      target = e;
+    default:
+      break;
+  }
+
   if(target)
-    return AbilityUse(e, e->abilities[0], target);
+    return AbilityUse(e, e->slots[slot]->abilities[0], target, NULL);
 
   return false;
 }
 
-bool ActionMove(ent_t* e, ActionType a, KeyboardKey k){
+bool ActionMove(ent_t* e, ActionType a, KeyboardKey k, ActionSlot slot){
   if(!EntCanTakeAction(e))
     return false;
 
@@ -113,14 +125,15 @@ bool ActionInput(void){
       if(!IsKeyDown(k))
         continue;
 
+      int binding = action_keys[i].binding;
       switch(action_keys[i].action){
         case ACTION_MOVE:
-          if(fn(player,a,k))
+          if(fn(player,a,k,binding))
             acted = ACTION_MOVE;
           break;
         case ACTION_ATTACK:
         case ACTION_MAGIC:
-          ability_t* ability = player->abilities[action_keys[i].binding];
+          ability_t* ability = player->slots[binding]->abilities[0];
           switch(ability->targeting){
             case DES_SELECT_TARGET:
             case DES_MULTI_TARGET:
@@ -139,7 +152,7 @@ bool ActionInput(void){
             case DES_NONE:
             case DES_FACING:
             default:
-              if(fn(player,a,k))
+              if(fn(player,a,k,binding))
                 acted = a;
               break;
           }
@@ -252,7 +265,7 @@ bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
   ent_t* target = e->control->target;
 
   if(target){
-    AbilityUse(e, ab, target);
+    AbilityUse(e, ab, target, NULL);
     return true;
   }
   return false;
@@ -294,6 +307,53 @@ action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap){
       .cap  = cap,
   };
 
+  define_slot_actions def = SLOTS_ALLOWED[id];
+
+  for(int i = 0; i < ACTION_SLOTTED; i++)
+    a->allowed[i] = def.allowed[i];
+
   a->abilities = calloc(a->cap, sizeof(ability_t));
   return a;
+}
+
+void ActionSlotEnsureCapacity(action_slot_t* t){
+  if (t->count < t->cap)
+    return;
+  
+  t->cap *= 2;
+  t->abilities = realloc(t->abilities,
+      t->cap * sizeof(ability_t*));
+} 
+
+bool ActionSlotAdd(action_slot_t* owner, ability_t* a){
+  ActionSlotEnsureCapacity(owner);
+
+  owner->abilities[owner->count++] = a;
+
+  owner->space-= a->size;
+
+  return true;
+}
+
+ActionSlot ActionSlotGetAvailable(ent_t* owner, ActionType type, int size){
+  for(int i = 0; i < SLOT_ALL; i++){
+    if(!owner->slots[i]->allowed[type])
+      continue;
+
+    if(size > owner->slots[i]->space)
+      continue;
+
+    return i;
+  }
+
+  return SLOT_NONE;
+}
+
+bool ActionSlotAddAbility(ent_t* owner, ability_t* a){
+  ActionSlot slot = ActionSlotGetAvailable(owner, a->action, a->size);
+
+  if(slot == SLOT_NONE)
+    return false;
+
+  return ActionSlotAdd(owner->slots[slot], a);
 }

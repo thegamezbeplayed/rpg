@@ -49,10 +49,13 @@ properties_t* InitProperties(race_define_t racials);
 
 typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, struct ent_s* target, InteractResult result);
 typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, ent_t* target);
+InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target);
 typedef InteractResult (*AbilitySave)(ent_t* owner,  ability_t* a, ability_t* source);
 bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result);
 struct ability_s{
   AbilityID        id;
+  AbilityType      type;
+  ActionType       action;
   DamageType       school;
   StatType         resource;
   DesignationType  targeting;
@@ -60,12 +63,12 @@ struct ability_s{
   StatType         damage_to;
   AttributeType    save,mod;
   AbilityID        chain_id;
-  int              num_skills;
+  int              num_skills, size;
   SkillType        skills[3];
   dice_roll_t*     dc,*hit;
   stat_t*          stats[STAT_ENT_DONE];
   ability_t        *chain;
-  value_t*         values[VAL_ARMOR];
+  value_t*         values[VAL_WORTH];
   AbilityCb        on_success_cb, on_use_cb;
   AbilityFn        use_fn, chain_fn;
   AbilitySave      save_fn;
@@ -73,24 +76,24 @@ struct ability_s{
 
 typedef struct{
   ActionSlot     id;
+  ActionType     allowed[ACTION_SLOTTED];
   ent_t*         owner;
-  bool           filled;
   int            count, cap, size, space, rank;
-  ability_t      *abilities;
+  ability_t      **abilities;
 }action_slot_t;
 
 action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap);
-
+bool ActionSlotAddAbility(ent_t* owner, ability_t* a);
 extern ability_t ABILITIES[ABILITY_DONE];
 void AbilityApplyValues(ability_t* self, value_t* v);
 ability_t AbilityLookup(AbilityID id);
+ability_t* EntFindAbility(ent_t* e, AbilityID id);
 ability_t* InitAbility(ent_t* owner, AbilityID);
 ability_t* InitAbilityDummy(ent_t* owner, ability_t copy);
-bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target);
+bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_t* other);
 ability_t* EntChooseWeightedAbility(ent_t* e, int budget);
 InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_t* source);
 InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_t* source);
-
 
 typedef struct item_def_s{
   int id;
@@ -169,8 +172,6 @@ typedef struct ent_s{
   traits_t              *traits;
   properties_t          *props;
   action_slot_t         *slots[SLOT_ALL];
-  int                   num_abilities;//TODO MOVE TO SLOTS ==>
-  ability_t*            abilities[6];//<===
   EntityType            type;
   map_grid_t*           map;
   Cell                  pos,facing;
@@ -228,18 +229,18 @@ bool SetState(ent_t *e, EntityState s,StateChangeCallback callback);
 void StepState(ent_t *e);
 void OnStateChange(ent_t *e, EntityState old, EntityState s);
 bool CanChangeState(EntityState old, EntityState s);
-void ApplyWeapProps(item_def_t * w, weapon_def_t* def, ItemProps props, WeaponProps w_props);
+void ApplyItemProps(item_def_t * w, ItemProps props, uint64_t e_props);
 int GetWeaponByTrait(Traits t, weapon_def_t *arms);
 item_def_t* BuildWeapon(weapon_def_t def, ItemProps props, WeaponProps w_props);
 bool EntSyncSight(ent_t* e, ActionType a);
-
+void EntComputeFOV(ent_t* e);
 char* EntGetClassNamePretty(ent_t* e);
 void EntActionsTaken(stat_t* self, float old, float cur);
 bool EntCanTakeAction(ent_t* e);
 void InitActions(action_turn_t* actions[ACTION_DONE]);
 action_turn_t* InitAction(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb);
-bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k);
-bool ActionMove(ent_t*, ActionType a, KeyboardKey k);
+bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k, ActionSlot slot);
+bool ActionMove(ent_t*, ActionType a, KeyboardKey k, ActionSlot slot);
 void ActionStandby(ent_t* e);
 void ActionSync(ent_t* e);
 bool ActionInput(void);
@@ -254,9 +255,9 @@ void ActionSetTarget(ent_t* e, ActionType a, void* target);
 
 static action_key_t action_keys[ACTION_DONE] = {
   {ACTION_NONE},
-  {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ActionMove},
-  {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack,0},
-  {ACTION_MAGIC,1,{KEY_M},ActionPlayerAttack,1},
+  {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ActionMove,SLOT_NONE},
+  {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack,SLOT_ATTACK},
+  {ACTION_MAGIC,1,{KEY_M},ActionPlayerAttack,SLOT_SPELL},
 };
 
 typedef struct env_s{

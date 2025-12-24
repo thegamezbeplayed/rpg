@@ -40,7 +40,8 @@ int main(void)
   InitAudio();
   InitResources();
   InitUI();
-  
+
+//  InitShaders();  
   InitPlayArea();
   InitGameProcess();
 

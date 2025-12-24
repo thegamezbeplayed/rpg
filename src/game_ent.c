@@ -13,10 +13,10 @@ ent_t* InitEnt(EntityType id,Cell pos){
   e->props->base_diff = 5;
   item_def_t* w = GetItemDefByID(GEAR_MACE);
   EntAddItem(e, InitItem(w), true);
-/*
+  item_def_t* p = GetItemDefByID(GEAR_POT_HEALTH);
+  EntAddItem(e, InitItem(p), true);
   item_def_t* a = GetItemDefByID(GEAR_LEATHER_ARMOR);
   EntAddItem(e, InitItem(a), true);
-  */
   e->stats[STAT_ACTIONS]->current = 1;
   e->pos = pos;
   e->control = NULL;
@@ -154,10 +154,12 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
     switch(i){
       case STAT_STAMINA:
       case STAT_ENERGY:
+      case STAT_HEALTH:
         e->stats[i]->on_stat_change = EntResetRegen;
         break;
       case STAT_STAMINA_REGEN_RATE:
       case STAT_ENERGY_REGEN_RATE:
+      case STAT_HEALTH_REGEN_RATE:
         e->stats[i]->on_turn = StatIncreaseValue;
         e->stats[i]->on_stat_full = EntRestoreResource;
         break;
@@ -170,7 +172,10 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   
   for(int i = 1; i < SKILL_DONE; i++)
     e->skills[i] = InitSkill(i, e, 0, 100);
-  
+
+  for(int i = 0; i < SLOT_ALL; i++)
+    e->slots[i] = InitActionSlot(i, e, 1, 1);  
+
   return e;
 }
 
@@ -208,7 +213,6 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules){
   e->aggro = calloc(1,sizeof(aggro_table_t));
   InitAggroTable(e->aggro, 4, e);
 
-  e->slots[SLOT_ATTACK] = InitActionSlot(SLOT_ATTACK, e, 1, 1);  
   for (int i = 0; i < ATTR_DONE; i++){
     if(!e->attribs[i])
       continue;
@@ -246,8 +250,7 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules){
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
   
   ability_t* a = InitAbility(e, ABILITY_WACK);
-
-  e->abilities[e->num_abilities++] = a;
+  ActionSlotAddAbility(e, a);
 
   return e;
 }
@@ -322,8 +325,7 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
 
     ability_t* a = InitAbility(e, def_ab.id);
 
-    e->abilities[e->num_abilities++] = a;
-
+    ActionSlotAddAbility(e,a);
   }
   return e;
 }
@@ -353,10 +355,8 @@ void PromoteEntClass(ent_t* e, race_define_t racial, define_race_class_t* race_c
 
     ability_t* a = InitAbility(e, def_ab.id);
 
-    e->abilities[e->num_abilities++] = a;
-
+    ActionSlotAddAbility(e,a);
   }
-
 }
 
 int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
@@ -677,7 +677,23 @@ item_pool_t* InitItemPool(void) {
 }
 
 item_def_t* DefineConsumable(ItemInstance data){
+  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item->id = data.id;
 
+  item->category = ITEM_CONSUMABLE;
+  
+  consume_def_t temp = CONSUME_TEMPLATES[data.equip_type];
+
+  item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
+  item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
+  item->values[VAL_DURI] = InitValue(VAL_DURI,temp.quanity);
+  item->skills[item->num_skills++] = temp.skill;
+  item->ability = temp.ability;
+
+
+  ApplyItemProps(item, data.props, data.et_props);
+  
+  return item;
 }
 
 item_def_t* DefineItem(ItemInstance data){
@@ -694,18 +710,6 @@ item_def_t* DefineItem(ItemInstance data){
       return NULL;
       break;
   }
-  /*
-  item->damage =data.damage;
-
-  for (int i = 0; i < STAT_DONE; i++){
-    if(data.stats[i] == 0){
-      item->stats[i] = 0;
-      continue;
-    }
-
-    item->stats[i] = InitStat(i, 1, data.stats[i], data.stats[i]);
-  }
-  */
 }
 
 item_def_t* DefineWeapon(ItemInstance data){
@@ -721,14 +725,14 @@ item_def_t* DefineWeapon(ItemInstance data){
   item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
   item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
   item->values[VAL_PENN] = InitValue(VAL_PENN,temp.penn);
-  item->values[VAL_DURI] = InitValue(VAL_DURI,temp.duribility);
+  item->values[VAL_DURI] = InitValue(VAL_DURI,temp.durability);
   
   item->values[VAL_ADV_HIT] = InitValue(VAL_ADV_HIT,0);
   item->values[VAL_ADV_DMG] = InitValue(VAL_ADV_DMG,0);
  
   item->skills[item->num_skills++] = temp.skill; 
   item->ability = temp.ability; 
-  ApplyWeapProps(item, &temp, data.props, data.et_props);
+  ApplyItemProps(item, data.props, data.et_props);
 
   for(int i = 0; i < VAL_ALL; i++){
     if(!item->values[i])
@@ -750,29 +754,34 @@ item_def_t* DefineArmor(ItemInstance data){
   armor_def_t temp = ARMOR_TEMPLATES[data.equip_type];
   //item->stats[STAT_ARMOR] = InitStat(STAT_ARMOR,0,temp.armor_class, temp.armor_class);
 
+  item->values[VAL_DURI] = InitValue(VAL_DURI,temp.durability);
+  item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
+  item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
+  item->values[VAL_ADV_SAVE] = InitValue(VAL_ADV_SAVE,0);
+  item->values[VAL_SAVE] = InitValue(VAL_SAVE,temp.armor_class);
+  
+  ApplyItemProps(item, data.props, data.et_props);
+
   //item->weight = temp.weight;
   *item->dr = temp.dr_base;
 
-  //item->ability = temp.ability;
-  
+  item->ability = ABILITY_ARMOR_SAVE;
+  item->skills[item->num_skills++] = temp.skill; 
+ 
+  for(int i = 0; i < VAL_ALL; i++){
+    if(!item->values[i])
+      continue;
+
+    item->values[i]->val = ValueRebase(item->values[i]);
+  }
+ 
   return item;
 }
 
 void EntResetRegen(stat_t* self, float old, float cur){
 
-  StatType rel = STAT_NONE;
+  StatType rel = self->related;
 
-  switch(self->type){
-    case STAT_STAMINA:
-      rel = STAT_STAMINA_REGEN_RATE;
-      break;
-    case STAT_ENERGY:
-      rel = STAT_ENERGY_REGEN_RATE;
-      break;
-    default:
-      break;
-
-  }  
   if(rel > STAT_NONE)
   StatRestart(self->owner->stats[rel],0,0);
 
@@ -781,20 +790,11 @@ void EntResetRegen(stat_t* self, float old, float cur){
 void EntRestoreResource(stat_t* self, float old, float cur){
   StatEmpty(self);
 
-  StatType resource = STAT_NONE;
-  int amount = 0;
-  switch(self->type){
-    case STAT_STAMINA_REGEN_RATE:
-      amount = self->owner->stats[STAT_STAMINA_REGEN]->current;
-      resource = STAT_STAMINA;
-      break;
-    case STAT_ENERGY_REGEN_RATE:
-      amount = self->owner->stats[STAT_ENERGY_REGEN]->current;
-      resource = STAT_ENERGY;
-      break;
-    default:
-      break;
-  }
+  StatType related = self->related;
+  stat_t* rstat = self->owner->stats[related];
+  StatType resource = rstat->related;
+
+  int amount = self->owner->stats[related]->current;
 
   if (resource == STAT_NONE)
     return;
@@ -912,6 +912,29 @@ ability_t* InitAbilityDummy(ent_t* owner, ability_t copy){
 }
 
 
+InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target){
+  int cr = 1;
+
+  InteractResult ires = IR_SUCCESS;
+
+  int base = a->dc->roll(a->dc);
+
+  base = (base + a->stats[STAT_DAMAGE]->current);
+
+  stat_t* damage_to = target->stats[a->damage_to];
+ 
+  if(StatChangeValue(target, damage_to, base)){
+    TraceLog(LOG_INFO,"%s consumes potion %s now %0.0f / %0.0f",
+        target->name,
+        STAT_STRING[a->damage_to].name,
+        damage_to->current,
+        damage_to->max);
+
+  }
+
+  return ires;
+}
+
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source){
   InteractResult result = IR_NONE;
   int base_dmg = a->dc->roll(a->dc);
@@ -987,38 +1010,8 @@ int EntDamageReduction(ent_t* e, ability_t* a, int dmg){
 }
 
 ability_t* EntChooseWeightedAbility(ent_t* e, int budget){
-   int count = 0;
 
-    // Temporary filtered list
-    ability_t* allowed[NUM_ABILITIES];
-
-    // 1. Filter abilities by budget
-    for (int i = 0; i < e->num_abilities; i++) {
-        ability_t* abil = e->abilities[i];
-
-        if (abil->cost <= budget)
-            allowed[count++] = abil;
-    }
-
-    // No ability fits the budget → fallback
-    if (count == 0)
-        return NULL;
-
-    // 2. Weighted roll
-    int total = 0;
-    for (int i = 0; i < count; i++)
-        total += allowed[i]->weight;
-
-    int r = GetRandomValue(1, total);
-
-    // 3. Select based on weight
-    for (int i = 0; i < count; i++) {
-        r -= allowed[i]->weight;
-        if (r <= 0)
-            return allowed[i];
-    }
-
-    return allowed[count - 1]; // safety
+  return e->slots[SLOT_ATTACK]->abilities[0];
 }
 
 bool ItemAddAbility(struct ent_s* owner, item_t* item){
@@ -1026,7 +1019,7 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
 
   ability_t* a = InitAbility(owner, def->ability);
 //  a->cost = def->
-  for(int i = 0; i < VAL_ARMOR; i++){
+  for(int i = 0; i < VAL_WORTH; i++){
     if(def->values[i]==NULL)
       continue;
     if(def->values[i]->val == 0)
@@ -1035,6 +1028,9 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
     switch(i){
       case VAL_ADV_HIT:
       case VAL_ADV_DMG:
+      case VAL_ADV_SAVE:
+      case VAL_HIT:
+      case VAL_SAVE:
         a->values[i]->on_change = ValueUpdateDie;
         break;
       default:
@@ -1050,9 +1046,7 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
   if(a->chain)
     a->chain->skills[a->chain->num_skills++] = def->skills[0];
 
-  owner->abilities[owner->num_abilities++] = a;
-
-  return true;
+  return ActionSlotAddAbility(owner, a);
 }
 
 bool EntRollSave(ent_t* e, ability_t* a){
@@ -1066,7 +1060,11 @@ bool EntRollSave(ent_t* e, ability_t* a){
 }
 
 InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_t* source){
+  int hit = source->hit->roll(source->hit);
 
+  int save = a->hit->roll(a->hit);
+
+  return save < hit?IR_FAIL:IR_SUCCESS;
 }
 
 InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_t* source){
@@ -1078,6 +1076,7 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   InteractResult ires = IR_NONE;
 
   int cr = AggroAdd(e->aggro, target, 1, target->props->base_diff);
+  AggroAdd(target->aggro, e, 1, 1);//e->props->base_diff);
 
   if(a->resource>STAT_NONE)
     if(!StatChangeValue(e,e->stats[a->resource],-1*a->cost)){
@@ -1085,7 +1084,12 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
       success = false;
     }
 
-  if(!success || EntRollSave(target, a)){
+  bool save_roll = false;
+
+  ability_t* save = EntFindAbility(target, ABILITY_ARMOR_SAVE);
+  if(save)
+    save_roll = AbilityUse(target,save, e, a);
+  if(!success || save_roll){
     AggroAdd(target->aggro, e, a->cost, e->props->base_diff);
     TraceLog(LOG_INFO,"%s misses",e->name);
     success = false;
@@ -1158,7 +1162,7 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
     a->stats[i]->owner = owner;
   }
 
-  for(int i = 0; i < VAL_ARMOR; i++){
+  for(int i = 0; i < VAL_WORTH; i++){
     a->values[i] = InitValue(i,0);
   }
 
@@ -1185,16 +1189,29 @@ bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult re
   return true;
 }
 
-bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target){
+bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_t* other){
   InteractResult ires = IR_NONE;
-  if(a->use_fn == NULL)
-    return false;
+  switch(a->type){
+    case AT_DMG:
+    case AT_HEAL:
+      if(a->use_fn == NULL)
+        return false;
 
-  ires = a->use_fn(owner, a, target);
+      ires = a->use_fn(owner, a, target);
+      break;
+    case AT_SAVE:
+    case AT_DR:
+      ires = a->save_fn(owner, a, other);
+      break;
+    default:
+      break;
+  }
+  
   if(ires > IR_NONE){
    if(a->on_use_cb)
     a->on_use_cb(owner, a, target, ires);
 
+   if(a->type < AT_SAVE)
    if(a->chain && a->chain_fn)
      a->chain_fn(owner, a->chain, target);
   }
@@ -1210,24 +1227,34 @@ bool ValueUpdateDie(value_t* v, void* ctx){
   ability_t* a = ctx;
 
   switch (v->cat) {
-    case VAL_ADV_HIT: {
-                        int side = a->hit->sides;
-                        int num  = 1;
+    case VAL_ADV_HIT:
+    case VAL_ADV_SAVE:
+      {
+        int side = a->hit->sides;
+        int num  = 1;
 
-                        a->hit = InitDie(side, num, v->val, RollDieAdvantage);
-                        return true;
-                      }
+        a->hit = InitDie(side, num, v->val, RollDieAdvantage);
+        return true;
+      }
+      break;
+    case VAL_ADV_DMG:
+      {
+        int side = a->dc->sides;
+        int num  = a->dc->num_die;
 
-    case VAL_ADV_DMG: {
-                        int side = a->dc->sides;
-                        int num  = a->dc->num_die;
-
-                        a->dc = InitDie(side, num, v->val, RollDieAdvantage);
-                        return true;
-                      }
-
+        a->dc = InitDie(side, num, v->val, RollDieAdvantage);
+        return true;
+      }
+      break;
+    case VAL_HIT:
+    case VAL_SAVE:
+      {
+        a->hit->sides = v->val;
+        return true;
+      }
+      break;
     default:
-                      return false;
+      return false;
   }
 
 }
@@ -1244,6 +1271,16 @@ void AbilityApplyValues(ability_t* self, value_t* v){
     sv->context = self;
     sv->on_change(sv,self);
   }
+}
+
+void EntComputeFOV(ent_t* e){
+  int radius = e->stats[STAT_AGGRO]->current/2;
+
+  for (int oct = 0; oct < 8; oct++)
+    CastLight(e->map, e->pos, 1, 1.0, 0.0, radius,
+              mult[oct][0], mult[oct][1],
+              mult[oct][2], mult[oct][3]);
+
 }
 
 void EntTurnSync(ent_t* e){
@@ -1421,38 +1458,41 @@ int GetWeaponByTrait(Traits t, weapon_def_t *arms){
 
   return count;
 }
-void ApplyWeapProps(item_def_t *w, weapon_def_t* def, ItemProps props, WeaponProps w_props){
+void ApplyItemProps(item_def_t *w, ItemProps props, uint64_t e_props){
   while(props){
     uint64_t prop = props & -props;
     props &= props - 1;
     for(int i = 0; i < NUM_ITEM_PROPS; i++){
-      if(PROP_MODS[i].propID != prop)
+      if(PROP_MODS[ITEM_NONE][i].propID != prop)
         continue;
 
-      item_prop_mod_t mod = PROP_MODS[i];
-
-      ValueAddBaseMod(w->values[mod.val_change.modifies], mod);
+      item_prop_mod_t mod = PROP_MODS[ITEM_NONE][i];
+      for(int i = 0; i < mod.num_aff; i++){
+        if(w->values[mod.val_change[i].modifies])
+          ValueAddBaseMod(w->values[mod.val_change[i].modifies], mod.val_change[i]);
+      }
     }
   }
 
-  while(w_props){
-    uint64_t wprop = w_props & -w_props;
-    w_props &= w_props -1;
+  while(e_props){
+    uint64_t wprop = e_props & -e_props;
+    e_props &= e_props -1;
 
     for(int i = 0; i < NUM_WEAP_PROPS; i++){
-      if(WEAP_MODS[i].propID != wprop)
+      
+      if(PROP_MODS[w->category][i].propID != wprop)
         continue;
 
-      item_prop_mod_t mod = WEAP_MODS[i];
+      item_prop_mod_t mod = PROP_MODS[w->category][i];
 
       if(mod.add_skill > SKILL_LVL)
         w->skills[w->num_skills++] = mod.add_skill;
-      if(mod.val_change.affix>AFF_NONE)
-        ValueAddBaseMod(w->values[mod.val_change.modifies], mod);
+      for(int i = 0; i < mod.num_aff; i++){
+      if(mod.val_change[i].affix>AFF_NONE)
+        ValueAddBaseMod(w->values[mod.val_change[i].modifies], mod.val_change[i]);
+      }
     }
   }
-
- DO_NOTHING(); 
 }
 
 item_def_t* BuildWeapon(weapon_def_t def, ItemProps props, WeaponProps w_props){
@@ -1460,10 +1500,26 @@ item_def_t* BuildWeapon(weapon_def_t def, ItemProps props, WeaponProps w_props){
 
   weap->category = ITEM_WEAPON;
   //weap->weight = def.weight;
-  ApplyWeapProps(weap,&def, props, w_props);
+  ApplyItemProps(weap, props, w_props);
 
   weap->ability = def.ability;
   return weap;
+}
+
+ability_t* EntFindAbility(ent_t* e, AbilityID id){
+  ActionType act = ABILITIES[id].action;
+
+  for(int i = 0; i < SLOT_ALL; i++){
+    if(!e->slots[i]->allowed[act])
+      continue;
+    int count = e->slots[i]->count;
+    for (int j = 0; j < count; j++){
+      if(e->slots[i]->abilities[j]->id == id)
+        return e->slots[i]->abilities[j];
+    }
+  }
+
+  return NULL;
 }
 
 ability_t AbilityLookup(AbilityID id){
@@ -1476,14 +1532,20 @@ char* EntGetClassNamePretty(ent_t* e){
 }
 
 float EntGetDPR(ent_t* e, ent_t* t){
-  int num_atk = e->num_abilities;
+  int num_atk = 0;
 
   int damage = 0;
   int num_acts = e->stats[STAT_ACTIONS]->max;
 
-  for(int i = 0; i < e->num_abilities; i++){
+  for(int i = 0; i < SLOT_ALL; i++){
+    if(e->slots[i]->count == 0)
+      continue;
+
+    num_atk++;
+
     for(int j = 0; j < num_acts; j++){
-      ability_t* a = e->abilities[i];
+      ability_t* a = e->slots[i]->abilities[0];
+/*
       int hit = a->hit->roll(a->hit);
       int save = t->stats[STAT_ARMOR]->current;
       if(a->save > ATTR_NONE)
@@ -1491,10 +1553,10 @@ float EntGetDPR(ent_t* e, ent_t* t){
 
       if(hit < save)
         continue;
-
+*/
       int s_dmg = a->stats[STAT_DAMAGE]->max;
 
-      s_dmg += a->dc->roll(a->dc);
+      s_dmg += DieMax(a->dc);
 
       int f_dmg = EntDamageReduction(t,a,s_dmg);
 

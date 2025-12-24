@@ -312,9 +312,11 @@ void WorldPreUpdate(){
 
 void WorldFixedUpdate(){
   bool control_step = false;
-  if(player)
+  if(player){
     control_step = ActionInput();
-  
+    if(control_step)
+      EntComputeFOV(player);
+  }
   for(int i = 0; i < world.num_ent; i++){
     switch(world.ents[i]->state){
       case STATE_END:
@@ -443,7 +445,7 @@ void WorldRender(){
 
       Cell s_pos = CellScale(coords,CELL_WIDTH);
       Rectangle screen_r = RectScale(Rect(s_pos.x,s_pos.y,1,1),CELL_WIDTH);
-      //DrawScreenOverlay(tile->fow,screen_r);
+      DrawScreenOverlay(tile->fow,r);
 
     }
   }
@@ -466,15 +468,7 @@ void InitGameProcess(){
     if(room_behaviors[i].is_root)
       RegisterBehaviorTree(room_behaviors[i]);
   }
-/*
-  for(int i = 0; i <MAP_NODE_DONE; i++){
-    if(room_nodes[i].type != MAP_NODE_ROOT)
-      continue;
-
-    M
-
-  }
-*/
+  
   for(int s = 0; s<SCREEN_DONE; s++){
     game_process.album_id[s] = -1;
     for(int u = 0; u<UPDATE_DONE;u++){

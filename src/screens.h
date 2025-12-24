@@ -77,8 +77,8 @@ float ScreenSized(PlaySizes s);
 void ScreenActivateSelector(Cell pos, int num, bool occupied, SelectionCallback on_select);
 bool ScreenSelectorInput(void);
 key_controller_t* ScreenGetSelection(void);
-bool ScreenMoveSelector(struct ent_s* e, ActionType a, KeyboardKey k);
-bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k);
+bool ScreenMoveSelector(struct ent_s* e, ActionType a, KeyboardKey k, ActionSlot slot);
+bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k, ActionSlot slot);
 void ScreenRender(void);
 void InitScreenInteractive(void);
 void ScreenSyncMouse(void);
@@ -89,7 +89,7 @@ ent_t* ScreenEntMouseHover(void);
 
 static action_key_t selector_keys[ACTION_DONE] = {
   {ACTION_NONE},
-  {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ScreenMoveSelector},
+  {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ScreenMoveSelector,SLOT_NONE},
   {ACTION_SELECT,1,{KEY_ENTER},ScreenMakeSelection},
 };
 

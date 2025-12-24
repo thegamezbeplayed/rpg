@@ -84,6 +84,7 @@ typedef enum{
 typedef enum{
   MOD_NONE,
   MOD_SQRT,
+  MOD_CBRT,
   MOD_NEG_SQRT,
   MOD_ADD,
   MOD_DONE
@@ -95,8 +96,8 @@ typedef enum{
   VAL_ADV_HIT,
   VAL_ADV_DMG,
   VAL_PENN,
-  VAL_ARMOR,
-  VAL_ADV_ARMOR,
+  VAL_SAVE,
+  VAL_ADV_SAVE,
   VAL_WORTH,
   VAL_WEIGHT,
   VAL_DURI,
@@ -119,6 +120,8 @@ typedef enum{
   STAT_STAMINA_REGEN_RATE,
   STAT_ENERGY_REGEN_RATE,
   STAT_RAGE,
+  STAT_HEALTH_REGEN,
+  STAT_HEALTH_REGEN_RATE,
   STAT_ENDURANCE,
   STAT_WILL,
   STAT_ENT_DONE,
@@ -324,11 +327,11 @@ typedef enum{
 }WeaponType;
 
 typedef enum{
-  CONS_NONE,
+  CONS_NONE = -1,
   CONS_POT,
   CONS_FOOD,
   CONS_DRINK,
-  CON_DONE
+  CONS_DONE
 }ConsumeType;
 
 typedef enum{
@@ -365,13 +368,21 @@ typedef enum{
   ACTION_NONE,
   ACTION_MOVE,
   ACTION_ATTACK,
+  ACTION_WEAPON,
+  ACTION_ITEM,
   ACTION_MAGIC,
+  ACTION_CANTRIP,
+  ACTION_PASSIVE,
+  ACTION_SAVE,
+  ACTION_SLOTTED,
   ACTION_SELECT,
   ACTION_DONE
 }ActionType;
 
 typedef enum{
+  SLOT_NONE = -1,
   SLOT_ATTACK,
+  SLOT_INATE,
   SLOT_ITEM,
   SLOT_SPELL,
   SLOT_SAVE,
@@ -415,6 +426,15 @@ typedef enum{
   ABILITY_ITEM_HEAL,
   ABILITY_DONE,
 }AbilityID;
+
+typedef enum {
+  AT_NONE = -1,
+  AT_HEAL,
+  AT_DMG,
+  AT_SAVE,
+  AT_DR,
+  AT_DONE
+}AbilityType;
 
 typedef enum{
   DES_NONE,
