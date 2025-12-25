@@ -650,26 +650,6 @@ static const stat_quality_t STAT_QUAL[STAT_ENT_DONE] = {
       [SC_MAX]    = MQ_TERRITORIAL 
     }
   },
-  /*
-  [STAT_STEALTH] = {
-    .stat = STAT_STEALTH,
-    .stature = {
-      [SC_MIN] = PQ_GIG | PQ_TALL | PQ_METALLIC | PQ_HEAVY,
-      [SC_INFER] = PQ_HUGE | PQ_STONE_SKIN | PQ_WIDE,
-      [SC_BELOW] = PQ_LARGE | PQ_LONG,
-      [SC_ABOVE] = PQ_SMALL | PQ_OCTPED,
-      [SC_SUPER] = PQ_SHORT | PQ_LIGHT,
-      [SC_MAX]   = PQ_ETHEREAL | PQ_SHAPELESS | PQ_TINY
-    },
-    .psyche = {
-      [SC_MIN] = MQ_OBLIVIOUS | MQ_ABSENT,
-      [SC_BELOW] = MQ_ANXIOUS,
-      [SC_ABOVE] = MQ_ALERT | MQ_PATIENT | MQ_AWARE,
-      [SC_SUPER] = MQ_CAUTIOUS | MQ_PERCEPTIVE | MQ_STRATEGIC,
-      [SC_MAX]   = MQ_CUNNING | MQ_TERRITORIAL,
-    }
-  },
-  */
   [STAT_ACTIONS] = {
     .stat = STAT_ACTIONS,
     .stature = {
@@ -814,10 +794,11 @@ typedef enum{
  RACE_SPECIAL_MASK    = 0xFFULL << 48,
 
  RACE_BUILD_CRUDE     = BIT64(56),
- RACE_BUILD_BASIC     = BIT64(57),
- RACE_BUILD_POST      = BIT64(58),
- RACE_BUILD_FORT      = BIT64(59),
- RACE_BUILD_KEEP      = BIT64(60),
+ RACE_BUILD_SIMPLE    = BIT64(57),
+ RACE_BUILD_BASIC     = BIT64(58),
+ RACE_BUILD_FORGE     = BIT64(59),
+ RACE_BUILD_SOPH      = BIT64(60),
+ RACE_BUILD_KEEP      = BIT64(61),
 
  RACE_BUILD_MASK      = 0xFFULL << 56,
 }RaceProp;
@@ -862,6 +843,7 @@ typedef struct{
   const char*   social_name[SOC_DONE];
   uint64_t      rules;
   float         attributes[ATTR_DONE];
+  int           skills[SKILL_DONE];
 }define_prof_t;
 
 static const define_prof_t DEFINE_PROF[PROF_END]= {
@@ -872,7 +854,8 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=10,[SOC_CIVIL]=5, [SOC_HIGH]=4},
     {[SOC_PRIMITIVE]="Worker",[SOC_MARTIAL]="Grunt"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {[ATTR_CON]=0.125,[ATTR_STR]=0.125}
+    {[ATTR_CON]=0.125,[ATTR_STR]=0.125},
+    .skills =  {[SKILL_STONE] = 400,[SKILL_WOOD]= 400, [SKILL_TOOL_HAMMER] = 300}
   },   
   [PROF_HAULER]   = {PROF_HAULER,
     {[SOC_HIVE] = 20, [SOC_PRIMITIVE]=10, [SOC_MARTIAL]=5,[SOC_CIVIL]=5,[SOC_HIGH]=2},
@@ -894,13 +877,15 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {[SOC_HIVE]=20,[SOC_PRIMITIVE]=6, [SOC_MARTIAL]=12,[SOC_CIVIL]=8,[SOC_HIGH]=4},
     {[SOC_HIVE]="Digger",[SOC_PRIMITIVE]="Digger",[SOC_MARTIAL]="Miner"},
     MOB_LOC_CAVE,
-    {[ATTR_STR]=.2,[ATTR_CON]=.2}
+    {[ATTR_STR]=.2,[ATTR_CON]=.2},
+    .skills = {[SKILL_STONE] = 600, [SKILL_TOOL_PICK] = 500}
   },
   [PROF_CHOPPER]={PROF_CHOPPER,
     {[SOC_HIVE]=20,[SOC_PRIMITIVE]=12, [SOC_MARTIAL]=12,[SOC_CIVIL]=8,[SOC_HIGH]=4},
     {[SOC_HIVE]="Cutter",[SOC_PRIMITIVE]="Cutter",[SOC_MARTIAL]="Logger", [SOC_CIVIL]="Lumberjack"},
     MOB_LOC_FOREST,
-    {[ATTR_STR]=.2}
+    {[ATTR_STR]=.2},
+    .skills = {[SKILL_WOOD] = 600, [SKILL_TOOL_AXE] = 500}
   },
   [PROF_TENDER]={PROF_TENDER,
     {[SOC_HIVE]=15,[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=12,[SOC_CIVIL]=10,[SOC_HIGH]=8},
@@ -983,6 +968,10 @@ typedef struct {
   uint64_t      feats;
   float         base_challenge;
 }race_define_t;
+
+static inline int SpecToIndex(SpeciesType spec){
+  return __builtin_ctzll(spec);
+}
 
 typedef uint64_t Archetypes;
 
@@ -1067,7 +1056,13 @@ typedef enum{
   PROP_WEAP_REACH       = BIT64(5),
   PROP_WEAP_RANGED      = BIT64(6),
   PROP_WEAP_AMMO        = BIT64(7),
+  PROP_WEAP_THROW       = BIT64(8),
 }WeaponProp;
+
+typedef enum{
+  PROP_ARMOR_NONE      = 0,
+
+}ArmorProp;
 
 typedef enum{
   PROP_CONS_NONE       = 0,
@@ -1075,6 +1070,7 @@ typedef enum{
 }ConsumeProp;
 
 typedef uint64_t ItemProps;
+typedef uint64_t ArmorProps;
 typedef uint64_t ConsumeProps;
 typedef uint64_t WeaponProps;
 typedef struct{

@@ -387,16 +387,17 @@ int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul){
   // New entry
   AggroEnsureCapacity(table);
 
-  int sims = 0;
-  int cr = 0;
-  while(cr == 0 && sims <10){
-    cr = EntGetChallengeRating(table->owner,source);
-    sims++;
-  }
   
+  int off = EntGetOffRating(source);
+  int def = EntGetDefRating(source);
+
+  float cr = (off*def) /10;
+   
   e = &table->entries[table->count++];
   e->enemy = source;
   e->last_turn = TURN;
+  e->offensive_rating = off;
+  e->defensive_rating = def;
   e->challenge = cr*mul;
   e->threat = e->challenge>threat_gain?e->challenge:threat;
 

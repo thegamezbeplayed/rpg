@@ -479,6 +479,7 @@ bool SkillWeightedGain(skill_t* self, int gain);
 
 skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max);
 bool SkillIncrease(struct skill_s* self, int amnt);
+bool SkillIncreaseUncapped(struct skill_s* s, int amnt);
 
 stat_t* InitStatOnMin(StatType attr, float min, float max);
 stat_t* InitStatOnMax(StatType attr, float val, AttributeType modified_by);

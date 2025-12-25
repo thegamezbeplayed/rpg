@@ -21,7 +21,7 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_BITE_POISON, AT_DMG,ACTION_ATTACK, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, SKILL_WEAP_NONE},
   {ABILITY_POISON, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,STAT_HEALTH, ATTR_CON, ATTR_NONE,
     .skills = SKILL_POISON},
-  {ABILITY_MAGIC_MISSLE ,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE,ABILITY_NONE, SKILL_SPELL_EVO},
+ {ABILITY_MAGIC_MISSLE, AT_DMG ,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .num_skills =1, .skills = SKILL_SPELL_EVO},
   {ABILITY_ELDRITCH_BLAST,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TARGET, 20, 8, 0,1, 10,3, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
    .skills = SKILL_SPELL_EVO },
   {ABILITY_RESISTANCE,
@@ -655,6 +655,16 @@ skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
 
 }
 
+bool SkillIncreaseUncapped(struct skill_s* s, int amnt){
+  int rounds = amnt / MAX_SKILL_GAIN;
+  int left = amnt & MAX_SKILL_GAIN;
+
+  for(int i = 0; i < rounds; i++)
+    SkillIncrease(s, MAX_SKILL_GAIN);
+
+  SkillIncrease(s,left);
+}
+
 bool SkillIncrease(struct skill_s* s, int amnt){
   s->point+=imin(MAX_SKILL_GAIN,amnt);
 
@@ -673,6 +683,8 @@ bool SkillIncrease(struct skill_s* s, int amnt){
   TraceLog(LOG_INFO,"%s has reached %i rank %i",s->owner->name, s->id, s->val);
   if(s->on_skill_up)
     s->on_skill_up(s,old,s->val);
+
+  return true;
 }
 
 void SkillupRelated(skill_t* self, float old, float cur){

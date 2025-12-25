@@ -274,6 +274,7 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
       RACE_ARMOR_CRUDE | RACE_ARMOR_LIGHT| RACE_ARMS_CRUDE | RACE_ARMS_LIGHT |
       RACE_SIZE_SMALL | RACE_TACTICS_CRUDE |
       RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_SPELLS | RACE_DIFF_PETS | RACE_DIFF_ALPHA |
+      RACE_BUILD_CRUDE | 
       RACE_SPECIAL_TRAPS | RACE_SPECIAL_FOCI | RACE_SPECIAL_WARDS,
     TRAIT_POISON_RESIST | TRAIT_EXP_DAGGER | TRAIT_EXP_BOW,
     PQ_SMALL | PQ_LIGHT | PQ_BIPED | PQ_THICK_SKIN,
@@ -302,6 +303,12 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
   {SPEC_CANIFORM},
   {SPEC_RODENT},
 };
+static race_define_t GetRaceByFlag(SpeciesType f){
+  int index = SpecToIndex(f);
+
+  return DEFINE_RACE[index];
+}
+
 
 static const define_archetype_t CLASS_DATA[11] = {
   {CLASS_BASE_BARD},
@@ -714,7 +721,41 @@ static skill_relation_t SKILLUP_RELATION[SKILL_DONE] = {
     {
      [MAG_MODEST] = SKILL_LVL
     }
-  }
+ },
+  [SKILL_ARMOR_NATURAL] =  {SKILL_ARMOR_NATURAL,
+    {
+      [MAG_MINOR] = SKILL_LVL
+    }
+  },
+  [SKILL_ARMOR_PADDED] = { SKILL_ARMOR_PADDED,
+    {
+      [MAG_MODEST] = SKILL_LVL
+    }
+  },
+  [SKILL_ARMOR_LEATHER] = { SKILL_ARMOR_LEATHER,
+    {
+      [MAG_MODEST] = SKILL_LVL
+    }
+  },
+  [SKILL_ARMOR_CHAIN] = { SKILL_ARMOR_CHAIN,
+    {
+      [MAG_MODEST] = SKILL_LVL
+    }
+  },
+  [SKILL_ARMOR_PLATE] = { SKILL_ARMOR_PLATE,
+    {
+      [MAG_MODEST] = SKILL_LVL
+    }
+  },
+  [SKILL_ARMOR_SHIELD] = { SKILL_ARMOR_SHIELD,
+    {
+      [MAG_NOMINAL] = SKILL_LVL
+    }
+  },
+
+
+
+
 };
 
 static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {

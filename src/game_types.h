@@ -19,6 +19,7 @@ typedef struct ability_s ability_t;
 typedef struct{
   ent_t*    enemy;
   int       challenge;
+  int       offensive_rating, defensive_rating;
   float     threat_mul, threat;
   int       last_turn;
 }aggro_entry_t;
@@ -39,6 +40,8 @@ aggro_entry_t* AggroGetEntry(aggro_table_t* table, ent_t* source);
 
 typedef struct{
   SpeciesType   race;
+  Archetypes    class_arch;
+  Profession    prof;
   float         base_diff;
   PhysQual      body;
   MentalQual    mind;
@@ -220,6 +223,8 @@ void EntAddPos(ent_t *e, Vector2 pos);
 void EntSetPos(ent_t *e, Vector2 pos);
 void EntControlStep(ent_t *e);
 int EntGetChallengeRating(ent_t* e, ent_t* t);
+int EntGetDefRating(ent_t* e);
+int EntGetOffRating(ent_t* e);
 
 typedef void (*StateChangeCallback)(ent_t *e, EntityState old, EntityState s);
 void SetViableTile(ent_t*, EntityState old, EntityState s);
@@ -231,7 +236,9 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s);
 bool CanChangeState(EntityState old, EntityState s);
 void ApplyItemProps(item_def_t * w, ItemProps props, uint64_t e_props);
 int GetWeaponByTrait(Traits t, weapon_def_t *arms);
-item_def_t* BuildWeapon(weapon_def_t def, ItemProps props, WeaponProps w_props);
+item_def_t* BuildWeapon(SkillType skill, ItemProps props, WeaponProps w_props);
+item_def_t* BuildItem(GearID id, ItemProps props, WeaponProps w_props);
+item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat);
 bool EntSyncSight(ent_t* e, ActionType a);
 void EntComputeFOV(ent_t* e);
 char* EntGetClassNamePretty(ent_t* e);

@@ -853,7 +853,7 @@ static void CastLight(map_grid_t *m, Cell pos,
 
       float dist = sqrtf(dx*dx + dy*dy);
       if (dist <= radius)
-        m->tiles[y][x].fow.a = 0;
+        m->tiles[x][y].fow.a = 0;
 
       if (blocked) {
         if (TileBlocksSight(&m->tiles[x][y])) {

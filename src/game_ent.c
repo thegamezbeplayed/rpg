@@ -17,6 +17,7 @@ ent_t* InitEnt(EntityType id,Cell pos){
   EntAddItem(e, InitItem(p), true);
   item_def_t* a = GetItemDefByID(GEAR_LEATHER_ARMOR);
   EntAddItem(e, InitItem(a), true);
+  ActionSlotAddAbility(e,InitAbility(e,ABILITY_MAGIC_MISSLE));
   e->stats[STAT_ACTIONS]->current = 1;
   e->pos = pos;
   e->control = NULL;
@@ -80,10 +81,16 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
 
   e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,0,20);
   e->skills[SKILL_LVL]->on_skill_up = EntOnLevelUp;
+  for(int i = 0; i < SKILL_DONE; i++){
+    if(e->skills[i] == NULL)
+      e->skills[i] = InitSkill(i,e,0,100);
+  }
+  
   trait_pool_t res[4] = {
     {TRAIT_RESIST_SCHOOL_MASK, e->props->traits & TRAIT_RESIST_SCHOOL_MASK},
     {TRAIT_RESIST_TAG_MASK, e->props->traits & TRAIT_RESIST_TAG_MASK},
   };
+
 
   e->traits = calloc(1,sizeof(traits_t));
 
@@ -170,9 +177,6 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
   
-  for(int i = 1; i < SKILL_DONE; i++)
-    e->skills[i] = InitSkill(i, e, 0, 100);
-
   for(int i = 0; i < SLOT_ALL; i++)
     e->slots[i] = InitActionSlot(i, e, 1, 1);  
 
@@ -206,6 +210,7 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules){
   if(!sel)
     return NULL;
 
+  
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
   ent_t* e = InitEntByRace(def,rules);
@@ -213,6 +218,14 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules){
   e->aggro = calloc(1,sizeof(aggro_table_t));
   InitAggroTable(e->aggro, 4, e);
 
+  for(int i = 0; i < SKILL_DONE; i++){
+    if(sel->skills[i]==0)
+      continue;
+
+    SkillIncreaseUncapped(e->skills[i], sel->skills[i]);
+
+  }
+ 
   for (int i = 0; i < ATTR_DONE; i++){
     if(!e->attribs[i])
       continue;
@@ -248,9 +261,9 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules){
   }
   */
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
-  
-  ability_t* a = InitAbility(e, ABILITY_WACK);
-  ActionSlotAddAbility(e, a);
+
+
+  item_def_t* idef = BuildAppropriateItem(e, ITEM_WEAPON);
 
   return e;
 }
@@ -1140,7 +1153,7 @@ controller_t* InitController(){
 }
 
 ability_t* InitAbility(ent_t* owner, AbilityID id){
-  ability_t* a = malloc(sizeof(ability_t));
+  ability_t* a = calloc(1,sizeof(ability_t));
 
   *a = AbilityLookup(id);
 
@@ -1150,7 +1163,7 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
 
   if(a->use_fn == NULL)
     a->use_fn = EntUseAbility;
-  
+ 
   a->on_use_cb = AbilitySkillup;
 
   a->stats[STAT_REACH] = InitStat(STAT_REACH,1,a->reach,a->reach);
@@ -1182,6 +1195,16 @@ bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult re
     return false;
 
   int cr = e->challenge;
+
+  switch(a->type){
+    case AT_SAVE:
+    case AT_DR:
+      cr = e->offensive_rating;
+      break;
+    case AT_DMG:
+      cr = e->defensive_rating;
+      break;
+  }
 
   for(int i = 0; i < a->num_skills; i++)
     SkillUse(owner->skills[a->skills[i]],owner->uid,target->uid,cr,result);
@@ -1495,15 +1518,107 @@ void ApplyItemProps(item_def_t *w, ItemProps props, uint64_t e_props){
   }
 }
 
-item_def_t* BuildWeapon(weapon_def_t def, ItemProps props, WeaponProps w_props){
-  item_def_t* weap = calloc(1,sizeof(item_def_t));
+ItemProps GetItemQualByRaceProp(RaceProp prop){
+  //Increments the quality by 1
+  switch(prop){
+    case RACE_BUILD_CRUDE:
+    case RACE_BUILD_SIMPLE:
+    case RACE_BUILD_BASIC:
+    case RACE_BUILD_SOPH:
+    case RACE_ARMS_ARTISAN:
+      return PROP_QUAL_TRASH;
+      break;
+    default:
+      break;
+  }
+}
 
-  weap->category = ITEM_WEAPON;
-  //weap->weight = def.weight;
-  ApplyItemProps(weap, props, w_props);
+ItemProps GetItemMatsByRaceProp(RaceProp prop){
+  switch(prop){
+    case RACE_ARMS_CRUDE:
+    case RACE_ARMS_SIMPLE:
+      return PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE;
+      break;
+    case RACE_ARMOR_CRUDE:
+      return PROP_MAT_CLOTH | PROP_MAT_LEATHER | PROP_MAT_BONE;
+      break;
+    case RACE_ARMS_ARTISAN:
+      return PROP_WEAP_MARTIAL;
+      break;
+    default:
+      break;
+  }
+}
 
-  weap->ability = def.ability;
-  return weap;
+ArmorProps GetArmorPropsByRaceProp(RaceProp prop){
+
+}
+
+WeaponProps GetWeaponPropsByRaceProp(RaceProp prop){
+  switch(prop){
+    case RACE_ARMS_CRUDE:
+    case RACE_ARMS_SIMPLE:
+      return PROP_WEAP_SIMP;
+      break;
+
+
+  }
+}
+
+item_def_t* BuildArmorForMob(ent_t* e, RaceProps props){
+  RaceProps a_props = props & RACE_ARMOR_MASK;
+}
+
+item_def_t* BuildSpecialForMob(ent_t* e, RaceProps props){
+  RaceProps s_props = props & RACE_SPECIAL_MASK;
+
+}
+
+item_def_t* BuildWeaponForMob(ent_t* e, RaceProps props){
+  RaceProps a_props = props & RACE_ARMS_MASK;
+  a_props |= props & RACE_BUILD_MASK;
+  ItemProps qual_props = PROP_QUAL_TRASH;
+  ItemProps mat_props = PROP_NONE;
+  WeaponProps w_props = PROP_NONE;
+
+  while(a_props){
+    uint64_t rprop = a_props & - a_props;
+    a_props &= a_props -1;
+    w_props |= GetWeaponPropsByRaceProp(rprop);
+    mat_props |= GetItemMatsByRaceProp(rprop);
+    qual_props += GetItemQualByRaceProp(rprop);
+  }
+
+  weapon_def_t weap = {
+    .i_props = mat_props | qual_props,
+    .w_props = w_props
+  };
+
+  item_def_t* item;
+
+  return item;
+}
+
+item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat){
+  item_def_t* item;
+  RaceProps r_props = GetRaceByFlag(e->props->race).props;
+
+  switch(cat){
+    case ITEM_WEAPON:
+    item = BuildWeaponForMob(e, r_props);
+    break;
+    case ITEM_ARMOR:
+    item = BuildArmorForMob(e, r_props);
+    break;
+    case ITEM_CONSUMABLE:
+    item = BuildSpecialForMob(e, r_props);
+    break;
+  }
+
+  return item;
+}
+
+item_def_t* BuildWeapon(SkillType skill, ItemProps props, WeaponProps w_props){
 }
 
 ability_t* EntFindAbility(ent_t* e, AbilityID id){
@@ -1531,7 +1646,7 @@ char* EntGetClassNamePretty(ent_t* e){
   return "Paragon";
 }
 
-float EntGetDPR(ent_t* e, ent_t* t){
+float EntGetDPR(ent_t* e){
   int num_atk = 0;
 
   int damage = 0;
@@ -1545,27 +1660,36 @@ float EntGetDPR(ent_t* e, ent_t* t){
 
     for(int j = 0; j < num_acts; j++){
       ability_t* a = e->slots[i]->abilities[0];
-/*
-      int hit = a->hit->roll(a->hit);
-      int save = t->stats[STAT_ARMOR]->current;
-      if(a->save > ATTR_NONE)
-        save = t->attribs[a->save]->val;
+      /*
+         int hit = a->hit->roll(a->hit);
+         int save = t->stats[STAT_ARMOR]->current;
+         if(a->save > ATTR_NONE)
+         save = t->attribs[a->save]->val;
 
-      if(hit < save)
-        continue;
-*/
+         if(hit < save)
+         continue;
+         */
       int s_dmg = a->stats[STAT_DAMAGE]->max;
 
       s_dmg += DieMax(a->dc);
 
-      int f_dmg = EntDamageReduction(t,a,s_dmg);
 
-      if(f_dmg > 0)
-        damage+=f_dmg;
+      damage+=s_dmg;
     }
   }
 
   return damage/num_atk;
+}
+int EntGetOffRating(ent_t* e){
+  return (int)(EntGetDPR(e) * 10.0f);
+}
+
+int EntGetDefRating(ent_t* e){
+  float avoid = 1+( e->stats[STAT_ARMOR]->max/20);
+
+  float ehp = e->stats[STAT_HEALTH]->max * avoid;
+
+  return ehp;
 }
 
 Cell EntSimulateBattle(ent_t* e, ent_t* t, int sims){
@@ -1580,13 +1704,13 @@ Cell EntSimulateBattle(ent_t* e, ent_t* t, int sims){
 
     while(e_hp > 0){
       t_rnds++;
-      e_hp-=EntGetDPR(t,e);
+      e_hp-=EntGetDPR(t);
 
     }
 
     while(t_hp > 0){
       e_rnds++;
-      t_hp-=EntGetDPR(e,t);
+      t_hp-=EntGetDPR(e);
 
     }
     e_wins+= e_rnds<t_rnds?1:0;

@@ -286,7 +286,7 @@ bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb){
       case DES_SELECT_TARGET:
       case DES_MULTI_TARGET:
         ent_t* target = inst->targets[i]->target.mob;
-        success = EntUseAbility(e,ab,target)||success;
+        success = AbilityUse(e,ab,target,NULL)||success;
         break;
       default:
         break;
