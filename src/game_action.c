@@ -302,6 +302,7 @@ action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap){
   action_slot_t* a = calloc(1,sizeof(action_slot_t));
 
   *a = (action_slot_t){
+    .id     = id,
     .owner  = owner,
       .rank = rank,
       .cap  = cap,
@@ -355,5 +356,11 @@ bool ActionSlotAddAbility(ent_t* owner, ability_t* a){
   if(slot == SLOT_NONE)
     return false;
 
-  return ActionSlotAdd(owner->slots[slot], a);
+  if( ActionSlotAdd(owner->slots[slot], a)){
+    owner->num_abilities++;
+    return true;
+  }
+
+  return false;
+  
 }

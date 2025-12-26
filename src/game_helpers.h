@@ -981,25 +981,21 @@ static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNex
 
     return true;
 }
-static inline define_race_class_t* GetRaceClassForSpec(uint64_t spec, uint64_t class_flag)
+static inline define_race_class_t* GetRaceClassForSpec(uint64_t spec, Profession prof)
 {
     // Convert bitflags to array indices
     int spec_idx  = __builtin_ctzll(spec);
-    int class_idx = __builtin_ctzll(class_flag);
 
     // Safety: prevent out-of-range access
     if (spec_idx < 0 || spec_idx >= 12)
         return NULL;
 
-    if (class_idx < 0 || class_idx >= 7)
-        return NULL;
-
-    define_race_class_t *entry = &RACE_CLASS_DEFINE[spec_idx][class_idx];
+    define_race_class_t *entry = &RACE_CLASS_DEFINE[spec_idx][prof];
 
     // Check if this SPEC actually has an entry for this CLASS
-    if (entry->race_class == 0)
+    /*if (entry->race_class == 0)
         return NULL;
-
+*/
     return entry;
 }
 
@@ -1053,4 +1049,18 @@ static inline StatClassif GetStatClassif(
     return best;
 }
 
+static choice_pool_t* GetRaceClassPool(SpeciesType spec, int size, ChoiceFn fn){
+  choice_pool_t* class_choice = InitChoicePool(size,ChooseByWeight);
+
+  int count = 0;
+  for(int i = 0; i < PROF_LABORER; i++){
+    define_race_class_t* drc = GetRaceClassForSpec(spec, i);
+    for(int j = 0; j<drc->count; j++){
+      AddChoice(class_choice,drc->classes[j].weight,&drc->classes[j]);
+      count++;
+    }
+  }
+
+  return class_choice;
+}
 #endif

@@ -60,7 +60,7 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_ARMOR},
   {ABILITY_ARMOR_SAVE, AT_SAVE, ACTION_SLOTTED,
     .chain_id = ABILITY_ARMOR_DR, .save_fn = EntAbilitySave},
-  {ABILITY_ARMOR_DR, AT_DR},
+  {ABILITY_ARMOR_DR, AT_DR, ACTION_SLOTTED,.save_fn = EntAbilityReduce},
   {ABILITY_ITEM},
   {ABILITY_ITEM_HEAL, AT_HEAL, ACTION_ITEM,
     DMG_RADIANT, STAT_NONE, DES_SELF, 10, 1, 1, 2,4,2,0, STAT_HEALTH, ATTR_NONE, ATTR_NONE,.skills=SKILL_ALCH, .use_fn = AbilityConsume
@@ -99,6 +99,13 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     .skill = SKILL_WEAP_BOW
   },
 };
+
+WeaponType GetWeapTypeBySkill(SkillType s){
+  for(int i = 0; i < WEAP_DONE; i++){
+    if(WEAPON_TEMPLATES[i].skill == s)
+      return WEAPON_TEMPLATES[i].type;
+  }
+}
 
 armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
   {ARMOR_NONE},
@@ -166,18 +173,17 @@ int DieMax(dice_roll_t* d){
 
   return d->sides * d->num_die;
 }
-int RollDieAdvantage(dice_roll_t* d){
-  int choice = RollDie(d);
+int RollDieAdvantage(dice_roll_t* d, int* results){
+  int choice = RollDie(d,results);
 
   for (int i = 0; i < d->advantage; i++){
-     choice = d->cb(choice, RollDie(d));
+     choice = d->cb(choice, RollDie(d,results));
   }
 
   return choice;
 }
 
-int RollDie(dice_roll_t* d){
-  int results[d->num_die];
+int RollDie(dice_roll_t* d, int* results){
   int sum = 0;
 
   for(int i = 0; i < d->num_die; i++){
@@ -366,7 +372,7 @@ stat_t* InitStat(StatType attr,float min, float max, float amount){
 
  *s =(stat_t){
     .type = attr,
-      .related    = tandem.related,
+      .related   = tandem.related,
       .min       = min,
       .max       = max,
       .base      = amount,
@@ -374,7 +380,7 @@ stat_t* InitStat(StatType attr,float min, float max, float amount){
       .ratio     = StatGetRatio,
       .increment = 1.0f,
       .die       = Die(amount,1),
-      .start     =relate.init,
+      .start     = relate.init,
       .lvl       = relate.lvl,
       .reverse   = relate.reverse
  }; 
@@ -528,7 +534,8 @@ void FormulaDieAddAttr(stat_t* self){
     }
   }
 
-  int roll = self->die->roll(self->die);
+  int rolls[self->die->num_die];
+  int roll = self->die->roll(self->die, rolls);
   self->base+= roll;
   self->max+=roll+modifier;
 }
@@ -657,7 +664,7 @@ skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
 
 bool SkillIncreaseUncapped(struct skill_s* s, int amnt){
   int rounds = amnt / MAX_SKILL_GAIN;
-  int left = amnt & MAX_SKILL_GAIN;
+  int left = amnt % MAX_SKILL_GAIN;
 
   for(int i = 0; i < rounds; i++)
     SkillIncrease(s, MAX_SKILL_GAIN);
@@ -675,11 +682,12 @@ bool SkillIncrease(struct skill_s* s, int amnt){
 
   s->point = s->point - s->threshold;
 
-  //s->threshold*=3;
 
   int old = s->val;
   s->val++;
 
+  s->threshold+= 100/s->val;
+  
   TraceLog(LOG_INFO,"%s has reached %i rank %i",s->owner->name, s->id, s->val);
   if(s->on_skill_up)
     s->on_skill_up(s,old,s->val);
@@ -691,10 +699,12 @@ void SkillupRelated(skill_t* self, float old, float cur){
   skill_relation_t related =  SKILLUP_RELATION[self->id];
 
   for (int i = 0; i < MAG_DONE; i++){
+    int mag = i+1;
+    int inc = (mag*mag-i)*cur;
     SkillType rel = related.magnitude[i];
     if (rel == SKILL_NONE)
       continue;
-    SkillIncrease(self->owner->skills[rel], cur * i);
+    SkillIncrease(self->owner->skills[rel], inc);
 
   }
 }

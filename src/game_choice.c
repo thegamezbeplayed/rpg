@@ -1,5 +1,17 @@
 #include "game_utils.h"
 
+choice_pool_t* StartChoice(choice_pool_t* pool, int size, ChoiceFn fn, bool* result){
+  if(pool==NULL){
+    pool = InitChoicePool(size, fn);
+    *result = false;
+  }
+  else{
+    pool->choose = fn;
+    *result = true;
+  }
+  return pool;
+}
+
 choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
   // Allocate the pool
   choice_pool_t *pool = calloc(1, sizeof(choice_pool_t));
@@ -92,4 +104,29 @@ choice_t* ChooseByWeight(choice_pool_t* pool){
   return NULL;
 }
 
+choice_t* ChooseByBudget(choice_pool_t* pool){
+  if(!pool || pool->count == 0 || pool->budget <= 0)
+    return NULL;
+
+  int total = 0;
+  for (int i = 0; i < pool->count; i++) {
+    int w = pool->choices[i]->score;
+    if (w > 0) total += w;
+  }
+
+  if (total <= 0)
+    return NULL; // all weights were zero or negative
+
+  for (int i = 0; i < pool->count; i++) {
+    int w = pool->choices[i]->score;
+    if (w <= 0) continue;
+    if(w >= pool->budget)
+      continue;
+
+    return pool->choices[i];
+  }
+
+  return NULL;
+
+}
 

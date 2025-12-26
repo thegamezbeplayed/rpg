@@ -3,7 +3,6 @@
 
 #define BIT64(n) (1ULL << (n))
 
-#define SKILL_RANGE_TOOL (Cell){SKILL_TOOL_AXE, SKILL_TOOL_PICK}
 #define SKILL_RANGE_WEAP (Cell){SKILL_WEAP_SIMP, SKILL_WEAP_NONE}
 
 typedef enum {
@@ -16,14 +15,14 @@ typedef enum {
 }Magnitude;
 
 typedef enum {
-    DATA_NONE,
-    DATA_INT,
-    DATA_FLOAT,
-    DATA_BOOL,
-    DATA_PTR,
-    DATA_ENTITY,
-    DATA_CELL,
-    DATA_STRING
+  DATA_NONE,
+  DATA_INT,
+  DATA_FLOAT,
+  DATA_BOOL,
+  DATA_PTR,
+  DATA_ENTITY,
+  DATA_CELL,
+  DATA_STRING
 } DataType;
 
 typedef enum{
@@ -558,9 +557,6 @@ typedef enum{
   SKILL_STONE,
   SKILL_SURV,
   SKILL_TINK,
-  SKILL_TOOL_AXE,
-  SKILL_TOOL_HAMMER,
-  SKILL_TOOL_PICK,
   SKILL_THEFT,
   SKILL_WEAV,
   SKILL_WEAP_SIMP,
@@ -570,6 +566,8 @@ typedef enum{
   SKILL_WEAP_AXE,
   SKILL_WEAP_DAGGER,
   SKILL_WEAP_BOW,
+  SKILL_WEAP_PICK,
+  SKILL_WEAP_STAFF,
   SKILL_WEAP_NONE,
   SKILL_WOOD,
   SKILL_DONE
@@ -585,6 +583,11 @@ typedef enum{
   RATE_RISK_SLOW,
   RATE_DONE
 }SkillRate;
+
+typedef enum {
+  SR_NONE   = 5,
+  SR_PROFIC = 6,
+}SkillRank;
 
 typedef enum{
   SOC_NONE,

@@ -18,8 +18,6 @@
 
 #define RATIO(s) ((s)->ratio((s)))
 
-#define DIE(num,side) (dice_roll_t){(side),(num),RollDie}
-
 static inline bool RaceHasAbility(AbilityID id, SpeciesType race){
   return (CLASS_ABILITIES[id].racial & race) !=0;
 }
@@ -183,7 +181,7 @@ static inline int GetProfessionsBySociety(SocietyType s, define_prof_t *pool) {
 }
 
 struct dice_roll_s;
-typedef int (*DiceRollFunction)(struct dice_roll_s* d);
+typedef int (*DiceRollFunction)(struct dice_roll_s* d, int* results);
 typedef bool (*DiceCompareCallback)(int a, int b);
 typedef struct dice_roll_s{
   int                 sides,num_die, advantage;
@@ -192,8 +190,8 @@ typedef struct dice_roll_s{
 }dice_roll_t;
 
 int DieMax(dice_roll_t* d);
-int RollDie(dice_roll_t* d);
-int RollDieAdvantage(dice_roll_t* d);
+int RollDie(dice_roll_t* d, int* results);
+int RollDieAdvantage(dice_roll_t* d, int* results);
 dice_roll_t* Die(int side, int num);
 dice_roll_t* InitDie(int side, int num, int adv, DiceRollFunction fn);
 typedef struct env_s env_t;

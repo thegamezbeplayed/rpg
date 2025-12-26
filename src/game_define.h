@@ -729,15 +729,13 @@ static inline int trait_index(uint64_t trait, uint64_t mask_shift) {
 typedef uint64_t RaceProps;
 
 typedef enum{
- RACE_CLASS_SOLDIER   = BIT64(0),
- RACE_CLASS_ROGUE     = BIT64(1),
- RACE_CLASS_BERSERKER = BIT64(2),
- RACE_CLASS_ARCHER    = BIT64(3),
- RACE_CLASS_DRUID     = BIT64(4),
- RACE_CLASS_WARLOCK   = BIT64(5),
- RACE_CLASS_CLERIC    = BIT64(6),
+ RACE_USE_TOOLS     = BIT64(0),
+ RACE_USE_WEAPS     = BIT64(1),
+ RACE_USE_ARMOR     = BIT64(2),
+ RACE_USE_POTIONS   = BIT64(3),
+ RACE_USE_SCROLLS   = BIT64(4),
 
- RACE_CLASS_MASK       = 0xFFULL,
+ RACE_USE_MASK       = 0xFFULL,
 
  RACE_ARMOR_CRUDE     = BIT64(8),
  RACE_ARMOR_SIMPLE    = BIT64(9),
@@ -805,6 +803,11 @@ typedef enum{
 
 typedef enum{
   PROF_NONE,
+  PROF_SOLDIER,
+  PROF_ARCHER,
+  PROF_MAGICIAN,
+  PROF_MYSTIC,
+  PROF_HEALER,
   PROF_LABORER,
   PROF_HAULER,
   PROF_RUNNER,
@@ -850,12 +853,37 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
   [PROF_NONE]     = {PROF_NONE, 
     {[SOC_NONE]=100,[SOC_PRIMITIVE]=5,[SOC_CIVIL]=10,[SOC_HIGH]=12}
   },       
+  [PROF_SOLDIER] = { PROF_SOLDIER,
+    {[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=10,[SOC_CIVIL]=5, [SOC_HIGH]=4},
+    .skills = {[SKILL_SURV] = 400, [SKILL_ATH]=400, [SKILL_WEAP_MART]=600,
+    }
+  },
+  [PROF_ARCHER] = { PROF_ARCHER,
+    {[SOC_PRIMITIVE]=7, [SOC_MARTIAL]=10,[SOC_CIVIL]=7, [SOC_HIGH]=7},
+    .skills = {[SKILL_PERCEPT]=600, [SKILL_ACRO] = 600, [SKILL_WEAP_BOW] = 600
+    },
+  },
+  [PROF_MAGICIAN] = { PROF_MAGICIAN,
+    {[SOC_PRIMITIVE]=0, [SOC_MARTIAL]=7,[SOC_CIVIL]=7, [SOC_HIGH]=10},
+    .skills = {[SKILL_ARCANA] = 1200, [SKILL_INSIGHT]=600
+    },
+  },
+  [PROF_MYSTIC] = { PROF_MYSTIC,
+    {[SOC_PRIMITIVE]=7, [SOC_MARTIAL]=5,[SOC_CIVIL]=7, [SOC_HIGH]=7},
+    .skills = {[SKILL_NATURE]=600, [SKILL_HERB] = 800,[SKILL_ANIM] = 800, [SKILL_MED] = 600, [SKILL_RELIG]=400
+    },
+  },
+  [PROF_HEALER] = { PROF_HEALER,
+    {[SOC_PRIMITIVE]=4, [SOC_MARTIAL]=4,[SOC_CIVIL]=10, [SOC_HIGH]=10},
+    .skills = {[SKILL_RELIG]=1000,[SKILL_MED] = 1200, [SKILL_SPELL_DIV]=600
+    },
+  },
   [PROF_LABORER]  = {PROF_LABORER,
     {[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=10,[SOC_CIVIL]=5, [SOC_HIGH]=4},
-    {[SOC_PRIMITIVE]="Worker",[SOC_MARTIAL]="Grunt"},
+    {[SOC_PRIMITIVE]="Worker",[SOC_MARTIAL]="Peon"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     {[ATTR_CON]=0.125,[ATTR_STR]=0.125},
-    .skills =  {[SKILL_STONE] = 400,[SKILL_WOOD]= 400, [SKILL_TOOL_HAMMER] = 300}
+    .skills =  {[SKILL_STONE] = 400,[SKILL_WOOD]= 400, [SKILL_WEAP_MACE] = 400}
   },   
   [PROF_HAULER]   = {PROF_HAULER,
     {[SOC_HIVE] = 20, [SOC_PRIMITIVE]=10, [SOC_MARTIAL]=5,[SOC_CIVIL]=5,[SOC_HIGH]=2},
@@ -878,14 +906,14 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {[SOC_HIVE]="Digger",[SOC_PRIMITIVE]="Digger",[SOC_MARTIAL]="Miner"},
     MOB_LOC_CAVE,
     {[ATTR_STR]=.2,[ATTR_CON]=.2},
-    .skills = {[SKILL_STONE] = 600, [SKILL_TOOL_PICK] = 500}
+    .skills = {[SKILL_STONE] = 600, [SKILL_WEAP_PICK] = 500}
   },
   [PROF_CHOPPER]={PROF_CHOPPER,
     {[SOC_HIVE]=20,[SOC_PRIMITIVE]=12, [SOC_MARTIAL]=12,[SOC_CIVIL]=8,[SOC_HIGH]=4},
     {[SOC_HIVE]="Cutter",[SOC_PRIMITIVE]="Cutter",[SOC_MARTIAL]="Logger", [SOC_CIVIL]="Lumberjack"},
     MOB_LOC_FOREST,
     {[ATTR_STR]=.2},
-    .skills = {[SKILL_WOOD] = 600, [SKILL_TOOL_AXE] = 500}
+    .skills = {[SKILL_WOOD] = 600, [SKILL_WEAP_AXE] = 500}
   },
   [PROF_TENDER]={PROF_TENDER,
     {[SOC_HIVE]=15,[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=12,[SOC_CIVIL]=10,[SOC_HIGH]=8},
@@ -1012,10 +1040,17 @@ typedef struct{
 }define_ability_class_t;
 
 typedef struct{
-  uint64_t    race_class;
   int         weight;
-  Archetype   base,sub,rank;
-  const char  b_name[MAX_NAME_LEN],s_name[MAX_NAME_LEN],r_name[MAX_NAME_LEN];
+  Archetype   base,sub,promo;
+  const char  main[MAX_NAME_LEN], second[MAX_NAME_LEN],rank[MAX_NAME_LEN];
+  int         skills[SKILL_DONE];
+  int         rankups[SKILL_DONE];
+}race_class_t;
+
+typedef struct{
+  Profession    id;
+  int           count;
+  race_class_t  classes[10];
 }define_race_class_t;
 
 typedef struct{
@@ -1092,6 +1127,7 @@ typedef struct{
   AbilityID       ability;
   SkillType       skill;
 }weapon_def_t;
+WeaponType GetWeapTypeBySkill(SkillType s);
 
 typedef struct{
   ConsumeType     type;
@@ -1165,10 +1201,32 @@ static item_prop_mod_t PROP_MODS[ITEM_DONE][NUM_ITEM_PROPS]={
        {PROP_QUAL_ARTIFACT,250, VAL_WORTH,AFF_FRACT},
        {PROP_QUAL_ARTIFACT,300, VAL_DURI,AFF_FRACT},
        */
+    {PROP_MAT_BONE,2,
+      .val_change = {
+         {VAL_DURI,AFF_FRACT,75},
+         {VAL_PENN, AFF_SUB, 1},
+      }
+    },
+    {PROP_MAT_STONE,2, 
+      .val_change = {
+         {VAL_DURI,AFF_FRACT,90},
+         {VAL_HIT, AFF_SUB, 1},
+      }
+    },
+    {PROP_MAT_WOOD, 2,
+      .val_change = {
+         {VAL_DURI,AFF_FRACT,60},
+         {VAL_PENN, AFF_SUB, 2},
+      }
+    },
   },
   [ITEM_WEAPON] = {
-    {PROP_WEAP_LIGHT},
-    {PROP_WEAP_HEAVY},
+    {PROP_WEAP_LIGHT, 1,
+      {VAL_PENN, AFF_SUB, 1},
+    },
+    {PROP_WEAP_HEAVY,1,
+      {VAL_PENN, AFF_ADD, 1},
+    },
     {PROP_WEAP_SIMP,
       .add_skill = SKILL_WEAP_SIMP
     },

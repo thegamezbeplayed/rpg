@@ -15,6 +15,7 @@
 
 typedef struct ent_s ent_t;
 typedef struct ability_s ability_t;
+typedef struct ability_sim_s ability_sim_t;
 
 typedef struct{
   ent_t*    enemy;
@@ -52,8 +53,9 @@ properties_t* InitProperties(race_define_t racials);
 
 typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, struct ent_s* target, InteractResult result);
 typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, ent_t* target);
+typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a, ent_t* target);
 InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target);
-typedef InteractResult (*AbilitySave)(ent_t* owner,  ability_t* a, ability_t* source);
+typedef InteractResult (*AbilitySave)(ent_t* owner,  ability_t* a, ability_sim_t* source);
 bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result);
 struct ability_s{
   AbilityID        id;
@@ -71,12 +73,24 @@ struct ability_s{
   dice_roll_t*     dc,*hit;
   stat_t*          stats[STAT_ENT_DONE];
   ability_t        *chain;
-  value_t*         values[VAL_WORTH];
-  AbilityCb        on_success_cb, on_use_cb;
-  AbilityFn        use_fn, chain_fn;
-  AbilitySave      save_fn;
+  value_t*            values[VAL_WORTH];
+  damage_reduction_t* dr;
+  AbilityCb           on_success_cb, on_use_cb;
+  AbilityFn           use_fn, chain_fn;
+  AbilitySave         save_fn;
+  AbilitySim          sim_fn;
 };
 
+struct ability_sim_s{
+  AbilityID     id;
+  AbilityType   type;
+  DamageType    d_type;
+  int           dmg_die,dmg_sides,d_bonus, h_die, h_sides, h_bonus, penn,dmg_calc, hit_calc, final_dmg;
+  int           dmg_res[10];
+  int           hit_res[2];
+};
+
+ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target);
 typedef struct{
   ActionSlot     id;
   ActionType     allowed[ACTION_SLOTTED];
@@ -93,10 +107,10 @@ ability_t AbilityLookup(AbilityID id);
 ability_t* EntFindAbility(ent_t* e, AbilityID id);
 ability_t* InitAbility(ent_t* owner, AbilityID);
 ability_t* InitAbilityDummy(ent_t* owner, ability_t copy);
-bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_t* other);
-ability_t* EntChooseWeightedAbility(ent_t* e, int budget);
-InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_t* source);
-InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_t* source);
+bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other);
+ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot);
+InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_sim_t* source);
+InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source);
 
 typedef struct item_def_s{
   int id;
@@ -141,6 +155,7 @@ item_pool_t* InitItemPool(void);
 item_def_t* DefineItem(ItemInstance data);
 item_def_t* DefineArmor(ItemInstance data);
 item_def_t* DefineWeapon(ItemInstance data);
+item_def_t* DefineWeaponByType(WeaponType t, ItemProps p, WeaponProps w);
 item_t* InitItem(item_def_t* def);
 
 item_def_t* GetItemDefByID(GearID id);
@@ -150,7 +165,9 @@ typedef struct{
   Cell                    start,destination;
   int                     ranges[RANGE_EMPTY];
   behavior_tree_node_t*   bt[STATE_END];
+  choice_pool_t           *choices[ACTION_PASSIVE];
 }controller_t;
+
 controller_t* InitController();
 
 typedef struct{
@@ -174,6 +191,7 @@ typedef struct ent_s{
   skill_t*              skills[SKILL_DONE];
   traits_t              *traits;
   properties_t          *props;
+  int                   num_abilities;
   action_slot_t         *slots[SLOT_ALL];
   EntityType            type;
   map_grid_t*           map;
@@ -194,7 +212,7 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules);
 ent_t* InitEnt(EntityType id, Cell pos);
 ent_t* InitMob(EntityType mob, Cell pos);
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race);
-void PromoteEntClass(ent_t* e, race_define_t racial, define_race_class_t* race_class);
+void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class);
 int EntBuild(mob_define_t def, MobRules rules, ent_t** pool);
 void EntApplyTraits(traits_t* t, uint64_t mask, uint64_t shift);
 void EntCalcStats(ent_t* e, race_define_t* racial);
@@ -238,7 +256,7 @@ void ApplyItemProps(item_def_t * w, ItemProps props, uint64_t e_props);
 int GetWeaponByTrait(Traits t, weapon_def_t *arms);
 item_def_t* BuildWeapon(SkillType skill, ItemProps props, WeaponProps w_props);
 item_def_t* BuildItem(GearID id, ItemProps props, WeaponProps w_props);
-item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat);
+item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s);
 bool EntSyncSight(ent_t* e, ActionType a);
 void EntComputeFOV(ent_t* e);
 char* EntGetClassNamePretty(ent_t* e);

@@ -259,7 +259,7 @@ static attribute_name_t attributes[ATTR_DONE]={
 static const race_define_t DEFINE_RACE[ 12 ] = {
   {SPEC_NONE},
   {SPEC_HUMAN, "Joseph", ENT_PERSON,
-    RACE_CLASS_SOLDIER |
+    RACE_USE_TOOLS | RACE_USE_WEAPS | RACE_USE_ARMOR | RACE_USE_POTIONS |RACE_USE_SCROLLS |
     RACE_ARMOR_SIMPLE | RACE_ARMS_SIMPLE,
     TRAIT_EXP_SWORD,
     PQ_BIPED,
@@ -270,7 +270,7 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
   {SPEC_ELF},
   {SPEC_ARCHAIN},
   {SPEC_GOBLINOID, "Goblin", ENT_GOBLIN,
-    RACE_CLASS_SOLDIER | RACE_CLASS_ROGUE | RACE_CLASS_ARCHER | RACE_CLASS_DRUID | RACE_CLASS_WARLOCK |
+    RACE_USE_TOOLS | RACE_USE_WEAPS | RACE_USE_ARMOR | RACE_USE_POTIONS |RACE_USE_SCROLLS |
       RACE_ARMOR_CRUDE | RACE_ARMOR_LIGHT| RACE_ARMS_CRUDE | RACE_ARMS_LIGHT |
       RACE_SIZE_SMALL | RACE_TACTICS_CRUDE |
       RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_SPELLS | RACE_DIFF_PETS | RACE_DIFF_ALPHA |
@@ -283,7 +283,7 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
     1
   },
   {SPEC_ORC, "Orc", ENT_ORC,
-    RACE_CLASS_SOLDIER | RACE_CLASS_BERSERKER | RACE_CLASS_ARCHER | RACE_CLASS_DRUID | RACE_CLASS_WARLOCK |
+    RACE_USE_TOOLS | RACE_USE_WEAPS | RACE_USE_ARMOR | RACE_USE_POTIONS |RACE_USE_SCROLLS |
       RACE_ARMOR_CRUDE | RACE_ARMOR_SIMPLE | RACE_ARMOR_LIGHT | RACE_ARMOR_MEDIUM | RACE_ARMOR_HEAVY | RACE_ARMOR_FORGED |
       RACE_ARMS_SIMPLE | RACE_ARMS_LIGHT | RACE_ARMS_HEAVY | RACE_ARMS_FORGED | RACE_ARMS_SKILLED |
       RACE_SIZE_BIG |
@@ -309,6 +309,17 @@ static race_define_t GetRaceByFlag(SpeciesType f){
   return DEFINE_RACE[index];
 }
 
+static Traits SKILL_TRAITS[SKILL_DONE] = {
+//  [SKILL_WEAP_SIMP],
+//  [SKILL_WEAP_MART],
+  [SKILL_WEAP_MACE]   = TRAIT_EXP_MACE,
+  [SKILL_WEAP_SWORD]  = TRAIT_EXP_SWORD, 
+  [SKILL_WEAP_AXE]    = TRAIT_EXP_AXE,
+  [SKILL_WEAP_DAGGER] = TRAIT_EXP_DAGGER,
+  [SKILL_WEAP_BOW]    = TRAIT_EXP_BOW,
+//  [SKILL_WEAP_NONE],
+
+};
 
 static const define_archetype_t CLASS_DATA[11] = {
   {CLASS_BASE_BARD},
@@ -339,56 +350,123 @@ static const define_archetype_t CLASS_DATA[11] = {
   {CLASS_SUB_CHAMP, 10, ATTR_NONE, ATTR_STR, ATTR_CON},
 };
 
-static define_race_class_t RACE_CLASS_DEFINE[12][7] = {
+static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
   [__builtin_ctzll(SPEC_GOBLINOID)] = {
-    [__builtin_ctzll(RACE_CLASS_SOLDIER)] = {
-      RACE_CLASS_SOLDIER, 15, CLASS_BASE_FIGHTER,CLASS_BASE_ROGUE, CLASS_SUB_CHAMP,
-      "Brawler","Saboteur","Boss"
+    [PROF_SOLDIER] = {PROF_SOLDIER,2,
+      {
+        { 15, CLASS_BASE_FIGHTER, CLASS_BASE_ROGUE, CLASS_SUB_CHAMP,
+          "Brawler","Saboteur","Boss",
+          .skills = {
+            [SKILL_ARMOR_LEATHER]=600,[SKILL_ARMOR_SHIELD]=400,
+          [SKILL_WEAP_MACE]=600, [SKILL_WEAP_SWORD]=400
+          },
+          .rankups = {
+            [SKILL_ARMOR_LEATHER]=400,[SKILL_ARMOR_SHIELD]=400,
+          [SKILL_WEAP_MART]=600, [SKILL_WEAP_SWORD]=500,
+          }
+        },
+        { 10, CLASS_BASE_ROGUE, CLASS_SUB_ASSASSIN, CLASS_SUB_CHAMP,
+          "Skulker", "Infiltrator", "Saboteur",
+           .skills = {
+            [SKILL_ARMOR_LEATHER]=400,[SKILL_STEALTH]=600,
+          [SKILL_WEAP_DAGGER]=600, [SKILL_WEAP_BOW]=400
+          },
+          .rankups = {
+            [SKILL_ARMOR_LEATHER]=400,[SKILL_STEALTH]=400,
+          [SKILL_WEAP_MART]=600, [SKILL_WEAP_DAGGER]=400,
+          }
+        }
+      }
     },
-    [__builtin_ctzll(RACE_CLASS_ROGUE)] = {
-      RACE_CLASS_ROGUE, 10, CLASS_BASE_ROGUE, CLASS_SUB_ASSASSIN, CLASS_SUB_CHAMP,
-      "Skulker", "Infiltrator", "Saboteur"},
-    [__builtin_ctzll(RACE_CLASS_ARCHER)] = {
-      RACE_CLASS_ARCHER, 10, CLASS_BASE_RANGER , CLASS_BASE_ROGUE , CLASS_SUB_SHOOTER,
-      "Tracker", "Prowler", "Stinger"},
-    [__builtin_ctzll(RACE_CLASS_DRUID)] = {
-      RACE_CLASS_DRUID, 5, CLASS_BASE_DRUID, CLASS_SUB_SHAMAN, CLASS_SUB_CHAMP,
-      "Pestcaller","Seer", "Mystic"
+    [PROF_ARCHER] = { PROF_ARCHER,1,
+      {
+        {
+          10, CLASS_BASE_RANGER , CLASS_BASE_ROGUE , CLASS_SUB_SHOOTER,
+          "Tracker", "Prowler", "Stinger",
+          .skills = {
+            [SKILL_ARMOR_PADDED]=600,[SKILL_ANIM]=600,
+            [SKILL_WEAP_BOW]=600, [SKILL_WEAP_SWORD]=400
+          },
+          .rankups = {
+            [SKILL_ARMOR_PADDED]=400,[SKILL_STEALTH]=300,
+            [SKILL_WEAP_BOW]=400, [SKILL_WEAP_SWORD]=400,
+          }
+        },
+      }
     },
-    [__builtin_ctzll(RACE_CLASS_WARLOCK)] = {
-      RACE_CLASS_WARLOCK,1, CLASS_BASE_LOCK, -1,-1,
-      "Filthcaller","\0","\0"
+    [PROF_MYSTIC] = { PROF_MYSTIC,1,
+      {
+        {
+          5, CLASS_BASE_DRUID, CLASS_SUB_SHAMAN, CLASS_SUB_CHAMP,
+          "Pestcaller","Seer", "Mystic",
+          .skills = {
+            [SKILL_ARMOR_NATURAL]=400, [SKILL_WEAP_STAFF]=300,
+            [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS]=600, [SKILL_SPELL_CONJ] = 400,
+          },
+            .rankups = {
+              [SKILL_ARMOR_NATURAL]=200, [SKILL_WEAP_STAFF]=200,
+              [SKILL_SPELL_ABJ] = 300, [SKILL_SPELL_TRANS]=400, [SKILL_SPELL_CONJ] = 300,
+            }
+        },
+      }
     },
-    [__builtin_ctzll(RACE_CLASS_CLERIC)] = {
-      RACE_CLASS_CLERIC,5, CLASS_BASE_CLERIC, CLASS_BASE_LOCK, CLASS_SUB_HEX,
-      "Giver", "Witch-doctor", "Shadow Priest"
-    }
+    [PROF_MAGICIAN] = { PROF_MAGICIAN,1,
+      {
+        {
+          5, CLASS_BASE_LOCK, -1,-1,
+          "Filthcaller","\0","\0",
+          .skills = {
+            [SKILL_SPELL_EVO] = 600, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS] = 300, [SKILL_SPELL_NECRO] = 600,
+          },
+          .rankups = {
+            [SKILL_SPELL_EVO] = 500, [SKILL_SPELL_ABJ] = 100, [SKILL_SPELL_TRANS] = 100, [SKILL_SPELL_NECRO] = 600,
+          }
+        },
+      }
+    },
+    [PROF_HEALER] = {PROF_HEALER, 1,
+      {
+        {
+          5, CLASS_BASE_CLERIC, CLASS_BASE_LOCK, CLASS_SUB_HEX,
+          "Giver", "Witch-doctor", "Shadow Priest",
+          .skills = {
+            [SKILL_SPELL_ENCH] = 400, [SKILL_SPELL_ABJ] = 600, [SKILL_SPELL_NECRO] = 800,
+          },
+          .rankups = {
+            [SKILL_SPELL_ENCH] = 300, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_NECRO] = 600,
+          }
 
+        }
+      }
+    },
   },
-  [__builtin_ctzll( SPEC_ORC )] = {
-    [__builtin_ctzll(RACE_CLASS_SOLDIER)] = {
-      RACE_CLASS_SOLDIER, 25, CLASS_BASE_FIGHTER,CLASS_SUB_CHAMP, CLASS_SUB_CHAMP,
-      "Grunt","Champion","Warlord"
-    },
-    [__builtin_ctzll(RACE_CLASS_ROGUE)] = {
-      RACE_CLASS_ROGUE, 10, CLASS_BASE_ROGUE, CLASS_SUB_ASSASSIN, CLASS_SUB_CHAMP,
-      "Cutthroat", "Infiltrator", "Saboteur"},
-    [__builtin_ctzll(RACE_CLASS_ARCHER)] = {
-      RACE_CLASS_ARCHER, 10, CLASS_BASE_RANGER , CLASS_BASE_FIGHTER , CLASS_SUB_SHOOTER,
-      "Stalker", "Slayer", "Hunter"},
-    [__builtin_ctzll(RACE_CLASS_WARLOCK)] = {
-      RACE_CLASS_WARLOCK,1, CLASS_BASE_LOCK, -1,-1,
-      "Doomsayer","\0","\0"
-    },
-    [__builtin_ctzll(RACE_CLASS_CLERIC)] = {
-      RACE_CLASS_CLERIC,5, CLASS_BASE_CLERIC, CLASS_SUB_SHAMAN, CLASS_SUB_HEX,
-      "Priest", "Shaman", "Shadow Priest"
-    },
-    [__builtin_ctzll(RACE_CLASS_BERSERKER)] = {
-      RACE_CLASS_BERSERKER,12, CLASS_BASE_FIGHTER, CLASS_SUB_BERZ, CLASS_SUB_CHAMP,
-      "Rager", "Berserker", "Bloodrager"
-    }
-  },
+  /*
+       },
+       [__builtin_ctzll( SPEC_ORC )] = {
+       [PROF_FIGHTER] = {
+       PROF_FIGHTER, 25, CLASS_BASE_FIGHTER,CLASS_SUB_CHAMP, CLASS_SUB_CHAMP,
+       "Grunt","Champion","Warlord"
+       },
+       [PROF_ROGUE] = {
+       PROF_ROGUE, 10, CLASS_BASE_ROGUE, CLASS_SUB_ASSASSIN, CLASS_SUB_CHAMP,
+       "Cutthroat", "Infiltrator", "Saboteur"},
+       [PROF_RANGER] = {
+       PROF_RANGER, 10, CLASS_BASE_RANGER , CLASS_BASE_FIGHTER , CLASS_SUB_SHOOTER,
+       "Stalker", "Slayer", "Hunter"},
+       [PROF_WARLOCK] = {
+       PROF_WARLOCK,1, CLASS_BASE_LOCK, -1,-1,
+       "Doomsayer","\0","\0"
+       },
+       [PROF_CLERIC] = {
+       PROF_CLERIC,5, CLASS_BASE_CLERIC, CLASS_SUB_SHAMAN, CLASS_SUB_HEX,
+       "Priest", "Shaman", "Shadow Priest"
+       },
+       [PROF_SPEC_MELEE] = {
+       PROF_SPEC_MELEE,12, CLASS_BASE_FIGHTER, CLASS_SUB_BERZ, CLASS_SUB_CHAMP,
+       "Rager", "Berserker", "Bloodrager"
+       }
+       },
+       */
 };
 
 static const mob_define_t MONSTER_MASH[ENT_DONE] = {
@@ -712,16 +790,51 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
 };
 
 static skill_relation_t SKILLUP_RELATION[SKILL_DONE] = {
+  [SKILL_WEAP_NONE] = {SKILL_WEAP_NONE,
+    {
+      [MAG_MINOR] = SKILL_LVL
+    }
+  },
   [SKILL_WEAP_SIMP] = {SKILL_WEAP_SIMP,
     {
-     [MAG_MINOR] = SKILL_LVL
+      [MAG_MINOR] = SKILL_LVL
+    }
+  },
+  [SKILL_WEAP_MACE] = {SKILL_WEAP_MACE,
+    {
+      [MAG_NOMINAL] = SKILL_LVL
+    }
+  },
+  [SKILL_WEAP_SWORD] = {SKILL_WEAP_SWORD,
+    {
+      [MAG_NOMINAL] = SKILL_LVL
+    }
+  },
+  [SKILL_WEAP_AXE] = {SKILL_WEAP_AXE,
+    {
+      [MAG_NOMINAL] = SKILL_LVL
+    }
+  },
+  [SKILL_WEAP_DAGGER] = {SKILL_WEAP_DAGGER,
+    {
+      [MAG_NOMINAL] = SKILL_LVL
+    }
+  },
+  [SKILL_WEAP_BOW] = {SKILL_WEAP_BOW,
+    {
+      [MAG_NOMINAL] = SKILL_LVL
+    }
+  },
+  [SKILL_WEAP_PICK] = {SKILL_WEAP_PICK,
+    {
+      [MAG_NOMINAL] = SKILL_LVL
     }
   },
   [SKILL_WEAP_MART] = {SKILL_WEAP_MART,
     {
-     [MAG_MODEST] = SKILL_LVL
+      [MAG_MODEST] = SKILL_LVL
     }
- },
+  },
   [SKILL_ARMOR_NATURAL] =  {SKILL_ARMOR_NATURAL,
     {
       [MAG_MINOR] = SKILL_LVL
@@ -752,10 +865,6 @@ static skill_relation_t SKILLUP_RELATION[SKILL_DONE] = {
       [MAG_NOMINAL] = SKILL_LVL
     }
   },
-
-
-
-
 };
 
 static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {

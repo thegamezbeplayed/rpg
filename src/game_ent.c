@@ -84,6 +84,8 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   for(int i = 0; i < SKILL_DONE; i++){
     if(e->skills[i] == NULL)
       e->skills[i] = InitSkill(i,e,0,100);
+    if(SKILL_TRAITS[i]&TRAIT_EXP_MASK)
+      SkillIncreaseUncapped(e->skills[i], 400);
   }
   
   trait_pool_t res[4] = {
@@ -262,15 +264,25 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules){
   */
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
 
+  int num_w = 0;
+  for (int i = SKILL_RANGE_WEAP.x; i < SKILL_RANGE_WEAP.y; i++){
+    if(e->skills[i]->val==0)
+      continue;
 
-  item_def_t* idef = BuildAppropriateItem(e, ITEM_WEAPON);
+    bool eq = num_w < 1;
+    item_def_t* idef = BuildAppropriateItem(e, ITEM_WEAPON, i);
+    EntAddItem(e, InitItem(idef), eq);
+    num_w++;
+
+  }
 
   return e;
 }
 
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
-  define_race_class_t arch = RACE_CLASS_DEFINE[__builtin_ctzll( race)][__builtin_ctzll(class_id)];
+  define_race_class_t arch = RACE_CLASS_DEFINE[__builtin_ctzll( race)][class_id];
 
+/*
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(race)];
 
   define_archetype_t data = CLASS_DATA[__builtin_ctzll(arch.base)];
@@ -292,9 +304,7 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
   e->control = InitController();
 
   e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,0,20);
-
   e->traits = calloc(1,sizeof(traits_t));
-/*
   for (int i = 0; i < ATTR_DONE; i++){
     int val = BASE_ATTR_VAL + size.attr[e->size][i];
     e->attribs[i] = InitAttribute(i,val);
@@ -328,7 +338,6 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
         break;
     }
   }
-*/
   AbilityID abilities[MAX_ABILITIES];
   int num_abilities = FilterAbilities(abilities, data.archtype, race);
   for (int i = 0; i < num_abilities; i++){
@@ -341,12 +350,13 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
     ActionSlotAddAbility(e,a);
   }
   return e;
+  */
 }
 
-void PromoteEntClass(ent_t* e, race_define_t racial, define_race_class_t* race_class){
+void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
   define_archetype_t data = CLASS_DATA[__builtin_ctzll(race_class->base)];
 
-  strcpy(e->name, TextFormat("%s %s",racial.name,race_class->b_name));
+  strcpy(e->name, TextFormat("%s %s",racial.name,race_class->main));
 
   for (int i = 0; i < ATTR_DONE; i++){
     if(e->attribs[i] == NULL)
@@ -525,10 +535,9 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
     monster_size =0;
 
   int chief_w = 0, captain_w = 0, commander_w =0;
-  choice_pool_t* class_choice = InitChoicePool(7,ChooseBest);
+  choice_pool_t* class_choice = GetRaceClassPool(def.race,7,ChooseByWeight);
   if(diverse && amount>1){
     RaceProps tactics = GET_FLAG(racial.props, RACE_TACTICS_MASK);
-    RaceProps classes = GET_FLAG(racial.props, RACE_CLASS_MASK);
     
     while(tactics){
       uint64_t tactic = tactics & -tactics;
@@ -558,37 +567,25 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
       }
     }
 
-    while(classes){
-      uint64_t class = classes & -classes;
-      classes &= classes -1;
-      define_race_class_t *rc = GetRaceClassForSpec(def.race,class);
-      if(rc)
-        AddChoice(class_choice, rc->weight,&rc->race_class);
-    }
   }
   count = 0;
-//  MobRules armory = GET_FLAG(racial.props,RACE_ARMS_MASK);
-
-  Traits skill = GetTraits(racial.traits,TRAIT_EXP_MASK);
-  weapon_def_t arms[WEAP_DONE];
-  int w_num = GetWeaponByTrait(skill, arms);
 
   for(int i = 0; i < amount; i++){
     ent_t* e = IntEntCommoner(def,rules);
     if(diverse && promote){
       choice_t *selection = class_choice->choose(class_choice); 
-      define_race_class_t* drc = selection->context;
+      race_class_t* drc = selection->context;
 
-       PromoteEntClass(e,racial,drc);
+      PromoteEntClass(e,racial,drc);
 
       if(arm){
         item_def_t* item = GetItemDefByID(GEAR_DAGGER);
         EntAddItem(e, InitItem(item), true);
         /*
-        for (int w = 0; w < w_num; i++){
-          EntAddItem(e,InitItem(BuildWeapon(arms[w], QUAL_TRASH)),true);
-        }
-        */
+           for (int w = 0; w < w_num; i++){
+           EntAddItem(e,InitItem(BuildWeapon(arms[w], QUAL_TRASH)),true);
+           }
+           */
       }
     }
     EntAddExp(e, 200);
@@ -726,11 +723,18 @@ item_def_t* DefineItem(ItemInstance data){
 }
 
 item_def_t* DefineWeapon(ItemInstance data){
-  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item_def_t* item = DefineWeaponByType(data.equip_type, data.props, data.et_props);
+
   item->id = data.id;
+
+  return item;
+}
+
+item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_props){
+  item_def_t* item = calloc(1,sizeof(item_def_t));
   item->category = ITEM_WEAPON;
 
-  weapon_def_t temp = WEAPON_TEMPLATES[data.equip_type];
+  weapon_def_t temp = WEAPON_TEMPLATES[t];
 
   //TODO CHANGE TO VALUE_T
   //item->weight = temp.weight;
@@ -745,7 +749,7 @@ item_def_t* DefineWeapon(ItemInstance data){
  
   item->skills[item->num_skills++] = temp.skill; 
   item->ability = temp.ability; 
-  ApplyItemProps(item, data.props, data.et_props);
+  ApplyItemProps(item, props, w_props);
 
   for(int i = 0; i < VAL_ALL; i++){
     if(!item->values[i])
@@ -754,7 +758,8 @@ item_def_t* DefineWeapon(ItemInstance data){
     item->values[i]->val = ValueRebase(item->values[i]);
   }
   return item;
-}
+
+};
 
 item_def_t* DefineArmor(ItemInstance data){
   item_def_t* item = calloc(1,sizeof(item_def_t));
@@ -773,10 +778,11 @@ item_def_t* DefineArmor(ItemInstance data){
   item->values[VAL_ADV_SAVE] = InitValue(VAL_ADV_SAVE,0);
   item->values[VAL_SAVE] = InitValue(VAL_SAVE,temp.armor_class);
   
+
+  *item->dr = temp.dr_base;
   ApplyItemProps(item, data.props, data.et_props);
 
   //item->weight = temp.weight;
-  *item->dr = temp.dr_base;
 
   item->ability = ABILITY_ARMOR_SAVE;
   item->skills[item->num_skills++] = temp.skill; 
@@ -930,7 +936,9 @@ InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target){
 
   InteractResult ires = IR_SUCCESS;
 
-  int base = a->dc->roll(a->dc);
+
+  int rolls[a->dc->num_die];
+  int base = a->dc->roll(a->dc,rolls);
 
   base = (base + a->stats[STAT_DAMAGE]->current);
 
@@ -947,45 +955,80 @@ InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target){
 
   return ires;
 }
+int AbilityAddPB(ent_t* e, ability_t* a, StatType s){
+  if(e->skills[a->skills[0]]->val <= SR_NONE)
+    return 0;
+
+  return a->stats[s]->current;
+}
+
+ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
+  ability_sim_t* res = calloc(1,sizeof(ability_sim_t));
+
+  res->id = a->id;
+  res->type = a->type;
+  res->d_type = a->school;
+  res->d_bonus = AbilityAddPB(owner, a, STAT_DAMAGE);
+  res->dmg_die = a->dc->num_die;
+  res->dmg_sides = a->dc->sides;
+  res->penn = a->values[VAL_PENN]->val;
+
+  res->hit_calc = a->hit->roll(a->hit, res->hit_res);
+  res->dmg_calc = a->dc->roll(a->dc, res->dmg_res);
+
+  res->final_dmg = res->dmg_calc + res->d_bonus;
+  return res;
+}
 
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source){
   InteractResult result = IR_NONE;
-  int base_dmg = a->dc->roll(a->dc);
+  //int base_dmg = a->dc->roll(a->dc);
   
-  base_dmg = (base_dmg + a->stats[STAT_DAMAGE]->current);
 
-  ability_t* dummy = InitAbilityDummy(source, *a);
+  ability_sim_t* dummy = a->sim_fn(source, a, e);
 
+  int og_dmg = dummy->final_dmg;
+  ability_t* dr = EntFindAbility(e, ABILITY_ARMOR_DR);
 
-  int reduced =  EntDamageReduction(e,a,base_dmg); 
-  int damage = -1 * reduced; 
-  e->last_hit_by = source; 
-  
-  AggroAdd(e->aggro, source, -1*damage, source->props->base_diff);
-  if(StatChangeValue(e,e->stats[a->damage_to], damage)){
-   TraceLog(LOG_INFO,"%s level %i hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
-       source->name, 
-       source->skills[SKILL_LVL]->val,
-       e->name,
-       damage*-1,
-       DAMAGE_STRING[a->school],
-       e->name,
-       STAT_STRING[a->damage_to].name,
-       e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
- 
-  result = IR_SUCCESS;
-  if(StatIsEmpty(e->stats[STAT_HEALTH]))
-   result = IR_TOTAL_SUCC;
+  InteractResult dres = IR_FAIL;
+  if(dr)
+    dres = AbilityUse(e, dr, source, dummy);
 
-  if(reduced!=base_dmg)
-   TraceLog(LOG_INFO,"(%i damage reduction)",base_dmg-reduced); 
-    return result;
+  if(dres == IR_TOTAL_SUCC){
+    TraceLog(LOG_INFO,"%s shruggs off the attack..",e->name);
+
+    result = IR_CRITICAL_FAIL;
   }
-  else
-    result = IR_FAIL;
-  
-  return result;
+  else{
+    int damage = -1 * dummy->final_dmg; 
+    e->last_hit_by = source; 
 
+    AggroAdd(e->aggro, source, -1*damage, source->props->base_diff);
+    if(StatChangeValue(e,e->stats[a->damage_to], damage)){
+      TraceLog(LOG_INFO,"%s level %i hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
+          source->name, 
+          source->skills[SKILL_LVL]->val,
+          e->name,
+          damage*-1,
+          DAMAGE_STRING[a->school],
+          e->name,
+          STAT_STRING[a->damage_to].name,
+          e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
+
+      result = IR_SUCCESS;
+      if(StatIsEmpty(e->stats[STAT_HEALTH]))
+        result = IR_TOTAL_SUCC;
+
+      if(og_dmg<dummy->final_dmg)
+        TraceLog(LOG_INFO,"(%i damage reduction)",og_dmg-dummy->final_dmg); 
+
+      return result;
+    }
+    else
+      result = IR_FAIL;
+  }
+
+  return result;
 }
 
 int EntDamageReduction(ent_t* e, ability_t* a, int dmg){
@@ -1022,9 +1065,29 @@ int EntDamageReduction(ent_t* e, ability_t* a, int dmg){
   return dmg;
 }
 
-ability_t* EntChooseWeightedAbility(ent_t* e, int budget){
+ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot){
+  bool running = false;
+  int count = e->slots[slot]->count;
+  if(count == 0)
+    return NULL;
 
-  return e->slots[SLOT_ATTACK]->abilities[0];
+  choice_pool_t* p = StartChoice(e->control->choices[slot], count, ChooseByBudget,&running);
+
+  p->budget = budget;
+  
+  if(!running){
+    for(int j = 0; j < e->slots[slot]->count; j++){
+      ability_t* a = e->slots[slot]->abilities[j];
+      AddChoice(p, a->cost, a);
+
+    }
+  }
+
+  choice_t* choice = p->choose(p);
+  if(choice && choice->context)
+    return choice->context;
+
+  return NULL;
 }
 
 bool ItemAddAbility(struct ent_s* owner, item_t* item){
@@ -1052,36 +1115,59 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
 
     AbilityApplyValues(a, def->values[i]);
   }
-
+  a->dr = def->dr;
   for(int i = 0; i < def->num_skills; i++)
     a->skills[a->num_skills++] = def->skills[i];
 
-  if(a->chain)
+  if(a->chain){
     a->chain->skills[a->chain->num_skills++] = def->skills[0];
+
+    if(a->chain->type == AT_DR){
+      a->chain->dr = def->dr;
+      ActionSlotAddAbility(owner,a->chain);
+    }
+  }
 
   return ActionSlotAddAbility(owner, a);
 }
 
-bool EntRollSave(ent_t* e, ability_t* a){
+InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_sim_t* source){
+  int hit = source->hit_calc;
 
-  int hit = a->hit->roll(a->hit) ;
-  int save = e->stats[STAT_ARMOR]->current;
-  if(a->save > ATTR_NONE)
-    save = e->attribs[a->save]->val;
-
-  return hit < save;
-}
-
-InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_t* source){
-  int hit = source->hit->roll(source->hit);
-
-  int save = a->hit->roll(a->hit);
+  int saves[a->hit->num_die];
+  int save = a->hit->roll(a->hit,saves);
 
   return save < hit?IR_FAIL:IR_SUCCESS;
 }
 
-InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_t* source){
+InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source){
+  InteractResult res = IR_FAIL;
 
+  int dr = a->dr->resist_types[source->d_type];
+  if(source->penn > dr)
+    return IR_CRITICAL_FAIL;
+
+  int total = 0;
+  while (dr > 0 && source->dmg_calc > 0){
+    for(int i = 0; i < source->dmg_die; i++){
+      if(source->dmg_res[i] <= 0)
+        continue;
+
+      res = IR_SUCCESS;
+      source->dmg_res[i]--;
+      dr--;
+      source->dmg_calc--;
+      if(dr<=0)
+        break;
+    }
+  }
+
+  if(dr > 0 && source->d_bonus > 0)
+    source->d_bonus-= dr;
+
+  source->final_dmg = source->d_bonus + source->dmg_calc;
+
+  return res;
 }
 
 InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
@@ -1091,7 +1177,7 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   int cr = AggroAdd(e->aggro, target, 1, target->props->base_diff);
   AggroAdd(target->aggro, e, 1, 1);//e->props->base_diff);
 
-  if(a->resource>STAT_NONE)
+  if(a->resource>STAT_NONE && a->cost > 0)
     if(!StatChangeValue(e,e->stats[a->resource],-1*a->cost)){
       TraceLog(LOG_INFO,"%s not enough %s",e->name, STAT_STRING[a->resource].name);
       success = false;
@@ -1101,7 +1187,7 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
 
   ability_t* save = EntFindAbility(target, ABILITY_ARMOR_SAVE);
   if(save)
-    save_roll = AbilityUse(target,save, e, a);
+    save_roll = AbilityUse(target,save, e, a->sim_fn(e,a,target));
   if(!success || save_roll){
     AggroAdd(target->aggro, e, a->cost, e->props->base_diff);
     TraceLog(LOG_INFO,"%s misses",e->name);
@@ -1163,7 +1249,10 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
 
   if(a->use_fn == NULL)
     a->use_fn = EntUseAbility;
- 
+
+  if(a->type == AT_DMG)
+   a->sim_fn = AbilitySimDmg;
+
   a->on_use_cb = AbilitySkillup;
 
   a->stats[STAT_REACH] = InitStat(STAT_REACH,1,a->reach,a->reach);
@@ -1212,7 +1301,7 @@ bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult re
   return true;
 }
 
-bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_t* other){
+bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other){
   InteractResult ires = IR_NONE;
   switch(a->type){
     case AT_DMG:
@@ -1574,10 +1663,10 @@ item_def_t* BuildSpecialForMob(ent_t* e, RaceProps props){
 
 }
 
-item_def_t* BuildWeaponForMob(ent_t* e, RaceProps props){
+item_def_t* BuildWeaponForMob(ent_t* e, RaceProps props, SkillType sk){
   RaceProps a_props = props & RACE_ARMS_MASK;
   a_props |= props & RACE_BUILD_MASK;
-  ItemProps qual_props = PROP_QUAL_TRASH;
+  ItemProps qual_props = 0;//PROP_QUAL_TRASH;
   ItemProps mat_props = PROP_NONE;
   WeaponProps w_props = PROP_NONE;
 
@@ -1589,23 +1678,16 @@ item_def_t* BuildWeaponForMob(ent_t* e, RaceProps props){
     qual_props += GetItemQualByRaceProp(rprop);
   }
 
-  weapon_def_t weap = {
-    .i_props = mat_props | qual_props,
-    .w_props = w_props
-  };
-
-  item_def_t* item;
-
-  return item;
+  return BuildWeapon(sk, qual_props | mat_props, w_props);
 }
 
-item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat){
+item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s){
   item_def_t* item;
   RaceProps r_props = GetRaceByFlag(e->props->race).props;
 
   switch(cat){
     case ITEM_WEAPON:
-    item = BuildWeaponForMob(e, r_props);
+    item = BuildWeaponForMob(e, r_props, s);
     break;
     case ITEM_ARMOR:
     item = BuildArmorForMob(e, r_props);
@@ -1619,6 +1701,12 @@ item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat){
 }
 
 item_def_t* BuildWeapon(SkillType skill, ItemProps props, WeaponProps w_props){
+
+  WeaponType type = GetWeapTypeBySkill(skill);
+
+  item_def_t* item = DefineWeaponByType(type, props, w_props);
+
+  return item;
 }
 
 ability_t* EntFindAbility(ent_t* e, AbilityID id){
@@ -1669,7 +1757,7 @@ float EntGetDPR(ent_t* e){
          if(hit < save)
          continue;
          */
-      int s_dmg = a->stats[STAT_DAMAGE]->max;
+      int s_dmg = AbilityAddPB(e,a,STAT_DAMAGE);
 
       s_dmg += DieMax(a->dc);
 

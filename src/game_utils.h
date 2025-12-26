@@ -59,6 +59,7 @@ void DiscardChoice(choice_pool_t* pool, choice_t* self);
 typedef choice_t* (*ChoiceFn)(choice_pool_t *pool);
 choice_t* ChooseBest(choice_pool_t* pool);
 choice_t* ChooseByWeight(choice_pool_t* pool);
+choice_t* ChooseByBudget(choice_pool_t* pool);
 
 struct choice_s{
   int       score;
@@ -67,11 +68,13 @@ struct choice_s{
 };
 
 struct choice_pool_s{
-  int       count;
-  ChoiceFn  choose;
-  choice_t  *choices[MAX_OPTIONS];
+  unsigned int  id;
+  int           count,budget;
+  ChoiceFn      choose;
+  choice_t      *choices[MAX_OPTIONS];
 };
 
+choice_pool_t* StartChoice(choice_pool_t* pool, int size, ChoiceFn fn, bool* result);
 choice_pool_t* InitChoicePool(int size, ChoiceFn fn);
 bool AddChoice(choice_pool_t *pool, int score, void *ctx);
 //<===BEHAVIOR TREES
