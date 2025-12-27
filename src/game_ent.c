@@ -84,7 +84,8 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   for(int i = 0; i < SKILL_DONE; i++){
     if(e->skills[i] == NULL)
       e->skills[i] = InitSkill(i,e,0,100);
-    if(SKILL_TRAITS[i]&TRAIT_EXP_MASK)
+    Traits t = SKILL_TRAITS[i];
+    if(t && (e->props->traits & t))
       SkillIncreaseUncapped(e->skills[i], 400);
   }
   
@@ -182,37 +183,26 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   for(int i = 0; i < SLOT_ALL; i++)
     e->slots[i] = InitActionSlot(i, e, 1, 1);  
 
+  if(e->props->natural_weaps > 0){
+    for(int i = 0; i < 16; i++){
+      natural_weapons_t w = NAT_WEAPS[i];
+      if(!e->props->natural_weaps & w.pq)
+        continue;
+
+      for(int j = 0; j < w.num_abilities; j++){
+        ability_t* a = InitAbility(e, w.abilities[j]);
+        a->cost--;
+
+        ActionSlotAddAbility(e,a);
+      }
+    }
+  }
+
   return e;
 }
 
-ent_t* IntEntCommoner(mob_define_t def, MobRules rules){
-  define_prof_t prof[PROF_END];
-
-  int jobs = GetProfessionsBySociety(def.civ,prof);
-
-  MobRule loc = rules && MOB_LOC_MASK;
-
-  define_prof_t local_jobs[jobs];
-  int avail = FilterProfsByRules(rules, prof, jobs, local_jobs);
-
-  if(avail == 0)
-    return NULL;
-
-  choice_pool_t* picker = InitChoicePool(avail, ChooseByWeight);
-
-  for(int i = 0; i < avail; i++)
-    AddChoice(picker,local_jobs[i].social_weights[def.civ], &local_jobs[i]);
-
-  choice_t* chosen = picker->choose(picker);
-  if(!chosen)
-    return NULL;
-
-  define_prof_t* sel = chosen->context;
-
-  if(!sel)
-    return NULL;
-
-  
+ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
+    
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
   ent_t* e = InitEntByRace(def,rules);
@@ -264,18 +254,19 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules){
   */
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
 
-  int num_w = 0;
-  for (int i = SKILL_RANGE_WEAP.x; i < SKILL_RANGE_WEAP.y; i++){
-    if(e->skills[i]->val==0)
-      continue;
+  if(sel->id >= PROF_LABORER){
+    int num_w = 0;
+    for (int i = SKILL_RANGE_WEAP.x; i < SKILL_RANGE_WEAP.y; i++){
+      if(e->skills[i]->val==0)
+        continue;
 
-    bool eq = num_w < 1;
-    item_def_t* idef = BuildAppropriateItem(e, ITEM_WEAPON, i);
-    EntAddItem(e, InitItem(idef), eq);
-    num_w++;
+      bool eq = num_w < 1;
+      item_def_t* idef = BuildAppropriateItem(e, ITEM_WEAPON, i);
+      EntAddItem(e, InitItem(idef), eq);
+      num_w++;
 
+    }
   }
-
   return e;
 }
 
@@ -358,6 +349,13 @@ void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
 
   strcpy(e->name, TextFormat("%s %s",racial.name,race_class->main));
 
+  for (int i = 0; i < SKILL_DONE; i++){
+    if(race_class->skills[i] == 0)
+      continue;
+    SkillIncreaseUncapped(e->skills[i], race_class->skills[i]);
+
+  }
+
   for (int i = 0; i < ATTR_DONE; i++){
     if(e->attribs[i] == NULL)
       continue;
@@ -367,6 +365,25 @@ void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
   }
 
   for (int i = 0; i < STAT_ENT_DONE;i++){
+  }
+  
+  int num_w = 0;
+  for (int i = SKILL_RANGE_WEAP.x; i < SKILL_RANGE_WEAP.y; i++){
+    if(e->skills[i]->val==0)
+      continue;
+
+    bool eq = num_w < 1;
+    item_def_t* idef = BuildAppropriateItem(e, ITEM_WEAPON, i);
+    EntAddItem(e, InitItem(idef), eq);
+    num_w++;
+  }
+
+  for (int i = SKILL_ARMOR_NATURAL; i < SKILL_ATH; i++){
+    if(e->skills[i]->val==0)
+      continue;
+
+    item_def_t* idef = BuildAppropriateItem(e, ITEM_ARMOR, i);
+    EntAddItem(e, InitItem(idef), true);
   }
 
   AbilityID abilities[MAX_ABILITIES];
@@ -570,30 +587,44 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   }
   count = 0;
 
+  define_prof_t prof[PROF_END];
+
+  int jobs = GetProfessionsBySociety(def.civ,prof);
+
+  MobRule loc = rules && MOB_LOC_MASK;
+
+  define_prof_t local_jobs[jobs];
+  int avail = FilterProfsByRules(rules, prof, jobs, local_jobs);
+
+  if(avail == 0)
+    return 0;
+
+  choice_pool_t* picker = InitChoicePool(avail, ChooseByWeight);
+
+  for(int i = 0; i < avail; i++)
+    AddChoice(picker,local_jobs[i].social_weights[def.civ], &local_jobs[i]);
+
+  choice_t* chosen = picker->choose(picker);
+  if(!chosen)
+    return 0;
+
+  define_prof_t* sel = chosen->context;
+
+  if(!sel)
+    return 0;
+
   for(int i = 0; i < amount; i++){
-    ent_t* e = IntEntCommoner(def,rules);
-    if(diverse && promote){
+    ent_t* e = IntEntCommoner(def,rules, sel);
+    if((diverse && promote) || sel->id < PROF_LABORER){
       choice_t *selection = class_choice->choose(class_choice); 
       race_class_t* drc = selection->context;
 
       PromoteEntClass(e,racial,drc);
-
-      if(arm){
-        item_def_t* item = GetItemDefByID(GEAR_DAGGER);
-        EntAddItem(e, InitItem(item), true);
-        /*
-           for (int w = 0; w < w_num; i++){
-           EntAddItem(e,InitItem(BuildWeapon(arms[w], QUAL_TRASH)),true);
-           }
-           */
-      }
+      
     }
-    EntAddExp(e, 200);
-    EntAddExp(e, 200);
     for(int j = 0; j < beef; j++)
       EntAddExp(e, 400);
 
-//    class_weight[selection]-=amount;
     pool[count++] = e;
     }
   return count;
@@ -606,10 +637,12 @@ properties_t* InitProperties(race_define_t racials){
   p->base_diff = racials.base_challenge;
   p->body = racials.body;
   p->mind = racials.mind;
+  p->covering = racials.covering;
+  p->natural_weaps = racials.weaps;
   mind_result_t mind = GetMindResult(p->mind);
   body_result_t body = GetBodyResult(p->body);
 
-  p->traits = mind.traits | body.traits;
+  p->traits = racials.traits | mind.traits | body.traits;
   p->feats  = mind.feats | body.feats;
 
   return p;
@@ -721,6 +754,41 @@ item_def_t* DefineItem(ItemInstance data){
       break;
   }
 }
+item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps a){
+  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item->category = ITEM_ARMOR;
+
+  item->dr = calloc(1,sizeof(damage_reduction_t));
+
+  item->ability = ABILITY_NONE;
+  armor_def_t temp = ARMOR_TEMPLATES[t];
+  //item->stats[STAT_ARMOR] = InitStat(STAT_ARMOR,0,temp.armor_class, temp.armor_class);
+
+  item->values[VAL_DURI] = InitValue(VAL_DURI,temp.durability);
+  item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
+  item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
+  item->values[VAL_ADV_SAVE] = InitValue(VAL_ADV_SAVE,0);
+  item->values[VAL_SAVE] = InitValue(VAL_SAVE,temp.armor_class);
+
+
+  *item->dr = temp.dr_base;
+  ApplyItemProps(item, p, a);
+
+  //item->weight = temp.weight;
+
+  item->ability = ABILITY_ARMOR_SAVE;
+  item->skills[item->num_skills++] = temp.skill;
+
+  for(int i = 0; i < VAL_ALL; i++){
+    if(!item->values[i])
+      continue;
+
+    item->values[i]->val = ValueRebase(item->values[i]);
+  }
+
+  return item;
+
+}
 
 item_def_t* DefineWeapon(ItemInstance data){
   item_def_t* item = DefineWeaponByType(data.equip_type, data.props, data.et_props);
@@ -762,38 +830,9 @@ item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_prop
 };
 
 item_def_t* DefineArmor(ItemInstance data){
-  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item_def_t* item = DefineArmorByType(data.equip_type, data.props, data.et_props);
   item->id = data.id;
-  item->category = ITEM_ARMOR;
 
-  item->dr = calloc(1,sizeof(damage_reduction_t));
-
-  item->ability = ABILITY_NONE;
-  armor_def_t temp = ARMOR_TEMPLATES[data.equip_type];
-  //item->stats[STAT_ARMOR] = InitStat(STAT_ARMOR,0,temp.armor_class, temp.armor_class);
-
-  item->values[VAL_DURI] = InitValue(VAL_DURI,temp.durability);
-  item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
-  item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
-  item->values[VAL_ADV_SAVE] = InitValue(VAL_ADV_SAVE,0);
-  item->values[VAL_SAVE] = InitValue(VAL_SAVE,temp.armor_class);
-  
-
-  *item->dr = temp.dr_base;
-  ApplyItemProps(item, data.props, data.et_props);
-
-  //item->weight = temp.weight;
-
-  item->ability = ABILITY_ARMOR_SAVE;
-  item->skills[item->num_skills++] = temp.skill; 
- 
-  for(int i = 0; i < VAL_ALL; i++){
-    if(!item->values[i])
-      continue;
-
-    item->values[i]->val = ValueRebase(item->values[i]);
-  }
- 
   return item;
 }
 
@@ -830,21 +869,22 @@ void EntKill(stat_t* self, float old, float cur){
 void EntInitOnce(ent_t* e){
   EntSync(e);
 
+  if(e->type == ENT_PERSON)
+    DO_NOTHING();
+
+
   EntPollInventory(e);
   //if(e->items[0]
   /*
    * if(e->attack==NULL)
-    e->attack = InitBasicAttack(e);
- */
+   e->attack = InitBasicAttack(e);
+   */
 
   for(int i = 0; i < STAT_ENT_DONE; i++){
     if(!e->stats[i])
       continue;
-   
-    if(e->type == ENT_PERSON)
-     DO_NOTHING();
 
-      StatMaxOut(e->stats[i]);
+    StatMaxOut(e->stats[i]);
   }
 
   cooldown_t* spawner = InitCooldown(3,EVENT_SPAWN,StepState_Adapter,e);
@@ -906,7 +946,7 @@ bool EntAddItem(ent_t* e, item_t* item, bool equip){
 }
 
 void EntAddExp(ent_t *e, int exp){
-  SkillIncrease(e->skills[SKILL_LVL], exp);
+  SkillIncreaseUncapped(e->skills[SKILL_LVL], exp);
 }
 
 void EntDestroy(ent_t* e){
@@ -956,7 +996,8 @@ InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target){
   return ires;
 }
 int AbilityAddPB(ent_t* e, ability_t* a, StatType s){
-  if(e->skills[a->skills[0]]->val <= SR_NONE)
+  SkillRank rank = SkillRankGet(e->skills[a->skills[0]]);
+  if(rank < SR_PROFIC)
     return 0;
 
   return a->stats[s]->current;
@@ -1640,7 +1681,13 @@ ItemProps GetItemMatsByRaceProp(RaceProp prop){
 }
 
 ArmorProps GetArmorPropsByRaceProp(RaceProp prop){
-
+  switch(prop){
+    case RACE_ARMOR_CRUDE:
+    case RACE_ARMOR_SIMPLE:
+    default:
+      return PROP_ARMOR_NONE;
+      break;
+  }
 }
 
 WeaponProps GetWeaponPropsByRaceProp(RaceProp prop){
@@ -1649,13 +1696,36 @@ WeaponProps GetWeaponPropsByRaceProp(RaceProp prop){
     case RACE_ARMS_SIMPLE:
       return PROP_WEAP_SIMP;
       break;
-
-
   }
 }
 
-item_def_t* BuildArmorForMob(ent_t* e, RaceProps props){
-  RaceProps a_props = props & RACE_ARMOR_MASK;
+item_def_t* BuildArmor(SkillType skill, ItemProps props, ArmorProps w_props){
+
+  ArmorType type = GetArmorTypeBySkill(skill);
+
+  item_def_t* item = DefineArmorByType(type, props, w_props);
+
+  return item;
+}
+
+item_def_t* BuildArmorForMob(ent_t* e, RaceProps props,SkillType sk){
+  RaceProps r_props = props & RACE_ARMOR_MASK;
+  r_props |= props & RACE_BUILD_MASK;
+
+  ItemProps qual_props = 0;//PROP_QUAL_TRASH;
+  ItemProps mat_props = PROP_NONE;
+  ArmorProps a_props = PROP_NONE;
+
+  while(r_props){
+    uint64_t rprop = r_props & - r_props;
+    r_props &= r_props -1;
+    a_props |= GetArmorPropsByRaceProp(rprop);
+    mat_props |= GetItemMatsByRaceProp(rprop);
+    qual_props += GetItemQualByRaceProp(rprop);
+  }
+
+  return BuildArmor(sk, qual_props | mat_props, a_props);
+
 }
 
 item_def_t* BuildSpecialForMob(ent_t* e, RaceProps props){
@@ -1690,7 +1760,7 @@ item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s){
     item = BuildWeaponForMob(e, r_props, s);
     break;
     case ITEM_ARMOR:
-    item = BuildArmorForMob(e, r_props);
+    item = BuildArmorForMob(e, r_props, s);
     break;
     case ITEM_CONSUMABLE:
     item = BuildSpecialForMob(e, r_props);

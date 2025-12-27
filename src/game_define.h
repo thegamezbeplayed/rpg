@@ -9,6 +9,29 @@
 #define NUM_ITEM_PROPS 18
 #define NUM_WEAP_PROPS 8
 #define NUM_ARMOR_PROPS 8
+// Natural weapons (bits 0–7)
+#define PQ_WEAPON_SHIFT   0
+#define PQ_WEAPON_BITS    16
+
+// Size (bits 16–23)
+#define PQ_SIZE_SHIFT     0
+#define PQ_SIZE_BITS      8
+
+// Shape / proportions (bits 24–31)
+#define PQ_SHAPE_SHIFT    (PQ_SIZE_SHIFT + PQ_SIZE_BITS)
+#define PQ_SHAPE_BITS     8
+
+// Weight / density (bits 32–39)
+#define PQ_WEIGHT_SHIFT   (PQ_SHAPE_SHIFT + PQ_SHAPE_BITS)
+#define PQ_WEIGHT_BITS    8
+
+// Locomotion (bits 40–47)
+#define PQ_LOCO_SHIFT     (PQ_WEIGHT_SHIFT + PQ_WEIGHT_BITS)
+#define PQ_LOCO_BITS      8
+
+// Special biology (bits 48–63)
+#define PQ_SPECIAL_SHIFT  (PQ_LOCO_SHIFT + PQ_LOCO_BITS)
+#define PQ_SPECIAL_BITS   16
 
 typedef enum{
   SPEC_NONE       = BIT64(0),
@@ -31,6 +54,7 @@ typedef struct{
   MobRules    rules;
   SpeciesType race;
   int         weight;
+  float       diff;
   SocietyType civ;
 }mob_define_t;
 
@@ -170,70 +194,106 @@ typedef struct{
   SkillType     magnitude[MAG_DONE];
 }skill_relation_t;
 
+typedef struct{
+  SkillRank   rank;
+  int         skill_thresh, penalty;
+}define_skill_rank_t;
+
+
 SkillRate SkillRateLookup(SkillType);
 typedef enum {
-    PQ_NONE            = 0,
+    PQ_NONE = 0,
+   /* Size (16–23) */
+    PQ_TINY         = 1ULL << (PQ_SIZE_SHIFT + 0),
+    PQ_SMALL        = 1ULL << (PQ_SIZE_SHIFT + 1),
+    PQ_LARGE        = 1ULL << (PQ_SIZE_SHIFT + 2),
+    PQ_HUGE         = 1ULL << (PQ_SIZE_SHIFT + 3),
+    PQ_GIG          = 1ULL << (PQ_SIZE_SHIFT + 4),
 
-    // Natural weapons (0–3)
-    PQ_SHARP_TEETH     = 1ULL << 0,
-    PQ_SHARP_CLAWS     = 1ULL << 1,
-    PQ_SHARP_HORNS     = 1ULL << 2,
-    PQ_HORNED          = 1ULL << 3,   // general horn trait
+    /* Shape / proportions (24–31) */
+    PQ_SHORT        = 1ULL << (PQ_SHAPE_SHIFT + 0),
+    PQ_TALL         = 1ULL << (PQ_SHAPE_SHIFT + 1),
+    PQ_LONG         = 1ULL << (PQ_SHAPE_SHIFT + 2),
+    PQ_WIDE         = 1ULL << (PQ_SHAPE_SHIFT + 3),
+    PQ_LONG_LIMB    = 1ULL << (PQ_SHAPE_SHIFT + 4),
+    PQ_SHORT_LIMB   = 1ULL << (PQ_SHAPE_SHIFT + 5),
 
-    // Body covering / protection (4–11)
-    PQ_THICK_FUR       = 1ULL << 4,
-    PQ_THICK_HIDE      = 1ULL << 5,
-    PQ_THICK_SCALES    = 1ULL << 6,
-    PQ_THICK_SKIN      = 1ULL << 7,
-    PQ_THICK_FAT       = 1ULL << 8,
-    PQ_TOUGH_HIDE      = 1ULL << 9,
-    PQ_TOUGH_SCALES    = 1ULL << 10,
-    PQ_STONE_SKIN      = 1ULL << 11,   // stone-like defense
-    PQ_METALLIC        = 1ULL << 12,   // metal-like defense
+    /* Weight / density (32–39) */
+    PQ_LIGHT        = 1ULL << (PQ_WEIGHT_SHIFT + 0),
+    PQ_HEAVY        = 1ULL << (PQ_WEIGHT_SHIFT + 1),
+    PQ_DENSE_MUSCLE = 1ULL << (PQ_WEIGHT_SHIFT + 2),
 
-    // Size (13–17)
-    PQ_TINY            = 1ULL << 13,
-    PQ_SMALL           = 1ULL << 14,
-    PQ_LARGE           = 1ULL << 15,
-    PQ_HUGE            = 1ULL << 16,
-    PQ_GIG             = 1ULL << 17,   // gargantuan
+    /* Locomotion (40–47) */
+    PQ_BIPED        = 1ULL << (PQ_LOCO_SHIFT + 0),
+    PQ_QUADPED      = 1ULL << (PQ_LOCO_SHIFT + 1),
+    PQ_OCTPED       = 1ULL << (PQ_LOCO_SHIFT + 2),
+    PQ_WINGED       = 1ULL << (PQ_LOCO_SHIFT + 3),
+    PQ_FINNED       = 1ULL << (PQ_LOCO_SHIFT + 4),
+    PQ_GILLED       = 1ULL << (PQ_LOCO_SHIFT + 5),
+    PQ_TAIL         = 1ULL << (PQ_LOCO_SHIFT + 6),
 
-    PQ_SHORT           = 1ULL << 18,
-    PQ_TALL            = 1ULL << 19,
-    PQ_LONG            = 1ULL << 20,
-    PQ_WIDE            = 1ULL << 21,
-    // Weight / density 
-    PQ_LIGHT           = 1ULL << 22,
-    PQ_HEAVY           = 1ULL << 23,
-    PQ_DENSE_MUSCLE    = 1ULL << 24,
-
-    // Limb proportions 
-    PQ_LONG_LIMB       = 1ULL << 25,
-    PQ_SHORT_LIMB      = 1ULL << 26,
-
-    // Locomotion
-    PQ_BIPED           = 1ULL << 27,
-    PQ_QUADPED         = 1ULL << 28,
-    PQ_OCTPED          = 1ULL << 29,
-    PQ_WINGED          = 1ULL << 30,
-
-    // Environmental biology 
-    PQ_FINNED          = 1ULL << 31,
-    PQ_GILLED          = 1ULL << 32,
-    PQ_TAIL            = 1ULL << 33,
-
-    // Special biology
-    PQ_ETHEREAL        = 1ULL << 34,
-    PQ_SHAPELESS       = 1ULL << 35,
-    PQ_SMALL_HEAD      = 1ULL << 36,
-    PQ_TINY_HEAD       = 1ULL << 37,
-    PQ_TWIN_HEADED     = 1ULL << 38,
-    PQ_TRI_HEADED      = 1ULL << 39,
-    PQ_MANY_HEADED     = 1ULL << 40,
-    PQ_LARGE_FEET      = 1ULL << 41,
-    PQ_LARGE_HANDS     = 1ULL << 42
-
+    /* Special biology (48–63) */
+    PQ_ETHEREAL     = 1ULL << (PQ_SPECIAL_SHIFT + 0),
+    PQ_SHAPELESS    = 1ULL << (PQ_SPECIAL_SHIFT + 1),
+    PQ_SMALL_HEAD   = 1ULL << (PQ_SPECIAL_SHIFT + 2),
+    PQ_TINY_HEAD    = 1ULL << (PQ_SPECIAL_SHIFT + 3),
+    PQ_TWIN_HEADED  = 1ULL << (PQ_SPECIAL_SHIFT + 4),
+    PQ_TRI_HEADED   = 1ULL << (PQ_SPECIAL_SHIFT + 5),
+    PQ_MANY_HEADED  = 1ULL << (PQ_SPECIAL_SHIFT + 6),
+    PQ_LARGE_FEET   = 1ULL << (PQ_SPECIAL_SHIFT + 7),
+    PQ_LARGE_HANDS  = 1ULL << (PQ_SPECIAL_SHIFT + 8),
 } PhysQual;
+
+typedef enum {
+  PW_NONE = 0,
+
+  /* Claws */
+  PQ_CLAWS        = 1ULL << 0,
+  PQ_SHARP_CLAWS  = 1ULL << 1,
+
+  /* Horns */
+  PQ_HORNED       = 1ULL << 2,
+  PQ_SHARP_HORNS  = 1ULL << 3,
+  PQ_TOUGH_HORNS  = 1ULL << 4,
+
+  /* Teeth / mouth */
+  PQ_TEETH        = 1ULL << 5,
+  PQ_SHARP_TEETH  = 1ULL << 6,
+  PQ_TOUGH_TEETH  = 1ULL << 7,
+  PQ_FANGS        = 1ULL << 8,
+
+  /* Future-safe */
+  // PQ_MANDIBLES  = 1ULL << 9,
+  // PQ_TENTACLES  = 1ULL << 10,
+  // PQ_SPIKED_TAIL= 1ULL << 11,
+
+} PhysWeapon;
+
+typedef enum {
+  PB_NONE = 0,
+
+  /* Soft coverings */
+  PQ_THICK_FUR     = 1ULL << 0,
+  PQ_THICK_SKIN    = 1ULL << 1,
+  PQ_THICK_FAT     = 1ULL << 2,
+
+  /* Hide / leather-like */
+  PQ_THICK_HIDE    = 1ULL << 3,
+  PQ_TOUGH_HIDE    = 1ULL << 4,
+
+  /* Scales / plates */
+  PQ_THICK_SCALES  = 1ULL << 5,
+  PQ_TOUGH_SCALES  = 1ULL << 6,
+
+  /* Exotic */
+  PQ_STONE_SKIN    = 1ULL << 7,
+  PQ_METALLIC     = 1ULL << 8,
+
+  /* Future-safe */
+  // PQ_CHITINOUS   = 1ULL << 9,
+  // PQ_CRYSTALLINE = 1ULL << 10,
+
+} PhysBody;
 
 typedef enum {
     MQ_NONE            = 0,
@@ -387,12 +447,29 @@ typedef struct{
   PhysQual      pq;
   Traits traits;
   FeatFlags     feats;
+  AbilityID     abilities[4];
 }phys_qualities_t;
 
 typedef struct{
-  MentalQual    pq;
-  Traits traits;
+  PhysWeapon    pq;
+  Traits        traits;
   FeatFlags     feats;
+  int           num_abilities;
+  AbilityID     abilities[4];
+}natural_weapons_t;
+
+typedef struct{
+  PhysBody      pq;
+  Traits        traits;
+  FeatFlags     feats;
+  AbilityID     abilities[4];
+}body_covering_t;
+
+typedef struct{
+  MentalQual    pq;
+  Traits        traits;
+  FeatFlags     feats;
+  AbilityID     abilities[4];
 }ment_qualities_t;
 
 static const ment_qualities_t MIND[25] = {
@@ -405,7 +482,24 @@ static const ment_qualities_t MIND[25] = {
 
 };
 
+static const natural_weapons_t NAT_WEAPS[16] = {
+  {PQ_TEETH, .num_abilities = 1, .abilities = ABILITY_BITE},
+  {PQ_TOUGH_TEETH, .num_abilities = 1, .abilities = ABILITY_CHEW},
+};
+
+static const body_covering_t COVERINGS[35] = {
+  {PQ_THICK_FUR, TRAIT_SLASH_RESIST | TRAIT_COLD_RESIST},
+  {PQ_THICK_HIDE, TRAIT_FIRE_RESIST | TRAIT_COLD_RESIST | TRAIT_PHYS_RESIST},
+  {PQ_THICK_SCALES, TRAIT_PHYS_RESIST | TRAIT_FIRE_RESIST | TRAIT_ACID_RESIST},
+  {PQ_THICK_SKIN, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST | TRAIT_FIRE_RESIST | TRAIT_POISON_RESIST },
+  {PQ_THICK_FAT, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST },
+};
+
 static const phys_qualities_t BODY[35] = {
+  {PQ_SHARP_TEETH},
+  {PQ_SHARP_CLAWS},
+  {PQ_SHARP_HORNS},
+  {PQ_TOUGH_TEETH, .abilities = ABILITY_CHEW},
   {PQ_THICK_FUR, TRAIT_SLASH_RESIST | TRAIT_COLD_RESIST},
   {PQ_THICK_HIDE, TRAIT_FIRE_RESIST | TRAIT_COLD_RESIST | TRAIT_PHYS_RESIST},
   {PQ_THICK_SCALES, TRAIT_PHYS_RESIST | TRAIT_FIRE_RESIST | TRAIT_ACID_RESIST},
@@ -461,6 +555,8 @@ static inline body_result_t GetBodyResult(MentalQual mask) {
 typedef struct{
   AttributeType attr;
   PhysQual      body[ASI_DONE];
+  PhysWeapon    weap[ASI_DONE];
+  PhysBody      covering[ASI_DONE];
   MentalQual    mind[ASI_DONE];
 }attribute_quality_t;
 
@@ -474,8 +570,7 @@ static const attribute_quality_t ATTR_QUAL[ATTR_DONE] = {
       [ASI_INIT]          = PQ_DENSE_MUSCLE | PQ_LONG_LIMB,
       [ASI_LVL_EVERY]     = PQ_LARGE_HANDS,
       [ASI_LVL_COMPOSITE] = PQ_HEAVY | PQ_GIG,
-      [ASI_LVL_EVEN]      = PQ_METALLIC,
-      [ASI_LVL_PRIME]     = PQ_HUGE | PQ_STONE_SKIN | PQ_LONG,
+      [ASI_LVL_PRIME]     = PQ_HUGE | PQ_LONG,
       [ASI_LVL_SQUARE]    = PQ_DENSE_MUSCLE | PQ_HEAVY | PQ_LARGE,
       [ASI_LVL_CAP]       = PQ_GIG | PQ_DENSE_MUSCLE
     },
@@ -512,12 +607,11 @@ static const attribute_quality_t ATTR_QUAL[ATTR_DONE] = {
       [ASI_DETRI]         = PQ_SHORT,
       [ASI_CON]           = PQ_SMALL | PQ_LIGHT,
       [ASI_INIT]          = PQ_HUGE | PQ_THICK_FAT,
-      [ASI_LVL_EVERY]     = PQ_METALLIC | PQ_GIG,
+      [ASI_LVL_EVERY]     = PQ_GIG,
       [ASI_LVL_COMPOSITE] = PQ_HUGE | PQ_STONE_SKIN,
       [ASI_LVL_EVEN]      = PQ_HEAVY | PQ_WIDE,
       [ASI_LVL_PRIME]     = PQ_LARGE,
       [ASI_LVL_SQUARE]    = PQ_DENSE_MUSCLE,
-      [ASI_LVL_CAP]       = PQ_STONE_SKIN
     },
     .mind = {
       [ASI_INIT]          = MQ_RESOLUTE | MQ_TERRITORIAL,
@@ -573,7 +667,7 @@ static const attribute_quality_t ATTR_QUAL[ATTR_DONE] = {
       [ASI_INIT]          = PQ_TALL | PQ_LARGE | PQ_DENSE_MUSCLE,
       [ASI_LVL_EVEN]      = PQ_WINGED,
       [ASI_LVL_PRIME]     = PQ_ETHEREAL,
-      [ASI_LVL_CAP]       = PQ_METALLIC | PQ_ETHEREAL
+      [ASI_LVL_CAP]       = PQ_ETHEREAL
     },
     .mind = {
       [ASI_DEBIL]         = MQ_ABSENT,
@@ -611,8 +705,8 @@ static const stat_quality_t STAT_QUAL[STAT_ENT_DONE] = {
       [SC_LESSER] = PQ_SHORT_LIMB,
       [SC_BELOW]  = PQ_SMALL,
       [SC_ABOVE]  = PQ_DENSE_MUSCLE,
-      [SC_GREATER]= PQ_LARGE | PQ_HEAVY | PQ_STONE_SKIN,
-      [SC_SUPER]  = PQ_METALLIC | PQ_HUGE,
+      [SC_GREATER]= PQ_LARGE | PQ_HEAVY,
+      [SC_SUPER]  = PQ_HUGE,
       [SC_MAX]    = PQ_GIG
     } 
   },
@@ -634,10 +728,7 @@ static const stat_quality_t STAT_QUAL[STAT_ENT_DONE] = {
       [SC_INFER]   = PQ_TINY,
       [SC_LESSER]  = PQ_SMALL,
       [SC_BELOW]   = PQ_LIGHT,
-      [SC_ABOVE]   = PQ_DENSE_MUSCLE | PQ_THICK_SKIN | PQ_THICK_FUR | PQ_THICK_HIDE,
-      [SC_GREATER] = PQ_THICK_SCALES | PQ_TOUGH_HIDE | PQ_TOUGH_SCALES,
-      [SC_SUPER]   = PQ_STONE_SKIN,
-      [SC_MAX]     = PQ_METALLIC
+      [SC_ABOVE]   = PQ_DENSE_MUSCLE,
     }
   },
   [STAT_AGGRO]  = {
@@ -679,11 +770,11 @@ static const stat_quality_t STAT_QUAL[STAT_ENT_DONE] = {
     .stat = STAT_STAMINA,
     .stature = {
       [SC_MIN]   = PQ_TINY | PQ_WINGED,
-      [SC_INFER] = PQ_THICK_FAT | PQ_SMALL | PQ_THICK_SCALES | PQ_SHORT_LIMB,
-      [SC_BELOW] = PQ_SHORT,PQ_TOUGH_SCALES,
+      [SC_INFER] = PQ_SMALL | PQ_SHORT_LIMB,
+      [SC_BELOW] = PQ_SHORT,
       [SC_ABOVE] = PQ_ETHEREAL | PQ_LARGE | PQ_GILLED | PQ_DENSE_MUSCLE,
-      [SC_SUPER] = PQ_TALL | PQ_HUGE | PQ_FINNED | PQ_STONE_SKIN,
-      [SC_MAX]   = PQ_GIG | PQ_METALLIC
+      [SC_SUPER] = PQ_TALL | PQ_HUGE | PQ_FINNED,
+      [SC_MAX]   = PQ_GIG
     },
     .psyche = {
       [SC_ABOVE] = MQ_CALCULATING,
@@ -854,27 +945,39 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {[SOC_NONE]=100,[SOC_PRIMITIVE]=5,[SOC_CIVIL]=10,[SOC_HIGH]=12}
   },       
   [PROF_SOLDIER] = { PROF_SOLDIER,
-    {[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=10,[SOC_CIVIL]=5, [SOC_HIGH]=4},
+    {[SOC_PRIMITIVE]=12, [SOC_MARTIAL]=20,[SOC_CIVIL]=5, [SOC_HIGH]=4},
+    {"Soldier","Soldier","Soldier","Soldier"},
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_SURV] = 400, [SKILL_ATH]=400, [SKILL_WEAP_MART]=600,
-    }
+    },
   },
   [PROF_ARCHER] = { PROF_ARCHER,
-    {[SOC_PRIMITIVE]=7, [SOC_MARTIAL]=10,[SOC_CIVIL]=7, [SOC_HIGH]=7},
+    {[SOC_PRIMITIVE]=7, [SOC_MARTIAL]=17,[SOC_CIVIL]=7, [SOC_HIGH]=7},
+    {"Archer","Archer","Archer","Archer"},
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_PERCEPT]=600, [SKILL_ACRO] = 600, [SKILL_WEAP_BOW] = 600
     },
+
   },
   [PROF_MAGICIAN] = { PROF_MAGICIAN,
     {[SOC_PRIMITIVE]=0, [SOC_MARTIAL]=7,[SOC_CIVIL]=7, [SOC_HIGH]=10},
+    {"Magician","Magician","Magician","Magician"},
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_ARCANA] = 1200, [SKILL_INSIGHT]=600
     },
+
   },
   [PROF_MYSTIC] = { PROF_MYSTIC,
-    {[SOC_PRIMITIVE]=7, [SOC_MARTIAL]=5,[SOC_CIVIL]=7, [SOC_HIGH]=7},
+    {[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=7,[SOC_CIVIL]=7, [SOC_HIGH]=7},
+    {"Mystic","Mystic","Mystic","Mystic"},
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_NATURE]=600, [SKILL_HERB] = 800,[SKILL_ANIM] = 800, [SKILL_MED] = 600, [SKILL_RELIG]=400
     },
   },
   [PROF_HEALER] = { PROF_HEALER,
-    {[SOC_PRIMITIVE]=4, [SOC_MARTIAL]=4,[SOC_CIVIL]=10, [SOC_HIGH]=10},
+    {[SOC_PRIMITIVE]=4, [SOC_MARTIAL]=7,[SOC_CIVIL]=10, [SOC_HIGH]=10},
+    {"Healer","Healer","Healer","Healer"},
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_RELIG]=1000,[SKILL_MED] = 1200, [SKILL_SPELL_DIV]=600
     },
   },
@@ -993,6 +1096,8 @@ typedef struct {
   Traits        traits;
   uint64_t      body;
   uint64_t      mind;
+  uint64_t      weaps;
+  uint64_t      covering;
   uint64_t      feats;
   float         base_challenge;
 }race_define_t;
@@ -1128,6 +1233,7 @@ typedef struct{
   SkillType       skill;
 }weapon_def_t;
 WeaponType GetWeapTypeBySkill(SkillType s);
+ArmorType GetArmorTypeBySkill(SkillType s);
 
 typedef struct{
   ConsumeType     type;

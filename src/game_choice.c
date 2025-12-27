@@ -120,7 +120,7 @@ choice_t* ChooseByBudget(choice_pool_t* pool){
   for (int i = 0; i < pool->count; i++) {
     int w = pool->choices[i]->score;
     if (w <= 0) continue;
-    if(w >= pool->budget)
+    if(w > pool->budget)
       continue;
 
     return pool->choices[i];

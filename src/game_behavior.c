@@ -238,7 +238,10 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
   if(!a){
     a = EntChooseWeightedAbility(e, e->stats[STAT_ENERGY]->current, SLOT_SPELL);
   }
- if(SetAction(e,ACTION_ATTACK,a, a->targeting)) 
+  if(!a)
+    return BEHAVIOR_FAILURE;
+
+  if(SetAction(e,ACTION_ATTACK,a, a->targeting)) 
     return BEHAVIOR_SUCCESS;
 
   return BEHAVIOR_FAILURE;

@@ -479,6 +479,20 @@ skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max);
 bool SkillIncrease(struct skill_s* self, int amnt);
 bool SkillIncreaseUncapped(struct skill_s* s, int amnt);
 
+static SkillRank SkillRankGet(skill_t* s){
+  SkillRank best = SR_NONE;
+
+  int value = s->val;
+  for (int i = 0; i < SR_DONE; i++){
+    if (SKILL_RANKS[i].rank != 0 &&
+        value >= SKILL_RANKS[i].skill_thresh)
+    {
+      best = SKILL_RANKS[i].rank;
+    }
+  }
+  return best;
+}
+
 stat_t* InitStatOnMin(StatType attr, float min, float max);
 stat_t* InitStatOnMax(StatType attr, float val, AttributeType modified_by);
 stat_t* InitStatEmpty(void);

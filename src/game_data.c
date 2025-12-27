@@ -8,9 +8,9 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
   {ABILITY_WACK,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 5, 1, 3,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills[0] = SKILL_WEAP_NONE},
-  {ABILITY_BITE, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR,
+  {ABILITY_BITE, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 17, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR,
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_CHEW, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2,0, 1, STAT_ARMOR, ATTR_NONE, ATTR_NONE, ABILITY_GNAW, 
+  {ABILITY_CHEW, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,2, 15, 1, 2,0, 1, STAT_ARMOR, ATTR_NONE, ATTR_NONE, ABILITY_GNAW, 
     .skills = SKILL_WEAP_NONE},
   {ABILITY_GNAW,AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills = SKILL_WEAP_NONE},
@@ -19,20 +19,20 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_SWIPE, AT_DMG,ACTION_ATTACK, DMG_SLASH,STAT_STAMINA, DES_NONE, 50,2, 6, 2, 6, 3,1, STAT_HEALTH, ATTR_STR,
     .skills = SKILL_WEAP_NONE},
   {ABILITY_BITE_POISON, AT_DMG,ACTION_ATTACK, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, SKILL_WEAP_NONE},
-  {ABILITY_POISON, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,STAT_HEALTH, ATTR_CON, ATTR_NONE,
+  {ABILITY_POISON, AT_DMG, ACTION_NONE, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,STAT_HEALTH, ATTR_CON, ATTR_NONE,
     .skills = SKILL_POISON},
- {ABILITY_MAGIC_MISSLE, AT_DMG ,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .num_skills =1, .skills = SKILL_SPELL_EVO},
-  {ABILITY_ELDRITCH_BLAST,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TARGET, 20, 8, 0,1, 10,3, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
+ {ABILITY_MAGIC_MISSLE, AT_DMG, ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .num_skills =1, .skills = SKILL_SPELL_EVO},
+  {ABILITY_ELDRITCH_BLAST,AT_DMG,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TARGET, 20, 8, 0,1, 10,3, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
    .skills = SKILL_SPELL_EVO },
   {ABILITY_RESISTANCE,
     .skills = SKILL_SPELL_ABJ
   },
-  {ABILITY_SACRED_FLAME, ACTION_MAGIC, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8, 4, 1, 8, 0, 5, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
+  {ABILITY_SACRED_FLAME, AT_DMG,ACTION_MAGIC, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8, 4, 1, 8, 0, 5, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
     .skills = SKILL_SPELL_EVO},
-  {ABILITY_STARRY_WISP, ACTION_MAGIC,DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8,0 , 1, 8, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_WIS},
-  {ABILITY_MAGIC_STONE, ACTION_MAGIC,DMG_BLUNT, STAT_ENERGY, DES_MULTI_TARGET, 15, 3, 1, 1, 6, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_INT},
-  {ABILITY_POISON_SPRAY, ACTION_MAGIC,DMG_POISON, STAT_ENERGY, DES_SELECT_TARGET, 12, 8, 0, 1,10,0,3, STAT_HEALTH, ATTR_CON, ATTR_NONE},
-  {ABILITY_FIRE_BOLT, ACTION_MAGIC,DMG_FIRE, STAT_ENERGY, DES_SELECT_TARGET, 10, 8, 2, 1,10,0,4, STAT_HEALTH, ATTR_NONE, ATTR_INT},
+  {ABILITY_STARRY_WISP, AT_DMG,ACTION_MAGIC,DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8,0 , 1, 8, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_WIS},
+  {ABILITY_MAGIC_STONE, AT_DMG,ACTION_MAGIC,DMG_BLUNT, STAT_ENERGY, DES_MULTI_TARGET, 15, 3, 1, 1, 6, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_INT},
+  {ABILITY_POISON_SPRAY, AT_DMG,ACTION_MAGIC,DMG_POISON, STAT_ENERGY, DES_SELECT_TARGET, 12, 8, 0, 1,10,0,3, STAT_HEALTH, ATTR_CON, ATTR_NONE},
+  {ABILITY_FIRE_BOLT, AT_DMG, ACTION_MAGIC,DMG_FIRE, STAT_ENERGY, DES_SELECT_TARGET, 10, 8, 2, 1,10,0,4, STAT_HEALTH, ATTR_NONE, ATTR_INT},
   {ABILITY_REND, AT_DMG,ACTION_ATTACK,DMG_SLASH, STAT_STAMINA, DES_NONE, 25, 8, 4, 1, 4,1,1,STAT_HEALTH, ATTR_NONE,ATTR_STR,ABILITY_BLEED},
   {ABILITY_HAMSTRING},
   {ABILITY_RAGE, AT_DMG,ACTION_ATTACK,DMG_TRUE, STAT_RAGE, DES_NONE, 10, 1, 0,1, 2, 1,1, STAT_HEALTH, ATTR_NONE, ATTR_NONE },
@@ -75,6 +75,7 @@ item_fn_t item_funcs[ITEM_DONE] = {
       ItemApplyStats, ItemAddAbility
     }
   },
+  {ITEM_CONSUMABLE, .num_equip = 1, .on_equip = ItemAddAbility},
   {ITEM_DONE}
 };
 
@@ -110,27 +111,44 @@ WeaponType GetWeapTypeBySkill(SkillType s){
 armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
   {ARMOR_NONE},
   {ARMOR_NATURAL},
-  {ARMOR_PADDED, 8},
+  {ARMOR_CLOTH, 6,
+    {},
+    {},
+    1, 5, 50, ATTR_NONE, ATTR_NONE, 0, 0,
+    .skill = SKILL_ARMOR_CLOTH
+  },
+  {ARMOR_PADDED, 8,
+    {},
+    {},
+    1, 5, 100, ATTR_DEX,ATTR_NONE,10,0,
+   .skill = SKILL_ARMOR_PADDED 
+  },
   {ARMOR_LEATHER, 10, 
     {{[DMG_SLASH]=1,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
-    8,10,200,ATTR_DEX,ATTR_NONE,10,0,
+    4,10,200,ATTR_DEX,ATTR_NONE,10,0,
     .skill = SKILL_ARMOR_LEATHER
   },
   {ARMOR_CHAIN, 12, 
     {{[DMG_SLASH]=2,[DMG_PIERCE]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
-    16,25,400,ATTR_DEX,ATTR_STR,2,9,
+    8,25,400,ATTR_DEX,ATTR_STR,2,9,
     .skill = SKILL_ARMOR_CHAIN
   },
   {ARMOR_PLATE, 16,
     {{[DMG_SLASH]=2,[DMG_PIERCE]=2,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1}},
-    32,100,800,ATTR_NONE,ATTR_STR,0,12,
+    20,100,800,ATTR_NONE,ATTR_STR,0,12,
     .skill = SKILL_ARMOR_PLATE
   },
 };
 
+ArmorType GetArmorTypeBySkill(SkillType s){
+  for(int i = 0; i < ARMOR_DONE; i++){
+    if(ARMOR_TEMPLATES[i].skill == s)
+      return ARMOR_TEMPLATES[i].type;
+  }
+}
 consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
   {CONS_POT, 50, 400, 1, 2,
     PROP_MAT_LIQUID, PROP_CONS_HEAL,
@@ -556,6 +574,10 @@ bool SkillUseSecondary(skill_t* self, int gain, InteractResult result){
 }
  
 bool SkillUse(skill_t* self, int source, int target, int gain, InteractResult result){
+
+  define_skill_rank_t r = SKILL_RANKS[SkillRankGet(self)];
+  gain-=r.penalty;
+  
   int* cr = malloc(sizeof(int));
   *cr = gain;
   
@@ -566,6 +588,10 @@ bool SkillUse(skill_t* self, int source, int target, int gain, InteractResult re
   };
  
   interaction_t* iter = StartInteraction(source,target,EVENT_SKILL, 9, self, self->id, data, RegisterSkillEvent, UpdateSkillEvent, true);
+
+  if (gain < 1)
+    return false;
+
 
   skill_event_t* skev = iter->ctx;
   skill_decay_t* sk_decay = skev->decay;
@@ -676,7 +702,7 @@ bool SkillIncrease(struct skill_s* s, int amnt){
   s->point+=imin(MAX_SKILL_GAIN,amnt);
 
   if(s->point < s->threshold){
-    TraceLog(LOG_INFO,"%s experience in %i now (%0f / %i)",s->owner->name, s->id, s->point, s->threshold);
+    TraceLog(LOG_INFO,"%s experience in %s now (%0f / %i)",s->owner->name, SKILL_NAMES[s->id], s->point, s->threshold);
     return false;
   }
 
@@ -688,7 +714,7 @@ bool SkillIncrease(struct skill_s* s, int amnt){
 
   s->threshold+= 100/s->val;
   
-  TraceLog(LOG_INFO,"%s has reached %i rank %i",s->owner->name, s->id, s->val);
+  TraceLog(LOG_INFO,"%s has reached %s rank %i",s->owner->name, SKILL_NAMES[s->id], s->val);
   if(s->on_skill_up)
     s->on_skill_up(s,old,s->val);
 

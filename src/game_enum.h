@@ -302,6 +302,7 @@ typedef enum{
 
 typedef enum{
   ARMOR_NONE,
+  ARMOR_CLOTH,
   ARMOR_NATURAL,
   ARMOR_PADDED,
   ARMOR_LEATHER,
@@ -513,6 +514,7 @@ typedef enum{
   SKILL_ANIM,
   SKILL_ARCANA,
   SKILL_ARMOR_NATURAL,
+  SKILL_ARMOR_CLOTH,
   SKILL_ARMOR_PADDED,
   SKILL_ARMOR_LEATHER,
   SKILL_ARMOR_CHAIN,
@@ -585,8 +587,20 @@ typedef enum{
 }SkillRate;
 
 typedef enum {
-  SR_NONE   = 5,
-  SR_PROFIC = 6,
+  SR_NONE,
+  SR_NOVICE,
+  SR_SKILLED,
+  SR_PROFIC,
+  SR_ADEPT,
+  SR_EXPERT,
+  SR_ACCOMP,
+  SR_GREAT,
+  SR_ARTIS,
+  SR_MASTER,
+  SR_MASTER_H,
+  SR_MASTER_G,
+  SR_LEGEND,
+  SR_DONE
 }SkillRank;
 
 typedef enum{

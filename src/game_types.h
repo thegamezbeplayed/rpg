@@ -46,6 +46,8 @@ typedef struct{
   float         base_diff;
   PhysQual      body;
   MentalQual    mind;
+  PhysBody      covering;
+  PhysWeapon    natural_weaps;
   Feats         feats;
   Traits        traits;
 }properties_t;
@@ -156,6 +158,7 @@ item_def_t* DefineItem(ItemInstance data);
 item_def_t* DefineArmor(ItemInstance data);
 item_def_t* DefineWeapon(ItemInstance data);
 item_def_t* DefineWeaponByType(WeaponType t, ItemProps p, WeaponProps w);
+item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps w);
 item_t* InitItem(item_def_t* def);
 
 item_def_t* GetItemDefByID(GearID id);
@@ -282,6 +285,8 @@ static action_key_t action_keys[ACTION_DONE] = {
   {ACTION_NONE},
   {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ActionMove,SLOT_NONE},
   {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack,SLOT_ATTACK},
+  {ACTION_WEAPON,0},
+  {ACTION_ITEM,1,{KEY_V},ActionPlayerAttack,SLOT_ITEM},
   {ACTION_MAGIC,1,{KEY_M},ActionPlayerAttack,SLOT_SPELL},
 };
 

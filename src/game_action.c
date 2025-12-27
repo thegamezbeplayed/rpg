@@ -133,6 +133,7 @@ bool ActionInput(void){
           break;
         case ACTION_ATTACK:
         case ACTION_MAGIC:
+        case ACTION_ITEM:
           ability_t* ability = player->slots[binding]->abilities[0];
           switch(ability->targeting){
             case DES_SELECT_TARGET:

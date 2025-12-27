@@ -199,8 +199,8 @@ static define_skill_rate_t  SKILL_RATES[RATE_DONE]={
     30
   },
   {RATE_REWARD_SLOW,
-    {[IR_FAIL] = 50, [IR_SUCCESS] = 75},
-    {[IR_FAIL] = 67, [IR_SUCCESS] = 80},
+    {[IR_FAIL] = 25, [IR_SUCCESS] = 75},
+    {[IR_FAIL] = 25, [IR_SUCCESS] = 50},
     30
   },
   {RATE_RISK, 
@@ -256,7 +256,7 @@ static attribute_name_t attributes[ATTR_DONE]={
   {ATTR_BLANK,"REROLL"}
 };
 
-static const race_define_t DEFINE_RACE[ 12 ] = {
+static const race_define_t DEFINE_RACE[ 13 ] = {
   {SPEC_NONE},
   {SPEC_HUMAN, "Joseph", ENT_PERSON,
     RACE_USE_TOOLS | RACE_USE_WEAPS | RACE_USE_ARMOR | RACE_USE_POTIONS |RACE_USE_SCROLLS |
@@ -264,6 +264,7 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
     TRAIT_EXP_SWORD,
     PQ_BIPED,
     MQ_SENTIENT | MQ_CAUTIOUS | MQ_DETERMINED | MQ_PATIENT | MQ_STRATEGIC | MQ_LEADER | MQ_PROTECTIVE | MQ_DISCIPLINED,
+    PW_NONE, PB_NONE,
     0,
     1
   },
@@ -277,10 +278,12 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
       RACE_BUILD_CRUDE | 
       RACE_SPECIAL_TRAPS | RACE_SPECIAL_FOCI | RACE_SPECIAL_WARDS,
     TRAIT_POISON_RESIST | TRAIT_EXP_DAGGER | TRAIT_EXP_BOW,
-    PQ_SMALL | PQ_LIGHT | PQ_BIPED | PQ_THICK_SKIN,
+    PQ_SMALL | PQ_LIGHT | PQ_BIPED,
     MQ_TERRITORIAL | MQ_SENTIENT | MQ_ANXIOUS | MQ_CUNNING | MQ_CAUTIOUS | MQ_OBEDIENT,
+    PW_NONE,
+    PQ_THICK_SKIN,
     0,
-    1
+    .75
   },
   {SPEC_ORC, "Orc", ENT_ORC,
     RACE_USE_TOOLS | RACE_USE_WEAPS | RACE_USE_ARMOR | RACE_USE_POTIONS |RACE_USE_SCROLLS |
@@ -291,17 +294,28 @@ static const race_define_t DEFINE_RACE[ 12 ] = {
       RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_GEAR | RACE_DIFF_SPELLS | RACE_DIFF_ALPHA |
       RACE_SPECIAL_FOCI,
       TRAIT_VISION_DARK,
-      PQ_LONG_LIMB | PQ_SMALL_HEAD | PQ_BIPED | PQ_LARGE_HANDS | PQ_THICK_SKIN | PQ_DENSE_MUSCLE,
+      PQ_LONG_LIMB | PQ_SMALL_HEAD | PQ_BIPED | PQ_LARGE_HANDS | PQ_DENSE_MUSCLE,
       MQ_OBLIVIOUS | MQ_SENTIENT | MQ_AGGRESSIVE | MQ_TERRITORIAL,
+      PW_NONE,
+      PQ_THICK_SKIN,
       0,
       1.25
   },
+  {SPEC_GIANT},
   {SPEC_ARTHROPOD},
   {SPEC_ETHEREAL},
   {SPEC_ROTTING},
   {SPEC_VAMPIRIC},
   {SPEC_CANIFORM},
-  {SPEC_RODENT},
+  {SPEC_RODENT, "Rat", ENT_RAT,
+  RACE_SIZE_SMALL | RACE_TACTICS_CRUDE | RACE_DIFF_LVL | RACE_DIFF_ALPHA,
+  0, PQ_TINY | PQ_LIGHT | PQ_QUADPED | PQ_TAIL | PQ_TINY_HEAD,
+  MQ_SIMPLE | MQ_CAUTIOUS | MQ_ALERT | MQ_HIVE_MIND,
+  PQ_TOUGH_TEETH | PQ_TEETH,
+  PB_NONE,
+  0,
+  .25
+  },
 };
 static race_define_t GetRaceByFlag(SpeciesType f){
   int index = SpecToIndex(f);
@@ -416,10 +430,10 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_LOCK, -1,-1,
           "Filthcaller","\0","\0",
           .skills = {
-            [SKILL_SPELL_EVO] = 600, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS] = 300, [SKILL_SPELL_NECRO] = 600,
+            [SKILL_ARMOR_CLOTH] = 400,[SKILL_SPELL_EVO] = 600, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS] = 300, [SKILL_SPELL_NECRO] = 600,
           },
           .rankups = {
-            [SKILL_SPELL_EVO] = 500, [SKILL_SPELL_ABJ] = 100, [SKILL_SPELL_TRANS] = 100, [SKILL_SPELL_NECRO] = 600,
+             [SKILL_ARMOR_CLOTH] = 200 ,[SKILL_SPELL_EVO] = 500, [SKILL_SPELL_ABJ] = 100, [SKILL_SPELL_TRANS] = 100, [SKILL_SPELL_NECRO] = 600,
           }
         },
       }
@@ -430,10 +444,10 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_CLERIC, CLASS_BASE_LOCK, CLASS_SUB_HEX,
           "Giver", "Witch-doctor", "Shadow Priest",
           .skills = {
-            [SKILL_SPELL_ENCH] = 400, [SKILL_SPELL_ABJ] = 600, [SKILL_SPELL_NECRO] = 800,
+            [SKILL_ARMOR_CLOTH] = 400, [SKILL_SPELL_ENCH] = 400, [SKILL_SPELL_ABJ] = 600, [SKILL_SPELL_NECRO] = 800,
           },
           .rankups = {
-            [SKILL_SPELL_ENCH] = 300, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_NECRO] = 600,
+            [SKILL_ARMOR_CLOTH] = 200 ,[SKILL_SPELL_ENCH] = 300, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_NECRO] = 600,
           }
 
         }
@@ -482,6 +496,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_GOBLINOID,
       10,
+      1,
       SOC_PRIMITIVE
   },
   {ENT_ORC,
@@ -493,6 +508,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_ORC,
       30,
+      2,
       SOC_MARTIAL
   },
   {ENT_OGRE},
@@ -507,6 +523,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_GOBLINOID,
       540,
+      2,
       SOC_MARTIAL
   },
   {ENT_OROG},
@@ -518,7 +535,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_FREQ_RARE |
       MOB_GROUPING_SOLO | MOB_GROUPING_SWARM,
     SPEC_ARTHROPOD,
-    400
+    9,
+    .75
   },
   {ENT_SPIDER,
     MOB_SPAWN_LAIR |
@@ -526,9 +544,10 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
       MOB_THEME_CRITTER |
       MOB_FREQ_COMMON |
-      MOB_GROUPING_SOLO | MOB_GROUPING_SWARM,
+      MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_SWARM,
     SPEC_ARTHROPOD,
-    500
+    5,
+    .5
   },
   {ENT_TROLL,
       MOB_SPAWN_LAIR |
@@ -538,6 +557,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS,
       SPEC_CANIFORM,
       500,
+      3,
       SOC_INSTINCTIVE
   },
   {ENT_TROLL_CAVE,
@@ -549,6 +569,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_SOLO,
       SPEC_CANIFORM,
     600,
+    3.33,
     SOC_INSTINCTIVE
   },
   {ENT_BEAR,
@@ -558,6 +579,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_SQUAD,
       SPEC_CANIFORM,
       75,
+      2.22,
       SOC_FAMILY
   },
   {ENT_WOLF,
@@ -567,6 +589,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_SOLO | MOB_GROUPING_SQUAD,
       SPEC_CANIFORM,
       40,
+      1,
       SOC_FERAL
   },
   {ENT_RAT,
@@ -576,7 +599,8 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_FREQ_COMMON |
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_SWARM,
       SPEC_RODENT,
-      900,
+      8,
+      .25,
       SOC_HIVE
   },
 
@@ -882,4 +906,95 @@ static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {
   {SLOT_SPELL, {[ACTION_MAGIC]=true}},
   {SLOT_SAVE, {[ACTION_SAVE]=true}},
 };
+
+static const char* SKILL_NAMES[SKILL_DONE] = {
+  [SKILL_NONE]              = "None",
+  [SKILL_LVL]               = "Leveling",
+  [SKILL_ACRO]              = "Acrobatics",
+  [SKILL_ALCH]              = "Alchemy",
+  [SKILL_ANIM]              = "Animal Handling",
+  [SKILL_ARCANA]            = "Arcana",
+
+  [SKILL_ARMOR_NATURAL]     = "Natural Armor",
+  [SKILL_ARMOR_PADDED]      = "Padded Armor",
+  [SKILL_ARMOR_LEATHER]     = "Leather Armor",
+  [SKILL_ARMOR_CHAIN]       = "Chain Armor",
+  [SKILL_ARMOR_PLATE]       = "Plate Armor",
+  [SKILL_ARMOR_SHIELD]      = "Shield Use",
+
+  [SKILL_ATH]               = "Athletics",
+  [SKILL_CALL]              = "Calligraphy",
+  [SKILL_CARP]              = "Carpentry",
+  [SKILL_CART]              = "Cartography",
+  [SKILL_COBB]              = "Cobbling",
+  [SKILL_COOK]              = "Cooking",
+
+  [SKILL_DECEPT]            = "Deception",
+  [SKILL_GLASS]             = "Glassworking",
+  [SKILL_HIST]              = "History",
+  [SKILL_HERB]              = "Herbalism",
+  [SKILL_INSIGHT]           = "Insight",
+  [SKILL_INTIM]             = "Intimidation",
+  [SKILL_INVEST]            = "Investigation",
+  [SKILL_JEWL]              = "Jeweling",
+  [SKILL_LW]                = "Leatherworking",
+
+  [SKILL_MASON]             = "Masonry",
+  [SKILL_MED]               = "Medicine",
+  [SKILL_NATURE]            = "Nature",
+  [SKILL_PAINT]             = "Painting",
+  [SKILL_PERCEPT]           = "Perception",
+  [SKILL_PERFORM]           = "Performance",
+  [SKILL_PERSUAD]           = "Persuasion",
+
+  [SKILL_POISON]            = "Poisoncraft",
+  [SKILL_POTT]              = "Pottery",
+  [SKILL_RELIG]             = "Religion",
+  [SKILL_SLEIGHT]           = "Sleight of Hand",
+  [SKILL_SMITH]             = "Smithing",
+
+  [SKILL_SPELL_ABJ]         = "Abjuration",
+  [SKILL_SPELL_CONJ]        = "Conjuration",
+  [SKILL_SPELL_DIV]         = "Divination",
+  [SKILL_SPELL_ENCH]        = "Enchantment",
+  [SKILL_SPELL_EVO]         = "Evocation",
+  [SKILL_SPELL_ILL]         = "Illusion",
+  [SKILL_SPELL_NECRO]       = "Necromancy",
+  [SKILL_SPELL_TRANS]       = "Transmutation",
+
+  [SKILL_STEALTH]           = "Stealth",
+  [SKILL_STONE]             = "Stoneworking",
+  [SKILL_SURV]              = "Survival",
+  [SKILL_TINK]              = "Tinkering",
+  [SKILL_THEFT]             = "Theft",
+  [SKILL_WEAV]              = "Weaving",
+
+  [SKILL_WEAP_SIMP]         = "Simple Weapons",
+  [SKILL_WEAP_MART]         = "Martial Weapons",
+  [SKILL_WEAP_MACE]         = "Maces",
+  [SKILL_WEAP_SWORD]        = "Swords",
+  [SKILL_WEAP_AXE]          = "Axes",
+  [SKILL_WEAP_DAGGER]       = "Daggers",
+  [SKILL_WEAP_BOW]          = "Bows",
+  [SKILL_WEAP_PICK]         = "Picks",
+  [SKILL_WEAP_STAFF]        = "Staves",
+  [SKILL_WEAP_NONE]         = "Unarmed",
+
+  [SKILL_WOOD]              = "Woodworking",
+};
+static define_skill_rank_t SKILL_RANKS[SR_DONE] = {
+  [SR_NONE]      = { SR_NONE,      0,  0  },
+  [SR_NOVICE]    = { SR_NOVICE,    3,  5 },
+  [SR_SKILLED]   = { SR_SKILLED,   6,  10 },
+  [SR_PROFIC]    = { SR_PROFIC,    10, 25 },
+  [SR_ADEPT]     = { SR_ADEPT,     15, 50 },
+  [SR_EXPERT]    = { SR_EXPERT,    30, 75 },
+  [SR_ACCOMP]    = { SR_ACCOMP,    45, 100 },
+  [SR_GREAT]     = { SR_GREAT,     60, 125 },
+  [SR_ARTIS]     = { SR_ARTIS,     75, 150 },
+  [SR_MASTER]    = { SR_MASTER,    90, 200 },
+  [SR_MASTER_H]  = { SR_MASTER_H,  95, 400 },
+  [SR_MASTER_G]  = { SR_MASTER_G,  97, 600 },
+  [SR_LEGEND]    = { SR_LEGEND,    99, 800 },
+};  
 #endif

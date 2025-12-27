@@ -1858,6 +1858,8 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   size_t n_size = sizeof(filtered_pool)/sizeof(filtered_pool[0]);
   shuffle_array(filtered_pool,n_size, sizeof(mob_define_t));
   for(int i = 0; i < filtered; i++){
+   if(filtered_pool[i].diff > 1)
+     continue;
    if(filtered_pool[i].weight > budget)
     continue;
 
