@@ -38,6 +38,8 @@ int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul);
 void AggroDecayCallback(void* params);
 void AggroPrune(aggro_table_t* t);
 aggro_entry_t* AggroGetEntry(aggro_table_t* table, ent_t* source);
+int AggroGetEntries(aggro_table_t* table, int count, aggro_entry_t  *entries);
+aggro_entry_t* AggroGetHighest(aggro_table_t* t);
 
 typedef struct{
   SpeciesType   race;
@@ -97,10 +99,12 @@ typedef struct{
   ActionSlot     id;
   ActionType     allowed[ACTION_SLOTTED];
   ent_t*         owner;
-  int            count, cap, size, space, rank;
+  StatType       resource;
+  int            count, cap, size, space, rank, pref;
   ability_t      **abilities;
 }action_slot_t;
 
+void ActionSlotSortByPref(ent_t* owner, int *pool, int count);
 action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap);
 bool ActionSlotAddAbility(ent_t* owner, ability_t* a);
 extern ability_t ABILITIES[ABILITY_DONE];
@@ -110,6 +114,7 @@ ability_t* EntFindAbility(ent_t* e, AbilityID id);
 ability_t* InitAbility(ent_t* owner, AbilityID);
 ability_t* InitAbilityDummy(ent_t* owner, ability_t copy);
 bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other);
+ability_t* EntChoosePreferredAbility(ent_t* e, int budget);
 ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot);
 InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_sim_t* source);
 InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source);
@@ -207,8 +212,9 @@ typedef struct ent_s{
   item_t                *gear[CARRY_SIZE];
   sprite_t              *sprite;
   float                 challenge;
-  aggro_table_t*        aggro;
+  aggro_table_t*        aggro, *allies;
   struct ent_s*         last_hit_by;
+  int                   team;
 } ent_t;
 
 ent_t* InitEntByRace(mob_define_t def, MobRules rules);

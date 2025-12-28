@@ -37,6 +37,9 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_HAMSTRING},
   {ABILITY_RAGE, AT_DMG,ACTION_ATTACK,DMG_TRUE, STAT_RAGE, DES_NONE, 10, 1, 0,1, 2, 1,1, STAT_HEALTH, ATTR_NONE, ATTR_NONE },
   {ABILITY_WEAP},
+  {ABILITY_THROW_ROCK, AT_DMG, ACTION_ATTACK, DMG_BLUNT, STAT_STAMINA, DES_SELECT_TARGET, 20, 1, 10, 1, 4, 0, 2, STAT_HEALTH, ATTR_DEX, ATTR_STR,
+    .skills = SKILL_WEAP_NONE
+  },
   {ABILITY_WEAP_BLUDGEON, AT_DMG,ACTION_WEAPON,
     DMG_BLUNT, STAT_STAMINA, DES_NONE, 25,1,17,3,2,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
   },
@@ -110,7 +113,9 @@ WeaponType GetWeapTypeBySkill(SkillType s){
 
 armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
   {ARMOR_NONE},
-  {ARMOR_NATURAL},
+  {ARMOR_NATURAL, 4,
+    .skill = SKILL_ARMOR_NATURAL,
+  },
   {ARMOR_CLOTH, 6,
     {},
     {},
@@ -735,9 +740,10 @@ void SkillupRelated(skill_t* self, float old, float cur){
   }
 }
 
-SkillRate SkillRateLookup(SkillType){
+SkillRate SkillRateLookup(SkillType s){
   for(int i = 0; i < RATE_DONE; i++){
-    //TODO
+   if(SKILLRATE_LOOKUP[i].skills[s])
+    return i; 
   }
 
   return RATE_LINEAR;

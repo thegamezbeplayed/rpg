@@ -60,9 +60,10 @@ typedef choice_t* (*ChoiceFn)(choice_pool_t *pool);
 choice_t* ChooseBest(choice_pool_t* pool);
 choice_t* ChooseByWeight(choice_pool_t* pool);
 choice_t* ChooseByBudget(choice_pool_t* pool);
+choice_t* ChooseByWeightInBudget(choice_pool_t* pool);
 
 struct choice_s{
-  int       score;
+  int       score, cost;
   void*     context;
   OnChosen  cb;
 };
@@ -77,6 +78,7 @@ struct choice_pool_s{
 choice_pool_t* StartChoice(choice_pool_t* pool, int size, ChoiceFn fn, bool* result);
 choice_pool_t* InitChoicePool(int size, ChoiceFn fn);
 bool AddChoice(choice_pool_t *pool, int score, void *ctx);
+bool AddPurchase(choice_pool_t *pool, int score, int cost, void *ctx);
 //<===BEHAVIOR TREES
 
 //forward declare
@@ -155,6 +157,7 @@ behavior_tree_node_t* BehaviorCreateConcurrent(behavior_tree_node_t **children, 
 BehaviorStatus BehaviorChangeState(behavior_params_t *params);
 BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params);
 BehaviorStatus BehaviorCheckAggro(behavior_params_t *params);
+BehaviorStatus BehaviorCheckSenses(behavior_params_t *params);
 BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params);
 BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params);
 BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params);
@@ -163,10 +166,12 @@ BehaviorStatus BehaviorCheckTurn(behavior_params_t *params);
 BehaviorStatus BehaviorAttackTarget(behavior_params_t *params);
 BehaviorStatus BehaviorTakeTurn(behavior_params_t *params);
 BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params);
+BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params);
 
 static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeState,params); }
 static inline behavior_tree_node_t* LeafMoveToTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToTarget,params); }
 static inline behavior_tree_node_t* LeafCheckAggro(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAggro,params); }
+static inline behavior_tree_node_t* LeafCheckSenses(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckSenses,params); }
 static inline behavior_tree_node_t* LeafMoveToDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToDestination,params); }
 static inline behavior_tree_node_t* LeafAcquireDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireDestination,params); }
 static inline behavior_tree_node_t* LeafAcquireTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireTarget,params); }
@@ -175,5 +180,6 @@ static inline behavior_tree_node_t* LeafCheckTurn(behavior_params_t *params)  { 
 static inline behavior_tree_node_t* LeafAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAttackTarget,params); }
 static inline behavior_tree_node_t* LeafTakeTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorTakeTurn,params); }
 static inline behavior_tree_node_t* LeafCanSeeTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCanSeeTarget,params); }
+static inline behavior_tree_node_t* LeafBuildAllyTable(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorBuildAllyTable,params); }
 
 #endif

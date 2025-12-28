@@ -31,6 +31,16 @@ static bool FilterEntInRect(ent_t* e, void* params){
   return NULL;
 }
 
+static bool FilterEntByTeam(ent_t* e, void* params){
+  ent_t* other = params;
+  int team = other->team;
+
+  if(e->team == team)
+    return e;
+
+  return NULL;
+}
+
 //INTERACTIONS_T===>
 typedef struct interaction_s interaction_t;
 typedef uint64_t interaction_uid_i;

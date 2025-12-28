@@ -314,6 +314,7 @@ action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap){
   for(int i = 0; i < ACTION_SLOTTED; i++)
     a->allowed[i] = def.allowed[i];
 
+  a->resource = def.resource;
   a->abilities = calloc(a->cap, sizeof(ability_t));
   return a;
 }
@@ -364,4 +365,22 @@ bool ActionSlotAddAbility(ent_t* owner, ability_t* a){
 
   return false;
   
+}
+
+int ActionSlotCompareDesc(const void* a, const void* b){
+  // Primary: threat
+  const int A = *(const int*)a;
+  const int B = *(const int*)b;
+  
+  if (A > B) return -1;
+  if (B < B) return  1;
+
+  return 0;
+}
+
+void ActionSlotSortByPref(ent_t* owner, int *pool, int count){
+  for(int i = 0; i < count; i++)
+    pool[i] = owner->slots[i]->pref;
+
+  qsort(pool, count, sizeof(int),ActionSlotCompareDesc);
 }

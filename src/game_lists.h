@@ -103,10 +103,10 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
   */
   [STAT_ACTIONS] = {
     [SC_MIN]     = 1,
-    [SC_AVERAGE] = 2,
-    [SC_ABOVE]   = 3,
-    [SC_SUPER]   = 4,
-    [SC_MAX]     = 5
+    [SC_AVERAGE] = 1,
+    [SC_ABOVE]   = 2,
+    [SC_SUPER]   = 3,
+    [SC_MAX]     = 4
   },
   [STAT_ENERGY] = {
     [SC_MIN]     = 1,
@@ -338,20 +338,30 @@ static Traits SKILL_TRAITS[SKILL_DONE] = {
 static const define_archetype_t CLASS_DATA[11] = {
   {CLASS_BASE_BARD},
   {CLASS_BASE_CLERIC, 6, ATTR_WIS,ATTR_INT,ATTR_CHAR,
-    {[ATTR_WIS]=1,[ATTR_INT]=0.5f,[ATTR_INT]=0.5f, [ATTR_CHAR] =.75f}
+    {[ATTR_WIS]=1,[ATTR_INT]=0.5f,[ATTR_INT]=0.5f, [ATTR_CHAR] =.75f},
+    {[AT_HEAL]=5, [AT_DMG]=1},
+    {[ACTION_MAGIC]=5,[ACTION_CANTRIP]=4, [ACTION_ATTACK]=3, [ACTION_WEAPON] = 1}
   },
   {CLASS_BASE_DRUID, 6, ATTR_WIS,ATTR_WIS,ATTR_INT,
-    {[ATTR_CON]=0.25f, [ATTR_WIS]=0.25f, [ATTR_CHAR]=0.5f, [ATTR_INT]=0.25f}
+    {[ATTR_CON]=0.25f, [ATTR_WIS]=0.25f, [ATTR_CHAR]=0.5f, [ATTR_INT]=0.25f},
+    {[AT_HEAL]=3, [AT_DMG]=2},
+    {[ACTION_MAGIC]=3,[ACTION_CANTRIP]=3, [ACTION_ATTACK]=3, [ACTION_WEAPON] = 1}
   },
   {CLASS_BASE_FIGHTER, 8, ATTR_NONE,ATTR_STR,ATTR_CON,
-    {[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_CON]=.25f}
+    {[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_CON]=.25f},
+    {[AT_DMG] = 5},
+    {[ACTION_ATTACK] = 5, [ACTION_WEAPON] = 4}
   },
   {CLASS_BASE_MONK},
   {CLASS_BASE_RANGER, 8, ATTR_WIS, ATTR_DEX, ATTR_STR,
-      {[ATTR_STR]=0.5f,[ATTR_DEX]=0.5f,[ATTR_CON]=.125f,[ATTR_WIS]=0.125f}
+      {[ATTR_STR]=0.5f,[ATTR_DEX]=0.5f,[ATTR_CON]=.125f,[ATTR_WIS]=0.125f},
+      {[AT_DMG] = 3},
+      {[ACTION_ATTACK] = 4, [ACTION_WEAPON] = 4, [ACTION_ITEM] = 2, [ACTION_CANTRIP]=2, [ACTION_MOVE]=3}
   },
   {CLASS_BASE_ROGUE, 6, ATTR_NONE, ATTR_DEX, ATTR_INT,
-    {[ATTR_DEX]=0.5f, [ATTR_STR]=0.125,[ATTR_INT]=0.25}
+    {[ATTR_DEX]=0.5f, [ATTR_STR]=0.125,[ATTR_INT]=0.25},
+      {[AT_DMG] = 4},
+      {[ACTION_ATTACK] = 4, [ACTION_WEAPON] = 4, [ACTION_ITEM] = 3,[ACTION_MOVE]=3}
   },
   {CLASS_BASE_LOCK, 6, ATTR_WIS, ATTR_CHAR, ATTR_CHAR,
     {[ATTR_CON]=0.25f, [ATTR_WIS]=0.25f, [ATTR_CHAR]=0.75f}
@@ -414,7 +424,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_DRUID, CLASS_SUB_SHAMAN, CLASS_SUB_CHAMP,
           "Pestcaller","Seer", "Mystic",
           .skills = {
-            [SKILL_ARMOR_NATURAL]=400, [SKILL_WEAP_STAFF]=300,
+            [SKILL_ARMOR_CLOTH]=400, [SKILL_WEAP_STAFF]=300,
             [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS]=600, [SKILL_SPELL_CONJ] = 400,
           },
             .rankups = {
@@ -747,67 +757,67 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
   {ABILITY_MAGIC_MISSLE, true, true,
     CLASS_BASE_WIZ,
     CLASS_BASE_WIZ,
-    0,9,
+    0,9,10,
     SPEC_HUMAN | SPEC_ELF,
   },
   {ABILITY_ELDRITCH_BLAST, true,true, 
     CLASS_BASE_LOCK,
     CLASS_SUB_HEX,
-    0,5,
+    0,5,10,
     SPEC_ORC | SPEC_HUMAN
   },
   {ABILITY_RESISTANCE, true, true,
     CLASS_BASE_CLERIC | CLASS_BASE_DRUID,
     CLASS_SUB_SHAMAN,
-    0,3,
+    0,3,8,
     SPEC_HUMAN// | SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
   },
   {ABILITY_SACRED_FLAME, true, true,
     CLASS_BASE_CLERIC,
     CLASS_BASE_CLERIC,
-    0,3,
+    0,3,5,
     SPEC_HUMAN | SPEC_ELF
   },
   {ABILITY_STARRY_WISP, true, true,
     CLASS_BASE_BARD | CLASS_BASE_DRUID,
     CLASS_SUB_SHAMAN,
-    0,3,
+    0,3,6,
     SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
   },
   {ABILITY_MAGIC_STONE, true, true,
     CLASS_BASE_DRUID,
     CLASS_BASE_LOCK,
-    0, 0,
+    0, 0, 5,
     SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
   },
   {ABILITY_POISON_SPRAY, true, true,
     CLASS_BASE_DRUID | CLASS_SUB_SHAMAN,
     CLASS_BASE_WIZ,
-    0, 3,
+    0, 3, 8,
     SPEC_GOBLINOID | SPEC_ORC
   },
   {ABILITY_FIRE_BOLT, true, true,
     CLASS_BASE_LOCK,
     CLASS_BASE_WIZ,
-    0,3,
+    0,3,8,
     SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
   },
   {ABILITY_REND, false, false,
     CLASS_BASE_FIGHTER,
     CLASS_BASE_RANGER,
-    0, 0,
+    0, 0,4,
     SPEC_GOBLINOID | SPEC_ORC | SPEC_HUMAN
   },
   {ABILITY_HAMSTRING, false, false,
     CLASS_BASE_FIGHTER | CLASS_BASE_RANGER,
     CLASS_BASE_ROGUE,
-    1,0,
+    1,0,4,
     SPEC_HUMAN //| SPEC_GOBLINOID | SPEC_ORC
   },
   {ABILITY_RAGE, false, false,
     CLASS_SUB_BERZ,
     CLASS_SUB_BERZ,
-    0,5,
+    0,5,12,
     SPEC_GOBLINOID | SPEC_ORC | SPEC_ARCHAIN
   },
 
@@ -895,15 +905,16 @@ static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {
   {SLOT_ATTACK,
     {
       [ACTION_ATTACK] = true, [ACTION_WEAPON] = true,
-    }
+    },
+    STAT_STAMINA,
   },
   {SLOT_INATE,
     {
       [ACTION_PASSIVE] = true,  
     }
   },
-  {SLOT_ITEM, {[ACTION_ITEM]=true}},
-  {SLOT_SPELL, {[ACTION_MAGIC]=true}},
+  {SLOT_ITEM, {[ACTION_ITEM]=true}, STAT_ACTIONS},
+  {SLOT_SPELL, {[ACTION_MAGIC]=true}, STAT_ENERGY},
   {SLOT_SAVE, {[ACTION_SAVE]=true}},
 };
 

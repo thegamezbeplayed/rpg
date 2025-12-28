@@ -79,13 +79,31 @@ BehaviorStatus BehaviorChangeState(behavior_params_t *params){
 
 }
 
+BehaviorStatus BehaviorCheckSenses(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
+  return BEHAVIOR_SUCCESS;
+}
+
 BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
-  if(e->control->target)
-    return BEHAVIOR_SUCCESS;
+  ent_t* enemy = NULL;
+  aggro_entry_t* highest = AggroGetHighest(e->aggro);  
+
+  if(highest)
+    enemy = highest->enemy;
+
+  if(enemy == NULL && e->control->target == NULL)
+    return BEHAVIOR_FAILURE;
+
+  e->control->target = enemy;
+
+  return BEHAVIOR_SUCCESS;
 }
 
 
@@ -234,10 +252,7 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
   if(!e)
     return BEHAVIOR_FAILURE;
 
-  ability_t* a = EntChooseWeightedAbility(e,e->stats[STAT_STAMINA]->current, SLOT_ATTACK);
-  if(!a){
-    a = EntChooseWeightedAbility(e, e->stats[STAT_ENERGY]->current, SLOT_SPELL);
-  }
+  ability_t* a = EntChoosePreferredAbility(e,e->stats[STAT_STAMINA]->current);
   if(!a)
     return BEHAVIOR_FAILURE;
 
@@ -245,6 +260,27 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
     return BEHAVIOR_SUCCESS;
 
   return BEHAVIOR_FAILURE;
+}
+
+BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  ent_t* team[MOB_MAP_MAX];
+
+  int count = WorldGetEnts(team, FilterEntByTeam, e);
+
+  for (int i = 0; i < count; i++){
+    int dist = cell_distance(e->pos, team[i]->pos);
+
+    int prio = e->map->width + e->map->height - dist;
+
+    AggroAdd(e->allies, team[i], prio, 1);
+   
+  }
+
+  return BEHAVIOR_SUCCESS;
 }
 
 BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params){

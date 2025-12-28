@@ -484,7 +484,7 @@ static const ment_qualities_t MIND[25] = {
 
 static const natural_weapons_t NAT_WEAPS[16] = {
   {PQ_TEETH, .num_abilities = 1, .abilities = ABILITY_BITE},
-  {PQ_TOUGH_TEETH, .num_abilities = 1, .abilities = ABILITY_CHEW},
+  {PQ_TOUGH_TEETH, .num_abilities = 0, .abilities = ABILITY_CHEW},
 };
 
 static const body_covering_t COVERINGS[35] = {
@@ -496,15 +496,6 @@ static const body_covering_t COVERINGS[35] = {
 };
 
 static const phys_qualities_t BODY[35] = {
-  {PQ_SHARP_TEETH},
-  {PQ_SHARP_CLAWS},
-  {PQ_SHARP_HORNS},
-  {PQ_TOUGH_TEETH, .abilities = ABILITY_CHEW},
-  {PQ_THICK_FUR, TRAIT_SLASH_RESIST | TRAIT_COLD_RESIST},
-  {PQ_THICK_HIDE, TRAIT_FIRE_RESIST | TRAIT_COLD_RESIST | TRAIT_PHYS_RESIST},
-  {PQ_THICK_SCALES, TRAIT_PHYS_RESIST | TRAIT_FIRE_RESIST | TRAIT_ACID_RESIST},
-  {PQ_THICK_SKIN, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST | TRAIT_FIRE_RESIST | TRAIT_POISON_RESIST },
-  {PQ_THICK_FAT, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST },
   {PQ_HEAVY, TRAIT_FORCE_RESIST},
   {PQ_LARGE_FEET, TRAIT_FORCE_RESIST},
   {PQ_LARGE, TRAIT_FORCE_RESIST},
@@ -1134,13 +1125,15 @@ typedef struct{
   int           hitdie;
   AttributeType spell,prof,save;
   float         ASI[ATTR_DONE];
+  int           pref_ability[AT_DONE];
+  int           pref_act[ACTION_SLOTTED];
 }define_archetype_t;
 
 typedef struct{
   AbilityID     id;
   bool          tome,scroll;
   Archetype     base,has;
-  int           lvl,ranks;
+  int           lvl,ranks,priority;
   SpeciesType   racial;
 }define_ability_class_t;
 
@@ -1372,6 +1365,7 @@ static int CountItemPropMods(ItemProps props, WeaponProps wprops) {
 typedef struct{
   ActionSlot  id;
   ActionType  allowed[ACTION_SLOTTED];
+  StatType    resource;
 }define_slot_actions;
 
 #endif

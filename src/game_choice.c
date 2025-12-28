@@ -33,6 +33,27 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
 
   return pool;
 }
+bool AddPurchase(choice_pool_t *pool, int score, int cost, void *ctx){
+  if (!pool) return false;
+
+  // Ensure we do not exceed capacity
+  if (pool->count >= MAX_OPTIONS)
+    return false;
+
+  // Allocate a new choice
+  choice_t *c = calloc(1, sizeof(choice_t));
+  if (!c) return false;
+
+  c->score   = score;
+  c->cost    = cost;
+  c->context = ctx;
+
+  // Store in pool
+  pool->choices[pool->count++] = c;
+
+  return true;
+
+}
 
 bool AddChoice(choice_pool_t *pool, int score, void *ctx){
     if (!pool) return false;
@@ -130,3 +151,31 @@ choice_t* ChooseByBudget(choice_pool_t* pool){
 
 }
 
+choice_t* ChooseByWeightInBudget(choice_pool_t* pool){
+  if(!pool || pool->count == 0 || pool->budget <= 0)
+    return NULL;
+
+  int total = 0;
+  for (int i = 0; i < pool->count; i++) {
+    int cost = pool->choices[i]->cost;
+    int w = pool->choices[i]->score;
+    if (cost <= pool->budget) total += w;
+  }
+
+  if (total <= 0)
+    return NULL; // all weights were zero or negative
+
+  int r = rand() % total;
+
+  int running = 0;
+  for (int i = 0; i < pool->count; i++) {
+    int w = pool->choices[i]->score;
+    if (w <= 0) continue;
+
+    running += w;
+    if (r < running)
+      return pool->choices[i];
+  }
+
+  return NULL;
+}

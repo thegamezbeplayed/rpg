@@ -414,6 +414,63 @@ aggro_entry_t* AggroGetEntry(aggro_table_t* table, ent_t* source){
   return NULL;
 }
 
+int AggroCompareDesc(const void* a, const void* b){
+  const aggro_entry_t* A = (const aggro_entry_t*)a;
+  const aggro_entry_t* B = (const aggro_entry_t*)b;
+
+  // Primary: threat
+  if (A->threat > B->threat) return -1;
+  if (A->threat < B->threat) return  1;
+
+  // Secondary: threat multiplier
+  if (A->threat_mul > B->threat_mul) return -1;
+  if (A->threat_mul < B->threat_mul) return  1;
+
+  // Tertiary: most recent turn wins
+  if (A->last_turn > B->last_turn) return -1;
+  if (A->last_turn < B->last_turn) return  1;
+
+  return 0;
+}
+
+void AggroSortByThreat(aggro_table_t* table){
+  if (!table || table->count <= 1)
+    return;
+
+  qsort(table->entries,
+      table->count,
+      sizeof(aggro_entry_t),
+      AggroCompareDesc);
+}
+
+int AggroGetEntries(aggro_table_t* t, int count, aggro_entry_t  *entries){
+  int out = 0;
+  if(t->count < 1)
+    return out;
+
+  int check = count < t->count? count: t->count;
+  if(check < t->count)
+    AggroSortByThreat(t);
+
+  for(int i = 0; i < check; i++)
+    entries[out++] = t->entries[i];
+
+  return out;
+
+}
+
+aggro_entry_t* AggroGetHighest(aggro_table_t* t){
+  if(t->count < 1)
+    return NULL;
+
+  if(t->count == 1)
+    return &t->entries[0];
+
+  AggroSortByThreat(t);
+
+  return &t->entries[0];
+}
+ 
 void AggroDecayCallback(void* params){
 
 }

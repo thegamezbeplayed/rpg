@@ -68,7 +68,7 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   ent_t* e = malloc(sizeof(ent_t));
   *e = (ent_t){0};
   e->type = racial.base_ent;
-
+  e->team = __builtin_ctzll(def.race);
   strcpy(e->name, TextFormat("%s",racial.name));
   e->props = InitProperties(racial);
   e->pos = CELL_UNSET;
@@ -100,6 +100,8 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   for (int i = 0; i< 4;i++)
     EntApplyTraits(e->traits,res[i].mask, res[i].shift);
 
+
+  e->control->bt[STATE_SPAWN] = InitBehaviorTree(BEHAVIOR_SPAWN);
   e->control->bt[STATE_IDLE] = InitBehaviorTree(BEHAVIOR_SEEK);
   e->control->bt[STATE_WANDER] = InitBehaviorTree(BEHAVIOR_WANDER);
   e->control->bt[STATE_AGGRO] = InitBehaviorTree(BEHAVIOR_MOB_AGGRO);
@@ -208,7 +210,10 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
   ent_t* e = InitEntByRace(def,rules);
   strcpy(e->name, TextFormat("%s %s",racial.name,sel->social_name[def.civ]));
   e->aggro = calloc(1,sizeof(aggro_table_t));
+  e->allies = calloc(1,sizeof(aggro_table_t));
   InitAggroTable(e->aggro, 4, e);
+  InitAggroTable(e->allies, 8, e);
+
 
   for(int i = 0; i < SKILL_DONE; i++){
     if(sel->skills[i]==0)
@@ -372,7 +377,7 @@ void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
     if(e->skills[i]->val==0)
       continue;
 
-    bool eq = num_w < 1;
+    bool eq = num_w < 2;
     item_def_t* idef = BuildAppropriateItem(e, ITEM_WEAPON, i);
     EntAddItem(e, InitItem(idef), eq);
     num_w++;
@@ -394,9 +399,16 @@ void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
       continue;
 
     ability_t* a = InitAbility(e, def_ab.id);
-
+    a->weight+=def_ab.priority;
     ActionSlotAddAbility(e,a);
   }
+
+  for(int i = 0; i < SLOT_ALL; i++){
+    for (int j = 0; j < ACTION_SLOTTED; j++)
+      if(e->slots[i]->allowed[j])
+        e->slots[i]->pref+= data.pref_act[j];
+  }
+
 }
 
 int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
@@ -1105,6 +1117,20 @@ int EntDamageReduction(ent_t* e, ability_t* a, int dmg){
 
   return dmg;
 }
+ability_t* EntChoosePreferredAbility(ent_t* e, int budget){
+  ActionSlot slot_pool[SLOT_ALL];
+
+  ActionSlotSortByPref(e, slot_pool, SLOT_ALL);
+
+  for(int i = 0; i < SLOT_ALL; i++){
+    int budget = e->stats[e->slots[i]->resource]->current;
+    ability_t* a = EntChooseWeightedAbility(e, budget, i);
+    if(a)
+      return a;
+  }
+
+  return NULL;
+}
 
 ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot){
   bool running = false;
@@ -1112,14 +1138,14 @@ ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot){
   if(count == 0)
     return NULL;
 
-  choice_pool_t* p = StartChoice(e->control->choices[slot], count, ChooseByBudget,&running);
+  choice_pool_t* p = StartChoice(e->control->choices[slot], count, ChooseByWeightInBudget,&running);
 
   p->budget = budget;
   
   if(!running){
     for(int j = 0; j < e->slots[slot]->count; j++){
       ability_t* a = e->slots[slot]->abilities[j];
-      AddChoice(p, a->cost, a);
+      AddPurchase(p, a->weight, a->cost, a);
 
     }
   }
