@@ -102,13 +102,17 @@ typedef enum{
   VAL_ADV_SAVE,
   VAL_WORTH,
   VAL_WEIGHT,
+  VAL_SIZE,
   VAL_DURI,
+  VAL_REACH,
+  VAL_EXP,
+  VAL_QUANT,
   VAL_STORAGE,
   VAL_ALL,
 }ValueCategory;
 
 typedef enum{
-  STAT_NONE = -1,
+  STAT_NONE,// = -1,
   STAT_REACH,
   STAT_DAMAGE,
   STAT_HEALTH,
@@ -132,7 +136,7 @@ typedef enum{
 }StatType;
 
 typedef enum{
-  ATTR_NONE = -1,
+  ATTR_NONE,// = -1,
   ATTR_CON,
   ATTR_STR,
   ATTR_DEX,
@@ -275,17 +279,7 @@ typedef enum{
 }SpawnType;
 
 typedef enum{
-  ITEM_NONE,
-  ITEM_WEAPON,
-  ITEM_ARMOR,
-  ITEM_CONSUMABLE,
-  ITEM_SCROLL,
-  ITEM_TOME,
-  ITEM_DONE
-}ItemCategory;
-
-typedef enum{
-  GEAR_NONE,
+  GEAR_NONE = -1,
   GEAR_MACE,
   GEAR_LEATHER_ARMOR,
   GEAR_LEATHER_CAP,
@@ -297,6 +291,7 @@ typedef enum{
   GEAR_POT_HEALTH,
   GEAR_PICK,
   GEAR_HAMMER_LIGHT,
+  GEAR_BANDOLIER,
   GEAR_DONE
 }GearID;
 
@@ -393,6 +388,44 @@ typedef enum{
   SLOT_SAVE,
   SLOT_ALL
 }ActionSlot;
+
+typedef enum{
+  ITEM_NONE,
+  ITEM_WEAPON,
+  ITEM_ARMOR,
+  ITEM_CONSUMABLE,
+  ITEM_CONTAINER,
+  ITEM_SCROLL,
+  ITEM_TOME,
+  ITEM_AMULET,
+  ITEM_RING,
+  ITEM_AMMO,
+  ITEM_DONE
+}ItemCategory;
+
+typedef enum{
+  INV_NONE = -1,
+  INV_HELD,
+  INV_WORN,
+  INV_BACK,
+  INV_BELT,
+  INV_SLING,
+  INV_QUIVER,
+  INV_PACK,
+  INV_POUCH,
+  INV_SCROLL_CASE,
+  INV_DONE
+}ItemSlot;
+
+typedef enum{
+  STORE_NONE = -1,
+  STORE_CARRY,
+  STORE_WORN,
+  STORE_HELD,
+  STORE_CONTAINER,
+  STORE_SPECIAL,
+  STORE_DONE
+}StorageMethod;
 
 typedef enum{
   ABILITY_NONE,

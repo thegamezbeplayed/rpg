@@ -29,10 +29,14 @@ ability_t ABILITIES[ABILITY_DONE]={
   },
   {ABILITY_SACRED_FLAME, AT_DMG,ACTION_MAGIC, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8, 4, 1, 8, 0, 5, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
     .skills = SKILL_SPELL_EVO},
-  {ABILITY_STARRY_WISP, AT_DMG,ACTION_MAGIC,DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8,0 , 1, 8, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_WIS},
-  {ABILITY_MAGIC_STONE, AT_DMG,ACTION_MAGIC,DMG_BLUNT, STAT_ENERGY, DES_MULTI_TARGET, 15, 3, 1, 1, 6, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_INT},
-  {ABILITY_POISON_SPRAY, AT_DMG,ACTION_MAGIC,DMG_POISON, STAT_ENERGY, DES_SELECT_TARGET, 12, 8, 0, 1,10,0,3, STAT_HEALTH, ATTR_CON, ATTR_NONE},
-  {ABILITY_FIRE_BOLT, AT_DMG, ACTION_MAGIC,DMG_FIRE, STAT_ENERGY, DES_SELECT_TARGET, 10, 8, 2, 1,10,0,4, STAT_HEALTH, ATTR_NONE, ATTR_INT},
+  {ABILITY_STARRY_WISP, AT_DMG,ACTION_MAGIC,DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 15, 8,0 , 1, 8, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_WIS,
+  .skills = SKILL_SPELL_EVO},
+  {ABILITY_MAGIC_STONE, AT_DMG,ACTION_MAGIC,DMG_BLUNT, STAT_ENERGY, DES_MULTI_TARGET, 15, 3, 1, 1, 6, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_INT,
+  .skills = SKILL_SPELL_TRANS},
+  {ABILITY_POISON_SPRAY, AT_DMG,ACTION_MAGIC,DMG_POISON, STAT_ENERGY, DES_SELECT_TARGET, 12, 8, 0, 1,10,0,3, STAT_HEALTH, ATTR_CON, ATTR_NONE,
+  .skills = SKILL_SPELL_NECRO},
+  {ABILITY_FIRE_BOLT, AT_DMG, ACTION_MAGIC,DMG_FIRE, STAT_ENERGY, DES_SELECT_TARGET, 10, 8, 2, 1,10,0,4, STAT_HEALTH, ATTR_NONE, ATTR_INT,
+  .skills = SKILL_SPELL_EVO},
   {ABILITY_REND, AT_DMG,ACTION_ATTACK,DMG_SLASH, STAT_STAMINA, DES_NONE, 25, 8, 4, 1, 4,1,1,STAT_HEALTH, ATTR_NONE,ATTR_STR,ABILITY_BLEED},
   {ABILITY_HAMSTRING},
   {ABILITY_RAGE, AT_DMG,ACTION_ATTACK,DMG_TRUE, STAT_RAGE, DES_NONE, 10, 1, 0,1, 2, 1,1, STAT_HEALTH, ATTR_NONE, ATTR_NONE },
@@ -75,32 +79,51 @@ item_fn_t item_funcs[ITEM_DONE] = {
   {ITEM_WEAPON,.num_equip = 1, .on_equip= ItemAddAbility},
   {ITEM_ARMOR,.num_equip = 2, .on_equip=
     {
-      ItemApplyStats, ItemAddAbility
+      ItemAddAbility, ItemApplyStats
     }
   },
-  {ITEM_CONSUMABLE, .num_equip = 1, .on_equip = ItemAddAbility},
+  {ITEM_CONSUMABLE, .num_equip = 1, .num_use = 1, .on_equip = ItemAddAbility, .on_use =ItemSkillup},
+  {ITEM_CONTAINER},
   {ITEM_DONE}
 };
 
 weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
   {WEAP_NONE},
-  {WEAP_MACE,5,1,0,1,0, 50,
+  {WEAP_MACE,5,1250,0,1,0, 50,
     .ability = ABILITY_WEAP_BLUDGEON,
-    .skill = SKILL_WEAP_MACE},
-  {WEAP_SWORD,10,1,0,1,0, 30,
-    .ability = ABILITY_WEAP_SLASH,
-    .skill = SKILL_WEAP_SWORD},
-  {WEAP_AXE,7,1,1,0,1, 50,
-    .ability = ABILITY_WEAP_CHOP, 
-    .skill = SKILL_WEAP_AXE},
-  {WEAP_DAGGER, 2, 1,0, 1,0, 40,
-    .ability = ABILITY_WEAP_STAB,
-    .skill = SKILL_WEAP_DAGGER
+    .skill = SKILL_WEAP_MACE,
+    STORE_HELD,
+    {[STORE_CARRY] = 2,[STORE_WORN]=1},
+    0x0200
   },
-  {WEAP_BOW,25,2,0,2,0, 50,
+  {WEAP_SWORD,10,1000,0,1,0, 30,
+    .ability = ABILITY_WEAP_SLASH,
+    .skill = SKILL_WEAP_SWORD,
+     STORE_HELD,
+    {[STORE_CARRY] = 2,[STORE_WORN]=1},
+    0x0400
+  },
+  {WEAP_AXE,7,1250,1,0,1, 50,
+    .ability = ABILITY_WEAP_CHOP, 
+    .skill = SKILL_WEAP_AXE,
+    STORE_HELD,
+    {[STORE_CARRY] = 2,[STORE_WORN]=1},
+    0x0300
+  },
+  {WEAP_DAGGER, 2, 500,0, 1,0, 40,
+    .ability = ABILITY_WEAP_STAB,
+    .skill = SKILL_WEAP_DAGGER,
+    STORE_HELD,
+    {[STORE_CARRY] = 2,[STORE_WORN]=1},
+    0x0100
+  },
+  {WEAP_BOW,25,1250,0,2,0, 50,
     .w_props = PROP_WEAP_AMMO | PROP_WEAP_TWO_HANDED,
     .ability = ABILITY_WEAP_RANGE_PIERCE,
-    .skill = SKILL_WEAP_BOW
+    .skill = SKILL_WEAP_BOW,
+    STORE_HELD,
+    {[STORE_CARRY] = 2,[STORE_WORN]=1},
+    0x0600
   },
 };
 
@@ -120,31 +143,46 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
     {},
     {},
     1, 5, 50, ATTR_NONE, ATTR_NONE, 0, 0,
-    .skill = SKILL_ARMOR_CLOTH
+    .skill = SKILL_ARMOR_CLOTH,
+    STORE_WORN,
+    {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
+    0x0700 
   },
   {ARMOR_PADDED, 8,
     {},
     {},
     1, 5, 100, ATTR_DEX,ATTR_NONE,10,0,
-   .skill = SKILL_ARMOR_PADDED 
+   .skill = SKILL_ARMOR_PADDED,
+    STORE_WORN,
+    {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
+    0x1000
   },
   {ARMOR_LEATHER, 10, 
     {{[DMG_SLASH]=1,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
     4,10,200,ATTR_DEX,ATTR_NONE,10,0,
-    .skill = SKILL_ARMOR_LEATHER
+    .skill = SKILL_ARMOR_LEATHER,
+    STORE_WORN,
+    {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
+    0x1000
   },
   {ARMOR_CHAIN, 12, 
     {{[DMG_SLASH]=2,[DMG_PIERCE]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
     8,25,400,ATTR_DEX,ATTR_STR,2,9,
-    .skill = SKILL_ARMOR_CHAIN
+    .skill = SKILL_ARMOR_CHAIN,
+    STORE_WORN,
+    {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
+    0x0800
   },
   {ARMOR_PLATE, 16,
     {{[DMG_SLASH]=2,[DMG_PIERCE]=2,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1}},
     20,100,800,ATTR_NONE,ATTR_STR,0,12,
-    .skill = SKILL_ARMOR_PLATE
+    .skill = SKILL_ARMOR_PLATE,
+    STORE_WORN,
+    {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
+    0x1000
   },
 };
 
@@ -155,12 +193,22 @@ ArmorType GetArmorTypeBySkill(SkillType s){
   }
 }
 consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
-  {CONS_POT, 50, 400, 1, 2,
+  {CONS_POT, 50, 400, 1, 2, 5,
     PROP_MAT_LIQUID, PROP_CONS_HEAL,
-    ABILITY_ITEM_HEAL, SKILL_ALCH
+    ABILITY_ITEM_HEAL, SKILL_ALCH,
+    STORE_SPECIAL,
+    {[STORE_HELD] = 5, [STORE_CONTAINER] = 1},
+    0x0020
   }
 };
 
+container_def_t CONTAINER_TEMPLATES[INV_DONE]={
+  {INV_HELD},
+  {INV_WORN},
+  {INV_BACK},
+  {INV_BELT},
+  {INV_SLING, 1250, 25, 4, .size = 0x0100, 0x0020}
+};
 dice_roll_t* Die(int side, int num){
   dice_roll_t* die = malloc(sizeof(dice_roll_t));
 
@@ -263,10 +311,14 @@ char* GetFileStem(const char* filename) {
 
 value_t* InitValue(ValueCategory cat, int base){
   value_t* v = calloc(1,sizeof(value_t));
-
+  value_relate_t rel = VALUE_RELATES[cat];
   *v = (value_t){
     .cat = cat,
-    .base = base
+    .base = base,
+    .stat_aff_by = rel.stat_aff,
+    .stat_relates_to = rel.stat_rel,
+    .attr_aff_by = rel.att_aff,
+    .attr_relates_to = rel.att_rel,
   };
 
   return v;

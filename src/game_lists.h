@@ -21,6 +21,7 @@ static const char* DAMAGE_STRING[DMG_DONE]={
 };
 
 static stat_name_t STAT_STRING[STAT_ENT_DONE]={
+  {STAT_NONE,"N/A"},
   {STAT_REACH,"Reach"},
   {STAT_DAMAGE,"Damage"},
   {STAT_HEALTH,"Health"},
@@ -424,7 +425,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_DRUID, CLASS_SUB_SHAMAN, CLASS_SUB_CHAMP,
           "Pestcaller","Seer", "Mystic",
           .skills = {
-            [SKILL_ARMOR_CLOTH]=400, [SKILL_WEAP_STAFF]=300,
+            [SKILL_ARMOR_CLOTH]=400, [SKILL_WEAP_STAFF]=500,
             [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS]=600, [SKILL_SPELL_CONJ] = 400,
           },
             .rankups = {
@@ -916,6 +917,69 @@ static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {
   {SLOT_ITEM, {[ACTION_ITEM]=true}, STAT_ACTIONS},
   {SLOT_SPELL, {[ACTION_MAGIC]=true}, STAT_ENERGY},
   {SLOT_SAVE, {[ACTION_SAVE]=true}},
+};
+
+static define_burden_t BURDEN_LIMITS[INV_SLING][6] = {
+  [INV_HELD] = {
+    {PQ_TINY, 1250},
+    {PQ_SMALL, 2500},
+    {PQ_LARGE, 12500},
+    {PQ_HUGE, 25000},
+    {PQ_GIG, 50000},
+    {0, 10000},
+  },
+  [INV_WORN] = {
+    {PQ_TINY, 1500},
+    {PQ_SMALL, 3000},
+    {PQ_LARGE, 15000},
+    {PQ_HUGE, 30000},
+    {PQ_GIG, 60000},
+    {0, 12000},
+  }
+};
+
+static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
+  {INV_HELD,
+    {
+      [ITEM_ARMOR] = 0, [ITEM_WEAPON] = 2
+    },
+    2,
+    0x2000
+  },
+  {INV_WORN,
+    {[ITEM_ARMOR] = 1, [ITEM_RING] = 2, [ITEM_AMULET] = 1 },
+    10,
+    0x3000
+  },
+  {INV_BACK,
+    {
+      [ITEM_WEAPON] = 2, [ITEM_CONTAINER] = 1
+    },
+    2,
+    0x1000,
+  },
+  {INV_BELT,
+    {
+      [ITEM_CONSUMABLE]=4, [ITEM_CONTAINER]=2, [ITEM_WEAPON] = 2
+    },
+    0x1000
+  },
+  {INV_SLING,
+    {
+      [ITEM_AMMO] = 2, [ITEM_CONSUMABLE] = 2
+    },
+    0x0500
+  },
+  {INV_QUIVER,
+    {
+      [ITEM_AMMO] = 10
+    },
+    0x0050
+  },
+  {INV_PACK,
+  },
+  {INV_POUCH},
+  {INV_SCROLL_CASE},
 };
 
 static const char* SKILL_NAMES[SKILL_DONE] = {

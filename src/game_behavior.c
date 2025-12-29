@@ -210,11 +210,18 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
   if( !e->control->target)
     return BEHAVIOR_FAILURE;
 
-  if(cell_distance(e->pos,e->control->target->pos) >  e->stats[STAT_REACH]->current)
+  if(cell_distance(e->pos,e->control->target->pos) <=  e->stats[STAT_REACH]->current)
+    return BEHAVIOR_SUCCESS;
+  if(e->control->pref == NULL)
+    e->control->pref = EntChoosePreferredAbility(e, e->stats[STAT_ENERGY]->current);
+
+  if(!e->control->pref)
     return BEHAVIOR_FAILURE;
 
-  return BEHAVIOR_SUCCESS;
-
+  if(cell_distance(e->pos,e->control->target->pos) <  e->control->pref->stats[STAT_REACH]->current)
+    return BEHAVIOR_SUCCESS;
+  
+  return BEHAVIOR_FAILURE;
 }
    
 BehaviorStatus BehaviorCheckTurn(behavior_params_t *params){
@@ -273,6 +280,11 @@ BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params){
 
   for (int i = 0; i < count; i++){
     int dist = cell_distance(e->pos, team[i]->pos);
+    if (dist > 20)
+      continue;
+
+    if(!EntCanSee(e, team[i], 24))
+      continue;
 
     int prio = e->map->width + e->map->height - dist;
 
@@ -285,7 +297,10 @@ BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params){
 
 BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params){
   struct ent_s* e = params->owner;
-  if(!e)
+  if(!e && !e->control->target)
+    return BEHAVIOR_FAILURE;
+
+  if(!EntCanSee(e, e->control->target,24))
     return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;

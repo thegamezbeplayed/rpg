@@ -13,9 +13,13 @@
 #define NUM_ABILITIES 6
 #define MAX_ABILITIES 16
 
+#define INV_HELD_SIZE 0x1000
+#define INV_WORN_SIZE 0x3000
+
 typedef struct ent_s ent_t;
 typedef struct ability_s ability_t;
 typedef struct ability_sim_s ability_sim_t;
+typedef struct item_s item_t;
 
 typedef struct{
   ent_t*    enemy;
@@ -83,6 +87,7 @@ struct ability_s{
   AbilityFn           use_fn, chain_fn;
   AbilitySave         save_fn;
   AbilitySim          sim_fn;
+  item_t*             item;
 };
 
 struct ability_sim_s{
@@ -104,6 +109,21 @@ typedef struct{
   ability_t      **abilities;
 }action_slot_t;
 
+typedef struct{
+  ItemSlot      id;
+  item_t*       container;
+  bool          active;
+  int           limits[ITEM_DONE];
+  int           current[ITEM_DONE];
+  bool          method[STORE_DONE];
+  ent_t*        owner;
+  int           count, cap, size, space, unburdened, limit;
+  item_t        **items;
+}inventory_t;
+
+inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit);
+void InventoryPoll(ent_t*, ItemSlot id);
+bool InventoryAddItem(ent_t* e, item_t* i);
 void ActionSlotSortByPref(ent_t* owner, int *pool, int count);
 action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap);
 bool ActionSlotAddAbility(ent_t* owner, ability_t* a);
@@ -122,36 +142,44 @@ InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source);
 typedef struct item_def_s{
   int id;
   char name[32];
+  int                 type;
   ItemCategory        category;        // weapon / armor / potion / scroll
   damage_reduction_t  *dr; //TODO MOVE TO VALUE_T
   value_t             *values[VAL_ALL];
   AbilityID           ability;
   int                 num_skills;
   SkillType           skills[3];
+  StorageMethod       pref;
+  bool                allowed[STORE_DONE];
   sprite_t            *sprite;     // icon
 }item_def_t;
 
-struct item_s;
 typedef bool (*ItemEquipCallback)(struct ent_s* owner, struct item_s* item);
+typedef bool (*ItemUseCallback)(ent_t* owner, item_t* item, InteractResult res);
 
-typedef struct item_s{
+struct item_s{
   const item_def_t *def;
   struct ent_s*    owner;
   bool             equipped;
   int              durability;
+  StorageMethod    location;
   ability_t        *ability;     
-  ItemEquipCallback on_equip,on_use;
-}item_t;
+  ItemEquipCallback on_equip[2];
+  ItemUseCallback   on_use;
+};
 
 bool ItemApplyStats(struct ent_s* owner, item_t* item);
 bool ItemConsume(struct ent_s* owner, item_t* item);
 bool ItemAddAbility(struct ent_s* owner, item_t* item);
+bool ItemSkillup(ent_t* owner, item_t* item, InteractResult res);
 
 typedef struct{
   ItemCategory      cat;
-  int               num_equip;
-  ItemEquipCallback on_equip[2], on_use;
+  int               num_equip, num_use;
+  ItemEquipCallback on_equip[2];
+  ItemUseCallback   on_use[2];
 }item_fn_t;
+
 extern item_fn_t item_funcs[ITEM_DONE];
 typedef struct{
   int         size;
@@ -173,6 +201,7 @@ typedef struct{
   Cell                    start,destination;
   int                     ranges[RANGE_EMPTY];
   behavior_tree_node_t*   bt[STATE_END];
+  ability_t*              pref;
   choice_pool_t           *choices[ACTION_PASSIVE];
 }controller_t;
 
@@ -184,6 +213,8 @@ typedef struct{
   bool      immunities_school[DMG_DONE];
   int       resistances_school[DMG_DONE];
 }traits_t;
+
+void EntApplyTraits(ent_t* e);
 
 typedef struct {
  uint64_t   shift;
@@ -208,8 +239,7 @@ typedef struct ent_s{
   action_turn_t         *actions[ACTION_DONE];
   controller_t          *control;
   events_t              *events;
-  int                   num_items;
-  item_t                *gear[CARRY_SIZE];
+  inventory_t           *inventory[INV_DONE];
   sprite_t              *sprite;
   float                 challenge;
   aggro_table_t*        aggro, *allies;
@@ -223,7 +253,7 @@ ent_t* InitMob(EntityType mob, Cell pos);
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race);
 void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class);
 int EntBuild(mob_define_t def, MobRules rules, ent_t** pool);
-void EntApplyTraits(traits_t* t, uint64_t mask, uint64_t shift);
+void EntAddTraits(traits_t* t, uint64_t mask, uint64_t shift);
 void EntCalcStats(ent_t* e, race_define_t* racial);
 void EntPollInventory(ent_t* e);
 item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
@@ -252,6 +282,8 @@ void EntControlStep(ent_t *e);
 int EntGetChallengeRating(ent_t* e, ent_t* t);
 int EntGetDefRating(ent_t* e);
 int EntGetOffRating(ent_t* e);
+int EntAddAggro(ent_t* owner, ent_t* source, int threat_gain, float mul);
+bool EntCanSee(ent_t* owner, ent_t* e, int depth);
 
 typedef void (*StateChangeCallback)(ent_t *e, EntityState old, EntityState s);
 void SetViableTile(ent_t*, EntityState old, EntityState s);

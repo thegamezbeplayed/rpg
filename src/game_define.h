@@ -488,11 +488,21 @@ static const natural_weapons_t NAT_WEAPS[16] = {
 };
 
 static const body_covering_t COVERINGS[35] = {
-  {PQ_THICK_FUR, TRAIT_SLASH_RESIST | TRAIT_COLD_RESIST},
-  {PQ_THICK_HIDE, TRAIT_FIRE_RESIST | TRAIT_COLD_RESIST | TRAIT_PHYS_RESIST},
-  {PQ_THICK_SCALES, TRAIT_PHYS_RESIST | TRAIT_FIRE_RESIST | TRAIT_ACID_RESIST},
-  {PQ_THICK_SKIN, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST | TRAIT_FIRE_RESIST | TRAIT_POISON_RESIST },
-  {PQ_THICK_FAT, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST },
+  {PQ_THICK_FUR, TRAIT_SLASH_RESIST | TRAIT_COLD_RESIST,
+    .abilities = ABILITY_ARMOR_DR
+  },
+  {PQ_THICK_HIDE, TRAIT_FIRE_RESIST | TRAIT_COLD_RESIST | TRAIT_PHYS_RESIST,
+    .abilities = ABILITY_ARMOR_DR
+  },
+  {PQ_THICK_SCALES, TRAIT_PHYS_RESIST | TRAIT_FIRE_RESIST | TRAIT_ACID_RESIST,
+    .abilities = ABILITY_ARMOR_DR
+  },
+  {PQ_THICK_SKIN, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST | TRAIT_FIRE_RESIST | TRAIT_POISON_RESIST,
+    .abilities = ABILITY_ARMOR_DR
+  },
+  {PQ_THICK_FAT, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST,
+    .abilities = ABILITY_ARMOR_DR
+  },
 };
 
 static const phys_qualities_t BODY[35] = {
@@ -936,14 +946,14 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {[SOC_NONE]=100,[SOC_PRIMITIVE]=5,[SOC_CIVIL]=10,[SOC_HIGH]=12}
   },       
   [PROF_SOLDIER] = { PROF_SOLDIER,
-    {[SOC_PRIMITIVE]=12, [SOC_MARTIAL]=20,[SOC_CIVIL]=5, [SOC_HIGH]=4},
+    {[SOC_PRIMITIVE]=24, [SOC_MARTIAL]=40,[SOC_CIVIL]=15, [SOC_HIGH]=14},
     {"Soldier","Soldier","Soldier","Soldier"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_SURV] = 400, [SKILL_ATH]=400, [SKILL_WEAP_MART]=600,
     },
   },
   [PROF_ARCHER] = { PROF_ARCHER,
-    {[SOC_PRIMITIVE]=7, [SOC_MARTIAL]=17,[SOC_CIVIL]=7, [SOC_HIGH]=7},
+    {[SOC_PRIMITIVE]=17, [SOC_MARTIAL]=27,[SOC_CIVIL]=17, [SOC_HIGH]=20},
     {"Archer","Archer","Archer","Archer"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_PERCEPT]=600, [SKILL_ACRO] = 600, [SKILL_WEAP_BOW] = 600
@@ -951,7 +961,7 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
 
   },
   [PROF_MAGICIAN] = { PROF_MAGICIAN,
-    {[SOC_PRIMITIVE]=0, [SOC_MARTIAL]=7,[SOC_CIVIL]=7, [SOC_HIGH]=10},
+    {[SOC_PRIMITIVE]=0, [SOC_MARTIAL]=17,[SOC_CIVIL]=17, [SOC_HIGH]=20},
     {"Magician","Magician","Magician","Magician"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_ARCANA] = 1200, [SKILL_INSIGHT]=600
@@ -959,14 +969,14 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
 
   },
   [PROF_MYSTIC] = { PROF_MYSTIC,
-    {[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=7,[SOC_CIVIL]=7, [SOC_HIGH]=7},
+    {[SOC_PRIMITIVE]=20, [SOC_MARTIAL]=14,[SOC_CIVIL]=17, [SOC_HIGH]=17},
     {"Mystic","Mystic","Mystic","Mystic"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_NATURE]=600, [SKILL_HERB] = 800,[SKILL_ANIM] = 800, [SKILL_MED] = 600, [SKILL_RELIG]=400
     },
   },
   [PROF_HEALER] = { PROF_HEALER,
-    {[SOC_PRIMITIVE]=4, [SOC_MARTIAL]=7,[SOC_CIVIL]=10, [SOC_HIGH]=10},
+    {[SOC_PRIMITIVE]=14, [SOC_MARTIAL]=17,[SOC_CIVIL]=20, [SOC_HIGH]=21},
     {"Healer","Healer","Healer","Healer"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_RELIG]=1000,[SKILL_MED] = 1200, [SKILL_SPELL_DIV]=600
@@ -1202,9 +1212,15 @@ typedef enum{
   PROP_CONS_HEAL       = BIT64(0),
 }ConsumeProp;
 
+typedef enum{
+  PROP_CONT_NONE  = 0,
+  PROP_CONT_PHIAL = BIT64(0),
+}ContainerProp;
+
 typedef uint64_t ItemProps;
 typedef uint64_t ArmorProps;
 typedef uint64_t ConsumeProps;
+typedef uint64_t ContainerProps;
 typedef uint64_t WeaponProps;
 typedef struct{
   ArmorType          type;
@@ -1215,7 +1231,18 @@ typedef struct{
   int                mod_max, req_min;
   ItemProps          i_props;
   SkillType          skill;
+  StorageMethod      primary;
+  int                prio[STORE_DONE];
+  uint16_t           size;
 }armor_def_t;
+
+typedef struct{
+  ItemSlot        slot;
+  int             weight, cost,slots;
+  ItemProps       i_props;
+  ContainerProps  c_props;
+  uint16_t        size,slot_size;
+}container_def_t;
 
 typedef struct{
   WeaponType      type;
@@ -1224,22 +1251,30 @@ typedef struct{
   WeaponProps     w_props;
   AbilityID       ability;
   SkillType       skill;
+  StorageMethod   primary;
+  int             prio[STORE_DONE];
+  uint16_t           size;
 }weapon_def_t;
+
 WeaponType GetWeapTypeBySkill(SkillType s);
 ArmorType GetArmorTypeBySkill(SkillType s);
 
 typedef struct{
   ConsumeType     type;
-  int             cost,weight,quanity,amount;
+  int             cost,weight,quanity,amount, exp;
   ItemProps       i_props;
   ConsumeProps    w_props;
   AbilityID       ability;
   SkillType       skill;
+  StorageMethod   primary;
+  int             prio[STORE_DONE];
+  uint16_t        size;
 }consume_def_t;
 
 extern armor_def_t ARMOR_TEMPLATES[ARMOR_DONE];
 extern weapon_def_t WEAPON_TEMPLATES[WEAP_DONE];
 extern consume_def_t CONSUME_TEMPLATES[CONS_DONE];
+extern container_def_t CONTAINER_TEMPLATES[INV_DONE];
 
 
 typedef struct value_affix_s value_affix_t;
@@ -1250,6 +1285,15 @@ float AffixMul(value_affix_t* self, int val);
 float AffixFract(value_affix_t* self, int val);
 float AffixBase(value_affix_t* self, int val);
 
+typedef struct {
+  ValueCategory   val;
+  StatType        stat_rel, stat_aff;
+  AttributeType   att_rel, att_aff;
+}value_relate_t;
+
+static value_relate_t VALUE_RELATES[VAL_ALL]={
+  [VAL_REACH] = {VAL_REACH, STAT_REACH},
+};
 struct value_affix_s{
   ValueCategory modifies;
   ValueAffix    affix;
@@ -1368,4 +1412,15 @@ typedef struct{
   StatType    resource;
 }define_slot_actions;
 
+typedef struct{
+  ItemSlot      id;
+  int           limits[ITEM_DONE];
+  int           cap;
+  uint16_t      base_size;
+}define_inventory_t;
+
+typedef struct{
+  uint64_t  size;
+  int       str_mul;
+}define_burden_t;
 #endif
