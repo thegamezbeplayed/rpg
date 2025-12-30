@@ -975,6 +975,9 @@ ability_t* EntChoosePreferredAbility(ent_t* e, int budget){
   ActionSlotSortByPref(e, slot_pool, SLOT_ALL);
 
   for(int i = 0; i < SLOT_ALL; i++){
+    if(e->slots[i]->count == 0)
+      continue;
+
     int budget = e->stats[e->slots[i]->resource]->current;
     ability_t* a = EntChooseWeightedAbility(e, budget, i);
     if(a)

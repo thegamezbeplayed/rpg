@@ -60,7 +60,7 @@ ability_t ABILITIES[ABILITY_DONE]={
     DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1,17,2,2,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
   },
   {ABILITY_WEAP_RANGE_PIERCE,AT_DMG,ACTION_WEAPON,
-    DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1,15,1,4,0,1,STAT_HEALTH,ATTR_NONE, ATTR_DEX},
+    DMG_PIERCE, STAT_STAMINA, DES_NONE, 27,1,15,1,4,0,1,STAT_HEALTH,ATTR_NONE, ATTR_DEX},
   {ABILITY_STATUS},
   {ABILITY_BLEED, AT_DMG, ACTION_NONE,
     DMG_BLEED, STAT_STAMINA, DES_NONE, 0, 0, 4, 1, 6, 2,1, STAT_HEALTH, ATTR_CON,ATTR_STR},
@@ -759,7 +759,7 @@ bool SkillIncrease(struct skill_s* s, int amnt){
   s->point+=imin(MAX_SKILL_GAIN,amnt);
 
   if(s->point < s->threshold){
-    TraceLog(LOG_INFO,"%s experience in %s now (%0f / %i)",s->owner->name, SKILL_NAMES[s->id], s->point, s->threshold);
+    TraceLog(LOG_INFO,"%s %i experience in %s now (%0f / %i)",s->owner->name, s->owner->uid, SKILL_NAMES[s->id], s->point, s->threshold);
     return false;
   }
 

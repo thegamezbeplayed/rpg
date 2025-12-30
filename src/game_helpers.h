@@ -720,6 +720,9 @@ static bool TileCellBlocksMovement(map_context_t* ctx, Cell c){
   return TileFlagBlocksMovement(f);
 }
 static bool TileBlocksMovement(map_cell_t *c) {
+  if(c->occupant)
+    return true;
+
   if(c->tile==NULL)
     return false;
 
@@ -944,7 +947,7 @@ static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNex
             int ny = current->y + dirs[i][1];
 
             if (!InBounds(m, nx, ny)) continue;
-            if (fn(&m->tiles[nx][ny])) continue;
+            if (!(nx == tx && ny == ty) &&fn(&m->tiles[nx][ny])) continue;
 
             path_node_t *neighbor = &nodes[nx][ny];
             if (neighbor->closed) continue;
