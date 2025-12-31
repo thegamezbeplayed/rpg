@@ -44,13 +44,15 @@ typedef enum{
   SPEC_ARTHROPOD  = BIT64(7),
   SPEC_ETHEREAL   = BIT64(8),
   SPEC_ROTTING    = BIT64(9),
-  SPEC_VAMPIRIC   = BIT64(10),
-  SPEC_CANIFORM   = BIT64(11),
-  SPEC_RODENT     = BIT64(12),
+  SPEC_SKELETAL   = BIT64(10),
+  SPEC_VAMPIRIC   = BIT64(11),
+  SPEC_CANIFORM   = BIT64(12),
+  SPEC_RODENT     = BIT64(13),
 }SpeciesType;
 
 typedef struct{
   EntityType  id;
+  char        name[MAX_NAME_LEN];
   MobRules    rules;
   SpeciesType race;
   int         weight;
@@ -261,7 +263,7 @@ typedef enum {
   PQ_SHARP_TEETH  = 1ULL << 6,
   PQ_TOUGH_TEETH  = 1ULL << 7,
   PQ_FANGS        = 1ULL << 8,
-
+  PQ_POISON_FANGS = 1ULL << 9,
   /* Future-safe */
   // PQ_MANDIBLES  = 1ULL << 9,
   // PQ_TENTACLES  = 1ULL << 10,
@@ -695,7 +697,7 @@ static const stat_quality_t STAT_QUAL[STAT_ENT_DONE] = {
   [STAT_REACH] = {
     .stat = STAT_REACH,
     .stature = {
-      [SC_ABOVE] = PQ_LONG | PQ_LONG_LIMB | PQ_TALL | PQ_LARGE | PQ_HUGE | PQ_GIG,
+      [SC_ABOVE] = PQ_LONG | PQ_TALL | PQ_LARGE | PQ_HUGE | PQ_GIG,
     }
   },
   [STAT_DAMAGE] = {

@@ -4,11 +4,11 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include "game_common.h"
 
 #define MAX_PLAYERS 32
-
 #define MAX_BEHAVIOR_TREE 12
+#define MAX_OPTIONS 256  
+#include "game_common.h"
 
 #define COMBO_KEY(a, b) ((a << 8) | b)
 #define CALL_FUNC(type, ptr, ...) ((type)(ptr))(__VA_ARGS__)
@@ -61,24 +61,39 @@ choice_t* ChooseBest(choice_pool_t* pool);
 choice_t* ChooseByWeight(choice_pool_t* pool);
 choice_t* ChooseByBudget(choice_pool_t* pool);
 choice_t* ChooseByWeightInBudget(choice_pool_t* pool);
+void ChoiceReduceScore(choice_pool_t* pool, choice_t* self);
 
 struct choice_s{
-  int       score, cost;
-  void*     context;
-  OnChosen  cb;
+  unsigned int id;
+  int          score, orig_score, cost;
+  void*        context;
+  OnChosen     cb;
 };
 
 struct choice_pool_s{
   unsigned int  id;
-  int           count,budget;
+  int           count,budget,filtered, total;
   ChoiceFn      choose;
   choice_t      *choices[MAX_OPTIONS];
+  choice_t      *filter[MAX_OPTIONS];
 };
+
+static inline bool ChoiceAllowed(choice_pool_t* pool, choice_t* c){
+  if (!pool->filter[0])  // empty filter → allow all
+    return true;
+
+  for (int i = 0; i < pool->filtered; i++){
+    if (pool->filter[i]->id == c->id)
+      return true;
+  }
+  return false;
+}
 
 choice_pool_t* StartChoice(choice_pool_t* pool, int size, ChoiceFn fn, bool* result);
 choice_pool_t* InitChoicePool(int size, ChoiceFn fn);
-bool AddChoice(choice_pool_t *pool, int score, void *ctx);
-bool AddPurchase(choice_pool_t *pool, int score, int cost, void *ctx);
+bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn);
+bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, OnChosen fn);
+bool AddFilter(choice_pool_t *pool, int id, void *ctx);
 //<===BEHAVIOR TREES
 
 //forward declare

@@ -257,7 +257,7 @@ static attribute_name_t attributes[ATTR_DONE]={
   {ATTR_BLANK,"REROLL"}
 };
 
-static const race_define_t DEFINE_RACE[ 13 ] = {
+static const race_define_t DEFINE_RACE[ 14 ] = {
   {SPEC_NONE},
   {SPEC_HUMAN, "Joseph", ENT_PERSON,
     RACE_USE_TOOLS | RACE_USE_WEAPS | RACE_USE_ARMOR | RACE_USE_POTIONS |RACE_USE_SCROLLS |
@@ -294,7 +294,7 @@ static const race_define_t DEFINE_RACE[ 13 ] = {
       RACE_TACTICS_MARTIAL | RACE_TACTICS_SIMPLE |
       RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_GEAR | RACE_DIFF_SPELLS | RACE_DIFF_ALPHA |
       RACE_SPECIAL_FOCI,
-      TRAIT_VISION_DARK,
+      TRAIT_EXP_AXE | TRAIT_VISION_DARK,
       PQ_LONG_LIMB | PQ_SMALL_HEAD | PQ_BIPED | PQ_LARGE_HANDS | PQ_DENSE_MUSCLE,
       MQ_OBLIVIOUS | MQ_SENTIENT | MQ_AGGRESSIVE | MQ_TERRITORIAL,
       PW_NONE,
@@ -303,9 +303,18 @@ static const race_define_t DEFINE_RACE[ 13 ] = {
       1.25
   },
   {SPEC_GIANT},
-  {SPEC_ARTHROPOD},
+  {SPEC_ARTHROPOD, "Spider", ENT_SPIDER,
+    RACE_SIZE_BIG | RACE_TACTICS_CRUDE | RACE_DIFF_LVL | RACE_DIFF_ALPHA,
+    TRAIT_POISON_RESIST,
+    MQ_SIMPLE | MQ_CAUTIOUS | MQ_ALERT | MQ_HIVE_MIND,
+    PQ_FANGS, PQ_POISON_FANGS,
+    PB_NONE,
+    0,
+    .25
+  },
   {SPEC_ETHEREAL},
   {SPEC_ROTTING},
+  {SPEC_SKELETAL},
   {SPEC_VAMPIRIC},
   {SPEC_CANIFORM},
   {SPEC_RODENT, "Rat", ENT_RAT,
@@ -410,7 +419,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           "Tracker", "Prowler", "Stinger",
           .skills = {
             [SKILL_ARMOR_PADDED]=600,[SKILL_ANIM]=600,
-            [SKILL_WEAP_BOW]=600, [SKILL_WEAP_SWORD]=400
+            [SKILL_WEAP_BOW]=1600, [SKILL_WEAP_SWORD]=400
           },
           .rankups = {
             [SKILL_ARMOR_PADDED]=400,[SKILL_STEALTH]=300,
@@ -455,7 +464,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_CLERIC, CLASS_BASE_LOCK, CLASS_SUB_HEX,
           "Giver", "Witch-doctor", "Shadow Priest",
           .skills = {
-            [SKILL_ARMOR_CLOTH] = 400, [SKILL_SPELL_ENCH] = 400, [SKILL_SPELL_ABJ] = 600, [SKILL_SPELL_NECRO] = 800,
+            [SKILL_WEAP_DAGGER] = 400, [SKILL_ARMOR_CLOTH] = 400, [SKILL_SPELL_ENCH] = 400, [SKILL_SPELL_ABJ] = 600, [SKILL_SPELL_NECRO] = 800,
           },
           .rankups = {
             [SKILL_ARMOR_CLOTH] = 200 ,[SKILL_SPELL_ENCH] = 300, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_NECRO] = 600,
@@ -465,40 +474,85 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
       }
     },
   },
-  /*
-       },
-       [__builtin_ctzll( SPEC_ORC )] = {
-       [PROF_FIGHTER] = {
-       PROF_FIGHTER, 25, CLASS_BASE_FIGHTER,CLASS_SUB_CHAMP, CLASS_SUB_CHAMP,
-       "Grunt","Champion","Warlord"
-       },
-       [PROF_ROGUE] = {
-       PROF_ROGUE, 10, CLASS_BASE_ROGUE, CLASS_SUB_ASSASSIN, CLASS_SUB_CHAMP,
-       "Cutthroat", "Infiltrator", "Saboteur"},
-       [PROF_RANGER] = {
-       PROF_RANGER, 10, CLASS_BASE_RANGER , CLASS_BASE_FIGHTER , CLASS_SUB_SHOOTER,
-       "Stalker", "Slayer", "Hunter"},
-       [PROF_WARLOCK] = {
-       PROF_WARLOCK,1, CLASS_BASE_LOCK, -1,-1,
-       "Doomsayer","\0","\0"
-       },
-       [PROF_CLERIC] = {
-       PROF_CLERIC,5, CLASS_BASE_CLERIC, CLASS_SUB_SHAMAN, CLASS_SUB_HEX,
-       "Priest", "Shaman", "Shadow Priest"
-       },
-       [PROF_SPEC_MELEE] = {
-       PROF_SPEC_MELEE,12, CLASS_BASE_FIGHTER, CLASS_SUB_BERZ, CLASS_SUB_CHAMP,
-       "Rager", "Berserker", "Bloodrager"
-       }
-       },
-       */
+  [__builtin_ctzll( SPEC_ORC )] = {
+    [PROF_SOLDIER] = { PROF_SOLDIER, 2,
+      {
+        {
+          20, CLASS_BASE_FIGHTER,CLASS_SUB_CHAMP, CLASS_SUB_CHAMP,
+          "Grunt","Champion","Warlord",
+          .skills = {
+            [SKILL_WEAP_AXE] = 800, [SKILL_ARMOR_CHAIN] = 400, [SKILL_ARMOR_SHIELD] = 400
+          },
+          .rankups = {
+            [SKILL_WEAP_AXE] = 600, [SKILL_ARMOR_PLATE] = 600, [SKILL_ARMOR_SHIELD] = 400
+          }
+        }, 
+        {
+          10, CLASS_BASE_ROGUE, CLASS_SUB_ASSASSIN, CLASS_SUB_CHAMP,
+          "Cutthroat", "Infiltrator", "Saboteur",
+          .skills = {
+            [SKILL_WEAP_DAGGER] = 600, [SKILL_ARMOR_LEATHER] = 600, 
+            [SKILL_STEALTH] = 400,
+          },
+          .rankups = {
+            [SKILL_WEAP_DAGGER] = 600, [SKILL_ARMOR_LEATHER] = 600, 
+            [SKILL_STEALTH] = 400,
+          }
+        },
+      }
+    },
+    [PROF_ARCHER] = { PROF_ARCHER, 1,
+      {
+        {
+          10, CLASS_BASE_RANGER , CLASS_BASE_FIGHTER , CLASS_SUB_SHOOTER,
+          "Stalker", "Slayer", "Hunter",
+          .skills = {
+            [SKILL_WEAP_BOW] = 800, [SKILL_WEAP_AXE] = 600, [SKILL_ARMOR_LEATHER] = 600
+          },
+          .rankups = {
+            [SKILL_WEAP_BOW] = 600, [SKILL_WEAP_AXE] = 500, [SKILL_ARMOR_LEATHER] = 500
+          }
+        },
+      }
+    },
+    [PROF_MAGICIAN] = { PROF_MAGICIAN, 4, 
+      {
+        {
+          4, CLASS_BASE_LOCK, -1,-1,
+          "Doomsayer","\0","\0",
+          .skills = {
+            [SKILL_WEAP_DAGGER] = 600, [SKILL_ARMOR_CLOTH] = 400,
+            [SKILL_SPELL_EVO] = 600, [SKILL_SPELL_CONJ] = 400, [SKILL_SPELL_NECRO] = 600,
+          },
+          .rankups = {
+            [SKILL_SPELL_EVO] = 600, [SKILL_SPELL_CONJ] = 400, [SKILL_SPELL_NECRO] = 600,
+          }
+        }
+      }
+    },
+    [PROF_HEALER] = { PROF_HEALER,5,
+      {
+        {
+          5, CLASS_BASE_CLERIC, CLASS_SUB_SHAMAN, CLASS_SUB_HEX,
+          "Priest", "Shaman", "Shadow Priest",
+          .skills = {
+            [SKILL_WEAP_DAGGER] = 600, [SKILL_ARMOR_CLOTH] = 400, [SKILL_SPELL_ENCH] = 400, [SKILL_SPELL_ABJ] = 600, [SKILL_SPELL_NECRO] = 800,
+          },
+          .rankups = {
+            [SKILL_ARMOR_CLOTH] = 200 ,[SKILL_SPELL_ENCH] = 300, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_NECRO] = 600,
+          }
+
+        },
+      }
+    }
+  }
 };
 
 static const mob_define_t MONSTER_MASH[ENT_DONE] = {
   {ENT_PERSON,
     .race = SPEC_HUMAN
   },
-  {ENT_GOBLIN,
+  {ENT_GOBLIN, "Goblin",
       MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
       MOB_MOD_ENLARGE | MOB_MOD_WEAPON | MOB_MOD_ARMOR |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
@@ -510,7 +564,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       1,
       SOC_PRIMITIVE
   },
-  {ENT_ORC,
+  {ENT_ORC, "Orc",
       MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
       MOB_MOD_ENLARGE | MOB_MOD_WEAPON | MOB_MOD_ARMOR |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
@@ -525,7 +579,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
   {ENT_OGRE},
   {ENT_ORC_FIGHTER},
   {ENT_BERSERKER},
-  {ENT_HOBGOBLIN,
+  {ENT_HOBGOBLIN, "Hobgoblin",
       MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
       MOB_MOD_ENLARGE | MOB_MOD_WEAPON | MOB_MOD_ARMOR |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
@@ -538,7 +592,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       SOC_MARTIAL
   },
   {ENT_OROG},
-  {ENT_SCORPION,
+  {ENT_SCORPION, "Scorpion",
     MOB_SPAWN_LAIR |
       MOB_MOD_ENLARGE |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
@@ -546,10 +600,10 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_FREQ_RARE |
       MOB_GROUPING_SOLO | MOB_GROUPING_SWARM,
     SPEC_ARTHROPOD,
-    9,
+    7,
     .75
   },
-  {ENT_SPIDER,
+  {ENT_SPIDER, "Spider",
     MOB_SPAWN_LAIR |
       MOB_MOD_ENLARGE |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
@@ -557,10 +611,10 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_FREQ_COMMON |
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_SWARM,
     SPEC_ARTHROPOD,
-    5,
-    .5
+    9,
+    0.25
   },
-  {ENT_TROLL,
+  {ENT_TROLL, "Troll",
       MOB_SPAWN_LAIR |
       MOB_MOD_ENLARGE |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST|
@@ -571,7 +625,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       3,
       SOC_INSTINCTIVE
   },
-  {ENT_TROLL_CAVE,
+  {ENT_TROLL_CAVE, "Cave Troll",
     MOB_SPAWN_LAIR |
       MOB_MOD_ENLARGE |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE |
@@ -583,7 +637,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
     3.33,
     SOC_INSTINCTIVE
   },
-  {ENT_BEAR,
+  {ENT_BEAR, "Bear",
       MOB_SPAWN_LAIR |
       MOB_MOD_ENLARGE |
       MOB_LOC_CAVE | MOB_LOC_FOREST |
@@ -593,7 +647,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       2.22,
       SOC_FAMILY
   },
-  {ENT_WOLF,
+  {ENT_WOLF, "Wolf",
       MOB_SPAWN_LAIR |
       MOB_MOD_ENLARGE |
       MOB_LOC_CAVE | MOB_LOC_FOREST |
@@ -603,7 +657,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       1,
       SOC_FERAL
   },
-  {ENT_RAT,
+  {ENT_RAT, "Rat",
       MOB_MOD_ENLARGE |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
       MOB_THEME_CRITTER |
@@ -748,6 +802,8 @@ static const MobCategory ENTITY_CATEGORY_MAP[ENT_DONE] = {
 };
 
 static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
+  {ABILITY_NONE},
+  {ABILITY_PUNCH},
   {ABILITY_BITE},
   {ABILITY_CHEW},
   {ABILITY_GNAW},
@@ -801,6 +857,12 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
     CLASS_BASE_LOCK,
     CLASS_BASE_WIZ,
     0,3,8,
+    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+  },
+  {ABILITY_CURE_WOUNDS, true, true,
+    CLASS_BASE_CLERIC | CLASS_BASE_DRUID,
+    CLASS_SUB_SHAMAN,
+    0,8,8,
     SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
   },
   {ABILITY_REND, false, false,

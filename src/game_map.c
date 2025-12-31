@@ -1746,6 +1746,15 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   mob_define_t mob_pool[MOB_MAP_MAX];
   int mobs = GetMobsByRules(mob_rules,mob_pool);
 
+  bool running = false;
+  ctx->mob_pool = StartChoice(ctx->mob_pool, mobs, ChooseByWeightInBudget, &running);
+
+  if(!running){
+    for(int i = 0; i < mobs; i++)
+      AddPurchase(ctx->mob_pool, mob_pool[i].id, mob_pool[i].weight, mob_pool[i].diff*10, &mob_pool[i], NULL);
+
+  }
+
  int importance = size>>10; 
 
   MobRules theme = GetMobRulesByMask(ctx->map_rules->mobs.rules, MOB_THEME_MASK);
@@ -1753,7 +1762,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   mob_rules |= theme;
   
   MobRules freq = GetMobRulesByMask(ctx->map_rules->mobs.rules, MOB_FREQ_MASK);
- 
+  float diff = 0.5f;
   int budget =2*( size>>11); 
 
   switch(purpose){
@@ -1762,6 +1771,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
       freq+= MOB_FREQ_COMMON;
       importance +=40+(r->depth*10);
       budget+=40+(r->depth*5);
+      diff+=0.5f;
       break;
     case ROOM_PURPOSE_LAIR:
       mob_rules |= MOB_SPAWN_LAIR;
@@ -1788,10 +1798,12 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
       num_spawns++;
       importance+=20;
       budget+=25;
+      diff+=0.25f;
       break;
     case ROOM_LAYOUT_HALL:
       num_spawns--;
       budget-=5;
+      diff-=0.25f;
       mob_rules &= ~MOB_SPAWN_LAIR;
       break;
     case ROOM_LAYOUT_MAZE:
@@ -1802,6 +1814,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
       break;
     case ROOM_LAYOUT_ROOM:
       budget+=5;
+      diff+=0.125f;
       break;
     default:
       break;
@@ -1828,8 +1841,10 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
 
   int filtered = 0;
 
-  for(int i = 3; i < r->depth; i++)
+  for(int i = 3; i < r->depth; i++){
     freq+=(MOB_FREQ_COMMON/4);
+    diff+=0.05f;
+  }
  
   budget+=num_spawns; 
 
@@ -1855,15 +1870,14 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
     return false;
 
   num_spawns = CLAMP(num_spawns,0,MOB_ROOM_MAX);
-  size_t n_size = sizeof(filtered_pool)/sizeof(filtered_pool[0]);
-  shuffle_array(filtered_pool,n_size, sizeof(mob_define_t));
-  for(int i = 0; i < filtered; i++){
-   if(filtered_pool[i].diff > 1)
-     continue;
-   if(filtered_pool[i].weight > budget)
-    continue;
+  for(int i = 0; i < filtered; i++)
+    AddFilter(ctx->mob_pool, filtered_pool[i].id,  &filtered_pool[i]);
 
-    built += EntBuild(filtered_pool[i],mob_rules,r->mobs);
+  ctx->mob_pool->budget = diff*10;
+  while(built < num_spawns){
+    choice_t* sel = ctx->mob_pool->choose(ctx->mob_pool);
+    mob_define_t *def = sel->context;
+    built += EntBuild(*def,mob_rules,r->mobs);
     if(built>0)
       break;
   }

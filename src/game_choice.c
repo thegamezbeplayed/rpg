@@ -33,7 +33,29 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
 
   return pool;
 }
-bool AddPurchase(choice_pool_t *pool, int score, int cost, void *ctx){
+
+void ChoiceReduceScore(choice_pool_t* pool, choice_t* self){
+  int avg = pool->total/pool->count;
+  self->score -= avg/2;
+  pool->total -= avg/2;
+}
+
+bool AddFilter(choice_pool_t *pool, int id, void *ctx){
+  if(!pool)
+    return false;
+
+  if(pool->filtered >= MAX_OPTIONS)
+    return false;
+
+  choice_t *c = calloc(1, sizeof(choice_t));
+  if (!c) return false;
+
+  c->id = id;
+  pool->filter[pool->filtered++] = c;
+  return true;
+}
+
+bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, OnChosen fn){
   if (!pool) return false;
 
   // Ensure we do not exceed capacity
@@ -45,17 +67,20 @@ bool AddPurchase(choice_pool_t *pool, int score, int cost, void *ctx){
   if (!c) return false;
 
   c->score   = score;
+  c->orig_score   = score;
   c->cost    = cost;
   c->context = ctx;
-
+  c->id = id;
+  c->cb = fn;
+  
   // Store in pool
   pool->choices[pool->count++] = c;
-
+  pool->total+= score;
   return true;
 
 }
 
-bool AddChoice(choice_pool_t *pool, int score, void *ctx){
+bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn){
     if (!pool) return false;
 
     // Ensure we do not exceed capacity
@@ -67,11 +92,13 @@ bool AddChoice(choice_pool_t *pool, int score, void *ctx){
     if (!c) return false;
 
     c->score   = score;
+    c->orig_score   = score;
     c->context = ctx;
-
+    c->id = id;
+    c->cb = fn;
     // Store in pool
     pool->choices[pool->count++] = c;
-
+    pool->total+= score;
     return true;
 }
 
@@ -83,11 +110,15 @@ choice_t* ChooseBest(choice_pool_t* pool){
   int best_index = -1;
 
   for (int i = 0; i < pool->count; i++){
-    if(pool->choices[i]->score < best)
+    choice_t* c = pool->choices[i];
+    if(!ChoiceAllowed(pool, c))
+      continue;
+    
+    if(c->score < best)
       continue;
 
     best_index = i;
-    best = pool->choices[i]->score;
+    best = c->score;
   }
 
   return pool->choices[best_index];
@@ -101,7 +132,11 @@ choice_t* ChooseByWeight(choice_pool_t* pool){
   // 1. Compute total weight
   int total = 0;
   for (int i = 0; i < pool->count; i++) {
-    int w = pool->choices[i]->score;
+    choice_t* c = pool->choices[i];
+    if(!ChoiceAllowed(pool, c))
+      continue;
+
+    int w = c->score;
     if (w > 0) total += w;
   }
 
@@ -131,7 +166,11 @@ choice_t* ChooseByBudget(choice_pool_t* pool){
 
   int total = 0;
   for (int i = 0; i < pool->count; i++) {
-    int w = pool->choices[i]->score;
+    choice_t* c = pool->choices[i];
+    if(!ChoiceAllowed(pool, c))
+      continue;
+
+    int w = c->score;
     if (w > 0) total += w;
   }
 
@@ -157,8 +196,12 @@ choice_t* ChooseByWeightInBudget(choice_pool_t* pool){
 
   int total = 0;
   for (int i = 0; i < pool->count; i++) {
-    int cost = pool->choices[i]->cost;
-    int w = pool->choices[i]->score;
+    choice_t* c = pool->choices[i];
+    if(!ChoiceAllowed(pool, c))
+      continue;
+
+    int cost = c->cost;
+    int w = c->score;
     if (cost <= pool->budget) total += w;
   }
 

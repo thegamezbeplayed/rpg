@@ -4,6 +4,9 @@
 #include "game_math.h"
 #include "game_process.h"
 
+static choice_pool_t* race_profs[ENT_DONE];
+static choice_pool_t* race_classes[ENT_DONE];
+
 MAKE_ADAPTER(StepState, ent_t*);
 
 ent_t* InitEnt(EntityType id,Cell pos){
@@ -579,7 +582,11 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
     monster_size =0;
 
   int chief_w = 0, captain_w = 0, commander_w =0;
-  choice_pool_t* class_choice = GetRaceClassPool(def.race,7,ChooseByWeight);
+  if(!race_classes[def.id])
+    race_classes[def.id] = GetRaceClassPool(def.race,7,ChooseByWeight);
+
+  choice_pool_t* class_choice = race_classes[def.id];
+  
   if(diverse && amount>1){
     RaceProps tactics = GET_FLAG(racial.props, RACE_TACTICS_MASK);
     
@@ -610,8 +617,8 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
           break;
       }
     }
-
   }
+  
   count = 0;
 
   define_prof_t prof[PROF_END];
@@ -626,10 +633,11 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   if(avail == 0)
     return 0;
 
-  choice_pool_t* picker = InitChoicePool(avail, ChooseByWeight);
+  bool picking = false;
+  choice_pool_t* picker = StartChoice(race_profs[def.id],avail, ChooseByWeight, &picking);
 
   for(int i = 0; i < avail; i++)
-    AddChoice(picker,local_jobs[i].social_weights[def.civ], &local_jobs[i]);
+    AddChoice(picker, i, local_jobs[i].social_weights[def.civ], &local_jobs[i],ChoiceReduceScore);
 
   choice_t* chosen = picker->choose(picker);
   if(!chosen)
@@ -1000,7 +1008,7 @@ ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot){
   if(!running){
     for(int j = 0; j < e->slots[slot]->count; j++){
       ability_t* a = e->slots[slot]->abilities[j];
-      AddPurchase(p, a->weight, a->cost, a);
+      AddPurchase(p, a->id, a->weight, a->cost, a, NULL);
 
     }
   }

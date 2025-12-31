@@ -1060,7 +1060,9 @@ static choice_pool_t* GetRaceClassPool(SpeciesType spec, int size, ChoiceFn fn){
     define_race_class_t* drc = GetRaceClassForSpec(spec, i);
     if(drc)
     for(int j = 0; j<drc->count; j++){
-      AddChoice(class_choice,drc->classes[j].weight,&drc->classes[j]);
+      race_class_t c_class = drc->classes[j];
+      int id = c_class.base+c_class.sub; 
+      AddChoice(class_choice, id, c_class.weight,&c_class, ChoiceReduceScore);
       count++;
     }
   }

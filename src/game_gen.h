@@ -1,19 +1,21 @@
 #ifndef __GAME_GEN__ 
 #define __GAME_GEN__ 
 
+#include "game_utils.h"
 #define MAX_ROOMS  128
 #define HAS_ANY_IN_CATEGORY(value, mask) ((value) & (mask))
 #define IS_TRAIT(value, mask, trait) (((value) & (mask)) == (trait))
 #define GET_FLAG(flag,mask) (flag&mask)
 #define MOB_ROOM_MAX 10
 #define MOB_MAP_MAX 64
-#define MAX_OPTIONS 256  
 #define ROOM_MOBS_SHIFT 20
 #define ROOM_LAYOUT_SHIFT 8
 #define ROOM_PURPOSE_SHIFT 4
 #define MAX_NODE_DEPTH 5
 #define MAX_ANCHOR_NODES 8
 #define MAX_ATTEMPTS 500
+
+typedef struct choice_pool_s choice_pool_t;
 
 typedef struct ent_s ent_t;
 typedef enum{
@@ -141,6 +143,7 @@ typedef enum {
     ROOM_PURPOSE_LAIR      = 0x0070,
     ROOM_PURPOSE_START     = 0x0080,
     ROOM_PURPOSE_CONNECT   = 0x0090,
+    ROOM_PURPOSE_STAIRS    = 0x00A0,
     ROOM_PURPOSE_MAX      = 0x00A0,
     ROOM_PURPOSE_MASK      = 0x00F0,
 
@@ -388,6 +391,7 @@ typedef struct {
   unsigned int seed;
   int         decor_density;
   TileFlags   **tiles;
+  choice_pool_t* mob_pool;
 } map_context_t;
 
 typedef enum {
