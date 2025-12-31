@@ -515,7 +515,23 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
         },
       }
     },
-    [PROF_MAGICIAN] = { PROF_MAGICIAN, 4, 
+    [PROF_MYSTIC] = { PROF_MYSTIC,1,
+      {
+        {
+          5, CLASS_BASE_DRUID, CLASS_SUB_SHAMAN, CLASS_SUB_CHAMP,
+          "Shaman","Seer", "Farseer",
+          .skills = {
+            [SKILL_ARMOR_CLOTH]=400, [SKILL_WEAP_STAFF]=500,
+            [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS]=600, [SKILL_SPELL_CONJ] = 400,
+          },
+          .rankups = {
+            [SKILL_ARMOR_NATURAL]=200, [SKILL_WEAP_STAFF]=200,
+            [SKILL_SPELL_ABJ] = 300, [SKILL_SPELL_TRANS]=400, [SKILL_SPELL_CONJ] = 300,
+          }
+        },
+      }
+    },
+    [PROF_MAGICIAN] = { PROF_MAGICIAN, 1, 
       {
         {
           4, CLASS_BASE_LOCK, -1,-1,
@@ -530,7 +546,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
         }
       }
     },
-    [PROF_HEALER] = { PROF_HEALER,5,
+    [PROF_HEALER] = { PROF_HEALER,1,
       {
         {
           5, CLASS_BASE_CLERIC, CLASS_SUB_SHAMAN, CLASS_SUB_HEX,
@@ -962,6 +978,33 @@ static skill_relation_t SKILLUP_RELATION[SKILL_DONE] = {
       [MAG_NOMINAL] = SKILL_LVL
     }
   },
+  [SKILL_ARCANA] = {SKILL_ARCANA,
+    {[MAG_MINOR] = SKILL_LVL}
+  },
+  [SKILL_SPELL_ABJ] = {SKILL_SPELL_ABJ,
+    {[MAG_MODEST] = SKILL_LVL}
+  },
+  [SKILL_SPELL_CONJ] = {SKILL_SPELL_CONJ,
+    {[MAG_MODEST] = SKILL_LVL}
+  },
+  [SKILL_SPELL_DIV] = {SKILL_SPELL_DIV,
+    {[MAG_MODEST] = SKILL_LVL}
+  },
+  [SKILL_SPELL_ENCH] = {SKILL_SPELL_ENCH,
+    {[MAG_MODEST] = SKILL_LVL}
+  },
+  [SKILL_SPELL_EVO] = {SKILL_SPELL_EVO,
+    {[MAG_MODEST] = SKILL_LVL}
+  },
+  [SKILL_SPELL_ILL] = {SKILL_SPELL_ILL,
+    {[MAG_MODEST] = SKILL_LVL}
+  },
+  [SKILL_SPELL_NECRO] = {SKILL_SPELL_NECRO,
+    {[MAG_MODEST] = SKILL_LVL}
+  },
+  [SKILL_SPELL_CONJ] = {SKILL_SPELL_CONJ,
+    {[MAG_MODEST] = SKILL_LVL}
+  }
 };
 
 static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {

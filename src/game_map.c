@@ -1747,7 +1747,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   int mobs = GetMobsByRules(mob_rules,mob_pool);
 
   bool running = false;
-  ctx->mob_pool = StartChoice(ctx->mob_pool, mobs, ChooseByWeightInBudget, &running);
+  ctx->mob_pool = StartChoice(&ctx->mob_pool, mobs, ChooseByWeightInBudget, &running);
 
   if(!running){
     for(int i = 0; i < mobs; i++)

@@ -978,7 +978,7 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     },
   },
   [PROF_HEALER] = { PROF_HEALER,
-    {[SOC_PRIMITIVE]=14, [SOC_MARTIAL]=17,[SOC_CIVIL]=20, [SOC_HIGH]=21},
+    {[SOC_PRIMITIVE]=9, [SOC_MARTIAL]=12,[SOC_CIVIL]=20, [SOC_HIGH]=21},
     {"Healer","Healer","Healer","Healer"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
     .skills = {[SKILL_RELIG]=1000,[SKILL_MED] = 1200, [SKILL_SPELL_DIV]=600

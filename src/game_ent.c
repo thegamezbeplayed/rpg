@@ -365,6 +365,14 @@ ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
   return e;
   */
 }
+void RankUpEnt(ent_t* e, race_class_t* race_class){
+  for (int i = 0; i < SKILL_DONE; i++){
+    if(race_class->skills[i] == 0)
+      continue;
+    SkillIncreaseUncapped(e->skills[i], race_class->skills[i]);
+
+  }
+}
 
 void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
   define_archetype_t data = CLASS_DATA[__builtin_ctzll(race_class->base)];
@@ -634,34 +642,41 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
     return 0;
 
   bool picking = false;
-  choice_pool_t* picker = StartChoice(race_profs[def.id],avail, ChooseByWeight, &picking);
+  choice_pool_t* picker = StartChoice(&race_profs[def.id],avail, ChooseByWeight, &picking);
 
   for(int i = 0; i < avail; i++)
-    AddChoice(picker, i, local_jobs[i].social_weights[def.civ], &local_jobs[i],ChoiceReduceScore);
+    AddChoice(picker, i, local_jobs[i].social_weights[def.civ], &local_jobs[i],NULL);
 
-  choice_t* chosen = picker->choose(picker);
-  if(!chosen)
-    return 0;
-
-  define_prof_t* sel = chosen->context;
-
-  if(!sel)
-    return 0;
 
   for(int i = 0; i < amount; i++){
+    choice_t* chosen = picker->choose(picker);
+
+    define_prof_t* sel = chosen->context;
+
     ent_t* e = IntEntCommoner(def,rules, sel);
     if((diverse && promote) || sel->id < PROF_LABORER){
+      if(sel->id < PROF_LABORER){
+        define_race_class_t* pc = GetRaceClassForSpec(def.race,sel->id);
+        for (int j = 0; j < pc->count; j++)
+          AddFilter(class_choice, pc->classes[j].base + pc->classes[j].sub, &pc->classes[j]);
+      }
       choice_t *selection = class_choice->choose(class_choice); 
       race_class_t* drc = selection->context;
 
       PromoteEntClass(e,racial,drc);
-      
-    }
-    for(int j = 0; j < beef; j++)
-      EntAddExp(e, 400);
 
-    pool[count++] = e;
+      for(int j = 0; j < beef; j++)
+        RankUpEnt(e,drc);
+
+      class_choice->filtered = 0;
     }
+    
+    pool[count++] = e;
+  }
+
+  EndChoice(race_profs[def.id], false);
+  EndChoice(race_classes[def.id], false);
+
   return count;
 }
 
@@ -1001,7 +1016,7 @@ ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot){
   if(count == 0)
     return NULL;
 
-  choice_pool_t* p = StartChoice(e->control->choices[slot], count, ChooseByWeightInBudget,&running);
+  choice_pool_t* p = StartChoice(&e->control->choices[slot], count, ChooseByWeightInBudget,&running);
 
   p->budget = budget;
   

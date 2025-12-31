@@ -79,7 +79,7 @@ struct choice_pool_s{
 };
 
 static inline bool ChoiceAllowed(choice_pool_t* pool, choice_t* c){
-  if (!pool->filter[0])  // empty filter → allow all
+  if (pool->filtered == 0)  // empty filter → allow all
     return true;
 
   for (int i = 0; i < pool->filtered; i++){
@@ -89,7 +89,8 @@ static inline bool ChoiceAllowed(choice_pool_t* pool, choice_t* c){
   return false;
 }
 
-choice_pool_t* StartChoice(choice_pool_t* pool, int size, ChoiceFn fn, bool* result);
+choice_pool_t* StartChoice(choice_pool_t** pool, int size, ChoiceFn fn, bool* result);
+void EndChoice(choice_pool_t* pool, bool reset);
 choice_pool_t* InitChoicePool(int size, ChoiceFn fn);
 bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn);
 bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, OnChosen fn);

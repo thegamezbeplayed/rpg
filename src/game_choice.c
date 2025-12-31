@@ -1,15 +1,28 @@
 #include "game_utils.h"
 
-choice_pool_t* StartChoice(choice_pool_t* pool, int size, ChoiceFn fn, bool* result){
-  if(pool==NULL){
-    pool = InitChoicePool(size, fn);
+choice_pool_t* StartChoice(choice_pool_t** pool, int size, ChoiceFn fn, bool* result){
+  if(*pool==NULL){
+    *pool = InitChoicePool(size, fn);
     *result = false;
   }
   else{
-    pool->choose = fn;
+    (*pool)->choose = fn;
     *result = true;
   }
-  return pool;
+  return *pool;
+}
+
+void EndChoice(choice_pool_t* pool, bool reset){
+  if(pool->total < pool->count || reset){
+    pool->total = 0;
+    for(int i = 0; i < pool->count; i++){
+      choice_t* c = pool->choices[i];
+      c->score = c->orig_score;
+      pool->total+=c->score;
+    }
+  }
+
+  pool->filtered = 0;
 }
 
 choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
@@ -37,6 +50,8 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
 void ChoiceReduceScore(choice_pool_t* pool, choice_t* self){
   int avg = pool->total/pool->count;
   self->score -= avg/2;
+  if(self->score < 1)
+    self->score = 1;
   pool->total -= avg/2;
 }
 
@@ -121,6 +136,8 @@ choice_t* ChooseBest(choice_pool_t* pool){
     best = c->score;
   }
 
+  if(pool->choices[best_index]->cb)
+    pool->choices[best_index]->cb(pool,pool->choices[best_index]);
   return pool->choices[best_index];
 
 }
@@ -149,12 +166,20 @@ choice_t* ChooseByWeight(choice_pool_t* pool){
   // 3. Find the weighted entry
   int running = 0;
   for (int i = 0; i < pool->count; i++) {
+    if(!ChoiceAllowed(pool, pool->choices[i]))
+      continue;
+
     int w = pool->choices[i]->score;
     if (w <= 0) continue;
 
     running += w;
-    if (r < running)
-      return pool->choices[i];
+    if (r >= running)
+      continue;
+
+    if(pool->choices[i]->cb)
+      pool->choices[i]->cb(pool, pool->choices[i]);
+
+    return pool->choices[i];
   }
 
   return NULL;
@@ -182,6 +207,9 @@ choice_t* ChooseByBudget(choice_pool_t* pool){
     if (w <= 0) continue;
     if(w > pool->budget)
       continue;
+
+    if(pool->choices[i]->cb)
+      pool->choices[i]->cb(pool,pool->choices[i]);
 
     return pool->choices[i];
   }
@@ -216,8 +244,13 @@ choice_t* ChooseByWeightInBudget(choice_pool_t* pool){
     if (w <= 0) continue;
 
     running += w;
-    if (r < running)
-      return pool->choices[i];
+    if (r >= running)
+      continue;
+
+    if(pool->choices[i]->cb)
+      pool->choices[i]->cb(pool, pool->choices[i]);
+
+    return pool->choices[i];
   }
 
   return NULL;
