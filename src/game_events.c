@@ -487,3 +487,63 @@ void AggroPrune(aggro_table_t* t) {
     }
   }
 }
+
+
+void InitAllyTable(ally_table_t* t, int cap, ent_t* owner){
+  t->owner = owner;
+  t->count = 0;
+  t->cap = cap;
+  t->entries = calloc(t->cap, sizeof(ally_context_t));
+
+  // Create decay event
+  cooldown_t* cd = InitCooldown(
+      1,                     // ticks before decay
+      EVENT_TURN,
+      AllySync,
+      t
+      );
+
+  t->event_id = RegisterEvent(EVENT_TURN, cd, owner->uid, STEP_TURN);
+
+}
+
+static void AllyEnsureCapacitiy(ally_table_t* t){
+  if (t->count < t->cap)
+    return;
+
+  t->cap *= 2;
+  t->entries = realloc(t->entries,
+      t->cap * sizeof(ally_context_t));
+}
+
+int AllyAdd(ally_table_t* t, ent_t* source, int dist){
+
+  int off = EntGetOffRating(source);
+  int def = EntGetDefRating(source);
+
+  int value = off + def;
+  int cost  = dist *10;
+  float danger = 1 - RATIO(source->stats[STAT_HEALTH]);
+
+  ally_context_t* e = &t->entries[t->count++];
+  e->ally = source;
+  e->danger = danger;
+  e->offense = off;
+  e->defense = def;
+  e->distance = dist;
+  e->cost = cost;
+  e->value = value;
+  e->score = value - cost;
+
+  return e->score;
+}
+
+void AllySync(void* params){
+  ally_table_t* t = params;
+  if(t->owner->aggro->count == 0)
+    return;
+
+  for(int i = 0; i < t->count; i++){
+
+  }
+}

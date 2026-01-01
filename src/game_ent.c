@@ -39,7 +39,7 @@ ent_t* InitEnt(EntityType id,Cell pos){
   e->aggro = calloc(1,sizeof(aggro_table_t));
   e->allies = calloc(1,sizeof(aggro_table_t));
   InitAggroTable(e->aggro, 10, e);
-  InitAggroTable(e->allies, 1, e);
+  InitAllyTable(e->allies, 1, e);
   TraceLog(LOG_INFO,"%s has ====>\n<====STATS=====>",e->name);
   for(int i = 1; i < STAT_ENT_DONE; i++){
     if(e->stats[i] == NULL)
@@ -85,7 +85,7 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   e->sprite->owner = e;
   e->events = InitEvents();
 
-  e->control = InitController();
+  e->control = InitController(e);
 
   e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,0,20);
   e->skills[SKILL_LVL]->on_skill_up = EntOnLevelUp;
@@ -228,7 +228,7 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
   e->aggro = calloc(1,sizeof(aggro_table_t));
   e->allies = calloc(1,sizeof(aggro_table_t));
   InitAggroTable(e->aggro, 4, e);
-  InitAggroTable(e->allies, 8, e);
+  InitAllyTable(e->allies, 8, e);
 
 
   for(int i = 0; i < SKILL_DONE; i++){
@@ -377,6 +377,9 @@ void RankUpEnt(ent_t* e, race_class_t* race_class){
 void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
   define_archetype_t data = CLASS_DATA[__builtin_ctzll(race_class->base)];
 
+  e->props->traits |= data.traits;
+  e->control->behave_traits |= data.traits;
+
   strcpy(e->name, TextFormat("%s %s",racial.name,race_class->main));
 
   for (int i = 0; i < SKILL_DONE; i++){
@@ -426,7 +429,23 @@ void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
     ability_t* a = InitAbility(e, def_ab.id);
     int sr = 1 + e->skills[a->skills[0]]->val;
     a->weight+=sr*def_ab.priority;
-    ActionSlotAddAbility(e,a);
+    if(ActionSlotAddAbility(e,a)){
+      switch(a->action){
+        case ACTION_ATTACK:
+        case ACTION_WEAPON:
+          if(a->reach > 1)
+            e->control->behave_traits |= TRAIT_CAN_SHOOT;
+          else
+            e->control->behave_traits |= TRAIT_CAN_MELEE;
+          break;
+        case ACTION_MAGIC:
+          if(a->type == AT_DMG)
+            e->control->behave_traits |= TRAIT_CAN_CAST;
+          else
+            e->control->behave_traits |= TRAIT_CAN_HEAL;
+          break;
+      }
+    }
   }
 
   for(int i = 0; i < SLOT_ALL; i++){
@@ -908,7 +927,7 @@ int EntAddAggro(ent_t* owner, ent_t* source, int threat, float mul){
     int cr = AggroAdd(owner->aggro, source, threat, mul);
     
     for (int i = 0; i < owner->allies->count; i++){
-      ent_t* e = owner->allies->entries[i].enemy;
+      ent_t* e = owner->allies->entries[i].ally;
 
       AggroAdd(e->aggro, source, threat, 0.1f);
     } 
@@ -1133,12 +1152,13 @@ bool FreeEnt(ent_t* e){
   return true;
 }
 
-controller_t* InitController(){
+controller_t* InitController(ent_t* e){
   controller_t* ctrl = malloc(sizeof(controller_t));
   *ctrl = (controller_t){0};
 
   ctrl->destination = CELL_UNSET;
 
+  ctrl->behave_traits = e->props->traits & TRAIT_CAP_MASK;
   return ctrl;
 }
 
@@ -1240,6 +1260,17 @@ bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other)
   
 
   return ires>=IR_SUCCESS?true:false;
+}
+
+bool ValueUpdateStat(value_t* v, void* ctx){
+  ability_t* a = ctx;
+
+  StatType s = v->stat_relates_to;
+
+  a->stats[s]->max = v->val;
+  a->stats[s]->current = v->val;
+
+  return true;
 }
 
 bool ValueUpdateDie(value_t* v, void* ctx){
@@ -1406,6 +1437,9 @@ bool CanChangeState(EntityState old, EntityState s){
 void OnStateChange(ent_t *e, EntityState old, EntityState s){
   switch(old){
     case STATE_SPAWN:
+      item_t* item = InventoryGetEquipped(e, INV_HELD);
+      if(item) 
+        TraceLog(LOG_INFO,"%s ready with %s",e->name, item->def->name);
       if(e->sprite)
         e->sprite->is_visible = true;
       break;

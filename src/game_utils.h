@@ -173,6 +173,8 @@ behavior_tree_node_t* BehaviorCreateConcurrent(behavior_tree_node_t **children, 
 BehaviorStatus BehaviorChangeState(behavior_params_t *params);
 BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params);
 BehaviorStatus BehaviorCheckAggro(behavior_params_t *params);
+BehaviorStatus BehaviorCheckAbilities(behavior_params_t *params);
+BehaviorStatus BehaviorCheckInventory(behavior_params_t *params);
 BehaviorStatus BehaviorCheckSenses(behavior_params_t *params);
 BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params);
 BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params);
@@ -186,7 +188,9 @@ BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params);
 
 static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeState,params); }
 static inline behavior_tree_node_t* LeafMoveToTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToTarget,params); }
+static inline behavior_tree_node_t* LeafCheckAbilities(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAbilities,params); }
 static inline behavior_tree_node_t* LeafCheckAggro(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAggro,params); }
+static inline behavior_tree_node_t* LeafCheckInventory(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckInventory,params); }
 static inline behavior_tree_node_t* LeafCheckSenses(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckSenses,params); }
 static inline behavior_tree_node_t* LeafMoveToDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToDestination,params); }
 static inline behavior_tree_node_t* LeafAcquireDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireDestination,params); }

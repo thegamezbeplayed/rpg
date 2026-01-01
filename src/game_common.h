@@ -336,6 +336,8 @@ typedef struct value_s value_t;
 
 typedef bool (*ValueOnChange)(value_t* self, void* ctx);
 bool ValueUpdateDie(value_t* v, void* ctx);
+bool ValueUpdateStat(value_t* v, void* ctx);
+
 struct value_s{
   ValueCategory  cat;
   int            base, val;

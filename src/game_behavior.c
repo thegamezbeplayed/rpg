@@ -87,6 +87,29 @@ BehaviorStatus BehaviorCheckSenses(behavior_params_t *params){
   return BEHAVIOR_SUCCESS;
 }
 
+BehaviorStatus BehaviorCheckInventory(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
+  for(int i = 0; i < INV_DONE; i++){
+    InventorySetPrefs(e->inventory[i], e->control->behave_traits);
+  }
+
+  return BEHAVIOR_SUCCESS;
+}
+
+BehaviorStatus BehaviorCheckAbilities(behavior_params_t *params){
+struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->pref == NULL)
+    e->control->pref = EntChoosePreferredAbility(e, e->stats[STAT_ENERGY]->current);
+
+  return BEHAVIOR_SUCCESS;
+}
+
 BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
@@ -218,7 +241,7 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
   if(!e->control->pref)
     return BEHAVIOR_FAILURE;
 
-  if(cell_distance(e->pos,e->control->target->pos) <  e->control->pref->stats[STAT_REACH]->current)
+  if(cell_distance(e->pos,e->control->target->pos) <=  e->control->pref->stats[STAT_REACH]->current)
     return BEHAVIOR_SUCCESS;
   
   return BEHAVIOR_FAILURE;
@@ -286,9 +309,8 @@ BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params){
     if(!EntCanSee(e, team[i], 24))
       continue;
 
-    int prio = e->map->width + e->map->height - dist;
 
-    AggroAdd(e->allies, team[i], prio, 1);
+    AllyAdd(e->allies, team[i], dist);
    
   }
 

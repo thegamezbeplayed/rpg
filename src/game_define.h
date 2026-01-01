@@ -412,42 +412,104 @@ typedef uint64_t Feats;
 typedef uint64_t Traits;
 
 typedef enum{
-  TRAIT_PHYS_RESIST      = 1ULL <<0,
-  TRAIT_ELE_RESIST       = 1ULL <<1,
-  TRAIT_MAGIC_RESIST     = 1ULL <<2,
+  /* -------------------------------------------------- */
+  /* Capability flags (0–15) */
+  /* -------------------------------------------------- */
+  TRAIT_CAN_MELEE     = BIT64(0),
+  TRAIT_CAN_CAST      = BIT64(1),
+  TRAIT_CAN_HEAL      = BIT64(2),
+  TRAIT_CAN_SHOOT     = BIT64(3),
+  TRAIT_CAN_STEALTH   = BIT64(4),
+  TRAIT_CAN_DEFEND    = BIT64(5),
 
-  TRAIT_RESIST_TAG_MASK  = 0xFFULL,
-  TRAIT_BLUNT_RESIST     = 1ULL << 8,
-  TRAIT_PIERCE_RESIST    = 1ULL << 9,
-  TRAIT_SLASH_RESIST     = 1ULL << 10,
-  TRAIT_FIRE_RESIST      = 1ULL << 11,
-  TRAIT_COLD_RESIST      = 1ULL << 12,
-  TRAIT_ACID_RESIST      = 1ULL << 13,
-  TRAIT_POISON_RESIST    = 1ULL << 14,
-  TRAIT_PSYCHIC_RESIST   = 1ULL << 15,
-  TRAIT_RADIANT_RESIST   = 1ULL << 16,
-  TRAIT_NECROTIC_RESIST  = 1ULL << 17,
-  TRAIT_FORCE_RESIST     = 1ULL << 18,
-  TRAIT_RESIST_SCHOOL_MASK = (0xFFFFULL<<8),
-  TRAIT_EXP_AXE    = 1ULL <<24,
-  TRAIT_EXP_BOW    = BIT64(25),
-  TRAIT_EXP_DAGGER = BIT64(26),
-  TRAIT_EXP_MACE   = BIT64(27),
-  TRAIT_EXP_SWORD  = BIT64(28),
-  TRAIT_EXP_MASK   = (0xFFULL <<24),
-  
-  TRAIT_VISION_DARK     = BIT64(32),
-  TRAIT_VISION_MASK     = 0xFFULL <<32,
+  TRAIT_PREF_MELEE    = BIT64(6),
+  TRAIT_PREF_CAST     = BIT64(7),
+  TRAIT_PREF_HEAL     = BIT64(8),
+  TRAIT_PREF_SHOOT    = BIT64(9),
+  TRAIT_PREF_COVER    = BIT64(10),
+  TRAIT_PREF_SNEAK    = BIT64(11),
 
-  TRAIT_ADV_FEAR        = BIT64(40),
-  TRAIT_ADV_CHARM       = BIT64(41),
-  TRAIT_ADV_MASK        = 0xFFULL <<40,
-  TRAIT_DONE,
+  TRAIT_CAP_MASK      = (BIT64(16) - 1),   /* bits 0–15 */
+
+
+  /* -------------------------------------------------- */
+  /* Resistance category tags (16–23) */
+  /* -------------------------------------------------- */
+  TRAIT_PHYS_RESIST   = BIT64(16),
+  TRAIT_ELE_RESIST    = BIT64(17),
+  TRAIT_MAGIC_RESIST  = BIT64(18),
+
+  TRAIT_RESIST_TAG_MASK = (
+      BIT64(16) |
+      BIT64(17) |
+      BIT64(18)
+  ),
+
+
+  /* -------------------------------------------------- */
+  /* Damage-type resistances (24–39) */
+  /* -------------------------------------------------- */
+  TRAIT_BLUNT_RESIST    = BIT64(24),
+  TRAIT_PIERCE_RESIST   = BIT64(25),
+  TRAIT_SLASH_RESIST    = BIT64(26),
+  TRAIT_FIRE_RESIST     = BIT64(27),
+  TRAIT_COLD_RESIST     = BIT64(28),
+  TRAIT_ACID_RESIST     = BIT64(29),
+  TRAIT_POISON_RESIST   = BIT64(30),
+  TRAIT_PSYCHIC_RESIST  = BIT64(31),
+  TRAIT_RADIANT_RESIST  = BIT64(32),
+  TRAIT_NECROTIC_RESIST = BIT64(33),
+  TRAIT_FORCE_RESIST    = BIT64(34),
+
+  TRAIT_RESIST_SCHOOL_MASK = (
+      BIT64(24) | BIT64(25) | BIT64(26) |
+      BIT64(27) | BIT64(28) | BIT64(29) |
+      BIT64(30) | BIT64(31) | BIT64(32) |
+      BIT64(33) | BIT64(34)
+  ),
+
+
+  /* -------------------------------------------------- */
+  /* Weapon expertise (40–47) */
+  /* -------------------------------------------------- */
+  TRAIT_EXP_AXE        = BIT64(40),
+  TRAIT_EXP_BOW        = BIT64(41),
+  TRAIT_EXP_DAGGER     = BIT64(42),
+  TRAIT_EXP_MACE       = BIT64(43),
+  TRAIT_EXP_SWORD      = BIT64(44),
+
+  TRAIT_EXP_MASK = (
+      BIT64(40) |
+      BIT64(41) |
+      BIT64(42) |
+      BIT64(43) |
+      BIT64(44)
+  ),
+
+
+  /* -------------------------------------------------- */
+  /* Vision traits (48–55) */
+  /* -------------------------------------------------- */
+  TRAIT_VISION_DARK    = BIT64(48),
+
+  TRAIT_VISION_MASK   = BIT64(48),
+
+
+  /* -------------------------------------------------- */
+  /* Advantage traits (56–63) */
+  /* -------------------------------------------------- */
+  TRAIT_ADV_FEAR      = BIT64(56),
+  TRAIT_ADV_CHARM     = BIT64(57),
+
+  TRAIT_ADV_MASK = (
+      BIT64(56) |
+      BIT64(57)
+  )
 }Trait;
 
 typedef struct{
   PhysQual      pq;
-  Traits traits;
+  Traits        traits;
   FeatFlags     feats;
   AbilityID     abilities[4];
 }phys_qualities_t;
@@ -1139,6 +1201,7 @@ typedef struct{
   float         ASI[ATTR_DONE];
   int           pref_ability[AT_DONE];
   int           pref_act[ACTION_SLOTTED];
+  Traits        traits;
 }define_archetype_t;
 
 typedef struct{
@@ -1248,6 +1311,7 @@ typedef struct{
 
 typedef struct{
   WeaponType      type;
+  char            name[MAX_NAME_LEN];
   int             cost,weight,penn,drain,reach_bonus,durability;
   ItemProps       i_props;
   WeaponProps     w_props;
@@ -1295,6 +1359,7 @@ typedef struct {
 
 static value_relate_t VALUE_RELATES[VAL_ALL]={
   [VAL_REACH] = {VAL_REACH, STAT_REACH},
+  [VAL_SAVE] = {VAL_SAVE, STAT_ARMOR},
 };
 struct value_affix_s{
   ValueCategory modifies;

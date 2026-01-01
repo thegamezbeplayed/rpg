@@ -350,35 +350,45 @@ static const define_archetype_t CLASS_DATA[11] = {
   {CLASS_BASE_CLERIC, 6, ATTR_WIS,ATTR_INT,ATTR_CHAR,
     {[ATTR_WIS]=1,[ATTR_INT]=0.5f,[ATTR_INT]=0.5f, [ATTR_CHAR] =.75f},
     {[AT_HEAL]=5, [AT_DMG]=1},
-    {[ACTION_MAGIC]=5,[ACTION_CANTRIP]=4, [ACTION_ATTACK]=3, [ACTION_WEAPON] = 1}
+    {[ACTION_MAGIC]=5,[ACTION_CANTRIP]=4, [ACTION_ATTACK]=3, [ACTION_WEAPON] = 1},
+    TRAIT_PREF_COVER | TRAIT_PREF_HEAL
   },
   {CLASS_BASE_DRUID, 6, ATTR_WIS,ATTR_WIS,ATTR_INT,
     {[ATTR_CON]=0.25f, [ATTR_WIS]=0.25f, [ATTR_CHAR]=0.5f, [ATTR_INT]=0.25f},
     {[AT_HEAL]=3, [AT_DMG]=2},
-    {[ACTION_MAGIC]=3,[ACTION_CANTRIP]=3, [ACTION_ATTACK]=3, [ACTION_WEAPON] = 1}
+    {[ACTION_MAGIC]=3,[ACTION_CANTRIP]=3, [ACTION_ATTACK]=3, [ACTION_WEAPON] = 1},
+    TRAIT_PREF_COVER
   },
   {CLASS_BASE_FIGHTER, 8, ATTR_NONE,ATTR_STR,ATTR_CON,
     {[ATTR_STR]=1,[ATTR_DEX]=1,[ATTR_CON]=.25f},
     {[AT_DMG] = 5},
-    {[ACTION_ATTACK] = 5, [ACTION_WEAPON] = 4}
+    {[ACTION_ATTACK] = 5, [ACTION_WEAPON] = 4},
+    TRAIT_PREF_MELEE | TRAIT_CAN_DEFEND
   },
   {CLASS_BASE_MONK},
   {CLASS_BASE_RANGER, 8, ATTR_WIS, ATTR_DEX, ATTR_STR,
       {[ATTR_STR]=0.5f,[ATTR_DEX]=0.5f,[ATTR_CON]=.125f,[ATTR_WIS]=0.125f},
       {[AT_DMG] = 3},
-      {[ACTION_ATTACK] = 4, [ACTION_WEAPON] = 4, [ACTION_ITEM] = 2, [ACTION_CANTRIP]=2, [ACTION_MOVE]=3}
+      {[ACTION_ATTACK] = 4, [ACTION_WEAPON] = 4, [ACTION_ITEM] = 2, [ACTION_CANTRIP]=2, [ACTION_MOVE]=3},
+      TRAIT_PREF_COVER | TRAIT_PREF_SHOOT
   },
   {CLASS_BASE_ROGUE, 6, ATTR_NONE, ATTR_DEX, ATTR_INT,
     {[ATTR_DEX]=0.5f, [ATTR_STR]=0.125,[ATTR_INT]=0.25},
       {[AT_DMG] = 4},
-      {[ACTION_ATTACK] = 4, [ACTION_WEAPON] = 4, [ACTION_ITEM] = 3,[ACTION_MOVE]=3}
+      {[ACTION_ATTACK] = 4, [ACTION_WEAPON] = 4, [ACTION_ITEM] = 3,[ACTION_MOVE]=3},
+      TRAIT_PREF_SNEAK | TRAIT_CAN_STEALTH
   },
   {CLASS_BASE_LOCK, 6, ATTR_WIS, ATTR_CHAR, ATTR_CHAR,
-    {[ATTR_CON]=0.25f, [ATTR_WIS]=0.25f, [ATTR_CHAR]=0.75f}
-
+    {[ATTR_CON]=0.25f, [ATTR_WIS]=0.25f, [ATTR_CHAR]=0.75f},
+    {[AT_DMG]=3},
+    {[ACTION_MAGIC]=4,[ACTION_CANTRIP]=3, [ACTION_ATTACK]=2, [ACTION_WEAPON] = 1},
+    TRAIT_PREF_COVER | TRAIT_PREF_CAST
   },
   {CLASS_BASE_WIZ, 4, ATTR_INT, ATTR_WIS, ATTR_INT,
-    {[ATTR_WIS]=0.5f, [ATTR_CHAR]=0.25f, [ATTR_INT]=0.75f}
+    {[ATTR_WIS]=0.5f, [ATTR_CHAR]=0.25f, [ATTR_INT]=0.75f},
+    {[AT_DMG]=3},
+    {[ACTION_MAGIC]=4,[ACTION_CANTRIP]=3, [ACTION_ATTACK]=2, [ACTION_WEAPON] = 1},
+    TRAIT_PREF_COVER | TRAIT_PREF_CAST
   },
   {CLASS_SUB_BERZ, 10, ATTR_NONE, ATTR_STR, ATTR_CON},
   {CLASS_SUB_CHAMP, 10, ATTR_NONE, ATTR_STR, ATTR_CON},
@@ -391,8 +401,8 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
         { 15, CLASS_BASE_FIGHTER, CLASS_BASE_ROGUE, CLASS_SUB_CHAMP,
           "Brawler","Saboteur","Boss",
           .skills = {
-            [SKILL_ARMOR_LEATHER]=600,[SKILL_ARMOR_SHIELD]=400,
-          [SKILL_WEAP_MACE]=600, [SKILL_WEAP_SWORD]=400
+            [SKILL_ARMOR_LEATHER]=800,[SKILL_ARMOR_SHIELD]=400,
+          [SKILL_WEAP_MACE]=800, [SKILL_WEAP_SWORD]=400
           },
           .rankups = {
             [SKILL_ARMOR_LEATHER]=400,[SKILL_ARMOR_SHIELD]=400,
@@ -403,7 +413,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           "Skulker", "Infiltrator", "Saboteur",
            .skills = {
             [SKILL_ARMOR_LEATHER]=400,[SKILL_STEALTH]=600,
-          [SKILL_WEAP_DAGGER]=600, [SKILL_WEAP_BOW]=400
+          [SKILL_WEAP_DAGGER]=1300, [SKILL_WEAP_BOW]=400
           },
           .rankups = {
             [SKILL_ARMOR_LEATHER]=400,[SKILL_STEALTH]=400,
@@ -418,12 +428,12 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           10, CLASS_BASE_RANGER , CLASS_BASE_ROGUE , CLASS_SUB_SHOOTER,
           "Tracker", "Prowler", "Stinger",
           .skills = {
-            [SKILL_ARMOR_PADDED]=600,[SKILL_ANIM]=600,
-            [SKILL_WEAP_BOW]=1600, [SKILL_WEAP_SWORD]=400
+            [SKILL_ARMOR_PADDED]=800,[SKILL_ANIM]=600,
+            [SKILL_WEAP_BOW]=1600, [SKILL_WEAP_DAGGER]=200
           },
           .rankups = {
             [SKILL_ARMOR_PADDED]=400,[SKILL_STEALTH]=300,
-            [SKILL_WEAP_BOW]=400, [SKILL_WEAP_SWORD]=400,
+            [SKILL_WEAP_BOW]=400, [SKILL_WEAP_DAGGER]=400,
           }
         },
       }
@@ -434,8 +444,8 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_DRUID, CLASS_SUB_SHAMAN, CLASS_SUB_CHAMP,
           "Pestcaller","Seer", "Mystic",
           .skills = {
-            [SKILL_ARMOR_CLOTH]=400, [SKILL_WEAP_STAFF]=500,
-            [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS]=600, [SKILL_SPELL_CONJ] = 400,
+            [SKILL_ARMOR_CLOTH]=400, [SKILL_WEAP_STAFF]=400,
+            [SKILL_SPELL_EVO] = 400,[SKILL_SPELL_ABJ] = 800, [SKILL_SPELL_TRANS]=1300, [SKILL_SPELL_CONJ] = 800,
           },
             .rankups = {
               [SKILL_ARMOR_NATURAL]=200, [SKILL_WEAP_STAFF]=200,
@@ -450,7 +460,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_LOCK, -1,-1,
           "Filthcaller","\0","\0",
           .skills = {
-            [SKILL_ARMOR_CLOTH] = 400,[SKILL_SPELL_EVO] = 600, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS] = 300, [SKILL_SPELL_NECRO] = 600,
+            [SKILL_ARMOR_CLOTH] = 400,[SKILL_SPELL_EVO] = 800, [SKILL_SPELL_ABJ] = 800, [SKILL_SPELL_TRANS] = 400, [SKILL_SPELL_NECRO] = 1300,
           },
           .rankups = {
              [SKILL_ARMOR_CLOTH] = 200 ,[SKILL_SPELL_EVO] = 500, [SKILL_SPELL_ABJ] = 100, [SKILL_SPELL_TRANS] = 100, [SKILL_SPELL_NECRO] = 600,
@@ -464,7 +474,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_CLERIC, CLASS_BASE_LOCK, CLASS_SUB_HEX,
           "Giver", "Witch-doctor", "Shadow Priest",
           .skills = {
-            [SKILL_WEAP_DAGGER] = 400, [SKILL_ARMOR_CLOTH] = 400, [SKILL_SPELL_ENCH] = 400, [SKILL_SPELL_ABJ] = 600, [SKILL_SPELL_NECRO] = 800,
+            [SKILL_WEAP_DAGGER] = 400, [SKILL_ARMOR_CLOTH] = 400, [SKILL_SPELL_ENCH] = 800, [SKILL_SPELL_ABJ] = 1300, [SKILL_SPELL_NECRO] = 800,
           },
           .rankups = {
             [SKILL_ARMOR_CLOTH] = 200 ,[SKILL_SPELL_ENCH] = 300, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_NECRO] = 600,
@@ -491,7 +501,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           10, CLASS_BASE_ROGUE, CLASS_SUB_ASSASSIN, CLASS_SUB_CHAMP,
           "Cutthroat", "Infiltrator", "Saboteur",
           .skills = {
-            [SKILL_WEAP_DAGGER] = 600, [SKILL_ARMOR_LEATHER] = 600, 
+            [SKILL_WEAP_DAGGER] = 1300, [SKILL_ARMOR_LEATHER] = 800, 
             [SKILL_STEALTH] = 400,
           },
           .rankups = {
@@ -507,7 +517,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           10, CLASS_BASE_RANGER , CLASS_BASE_FIGHTER , CLASS_SUB_SHOOTER,
           "Stalker", "Slayer", "Hunter",
           .skills = {
-            [SKILL_WEAP_BOW] = 800, [SKILL_WEAP_AXE] = 600, [SKILL_ARMOR_LEATHER] = 600
+            [SKILL_WEAP_BOW] = 800, [SKILL_WEAP_AXE] = 600, [SKILL_ARMOR_LEATHER] = 800
           },
           .rankups = {
             [SKILL_WEAP_BOW] = 600, [SKILL_WEAP_AXE] = 500, [SKILL_ARMOR_LEATHER] = 500
@@ -521,8 +531,8 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_DRUID, CLASS_SUB_SHAMAN, CLASS_SUB_CHAMP,
           "Shaman","Seer", "Farseer",
           .skills = {
-            [SKILL_ARMOR_CLOTH]=400, [SKILL_WEAP_STAFF]=500,
-            [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS]=600, [SKILL_SPELL_CONJ] = 400,
+            [SKILL_ARMOR_CLOTH]=400, [SKILL_WEAP_STAFF]=800,
+            [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_TRANS]=800, [SKILL_SPELL_CONJ] = 400,
           },
           .rankups = {
             [SKILL_ARMOR_NATURAL]=200, [SKILL_WEAP_STAFF]=200,
@@ -537,8 +547,8 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           4, CLASS_BASE_LOCK, -1,-1,
           "Doomsayer","\0","\0",
           .skills = {
-            [SKILL_WEAP_DAGGER] = 600, [SKILL_ARMOR_CLOTH] = 400,
-            [SKILL_SPELL_EVO] = 600, [SKILL_SPELL_CONJ] = 400, [SKILL_SPELL_NECRO] = 600,
+            [SKILL_WEAP_DAGGER] = 400, [SKILL_ARMOR_CLOTH] = 400,
+            [SKILL_SPELL_EVO] = 800, [SKILL_SPELL_CONJ] = 400, [SKILL_SPELL_NECRO] = 800,
           },
           .rankups = {
             [SKILL_SPELL_EVO] = 600, [SKILL_SPELL_CONJ] = 400, [SKILL_SPELL_NECRO] = 600,
@@ -552,7 +562,7 @@ static define_race_class_t RACE_CLASS_DEFINE[12][PROF_LABORER] = {
           5, CLASS_BASE_CLERIC, CLASS_SUB_SHAMAN, CLASS_SUB_HEX,
           "Priest", "Shaman", "Shadow Priest",
           .skills = {
-            [SKILL_WEAP_DAGGER] = 600, [SKILL_ARMOR_CLOTH] = 400, [SKILL_SPELL_ENCH] = 400, [SKILL_SPELL_ABJ] = 600, [SKILL_SPELL_NECRO] = 800,
+            [SKILL_WEAP_DAGGER] = 400, [SKILL_ARMOR_CLOTH] = 400, [SKILL_SPELL_ENCH] = 400, [SKILL_SPELL_ABJ] = 800, [SKILL_SPELL_NECRO] = 800,
           },
           .rankups = {
             [SKILL_ARMOR_CLOTH] = 200 ,[SKILL_SPELL_ENCH] = 300, [SKILL_SPELL_ABJ] = 400, [SKILL_SPELL_NECRO] = 600,

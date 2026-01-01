@@ -46,6 +46,35 @@ int AggroGetEntries(aggro_table_t* table, int count, aggro_entry_t  *entries);
 aggro_entry_t* AggroGetHighest(aggro_table_t* t);
 
 typedef struct{
+  ent_t* ally;          // chosen ally (best candidate)
+
+  float  danger;        // how threatened they are
+  float  need;          // how badly they need help
+  float  offense;       // how dangerous they are if supported
+  float  defense;       // how much cover / tanking they provide
+
+  float  distance;      // tiles away
+  float  exposure;      // how exposed helping them makes me
+
+  float  cost;          // total cost to help
+  float  value;         // total value gained
+  float  score;         // value - cost
+
+  int    last_eval_turn;
+}ally_context_t;
+
+typedef struct{
+  ent_t*          owner;
+  ally_context_t  *entries;
+  int             count,cap;
+  event_uid_i    event_id;
+}ally_table_t;
+
+void InitAllyTable(ally_table_t* t, int cap, ent_t* owner);
+static void AllyEnsureCapacitiy(ally_table_t* t);
+int AllyAdd(ally_table_t* t, ent_t* source, int dist);
+void AllySync(void* params);
+typedef struct{
   SpeciesType   race;
   Archetypes    class_arch;
   Profession    prof;
@@ -123,7 +152,9 @@ typedef struct{
 
 inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit);
 void InventoryPoll(ent_t*, ItemSlot id);
+void InventorySetPrefs(inventory_t* inv, uint64_t traits);
 bool InventoryAddItem(ent_t* e, item_t* i);
+item_t* InventoryGetEquipped(ent_t* e, ItemSlot id);
 void ActionSlotSortByPref(ent_t* owner, int *pool, int count);
 action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap);
 bool ActionSlotAddAbility(ent_t* owner, ability_t* a);
@@ -202,10 +233,11 @@ typedef struct{
   int                     ranges[RANGE_EMPTY];
   behavior_tree_node_t*   bt[STATE_END];
   ability_t*              pref;
+  uint64_t                behave_traits;
   choice_pool_t           *choices[ACTION_PASSIVE];
 }controller_t;
 
-controller_t* InitController();
+controller_t* InitController(ent_t* e);
 
 typedef struct{
   bool      immunities_status[DMG_DONE];
@@ -242,7 +274,8 @@ typedef struct ent_s{
   inventory_t           *inventory[INV_DONE];
   sprite_t              *sprite;
   float                 challenge;
-  aggro_table_t*        aggro, *allies;
+  aggro_table_t*        aggro;
+  ally_table_t*         allies;
   struct ent_s*         last_hit_by;
   int                   team;
 } ent_t;
