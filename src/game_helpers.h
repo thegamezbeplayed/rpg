@@ -984,16 +984,10 @@ static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNex
 
     return true;
 }
-static inline define_race_class_t* GetRaceClassForSpec(uint64_t spec, Profession prof)
+static inline define_race_class_t* GetRaceClassForSpec(EntityType spec, Profession prof)
 {
-    // Convert bitflags to array indices
-    int spec_idx  = __builtin_ctzll(spec);
 
-    // Safety: prevent out-of-range access
-    if (spec_idx < 0 || spec_idx >= 12)
-        return NULL;
-
-    define_race_class_t *entry = &RACE_CLASS_DEFINE[spec_idx][prof];
+    define_race_class_t *entry = &RACE_CLASS_DEFINE[spec][prof];
 
     // Check if this SPEC actually has an entry for this CLASS
     /*if (entry->race_class == 0)
@@ -1040,10 +1034,8 @@ static inline StatClassif GetStatClassif(
         bool matches_pq = (sq->stature[sc] & mob_pq) != 0;
         bool matches_mq = (sq->psyche[sc]  & mob_mq) != 0;
 
-        if (matches_pq || matches_mq){
-            best = sc;
-            matched = true;
-        }
+        if (matches_pq || matches_mq)
+          return sc;
     }
 
     if(!matched)
@@ -1052,16 +1044,16 @@ static inline StatClassif GetStatClassif(
     return best;
 }
 
-static choice_pool_t* GetRaceClassPool(SpeciesType spec, int size, ChoiceFn fn){
+static choice_pool_t* GetRaceClassPool(EntityType type, int size, ChoiceFn fn){
   choice_pool_t* class_choice = InitChoicePool(size,ChooseByWeight);
 
   int count = 0;
   for(int i = 0; i < PROF_LABORER; i++){
-    define_race_class_t* drc = GetRaceClassForSpec(spec, i);
+    define_race_class_t* drc = GetRaceClassForSpec(type, i);
     if(drc)
     for(int j = 0; j<drc->count; j++){
       race_class_t c_class = drc->classes[j];
-      int id = c_class.base+c_class.sub; 
+      int id = c_class.base; 
       AddChoice(class_choice, id, c_class.weight,&drc->classes[j], ChoiceReduceScore);
       count++;
     }

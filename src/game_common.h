@@ -172,7 +172,7 @@ static inline int GetProfessionsBySociety(SocietyType s, define_prof_t *pool) {
     int count = 0;
 
     for (int i = 0; i < PROF_END; i++) {
-        if (DEFINE_PROF[i].social_weights[s]==0)
+        if (DEFINE_PROF[i].soc[s].weight==0)
           continue;
     
         pool[count++] = DEFINE_PROF[i];
@@ -317,6 +317,7 @@ void UnloadCooldown(cooldown_t* cd);
 
 typedef struct{
   StepType    when_step;
+  int         num_used;
   cooldown_t  cooldowns[MAX_EVENTS];
   bool        cooldown_used[MAX_EVENTS];
 }events_t;
@@ -549,11 +550,18 @@ typedef struct{
 }map_cell_t;
 
 typedef struct{
+  RoomFlags       purpose;
+  int             num_mobs, total_cr, avg_cr, best_cr;
+  ent_t           *mobs[MOB_ROOM_MAX];
+  ent_t           *strongest; 
+}map_room_t;
 
-}map_section_t;
+map_room_t* InitMapRoom(map_context_t* ctx, room_t* r);
 
 typedef struct{
   MapID        id;
+  int          num_rooms;
+  map_room_t   *rooms[MAX_ROOMS];
   map_cell_t   **tiles;
   int          x,y,width,height;
   int          step_size;
@@ -561,6 +569,7 @@ typedef struct{
 }map_grid_t;
 
 bool InitMap(void);
+void WorldMapLoaded(map_grid_t* m);
 map_grid_t* InitMapGrid(void);
 TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
 TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);

@@ -12,7 +12,23 @@ choice_pool_t* StartChoice(choice_pool_t** pool, int size, ChoiceFn fn, bool* re
   return *pool;
 }
 
+choice_t* ChoiceById(choice_pool_t* pool, int id){
+  if(!pool || pool->count == 0)
+    return NULL;
+
+  for (int i = 0; i < pool->count; i++){
+    if(pool->choices[i]->id == id)
+      return pool->choices[i];
+  }
+
+  return NULL;
+}
+
 void EndChoice(choice_pool_t* pool, bool reset){
+  pool->total = 0;
+  for(int i = 0; i < pool->count; i++)
+    pool->total+= pool->choices[i]->score;
+
   if(pool->total < pool->count || reset){
     pool->total = 0;
     for(int i = 0; i < pool->count; i++){
@@ -240,17 +256,24 @@ choice_t* ChooseByWeightInBudget(choice_pool_t* pool){
 
   int running = 0;
   for (int i = 0; i < pool->count; i++) {
-    int w = pool->choices[i]->score;
+    choice_t* c = pool->choices[i];
+    if(!ChoiceAllowed(pool,c))
+      continue;
+
+    if(c->cost > pool->budget)
+      continue;
+
+    int w = c->score;
     if (w <= 0) continue;
 
     running += w;
     if (r >= running)
       continue;
 
-    if(pool->choices[i]->cb)
-      pool->choices[i]->cb(pool, pool->choices[i]);
+    if(c->cb)
+      c->cb(pool, c);
 
-    return pool->choices[i];
+    return c;
   }
 
   return NULL;

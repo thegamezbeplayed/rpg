@@ -70,6 +70,8 @@ struct choice_s{
   OnChosen     cb;
 };
 
+choice_t* ChoiceById(choice_pool_t* pool, int id);
+
 struct choice_pool_s{
   unsigned int  id;
   int           count,budget,filtered, total;

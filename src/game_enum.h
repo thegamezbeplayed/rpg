@@ -3,7 +3,7 @@
 
 #define BIT64(n) (1ULL << (n))
 
-#define SKILL_RANGE_WEAP (Cell){SKILL_WEAP_MACE, SKILL_WEAP_NONE}
+#define SKILL_RANGE_WEAP (Cell){SKILL_WEAP_MACE, SKILL_WOOD}
 
 typedef enum {
   MAG_NONE = -1,
@@ -95,6 +95,9 @@ typedef enum{
 typedef enum{
   VAL_NONE = -1,
   VAL_HIT,
+  VAL_DMG,
+  VAL_DMG_BONUS,
+  VAL_DMG_DIE,
   VAL_ADV_HIT,
   VAL_ADV_DMG,
   VAL_PENN,
@@ -186,6 +189,7 @@ typedef enum{
 }EntityState;
 
 typedef enum{
+  ENT_NONE = -1,
   ENT_PERSON,
   ENT_GOBLIN,
   ENT_ORC,
@@ -201,6 +205,10 @@ typedef enum{
   ENT_BEAR,
   ENT_WOLF,
   ENT_RAT,
+  ENT_SKELETON,
+  ENT_DEER,
+  ENT_KOBOLD,
+  ENT_BUGBEAR,
   ENT_DONE
 }EntityType;
 
@@ -248,15 +256,6 @@ typedef enum{
 }EnvTile;
 
 typedef enum{
-  SIZE_TINY,
-  SIZE_SMALL,
-  SIZE_MEDIUM,
-  SIZE_LARGE,
-  SIZE_HUGE,
-  SIZE_CAP
-}MonsterSize;
-
-typedef enum{
   MOB_HUMANOID,
   MOB_MONSTROUS,
   MOB_BEAST,
@@ -270,13 +269,15 @@ typedef enum{
 }MobCategory;
 
 typedef enum{
-  SPAWN_NONE,
-  SPAWN_PLAYER,
-  SPAWN_SOLO,
-  SPAWN_PACK,
-  SPAWN_SWARM,
-  SPAWN_DONE
-}SpawnType;
+  MT_NONE = -1,
+  MT_PREY,
+  MT_PRED,
+  MT_CRITTER,
+  MT_BUG,
+  MT_FACTION,
+  MT_LOCALS,
+  MT_DONE
+}MobType;
 
 typedef enum{
   GEAR_NONE = -1,
@@ -313,6 +314,7 @@ typedef enum{
   WEAP_SWORD,
   WEAP_AXE,
   WEAP_DAGGER,
+  WEAP_JAVELIN,
   WEAP_BOW,
   WEAP_CROSS_BOW,
   WEAP_POLE_ARM,
@@ -339,6 +341,14 @@ typedef enum{
   DANK_DUNGEON,
   MAP_DONE,
 }MapID;
+
+typedef enum{
+  BIO_NONE = -1,
+  BIO_CAVE,
+  BIO_DUNGEON,
+  BIO_FOREST,
+  BIO_DONE,
+}Biome;
 
 typedef enum{
   UI_SELECTOR_CHOSEN=1,
@@ -428,8 +438,34 @@ typedef enum{
 }StorageMethod;
 
 typedef enum{
+  CLASS_NONE  = -1,
+  CLASS_BASE_BARD   ,
+  CLASS_BASE_CLERIC ,
+  CLASS_BASE_DRUID  ,
+  CLASS_BASE_FIGHTER,
+  CLASS_BASE_MONK   ,
+  CLASS_BASE_RANGER ,
+  CLASS_BASE_ROGUE  ,
+  CLASS_BASE_LOCK   ,
+  CLASS_BASE_WIZ    ,
+  CLASS_BASE_BERZ    ,
+  CLASS_BASE_SHAMAN  ,
+  CLASS_BASE_DONE   ,
+  CLASS_SUB_CHAMP   ,
+  CLASS_SUB_ASSASSIN,
+  CLASS_SUB_SHOOTER ,
+  CLASS_SUB_HEX     ,
+  CLASS_SUB_SEER    ,
+  CLASS_SUB_WARLORD,
+  CLASS_SUB_BEAST,
+  CLASS_DONE
+}Archetype;
+
+
+typedef enum{
   ABILITY_NONE,
   ABILITY_PUNCH,
+  ABILITY_RAM,
   ABILITY_BITE,
   ABILITY_CHEW,
   ABILITY_GNAW,
@@ -570,6 +606,7 @@ typedef enum{
   SKILL_COBB,
   SKILL_COOK,
   SKILL_DECEPT,
+  SKILL_DUEL,
   SKILL_GLASS,
   SKILL_HIST,
   SKILL_HERB,
@@ -607,12 +644,15 @@ typedef enum{
   SKILL_WEAP_SIMP,
   SKILL_WEAP_MART,
   SKILL_WEAP_MACE,
+  SKILL_WEAP_SHOT,
   SKILL_WEAP_SWORD,
   SKILL_WEAP_AXE,
   SKILL_WEAP_DAGGER,
   SKILL_WEAP_BOW,
   SKILL_WEAP_PICK,
   SKILL_WEAP_STAFF,
+  SKILL_WEAP_SPEAR,
+  SKILL_WEAP_GREAT,
   SKILL_WEAP_NONE,
   SKILL_WOOD,
   SKILL_DONE

@@ -76,25 +76,25 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
   [ENV_FLOWERS]        = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
   [ENV_FLOWERS_THIN]   = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
   [ENV_FOREST_FIR]     = TILEFLAG_SOLID | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_GRASS]          = TILEFLAG_FLOOR | TILEFLAG_NATURAL,
-  [ENV_GRASS_SPARSE]   = TILEFLAG_FLOOR | TILEFLAG_NATURAL,
-  [ENV_GRASS_WILD]     = TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
-  [ENV_LEAVES]         = TILEFLAG_DECOR | TILEFLAG_NATURAL,
+  [ENV_GRASS]          = MAPFLAG_FOREST | TILEFLAG_FLOOR | TILEFLAG_NATURAL,
+  [ENV_GRASS_SPARSE]   = MAPFLAG_FOREST | TILEFLAG_FLOOR | TILEFLAG_NATURAL,
+  [ENV_GRASS_WILD]     = MAPFLAG_FOREST | TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
+  [ENV_LEAVES]         = MAPFLAG_FOREST | TILEFLAG_DECOR | TILEFLAG_NATURAL,
   [ENV_TREE_MAPLE]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
   [ENV_MEADOW]         = TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
-  [ENV_TREE_OLDGROWTH] = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_TREE_PINE]      = TILEFLAG_SOLID | TILEFLAG_WALL | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_ROAD]           = TILEFLAG_ROAD,
-  [ENV_ROAD_CROSS]     = TILEFLAG_ROAD,
-  [ENV_ROAD_FORK]      = TILEFLAG_ROAD,
-  [ENV_ROAD_TURN]      = TILEFLAG_ROAD,
+  [ENV_TREE_OLDGROWTH] = MAPFLAG_FOREST |TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_TREE_PINE]      = MAPFLAG_FOREST | TILEFLAG_SOLID | TILEFLAG_WALL | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_ROAD]           = MAPFLAG_FOREST | TILEFLAG_ROAD,
+  [ENV_ROAD_CROSS]     = MAPFLAG_FOREST | TILEFLAG_ROAD,
+  [ENV_ROAD_FORK]      = MAPFLAG_FOREST | TILEFLAG_ROAD,
+  [ENV_ROAD_TURN]      = MAPFLAG_FOREST | TILEFLAG_ROAD,
   [ENV_TREE_BIGLEAF]   = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
   [ENV_TREE_CEDAR]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
   [ENV_TREE_DEAD]      = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
   [ENV_TREE_DYING]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
   [ENV_TREE_FELLED]    = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_FOREST | TILEFLAG_NATURAL,  // updated
   [ENV_TREE_FIR]       = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_FOREST]         = TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_FOREST]         = MAPFLAG_FOREST | TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_NATURAL,
   [ENV_WEB]            = TILEFLAG_DECOR|MAPFLAG_FOREST|MAPFLAG_DUNGEON,
   [ENV_DIRT]            = TILEFLAG_FLOOR,
   [ENV_DIRT_PATCH]            = TILEFLAG_FLOOR,
@@ -210,13 +210,14 @@ typedef enum{
   MOB_LOC_DUNGEON       = BIT64(16),
   MOB_LOC_CAVE          = BIT64(17),
   MOB_LOC_FOREST        = BIT64(18),
-  MOB_LOC_ANY           = BIT64(19),
   MOB_LOC_MASK          = 0xFFULL << 16,
 
   MOB_THEME_CRITTER     = BIT64(24),
   MOB_THEME_PRIMITIVE   = BIT64(25),
   MOB_THEME_MARTIAL     = BIT64(26),
   MOB_THEME_CIVIL       = BIT64(27),
+  MOB_THEME_GAME        = BIT64(28),
+  MOB_THEME_PRED        = BIT64(29),
   MOB_THEME_MASK        = 0xFFULL << 24,
 
   MOB_FREQ_COMMON      = BIT64(32),
@@ -259,6 +260,25 @@ static const int dungeon_decor_count = sizeof(dungeon_decor)/sizeof(dungeon_deco
 typedef struct {
     Cell min, center, max;
 } cell_bounds_t;
+
+typedef struct {
+  Biome     id;
+  float     ratios[MT_DONE];
+  int       desired[MT_DONE];
+  int       current[MT_DONE];
+  int       total, sum;
+}biome_t;
+extern biome_t BIOME[BIO_DONE];
+
+static inline float BiomeDemand(biome_t* b, MobType mt){
+    if (b->desired[mt] <= 0)
+        return 0.0f;
+
+    float remaining = (float)(b->desired[mt] - b->current[mt]);
+    float ratio = remaining / (float)b->desired[mt];
+
+    return CLAMP(ratio, 0.0f, 1.0f);
+}
 
 typedef struct room_s room_t;
 typedef struct room_node_s room_node_t;
@@ -319,11 +339,7 @@ typedef enum {
   MN_ISSUES,
   MN_GRAPH,
   MN_FIX,
-  MAP_NODE_PLACE_ROOMS,
-  MAP_NODE_BUILD_GRAPH,
-  MAP_NODE_CONNECT_HALLS,
-  MAP_NODE_PLACE_SPAWNS,
-  MAP_NODE_DECORATE,
+  MN_ECO,
   MAP_NODE_DONE
 } MapNodeID;
 
@@ -359,8 +375,11 @@ struct room_node_s{
 
 typedef struct{
   MapID           id;
+  Biome           biome;
+  float           diff;
   TileFlags       map_flag;
-  int             density,min_rooms,min_mobs,max_rooms;
+  int             density,min_rooms,min_mobs;
+  TileFlags       opening_flag;
   spawn_rules_t   mobs;
   int             margin_error;
   room_gen_t      root;
@@ -377,6 +396,7 @@ typedef struct{
 typedef struct {
   GenStatus   status;
   map_gen_t   *map_rules;
+  biome_t     *eco;
   int         width, height, num_rooms;
   room_node_t *anchors[MAX_ANCHOR_NODES];
   int         num_bounds;
@@ -431,6 +451,7 @@ MapNodeResult MapCheckPaths(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapNodesToGrid(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapAlignNodes(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapBuildBiome(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapPlayerSpawn(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapFillWalls(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapGraphRooms(map_context_t *ctx, map_node_t *node);
@@ -463,6 +484,7 @@ map_node_t* MapCreateLeafNode(MapNodeFn fn, MapNodeID id);
 map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count);
 
 static inline map_node_t* LeafMapPlaceSpawns(MapNodeID id)  { return MapCreateLeafNode(MapPlaceSpawns,id); }
+static inline map_node_t* LeafMapBuildBiome(MapNodeID id)  { return MapCreateLeafNode(MapBuildBiome,id); }
 static inline map_node_t* LeafMapFillWalls(MapNodeID id)  { return MapCreateLeafNode(MapFillWalls,id); }
 static inline map_node_t* LeafMapPlayerSpawn(MapNodeID id)  { return MapCreateLeafNode(MapPlayerSpawn,id); }
 static inline map_node_t* LeafMapGraphNodes(MapNodeID id)  { return MapCreateLeafNode(MapGraphNodes,id); }

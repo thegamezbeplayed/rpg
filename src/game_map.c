@@ -17,6 +17,11 @@ static node_option_pool_t NODE_OPTIONS;
 static map_context_t world_map;
 static int GEN_SCALE = 16;
 
+static map_room_t* best_lair;
+static map_room_t* best_challenge;
+static map_room_t* best_room;
+static map_room_t* highest_room;
+
 static Color col[MAX_ANCHOR_NODES]={
   BLUE,
   PURPLE,
@@ -43,7 +48,7 @@ bool InitMap(void){
   map_context_t* ctx =&world_map;
   memset(ctx, 0, sizeof(*ctx));
   ctx->map_rules = malloc(sizeof(map_gen_t));
-  *ctx->map_rules = MAPS[DANK_DUNGEON];
+  *ctx->map_rules = MAPS[DARK_FOREST];
 
   mark_spr[markers++] = InitSpriteByID(ENV_WALL_DUNGEON, SHEET_ENV);
   mark_spr[markers++] = InitSpriteByID(ENV_DOOR_DUNGEON, SHEET_ENV);
@@ -63,7 +68,116 @@ bool InitMap(void){
        */
   }
 
+
   return gen;
+}
+
+map_room_t* InitMapRoom(map_context_t* ctx, room_t* r){
+  map_room_t *mr = calloc(1,sizeof(map_room_t));  
+ 
+  mr->purpose = r->flags & ROOM_PURPOSE_MASK; 
+  if(r->num_mobs > 0){
+    qsort(r->mobs, r->num_mobs, sizeof(ent_t*), CompareEntByCR);
+
+    mr->strongest = r->mobs[0];
+    mr->best_cr = mr->strongest->props->cr;
+    for(int i = 0; i < r->num_mobs; i++){
+      mr->mobs[mr->num_mobs++] = r->mobs[i];
+      mr->total_cr+=r->mobs[i]->props->cr;
+    }
+
+    mr->avg_cr = mr->total_cr/mr->num_mobs;
+  }
+  return mr;
+}
+
+void WorldMapLoaded(map_grid_t* m){
+  for(int i = 0; i < world_map.num_rooms; i++){
+    map_room_t* mr = InitMapRoom(&world_map,world_map.rooms[i]);
+    m->rooms[m->num_rooms++] = mr;
+
+    if(highest_room == NULL || highest_room->total_cr < mr->total_cr)
+      highest_room = mr;
+
+
+    if(best_room == NULL || best_room->best_cr < mr->best_cr)
+      best_room = mr;
+
+    if((mr->purpose & ROOM_PURPOSE_MASK) ==  ROOM_PURPOSE_CHALLENGE){
+      if(best_challenge == NULL || best_challenge->best_cr < mr->best_cr)
+        best_challenge = mr;
+    }
+    if((mr->purpose & ROOM_PURPOSE_MASK) ==  ROOM_PURPOSE_LAIR){
+      if(best_lair == NULL || best_lair->best_cr < mr->best_cr)
+        best_lair = mr;
+    }
+
+
+    if(mr->num_mobs < 3)
+      continue;
+
+    TraceLog(LOG_INFO,"===== ROOM DUMP ====\n Room %i has %i mobs\n Strongest - %s with %i  total %i avg %i",i, mr->num_mobs, mr->strongest->name, mr->best_cr, mr->total_cr,mr->avg_cr);
+
+  }
+  DO_NOTHING();
+}
+
+
+bool MapUpdateBiome(map_context_t* ctx, int count, mob_define_t* e){
+  MobRules theme = e->rules & MOB_THEME_MASK;
+  SpeciesType spec = e->race;
+
+  MobType mt  = MobTypeByFlags(theme, spec);
+
+  if(ctx->mob_pool->total <= ctx->mob_pool->count){
+
+  }
+  ctx->eco->current[mt]+= count;
+  ctx->eco->sum+=count;
+  choice_t* c = ChoiceById(ctx->mob_pool, e->id);
+  if(c && c->context){
+    int update = (int)((c->score + 
+        c->score * BiomeDemand(ctx->eco, mt))/2);
+
+
+    int diff = c->score - update;
+    ctx->mob_pool->total-=diff;
+    c->score = update;
+
+  }
+  return ctx->eco->current[mt] < ctx->eco->desired[mt];
+}
+
+MapNodeResult MapBuildBiome(map_context_t* ctx, map_node_t *node){
+  map_gen_t* gen = ctx->map_rules;
+  ctx->eco = &BIOME[gen->biome];
+  MobRules mob_rules = GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_LOC_MASK);
+  mob_define_t mob_pool[MOB_MAP_MAX];
+  int mobs = GetMobsByRules(mob_rules,mob_pool);
+
+  bool running = false;
+  ctx->mob_pool = StartChoice(&ctx->mob_pool, mobs, ChooseByWeightInBudget, &running);
+
+  ctx->eco->total = gen->min_mobs;
+  for (int i = 0; i < MT_DONE; i++){
+    int count = imax(1, ctx->eco->ratios[i] * gen->min_mobs);
+    ctx->eco->desired[i] = count;
+  }
+
+  if(!running){
+    for(int i = 0; i < mobs; i++){
+      mob_define_t* e = &mob_pool[i];
+      MobRules theme = e->rules & MOB_THEME_MASK;
+      SpeciesType spec = e->race;
+
+      MobType mt  = MobTypeByFlags(theme, spec);
+      int desired = ctx->eco->desired[mt];
+      int score = (int)((desired + mob_pool[i].weight[ctx->map_rules->id])/2);
+      AddPurchase(ctx->mob_pool, mob_pool[i].id, score, mob_pool[i].cost, &mob_pool[i], NULL);
+    }
+  }
+
+  return MAP_NODE_SUCCESS;
 }
 
 MapNodeResult MapGraphNodes(map_context_t *ctx, map_node_t *node){
@@ -339,7 +453,7 @@ Cell MapApplyContext(map_grid_t* m){
   m->width = world_map.width;
   m->height = world_map.height;
   Cell out = CELL_UNSET;
-  
+
   for(int x = 0; x < world_map.width; x++){
     m->tiles[x] = calloc(m->height, sizeof(map_cell_t));
     for(int y = 0; y < world_map.height; y++){
@@ -351,8 +465,8 @@ Cell MapApplyContext(map_grid_t* m){
   }
   for(int r = 0; r < world_map.num_rooms; r++)
     RoomSpawnMob(m, world_map.rooms[r]);
-  
-    if(!cell_compare(world_map.player_start,CELL_UNSET))
+
+  if(!cell_compare(world_map.player_start,CELL_UNSET))
     out = world_map.player_start;
 
   return out;
@@ -590,7 +704,9 @@ void MapSpawn(TileFlags flags, int x, int y){
 
   Cell pos = {x,y};
  
-  if(t != ENV_BORDER_DUNGEON) 
+  if(flags & TILEFLAG_BORDER)
+   return;
+
   RegisterEnv(InitEnv(t,pos));
 
 }
@@ -829,15 +945,15 @@ bool RoomCarveDoor(map_context_t *ctx, room_connection_t* conn){
 
   bool status = false;
   if(TileCellBlocksMovement(ctx, in_pos))
-    status = MapContextSetTile(in_pos, TILEFLAG_DOOR);
-  else if(TileCellHasFlag(ctx,in_pos, TILEFLAG_DOOR))
+    status = MapContextSetTile(in_pos, ctx->map_rules->opening_flag);
+  else if(TileCellHasFlag(ctx,in_pos, ctx->map_rules->opening_flag))
     status = true;
 
   if(!cell_compare(in_pos,out_pos)){
-    RoomFlags out_flag = status?TILEFLAG_EMPTY:TILEFLAG_DOOR;
+    RoomFlags out_flag = status?TILEFLAG_EMPTY:ctx->map_rules->opening_flag;
     if(TileCellBlocksMovement(ctx, out_pos))
       status = status || MapContextSetTile(out_pos, out_flag);
-    else if(TileCellHasFlag(ctx,out_pos, TILEFLAG_DOOR))
+    else if(TileCellHasFlag(ctx,out_pos, ctx->map_rules->opening_flag))
       status = true;
   }
   
@@ -1684,7 +1800,7 @@ void RoomCarveOpenings(map_context_t* ctx, room_t* r){
     Cell pos = r->openings[i]->pos;
     TileFlags opening = TILEFLAG_FLOOR;
     if(r->openings[i]->entrance)
-      opening = TILEFLAG_DOOR;
+      opening = ctx->map_rules->opening_flag;;
 
 
     bool opened = false;
@@ -1732,7 +1848,8 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
     return true;
 
   RoomFlags purpose = r->flags & ROOM_PURPOSE_MASK;
- 
+
+  float diff = ctx->map_rules->diff; 
   int num_spawns = 0; 
   if(purpose == ROOM_PURPOSE_START)
     return true;
@@ -1743,17 +1860,6 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   RoomFlags shape = r->flags & ROOM_SHAPE_MASK;
 
   MobRules mob_rules = GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_LOC_MASK);
-  mob_define_t mob_pool[MOB_MAP_MAX];
-  int mobs = GetMobsByRules(mob_rules,mob_pool);
-
-  bool running = false;
-  ctx->mob_pool = StartChoice(&ctx->mob_pool, mobs, ChooseByWeightInBudget, &running);
-
-  if(!running){
-    for(int i = 0; i < mobs; i++)
-      AddPurchase(ctx->mob_pool, mob_pool[i].id, mob_pool[i].weight, mob_pool[i].diff*10, &mob_pool[i], NULL);
-
-  }
 
  int importance = size>>10; 
 
@@ -1762,31 +1868,30 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   mob_rules |= theme;
   
   MobRules freq = GetMobRulesByMask(ctx->map_rules->mobs.rules, MOB_FREQ_MASK);
-  float diff = 0.5f;
-  int budget =2*( size>>11); 
+  int budget =( size>>12); 
 
   switch(purpose){
     case ROOM_PURPOSE_CHALLENGE:
       mob_rules |= MOB_SPAWN_CHALLENGE;
       freq+= MOB_FREQ_COMMON;
       importance +=40+(r->depth*10);
-      budget+=40+(r->depth*5);
-      diff+=0.5f;
+      budget+=4+(r->depth*5);
+      diff+=.375*r->depth;
       break;
     case ROOM_PURPOSE_LAIR:
       mob_rules |= MOB_SPAWN_LAIR;
       freq+= MOB_FREQ_COMMON;
       importance +=50;
-      budget+=50;
+      diff+=.5*r->depth;
       for(int d = 5; d<r->depth; d++){
         importance+=10;
-        budget+=7;
+        budget+=2;
         freq+=MOB_FREQ_COMMON/2;
       }
       break;
     case ROOM_PURPOSE_CONNECT:
       mob_rules |= MOB_SPAWN_PATROL;
-      budget+=10;
+      budget+=3;
       break;
     default:
       break;
@@ -1797,24 +1902,23 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
       mob_rules |= ( MOB_MOD_ENLARGE | MOB_SPAWN_CAMP );
       num_spawns++;
       importance+=20;
-      budget+=25;
-      diff+=0.25f;
+      budget+=2;
+      diff+=.05*r->depth;
       break;
     case ROOM_LAYOUT_HALL:
       num_spawns--;
-      budget-=5;
-      diff-=0.25f;
+      budget-=1;
       mob_rules &= ~MOB_SPAWN_LAIR;
       break;
     case ROOM_LAYOUT_MAZE:
       num_spawns++;
       importance+=10;
-      budget+=5;
+      budget+=3;
       mob_rules |= MOB_SPAWN_PATROL;
+      diff+=.05*r->depth;
       break;
     case ROOM_LAYOUT_ROOM:
-      budget+=5;
-      diff+=0.125f;
+      budget+=1;
       break;
     default:
       break;
@@ -1832,27 +1936,29 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
 
   if(num_spawns < 5)
     grouping &= ~MOB_GROUPING_CREW;
-  
+  /*
   if(num_spawns < 4)
     grouping &= ~MOB_GROUPING_PARTY;
 
   if(num_spawns < 2)
     grouping &= ~MOB_GROUPING_TROOP;
-
+*/
   int filtered = 0;
 
   for(int i = 3; i < r->depth; i++){
     freq+=(MOB_FREQ_COMMON/4);
-    diff+=0.05f;
   }
- 
-  budget+=num_spawns; 
 
+ /* 
   mob_define_t filtered_pool[mobs]; 
-  filtered = FilterMobsByRules(grouping,mob_pool,mobs,filtered_pool);
+  filtered = FilterMobsByRules(grouping,ctx->mob_pool,mobs,filtered_pool);
   filtered = FilterMobsByRules(theme,filtered_pool,filtered,mob_pool);
   filtered = FilterMobsInRules(freq,mob_pool,filtered,filtered_pool);
 
+ for(int i = 0; i < filtered; i++)
+    AddFilter(ctx->mob_pool, filtered_pool[i].id,  &filtered_pool[i]);
+*/
+ 
   mob_rules |= freq;
   mob_rules |= GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_MOD_MASK);
   mob_rules |= grouping;
@@ -1861,7 +1967,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   if(r->depth>4)
     mob_rules |= MOB_MOD_BEEF;
 
-  budget+=r->depth*4;
+  budget+=r->depth;
 
   importance+=filtered+num_spawns;
   importance-=(NUM_MOBS - MOB_MAP_MAX);
@@ -1870,30 +1976,44 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
     return false;
 
   num_spawns = CLAMP(num_spawns,0,MOB_ROOM_MAX);
-  for(int i = 0; i < filtered; i++)
-    AddFilter(ctx->mob_pool, filtered_pool[i].id,  &filtered_pool[i]);
-
-  ctx->mob_pool->budget = diff*10;
-  while(built < num_spawns){
+  
+  ctx->mob_pool->budget = budget;//diff*10;
+  int attempts = 0;
+  while(built < num_spawns && attempts < 3){
     choice_t* sel = ctx->mob_pool->choose(ctx->mob_pool);
-    mob_define_t *def = sel->context;
-    built += EntBuild(*def,mob_rules,r->mobs);
-    if(built>0)
+    if(sel == NULL)
+      continue;
+
+    mob_define_t def = MONSTER_MASH[sel->id];
+
+    built += EntBuild(def,mob_rules,r->mobs);
+    attempts++;
+    if(built>0){
+      MapUpdateBiome(ctx, built, &def);
       break;
+    }
+    else
+      DO_NOTHING();
   }
   r->num_mobs+=built;
   NUM_MOBS+=built;//r->num_mobs;
   
-  if(built>0)
+  if(built>0){
+
     TraceLog(LOG_INFO,"NUM MOBS %i",NUM_MOBS);
-  
+  }
   return (built>0);
 }
 
 MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node) {
-  while(NUM_MOBS<ctx->map_rules->min_mobs){
-  for (int r = 0; r < ctx->num_rooms; r++)
-    RoomPlaceSpawns(ctx, ctx->rooms[r]);
+  int attempts = 0;
+  while(NUM_MOBS<ctx->map_rules->min_mobs && attempts < MAX_ATTEMPTS){
+    for (int r = 0; r < ctx->num_rooms; r++){
+      if(!RoomPlaceSpawns(ctx, ctx->rooms[r]))
+        attempts++;
+    }
+    TraceLog(LOG_INFO, "====== Spawn Attempts %i =====\n", attempts);
+    //EndChoice(ctx->mob_pool,true);
   }
 
   return MAP_NODE_SUCCESS;

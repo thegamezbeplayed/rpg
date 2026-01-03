@@ -33,6 +33,12 @@
 #define PQ_SPECIAL_SHIFT  (PQ_LOCO_SHIFT + PQ_LOCO_BITS)
 #define PQ_SPECIAL_BITS   16
 
+#define SOC_W(w)        { (w), NULL }
+#define SOC_N(w, n)     { (w), (n) }
+
+#define MAX_PATHS 3
+#define MAX_RANKS 4
+
 typedef enum{
   SPEC_NONE       = BIT64(0),
   SPEC_HUMAN      = BIT64(1),
@@ -48,17 +54,51 @@ typedef enum{
   SPEC_VAMPIRIC   = BIT64(11),
   SPEC_CANIFORM   = BIT64(12),
   SPEC_RODENT     = BIT64(13),
+  SPEC_RUMINANT   = BIT64(14),
+  SPEC_SULKING    = BIT64(15),
 }SpeciesType;
+
+typedef struct{
+  uint64_t    body;
+  uint64_t    mind;
+  uint64_t    weaps;
+  uint64_t    covering;
+}mob_flags_t;
 
 typedef struct{
   EntityType  id;
   char        name[MAX_NAME_LEN];
   MobRules    rules;
   SpeciesType race;
-  int         weight;
+  int         weight[MAP_DONE];
+  int         cost;
   float       diff;
   SocietyType civ;
+  mob_flags_t flags;
+  int         promotions[CLASS_BASE_DONE];
 }mob_define_t;
+
+typedef struct{
+  MobType     type;
+  MobRules    m_rules;
+  SpeciesType s_rules;
+}define_mobtype_t;
+extern define_mobtype_t MOB_THEME[MT_DONE];
+
+static MobType MobTypeByFlags(MobRules m, SpeciesType s){
+  for (int i = 0; i < MT_DONE; i++){
+    if((MOB_THEME[i].m_rules & m) == 0)
+      continue;
+
+
+    if(MOB_THEME[i].s_rules > 0 && (MOB_THEME[i].s_rules & s) == 0)
+      continue;
+
+    return i;
+  }
+
+  return MT_NONE;
+}
 
 typedef enum {
   DMGTAG_NONE        = -1,
@@ -108,23 +148,23 @@ typedef struct{
 }damage_reduction_t;
 
 static int GetMatchingDamageTypes(uint32_t tags, DamageType* out, int max) {
-    int count = 0;
-    for (int type = 0; type < DMG_DONE && count < max; type++) {
-        if ((DamageTypeTags[type] & tags) == tags) {
-            out[count++] = type;
-        }
-        else
-          out[count++] = DMG_NONE;
+  int count = 0;
+  for (int type = 0; type < DMG_DONE && count < max; type++) {
+    if ((DamageTypeTags[type] & tags) == tags) {
+      out[count++] = type;
     }
-    return count;
+    else
+      out[count++] = DMG_NONE;
+  }
+  return count;
 }
 
 static DamageType GetDamageTypeFromTags(uint32_t tags) {
-    for (int type = 0; type < DMG_DONE; type++) {
-        if (DamageTypeTags[type] == tags)
-            return type;
-    }
-    return DMG_NONE;
+  for (int type = 0; type < DMG_DONE; type++) {
+    if (DamageTypeTags[type] == tags)
+      return type;
+  }
+  return DMG_NONE;
 }
 
 static inline bool DamageHasTag(DamageType t, DamageTag tag) {
@@ -140,15 +180,15 @@ static inline bool DamageIsMagic(DamageType t) {
 }
 
 static inline bool DamageIsElemental(DamageType t) {
-    return DamageHasTag(t, DMGTAG_ELEMENTAL);
+  return DamageHasTag(t, DMGTAG_ELEMENTAL);
 }
 
 static inline bool DamageIsRanged(DamageType t) {
-    return DamageHasTag(t, DMGTAG_RANGED);
+  return DamageHasTag(t, DMGTAG_RANGED);
 }
 
 static inline bool DamageIsMelee(DamageType t) {
-    return DamageHasTag(t, DMGTAG_MELEE);
+  return DamageHasTag(t, DMGTAG_MELEE);
 }
 
 typedef struct{
@@ -197,53 +237,54 @@ typedef struct{
 }skill_relation_t;
 
 typedef struct{
-  SkillRank   rank;
-  int         skill_thresh, penalty;
+  SkillRank     rank;
+  int           skill_thresh, penalty;
+  ModifierType  proficiency;
 }define_skill_rank_t;
 
 
 SkillRate SkillRateLookup(SkillType);
 typedef enum {
-    PQ_NONE = 0,
-   /* Size (16–23) */
-    PQ_TINY         = 1ULL << (PQ_SIZE_SHIFT + 0),
-    PQ_SMALL        = 1ULL << (PQ_SIZE_SHIFT + 1),
-    PQ_LARGE        = 1ULL << (PQ_SIZE_SHIFT + 2),
-    PQ_HUGE         = 1ULL << (PQ_SIZE_SHIFT + 3),
-    PQ_GIG          = 1ULL << (PQ_SIZE_SHIFT + 4),
+  PQ_NONE = 0,
+  /* Size (16–23) */
+  PQ_TINY         = 1ULL << (PQ_SIZE_SHIFT + 0),
+  PQ_SMALL        = 1ULL << (PQ_SIZE_SHIFT + 1),
+  PQ_LARGE        = 1ULL << (PQ_SIZE_SHIFT + 2),
+  PQ_HUGE         = 1ULL << (PQ_SIZE_SHIFT + 3),
+  PQ_GIG          = 1ULL << (PQ_SIZE_SHIFT + 4),
 
-    /* Shape / proportions (24–31) */
-    PQ_SHORT        = 1ULL << (PQ_SHAPE_SHIFT + 0),
-    PQ_TALL         = 1ULL << (PQ_SHAPE_SHIFT + 1),
-    PQ_LONG         = 1ULL << (PQ_SHAPE_SHIFT + 2),
-    PQ_WIDE         = 1ULL << (PQ_SHAPE_SHIFT + 3),
-    PQ_LONG_LIMB    = 1ULL << (PQ_SHAPE_SHIFT + 4),
-    PQ_SHORT_LIMB   = 1ULL << (PQ_SHAPE_SHIFT + 5),
+  /* Shape / proportions (24–31) */
+  PQ_SHORT        = 1ULL << (PQ_SHAPE_SHIFT + 0),
+  PQ_TALL         = 1ULL << (PQ_SHAPE_SHIFT + 1),
+  PQ_LONG         = 1ULL << (PQ_SHAPE_SHIFT + 2),
+  PQ_WIDE         = 1ULL << (PQ_SHAPE_SHIFT + 3),
+  PQ_LONG_LIMB    = 1ULL << (PQ_SHAPE_SHIFT + 4),
+  PQ_SHORT_LIMB   = 1ULL << (PQ_SHAPE_SHIFT + 5),
 
-    /* Weight / density (32–39) */
-    PQ_LIGHT        = 1ULL << (PQ_WEIGHT_SHIFT + 0),
-    PQ_HEAVY        = 1ULL << (PQ_WEIGHT_SHIFT + 1),
-    PQ_DENSE_MUSCLE = 1ULL << (PQ_WEIGHT_SHIFT + 2),
+  /* Weight / density (32–39) */
+  PQ_LIGHT        = 1ULL << (PQ_WEIGHT_SHIFT + 0),
+  PQ_HEAVY        = 1ULL << (PQ_WEIGHT_SHIFT + 1),
+  PQ_DENSE_MUSCLE = 1ULL << (PQ_WEIGHT_SHIFT + 2),
 
-    /* Locomotion (40–47) */
-    PQ_BIPED        = 1ULL << (PQ_LOCO_SHIFT + 0),
-    PQ_QUADPED      = 1ULL << (PQ_LOCO_SHIFT + 1),
-    PQ_OCTPED       = 1ULL << (PQ_LOCO_SHIFT + 2),
-    PQ_WINGED       = 1ULL << (PQ_LOCO_SHIFT + 3),
-    PQ_FINNED       = 1ULL << (PQ_LOCO_SHIFT + 4),
-    PQ_GILLED       = 1ULL << (PQ_LOCO_SHIFT + 5),
-    PQ_TAIL         = 1ULL << (PQ_LOCO_SHIFT + 6),
+  /* Locomotion (40–47) */
+  PQ_BIPED        = 1ULL << (PQ_LOCO_SHIFT + 0),
+  PQ_QUADPED      = 1ULL << (PQ_LOCO_SHIFT + 1),
+  PQ_OCTPED       = 1ULL << (PQ_LOCO_SHIFT + 2),
+  PQ_WINGED       = 1ULL << (PQ_LOCO_SHIFT + 3),
+  PQ_FINNED       = 1ULL << (PQ_LOCO_SHIFT + 4),
+  PQ_GILLED       = 1ULL << (PQ_LOCO_SHIFT + 5),
+  PQ_TAIL         = 1ULL << (PQ_LOCO_SHIFT + 6),
 
-    /* Special biology (48–63) */
-    PQ_ETHEREAL     = 1ULL << (PQ_SPECIAL_SHIFT + 0),
-    PQ_SHAPELESS    = 1ULL << (PQ_SPECIAL_SHIFT + 1),
-    PQ_SMALL_HEAD   = 1ULL << (PQ_SPECIAL_SHIFT + 2),
-    PQ_TINY_HEAD    = 1ULL << (PQ_SPECIAL_SHIFT + 3),
-    PQ_TWIN_HEADED  = 1ULL << (PQ_SPECIAL_SHIFT + 4),
-    PQ_TRI_HEADED   = 1ULL << (PQ_SPECIAL_SHIFT + 5),
-    PQ_MANY_HEADED  = 1ULL << (PQ_SPECIAL_SHIFT + 6),
-    PQ_LARGE_FEET   = 1ULL << (PQ_SPECIAL_SHIFT + 7),
-    PQ_LARGE_HANDS  = 1ULL << (PQ_SPECIAL_SHIFT + 8),
+  /* Special biology (48–63) */
+  PQ_ETHEREAL     = 1ULL << (PQ_SPECIAL_SHIFT + 0),
+  PQ_SHAPELESS    = 1ULL << (PQ_SPECIAL_SHIFT + 1),
+  PQ_SMALL_HEAD   = 1ULL << (PQ_SPECIAL_SHIFT + 2),
+  PQ_TINY_HEAD    = 1ULL << (PQ_SPECIAL_SHIFT + 3),
+  PQ_TWIN_HEADED  = 1ULL << (PQ_SPECIAL_SHIFT + 4),
+  PQ_TRI_HEADED   = 1ULL << (PQ_SPECIAL_SHIFT + 5),
+  PQ_MANY_HEADED  = 1ULL << (PQ_SPECIAL_SHIFT + 6),
+  PQ_LARGE_FEET   = 1ULL << (PQ_SPECIAL_SHIFT + 7),
+  PQ_LARGE_HANDS  = 1ULL << (PQ_SPECIAL_SHIFT + 8),
 } PhysQual;
 
 typedef enum {
@@ -252,18 +293,18 @@ typedef enum {
   /* Claws */
   PQ_CLAWS        = 1ULL << 0,
   PQ_SHARP_CLAWS  = 1ULL << 1,
-
+  PQ_TOUGH_CLAWS  = 1ULL << 2,
   /* Horns */
-  PQ_HORNED       = 1ULL << 2,
-  PQ_SHARP_HORNS  = 1ULL << 3,
-  PQ_TOUGH_HORNS  = 1ULL << 4,
+  PQ_HORNED       = 1ULL << 3,
+  PQ_SHARP_HORNS  = 1ULL << 4,
+  PQ_TOUGH_HORNS  = 1ULL << 5,
 
   /* Teeth / mouth */
-  PQ_TEETH        = 1ULL << 5,
-  PQ_SHARP_TEETH  = 1ULL << 6,
-  PQ_TOUGH_TEETH  = 1ULL << 7,
-  PQ_FANGS        = 1ULL << 8,
-  PQ_POISON_FANGS = 1ULL << 9,
+  PQ_TEETH        = 1ULL << 6,
+  PQ_SHARP_TEETH  = 1ULL << 7,
+  PQ_TOUGH_TEETH  = 1ULL << 8,
+  PQ_FANGS        = 1ULL << 9,
+  PQ_POISON_FANGS = 1ULL << 10,
   /* Future-safe */
   // PQ_MANDIBLES  = 1ULL << 9,
   // PQ_TENTACLES  = 1ULL << 10,
@@ -275,21 +316,24 @@ typedef enum {
   PB_NONE = 0,
 
   /* Soft coverings */
-  PQ_THICK_FUR     = 1ULL << 0,
-  PQ_THICK_SKIN    = 1ULL << 1,
-  PQ_THICK_FAT     = 1ULL << 2,
+  PQ_FUR           = 1ULL << 0,
+  PQ_THICK_FUR     = 1ULL << 1,
+  PQ_THICK_SKIN    = 1ULL << 2,
+  PQ_THICK_FAT     = 1ULL << 3,
 
   /* Hide / leather-like */
-  PQ_THICK_HIDE    = 1ULL << 3,
-  PQ_TOUGH_HIDE    = 1ULL << 4,
+  PQ_HIDE          = 1ULL << 4,
+  PQ_THICK_HIDE    = 1ULL << 5,
+  PQ_TOUGH_HIDE    = 1ULL << 6,
 
   /* Scales / plates */
-  PQ_THICK_SCALES  = 1ULL << 5,
-  PQ_TOUGH_SCALES  = 1ULL << 6,
+  PQ_SCALES        = 1ULL << 7,
+  PQ_THICK_SCALES  = 1ULL << 8,
+  PQ_TOUGH_SCALES  = 1ULL << 9,
 
   /* Exotic */
-  PQ_STONE_SKIN    = 1ULL << 7,
-  PQ_METALLIC     = 1ULL << 8,
+  PQ_STONE_SKIN    = 1ULL << 10,
+  PQ_METALLIC     = 1ULL << 11,
 
   /* Future-safe */
   // PQ_CHITINOUS   = 1ULL << 9,
@@ -298,112 +342,112 @@ typedef enum {
 } PhysBody;
 
 typedef enum {
-    MQ_NONE            = 0,
+  MQ_NONE            = 0,
 
-    // Mind presence (0–3)
-    MQ_ABSENT          = 1ULL << 0,   // no mind (ooze, undead)
-    MQ_SIMPLE          = 1ULL << 1,   // basic instincts
-    MQ_OBLIVIOUS       = 1ULL << 2,   // unaware / easily confused
-    MQ_SENTIENT        = 1ULL << 3,   // understands tools / problem solving
+  // Mind presence (0–3)
+  MQ_ABSENT          = 1ULL << 0,   // no mind (ooze, undead)
+  MQ_SIMPLE          = 1ULL << 1,   // basic instincts
+  MQ_OBLIVIOUS       = 1ULL << 2,   // unaware / easily confused
+  MQ_SENTIENT        = 1ULL << 3,   // understands tools / problem solving
 
-    // Core temperament (4–11)
-    MQ_AGGRESSIVE      = 1ULL << 4,
-    MQ_TERRITORIAL     = 1ULL << 5,
-    MQ_ALERT           = 1ULL << 6,
-    MQ_CAUTIOUS        = 1ULL << 7,
-    MQ_ANXIOUS         = 1ULL << 8,
-    MQ_FEARLESS        = 1ULL << 9,
-    MQ_DETERMINED      = 1ULL << 10,
-    MQ_PATIENT         = 1ULL << 11,
+  // Core temperament (4–11)
+  MQ_AGGRESSIVE      = 1ULL << 4,
+  MQ_TERRITORIAL     = 1ULL << 5,
+  MQ_ALERT           = 1ULL << 6,
+  MQ_CAUTIOUS        = 1ULL << 7,
+  MQ_ANXIOUS         = 1ULL << 8,
+  MQ_FEARLESS        = 1ULL << 9,
+  MQ_DETERMINED      = 1ULL << 10,
+  MQ_PATIENT         = 1ULL << 11,
 
-    // Cognitive strength (12–15)
-    MQ_CUNNING         = 1ULL << 12,
-    MQ_STRATEGIC       = 1ULL << 13,
-    MQ_RESOLUTE        = 1ULL << 14,
-    MQ_UNREADABLE      = 1ULL << 15, // emotionless or inscrutable
+  // Cognitive strength (12–15)
+  MQ_CUNNING         = 1ULL << 12,
+  MQ_STRATEGIC       = 1ULL << 13,
+  MQ_RESOLUTE        = 1ULL << 14,
+  MQ_UNREADABLE      = 1ULL << 15, // emotionless or inscrutable
 
-    // Social behavior (16–19)
-    MQ_HIVE_MIND       = 1ULL << 16,
-    MQ_OBEDIENT        = 1ULL << 17,
-    MQ_LEADER          = 1ULL << 18,
-    MQ_PROTECTIVE      = 1ULL << 19, // already present, but good here
-    // (we can remove duplicate above if desired)
+  // Social behavior (16–19)
+  MQ_HIVE_MIND       = 1ULL << 16,
+  MQ_OBEDIENT        = 1ULL << 17,
+  MQ_LEADER          = 1ULL << 18,
+  MQ_PROTECTIVE      = 1ULL << 19, // already present, but good here
+                                   // (we can remove duplicate above if desired)
 
-    // Perceptive aptitude (20–22)
-    MQ_PERCEPTIVE      = 1ULL << 20,
-    MQ_AWARE           = 1ULL << 21,
+                                   // Perceptive aptitude (20–22)
+  MQ_PERCEPTIVE      = 1ULL << 20,
+  MQ_AWARE           = 1ULL << 21,
 
-    // Supernatural mind (23–24)
-    MQ_EMPATH          = 1ULL << 23,
-    MQ_TELEPATH        = 1ULL << 24,
-    MQ_DISCIPLINED     = 1ULL << 25,
-    MQ_CALCULATING     = 1ULL << 26,
-    MQ_ATTUNED         = 1ULL << 27,
+  // Supernatural mind (23–24)
+  MQ_EMPATH          = 1ULL << 23,
+  MQ_TELEPATH        = 1ULL << 24,
+  MQ_DISCIPLINED     = 1ULL << 25,
+  MQ_CALCULATING     = 1ULL << 26,
+  MQ_ATTUNED         = 1ULL << 27,
 } MentalQual;
 
 typedef struct {
-    bool      pq;   // phys traits that apply
-    bool      mq;  // mental traits that apply
-    AsiEvent  event;
+  bool      pq;   // phys traits that apply
+  bool      mq;  // mental traits that apply
+  AsiEvent  event;
 } asi_bonus_t;
 
 typedef enum {
-    FEAT_NONE               = 0,
+  FEAT_NONE               = 0,
 
-    // --- Combat Offense ---
-    FEAT_POWER_ATTACK       = 1ULL << 0,   // stronger melee swings
-    FEAT_PRECISE_ATTACK     = 1ULL << 1,   // accuracy / reduced penalties
-    FEAT_CRITICAL_FOCUS     = 1ULL << 2,   // better crit chance or crit effects
-    FEAT_WEAPON_MASTERY     = 1ULL << 3,   // proficiency or rerolls with chosen weapon
-    FEAT_DUAL_WIELDER       = 1ULL << 4,   // effective two-weapon fighting
+  // --- Combat Offense ---
+  FEAT_POWER_ATTACK       = 1ULL << 0,   // stronger melee swings
+  FEAT_PRECISE_ATTACK     = 1ULL << 1,   // accuracy / reduced penalties
+  FEAT_CRITICAL_FOCUS     = 1ULL << 2,   // better crit chance or crit effects
+  FEAT_WEAPON_MASTERY     = 1ULL << 3,   // proficiency or rerolls with chosen weapon
+  FEAT_DUAL_WIELDER       = 1ULL << 4,   // effective two-weapon fighting
 
-    // --- Combat Defense ---
-    FEAT_TOUGHNESS          = 1ULL << 5,   // extra HP / durability
-    FEAT_DODGE              = 1ULL << 6,   // improved AC vs one target / evasion
-    FEAT_SHIELD_TRAINING    = 1ULL << 7,   // shield proficiency or better use
-    FEAT_HEAVY_ARMOR_TRAIN  = 1ULL << 8,   // heavy armor proficiency
-    FEAT_RESISTANT          = 1ULL << 9,   // generic damage type resistance
+  // --- Combat Defense ---
+  FEAT_TOUGHNESS          = 1ULL << 5,   // extra HP / durability
+  FEAT_DODGE              = 1ULL << 6,   // improved AC vs one target / evasion
+  FEAT_SHIELD_TRAINING    = 1ULL << 7,   // shield proficiency or better use
+  FEAT_HEAVY_ARMOR_TRAIN  = 1ULL << 8,   // heavy armor proficiency
+  FEAT_RESISTANT          = 1ULL << 9,   // generic damage type resistance
 
-    // --- Mobility ---
-    FEAT_FLEETFOOT          = 1ULL << 10,  // increased speed
-    FEAT_ACROBAT            = 1ULL << 11,  // better jumps / dex checks / climbing
-    FEAT_MOBILE_COMBATANT   = 1ULL << 12,  // hit-and-run / avoid opportunity attacks
+  // --- Mobility ---
+  FEAT_FLEETFOOT          = 1ULL << 10,  // increased speed
+  FEAT_ACROBAT            = 1ULL << 11,  // better jumps / dex checks / climbing
+  FEAT_MOBILE_COMBATANT   = 1ULL << 12,  // hit-and-run / avoid opportunity attacks
 
-    // --- Magic ---
-    FEAT_SPELL_FOCUS        = 1ULL << 13,  // increased spell accuracy or DC
-    FEAT_RITUAL_CASTER      = 1ULL << 14,  // perform rituals / utility casting
-    FEAT_CONCENTRATION      = 1ULL << 15,  // maintain spells better
-    FEAT_ARCANE_ADEPT       = 1ULL << 16,  // general magical aptitude
+  // --- Magic ---
+  FEAT_SPELL_FOCUS        = 1ULL << 13,  // increased spell accuracy or DC
+  FEAT_RITUAL_CASTER      = 1ULL << 14,  // perform rituals / utility casting
+  FEAT_CONCENTRATION      = 1ULL << 15,  // maintain spells better
+  FEAT_ARCANE_ADEPT       = 1ULL << 16,  // general magical aptitude
 
-    // --- Skills & Utility ---
-    FEAT_STEALTHY           = 1ULL << 17,  // improved stealth / hiding
-    FEAT_ALERT              = 1ULL << 18,  // initiative & perception bonuses
-    FEAT_SKILLED            = 1ULL << 19,  // +skills / extra proficiencies
-    FEAT_SURVIVALIST        = 1ULL << 20,  // tracking / foraging / nature skills
-    FEAT_SILVER_TONGUE      = 1ULL << 21,  // persuasion / deception abilities
+  // --- Skills & Utility ---
+  FEAT_STEALTHY           = 1ULL << 17,  // improved stealth / hiding
+  FEAT_ALERT              = 1ULL << 18,  // initiative & perception bonuses
+  FEAT_SKILLED            = 1ULL << 19,  // +skills / extra proficiencies
+  FEAT_SURVIVALIST        = 1ULL << 20,  // tracking / foraging / nature skills
+  FEAT_SILVER_TONGUE      = 1ULL << 21,  // persuasion / deception abilities
 
-    // --- Mental & Willpower ---
-    FEAT_IRON_WILL          = 1ULL << 22,  // resist fear, charm, domination
-    FEAT_FOCUSED_MIND       = 1ULL << 23,  // concentration & mental saves
+  // --- Mental & Willpower ---
+  FEAT_IRON_WILL          = 1ULL << 22,  // resist fear, charm, domination
+  FEAT_FOCUSED_MIND       = 1ULL << 23,  // concentration & mental saves
 
-    // --- Special Actions ---
-    FEAT_REACTION_TRAINING  = 1ULL << 24,  // extra or improved reactions
-    FEAT_GRAPPLER           = 1ULL << 25,  // improved grappling ability
-    FEAT_TACTICIAN          = 1ULL << 26,  // battlefield positioning help
-    FEAT_ENDURANCE          = 1ULL << 27,  // exhaustion resistance / stamina
+  // --- Special Actions ---
+  FEAT_REACTION_TRAINING  = 1ULL << 24,  // extra or improved reactions
+  FEAT_GRAPPLER           = 1ULL << 25,  // improved grappling ability
+  FEAT_TACTICIAN          = 1ULL << 26,  // battlefield positioning help
+  FEAT_ENDURANCE          = 1ULL << 27,  // exhaustion resistance / stamina
 
-    FEAT_ATHLETICS          = 1ULL << 28,
-    FEAT_LUCKY              = 1ULL << 29,
-    FEAT_CRUSHER            = 1ULL << 30,
-    FEAT_SLASHER            = 1ULL << 31,
-    FEAT_HEALER             = 1ULL << 32,
-    FEAT_SKULKER            = 1ULL << 33,
-    FEAT_SENTINEL           = 1ULL << 34,
-    FEAT_SNIPER             = 1ULL << 35,
-    FEAT_PIERCER            = 1ULL << 36,
-    FEAT_POISONER           = 1ULL << 37,
-    FEAT_BRAWLER            = 1ULL << 38,
-    FEAT_DURABLE            = 1ULL << 39,
+  FEAT_ATHLETICS          = 1ULL << 28,
+  FEAT_LUCKY              = 1ULL << 29,
+  FEAT_CRUSHER            = 1ULL << 30,
+  FEAT_SLASHER            = 1ULL << 31,
+  FEAT_HEALER             = 1ULL << 32,
+  FEAT_SKULKER            = 1ULL << 33,
+  FEAT_SENTINEL           = 1ULL << 34,
+  FEAT_SNIPER             = 1ULL << 35,
+  FEAT_PIERCER            = 1ULL << 36,
+  FEAT_POISONER           = 1ULL << 37,
+  FEAT_BRAWLER            = 1ULL << 38,
+  FEAT_DURABLE            = 1ULL << 39,
 } FeatFlags;
 typedef uint64_t PhysQs;
 typedef uint64_t MentalQs;
@@ -443,7 +487,7 @@ typedef enum{
       BIT64(16) |
       BIT64(17) |
       BIT64(18)
-  ),
+      ),
 
 
   /* -------------------------------------------------- */
@@ -466,7 +510,7 @@ typedef enum{
       BIT64(27) | BIT64(28) | BIT64(29) |
       BIT64(30) | BIT64(31) | BIT64(32) |
       BIT64(33) | BIT64(34)
-  ),
+      ),
 
 
   /* -------------------------------------------------- */
@@ -484,7 +528,7 @@ typedef enum{
       BIT64(42) |
       BIT64(43) |
       BIT64(44)
-  ),
+      ),
 
 
   /* -------------------------------------------------- */
@@ -504,7 +548,7 @@ typedef enum{
   TRAIT_ADV_MASK = (
       BIT64(56) |
       BIT64(57)
-  )
+      )
 }Trait;
 
 typedef struct{
@@ -520,6 +564,7 @@ typedef struct{
   FeatFlags     feats;
   int           num_abilities;
   AbilityID     abilities[4];
+  int           skillup[SKILL_DONE];
 }natural_weapons_t;
 
 typedef struct{
@@ -527,6 +572,7 @@ typedef struct{
   Traits        traits;
   FeatFlags     feats;
   AbilityID     abilities[4];
+  int           skillup[SKILL_DONE];
 }body_covering_t;
 
 typedef struct{
@@ -546,20 +592,50 @@ static const ment_qualities_t MIND[25] = {
 
 };
 
-static const natural_weapons_t NAT_WEAPS[16] = {
-  {PQ_TEETH, .num_abilities = 1, .abilities = ABILITY_BITE},
-  {PQ_TOUGH_TEETH, .num_abilities = 0, .abilities = ABILITY_CHEW},
+static const natural_weapons_t NAT_WEAPS[17] = {
+  {PQ_TEETH, .num_abilities = 1, .abilities = ABILITY_BITE,
+    .skillup = {
+      [SKILL_WEAP_NONE] = 350
+    }
+  },
+  {PQ_SHARP_TEETH, .num_abilities = 1, .abilities = ABILITY_BITE,
+    .skillup = {
+      [SKILL_WEAP_NONE] = 800
+    }
+  },
+  
+  {PQ_TOUGH_TEETH, .num_abilities = 0, .abilities = ABILITY_CHEW,
+   .skillup = {
+      [SKILL_WEAP_NONE] = 800
+    }
+  },
+  {PQ_HORNED, .num_abilities = 1, .abilities = ABILITY_RAM,
+    .skillup = {[SKILL_WEAP_NONE] = 350}
+  },
+  {PQ_CLAWS, .skillup = {[SKILL_WEAP_NONE] = 350}},
+  {PQ_TOUGH_CLAWS, .num_abilities = 1, .abilities = ABILITY_SWIPE,
+    .skillup = {[SKILL_WEAP_NONE] = 400}},
+  {PQ_SHARP_CLAWS, .skillup = {[SKILL_WEAP_NONE]=800}},
+  {PQ_FANGS, .skillup = {[SKILL_WEAP_NONE] = 350}},
+  {PQ_POISON_FANGS, .num_abilities = 1, .abilities = ABILITY_BITE_POISON,
+    .skillup = {[SKILL_WEAP_NONE] = 350}},
+
 };
 
 static const body_covering_t COVERINGS[35] = {
+  {PQ_FUR, .skillup = {[SKILL_ARMOR_NATURAL] = 800}},
   {PQ_THICK_FUR, TRAIT_SLASH_RESIST | TRAIT_COLD_RESIST,
     .abilities = ABILITY_ARMOR_DR
   },
+  {PQ_HIDE, .skillup = {[SKILL_ARMOR_NATURAL] = 800}},
   {PQ_THICK_HIDE, TRAIT_FIRE_RESIST | TRAIT_COLD_RESIST | TRAIT_PHYS_RESIST,
-    .abilities = ABILITY_ARMOR_DR
+    .abilities = ABILITY_ARMOR_DR,
+    .skillup = {[SKILL_ARMOR_NATURAL] = 800}
   },
+  {PQ_SCALES, .skillup = {[SKILL_ARMOR_NATURAL] = 800}},
   {PQ_THICK_SCALES, TRAIT_PHYS_RESIST | TRAIT_FIRE_RESIST | TRAIT_ACID_RESIST,
-    .abilities = ABILITY_ARMOR_DR
+    .abilities = ABILITY_ARMOR_DR,
+    .skillup = {[SKILL_ARMOR_NATURAL] = 800}
   },
   {PQ_THICK_SKIN, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST | TRAIT_FIRE_RESIST | TRAIT_POISON_RESIST,
     .abilities = ABILITY_ARMOR_DR
@@ -879,82 +955,82 @@ static uint64_t GetTraits(uint64_t in, uint64_t mask){
   return (in & mask);
 }   
 static inline int trait_index(uint64_t trait, uint64_t mask_shift) {
-    return __builtin_ctzll(trait) -  __builtin_ctzll(mask_shift);
+  return __builtin_ctzll(trait) -  __builtin_ctzll(mask_shift);
 }
 
 typedef uint64_t RaceProps;
 
 typedef enum{
- RACE_USE_TOOLS     = BIT64(0),
- RACE_USE_WEAPS     = BIT64(1),
- RACE_USE_ARMOR     = BIT64(2),
- RACE_USE_POTIONS   = BIT64(3),
- RACE_USE_SCROLLS   = BIT64(4),
+  RACE_USE_TOOLS     = BIT64(0),
+  RACE_USE_WEAPS     = BIT64(1),
+  RACE_USE_ARMOR     = BIT64(2),
+  RACE_USE_POTIONS   = BIT64(3),
+  RACE_USE_SCROLLS   = BIT64(4),
 
- RACE_USE_MASK       = 0xFFULL,
+  RACE_USE_MASK       = 0xFFULL,
 
- RACE_ARMOR_CRUDE     = BIT64(8),
- RACE_ARMOR_SIMPLE    = BIT64(9),
- RACE_ARMOR_ARTISAN   = BIT64(10),
- RACE_ARMOR_LIGHT     = BIT64(11),
- RACE_ARMOR_MEDIUM    = BIT64(12),
- RACE_ARMOR_HEAVY     = BIT64(13),
- RACE_ARMOR_FORGED    = BIT64(14),
- RACE_ARMOR_MAGIC     = BIT64(15),
+  RACE_ARMOR_CRUDE     = BIT64(8),
+  RACE_ARMOR_SIMPLE    = BIT64(9),
+  RACE_ARMOR_ARTISAN   = BIT64(10),
+  RACE_ARMOR_LIGHT     = BIT64(11),
+  RACE_ARMOR_MEDIUM    = BIT64(12),
+  RACE_ARMOR_HEAVY     = BIT64(13),
+  RACE_ARMOR_FORGED    = BIT64(14),
+  RACE_ARMOR_MAGIC     = BIT64(15),
 
- RACE_ARMOR_MASK      = 0xFFULL << 8,
+  RACE_ARMOR_MASK      = 0xFFULL << 8,
 
- RACE_ARMS_CRUDE     = BIT64(16),
- RACE_ARMS_SIMPLE    = BIT64(17),
- RACE_ARMS_ARTISAN   = BIT64(18),
- RACE_ARMS_LIGHT     = BIT64(19),
- RACE_ARMS_HEAVY     = BIT64(20),
- RACE_ARMS_FORGED    = BIT64(21),
- RACE_ARMS_MAGIC     = BIT64(22),
- RACE_ARMS_SKILLED   = BIT64(23),
- RACE_ARMS_MASK      = 0xFFULL << 16,
+  RACE_ARMS_CRUDE     = BIT64(16),
+  RACE_ARMS_SIMPLE    = BIT64(17),
+  RACE_ARMS_ARTISAN   = BIT64(18),
+  RACE_ARMS_LIGHT     = BIT64(19),
+  RACE_ARMS_HEAVY     = BIT64(20),
+  RACE_ARMS_FORGED    = BIT64(21),
+  RACE_ARMS_MAGIC     = BIT64(22),
+  RACE_ARMS_SKILLED   = BIT64(23),
+  RACE_ARMS_MASK      = 0xFFULL << 16,
 
- RACE_SIZE_SMALL     = BIT64(24),
- RACE_SIZE_BIG       = BIT64(25),
- RACE_SIZE_GIANT     = BIT64(26),
- RACE_SIZE_MASK      = 0xFFULL << 24,
- 
- RACE_TACTICS_CRUDE   = BIT64(32),
- RACE_TACTICS_SIMPLE  = BIT64(33),
- RACE_TACTICS_MARTIAL = BIT64(34),
- RACE_TACTICS_RANKS   = BIT64(35),
- RACE_TACTICS_ARCANA  = BIT64(36),
- RACE_TACTICS_MYSTIC  = BIT64(37),
+  RACE_SIZE_SMALL     = BIT64(24),
+  RACE_SIZE_BIG       = BIT64(25),
+  RACE_SIZE_GIANT     = BIT64(26),
+  RACE_SIZE_MASK      = 0xFFULL << 24,
 
- RACE_TACTICS_MASK    = 0xFFULL << 32,
+  RACE_TACTICS_CRUDE   = BIT64(32),
+  RACE_TACTICS_SIMPLE  = BIT64(33),
+  RACE_TACTICS_MARTIAL = BIT64(34),
+  RACE_TACTICS_RANKS   = BIT64(35),
+  RACE_TACTICS_ARCANA  = BIT64(36),
+  RACE_TACTICS_MYSTIC  = BIT64(37),
 
- RACE_DIFF_LVL        = BIT64(40),
- RACE_DIFF_SKILL      = BIT64(41),
- RACE_DIFF_GEAR       = BIT64(42),
- RACE_DIFF_SPELLS     = BIT64(43),
- RACE_DIFF_PETS       = BIT64(44),
- RACE_DIFF_ALPHA      = BIT64(45),
- RACE_DIFF_STRAT      = BIT64(46),
+  RACE_TACTICS_MASK    = 0xFFULL << 32,
 
- RACE_DIFF_MASK       = 0xFFULL << 40,
+  RACE_DIFF_LVL        = BIT64(40),
+  RACE_DIFF_SKILL      = BIT64(41),
+  RACE_DIFF_GEAR       = BIT64(42),
+  RACE_DIFF_SPELLS     = BIT64(43),
+  RACE_DIFF_PETS       = BIT64(44),
+  RACE_DIFF_ALPHA      = BIT64(45),
+  RACE_DIFF_STRAT      = BIT64(46),
 
- RACE_SPECIAL_POTIONS = BIT64(48),
- RACE_SPECIAL_TRAPS   = BIT64(49),
- RACE_SPECIAL_SCROLLS = BIT64(50),
- RACE_SPECIAL_FOCI    = BIT64(51),
- RACE_SPECIAL_WARDS   = BIT64(52),
- RACE_SPECIAL_RUNES   = BIT64(53),
- RACE_SPECIAL_BUILD   = BIT64(54),
- RACE_SPECIAL_MASK    = 0xFFULL << 48,
+  RACE_DIFF_MASK       = 0xFFULL << 40,
 
- RACE_BUILD_CRUDE     = BIT64(56),
- RACE_BUILD_SIMPLE    = BIT64(57),
- RACE_BUILD_BASIC     = BIT64(58),
- RACE_BUILD_FORGE     = BIT64(59),
- RACE_BUILD_SOPH      = BIT64(60),
- RACE_BUILD_KEEP      = BIT64(61),
+  RACE_SPECIAL_POTIONS = BIT64(48),
+  RACE_SPECIAL_TRAPS   = BIT64(49),
+  RACE_SPECIAL_SCROLLS = BIT64(50),
+  RACE_SPECIAL_FOCI    = BIT64(51),
+  RACE_SPECIAL_WARDS   = BIT64(52),
+  RACE_SPECIAL_RUNES   = BIT64(53),
+  RACE_SPECIAL_BUILD   = BIT64(54),
+  RACE_SPECIAL_MASK    = 0xFFULL << 48,
 
- RACE_BUILD_MASK      = 0xFFULL << 56,
+  RACE_BUILD_CRUDE     = BIT64(56),
+  RACE_BUILD_SIMPLE    = BIT64(57),
+  RACE_BUILD_BASIC     = BIT64(58),
+  RACE_BUILD_FORGE     = BIT64(59),
+  RACE_BUILD_SOPH      = BIT64(60),
+  RACE_BUILD_KEEP      = BIT64(61),
+
+  RACE_BUILD_MASK      = 0xFFULL << 56,
 }RaceProp;
 
 typedef enum{
@@ -997,124 +1073,317 @@ typedef enum{
 }Profession;
 
 typedef struct{
-  Profession    id;
-  int           social_weights[SOC_DONE];
-  const char*   social_name[SOC_DONE];
-  uint64_t      rules;
-  float         attributes[ATTR_DONE];
-  int           skills[SKILL_DONE];
+  int         weight;
+  const char* name;
+}define_social_t;
+typedef struct{
+  Profession      id;
+  define_social_t soc[SOC_DONE];
+  uint64_t        rules;
+  float           attributes[ATTR_DONE];
+  int             skills[SKILL_DONE];
 }define_prof_t;
 
 static const define_prof_t DEFINE_PROF[PROF_END]= {
-  [PROF_NONE]     = {PROF_NONE, 
-    {[SOC_NONE]=100,[SOC_PRIMITIVE]=5,[SOC_CIVIL]=10,[SOC_HIGH]=12}
-  },       
-  [PROF_SOLDIER] = { PROF_SOLDIER,
-    {[SOC_PRIMITIVE]=24, [SOC_MARTIAL]=40,[SOC_CIVIL]=15, [SOC_HIGH]=14},
-    {"Soldier","Soldier","Soldier","Soldier"},
-    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    .skills = {[SKILL_SURV] = 400, [SKILL_ATH]=400, [SKILL_WEAP_MART]=600,
-    },
+  [PROF_NONE] = {
+    PROF_NONE,
+    {
+      [SOC_NONE]      = SOC_W(100),
+      [SOC_PRIMITIVE] = SOC_W(5),
+      [SOC_CIVIL]     = SOC_W(10),
+      [SOC_HIGH]      = SOC_W(12),
+    }
   },
-  [PROF_ARCHER] = { PROF_ARCHER,
-    {[SOC_PRIMITIVE]=17, [SOC_MARTIAL]=27,[SOC_CIVIL]=17, [SOC_HIGH]=20},
-    {"Archer","Archer","Archer","Archer"},
-    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    .skills = {[SKILL_PERCEPT]=600, [SKILL_ACRO] = 600, [SKILL_WEAP_BOW] = 600
-    },
 
-  },
-  [PROF_MAGICIAN] = { PROF_MAGICIAN,
-    {[SOC_PRIMITIVE]=0, [SOC_MARTIAL]=17,[SOC_CIVIL]=17, [SOC_HIGH]=20},
-    {"Magician","Magician","Magician","Magician"},
-    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    .skills = {[SKILL_ARCANA] = 1200, [SKILL_INSIGHT]=600
+  [PROF_SOLDIER] = {
+    PROF_SOLDIER,
+    {
+      [SOC_PRIMITIVE] = SOC_N(24,"Soldier"),
+      [SOC_MARTIAL]   = SOC_N(40,"Soldier"),
+      [SOC_CIVIL]     = SOC_N(15,"Soldier"),
+      [SOC_HIGH]      = SOC_N(14,"Soldier"),
     },
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
+    {},
+    {
+      [SKILL_SURV]      = 400,
+      [SKILL_ATH]       = 400,
+      [SKILL_WEAP_MART] = 600,
+    }
+  },
 
-  },
-  [PROF_MYSTIC] = { PROF_MYSTIC,
-    {[SOC_PRIMITIVE]=20, [SOC_MARTIAL]=14,[SOC_CIVIL]=17, [SOC_HIGH]=17},
-    {"Mystic","Mystic","Mystic","Mystic"},
-    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    .skills = {[SKILL_NATURE]=600, [SKILL_HERB] = 800,[SKILL_ANIM] = 800, [SKILL_MED] = 600, [SKILL_RELIG]=400
+  [PROF_ARCHER] = {
+    PROF_ARCHER,
+    {
+      [SOC_PRIMITIVE] = SOC_N(17,"Archer"),
+      [SOC_MARTIAL]   = SOC_N(27,"Archer"),
+      [SOC_CIVIL]     = SOC_N(17,"Archer"),
+      [SOC_HIGH]      = SOC_N(20,"Archer"),
     },
-  },
-  [PROF_HEALER] = { PROF_HEALER,
-    {[SOC_PRIMITIVE]=9, [SOC_MARTIAL]=12,[SOC_CIVIL]=20, [SOC_HIGH]=21},
-    {"Healer","Healer","Healer","Healer"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    .skills = {[SKILL_RELIG]=1000,[SKILL_MED] = 1200, [SKILL_SPELL_DIV]=600
+    {},
+    {
+      [SKILL_PERCEPT]  = 600,
+      [SKILL_ACRO]     = 600,
+      [SKILL_WEAP_BOW] = 600,
+    }
+  },
+
+  [PROF_MAGICIAN] = {
+    PROF_MAGICIAN,
+    {
+      [SOC_PRIMITIVE] = SOC_W(0),
+      [SOC_MARTIAL]   = SOC_N(17,"Magician"),
+      [SOC_CIVIL]     = SOC_N(17,"Magician"),
+      [SOC_HIGH]      = SOC_N(20,"Magician"),
     },
-  },
-  [PROF_LABORER]  = {PROF_LABORER,
-    {[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=10,[SOC_CIVIL]=5, [SOC_HIGH]=4},
-    {[SOC_PRIMITIVE]="Worker",[SOC_MARTIAL]="Peon"},
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {[ATTR_CON]=0.125,[ATTR_STR]=0.125},
-    .skills =  {[SKILL_STONE] = 400,[SKILL_WOOD]= 400, [SKILL_WEAP_MACE] = 400}
-  },   
-  [PROF_HAULER]   = {PROF_HAULER,
-    {[SOC_HIVE] = 20, [SOC_PRIMITIVE]=10, [SOC_MARTIAL]=5,[SOC_CIVIL]=5,[SOC_HIGH]=2},
-    {[SOC_PRIMITIVE]="Lugger",[SOC_MARTIAL]="Packhand"},
-    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {[ATTR_CON]=0.1,[ATTR_STR]=0.15}
-  },   
-  [PROF_RUNNER]   = {PROF_RUNNER,
-    {[SOC_HIVE]=5,[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=5,[SOC_CIVIL]=5,[SOC_HIGH]=2},
-    {[SOC_PRIMITIVE]="Runner",[SOC_MARTIAL]="Envoy"},
-    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {[ATTR_DEX]=.15}
-  },   
-  [PROF_GATHERER] = {PROF_GATHERER,
-    {[SOC_HIVE]=20,[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=5,[SOC_CIVIL]=5,[SOC_HIGH]=2},
-    {[SOC_PRIMITIVE]="Scavenger",[SOC_MARTIAL]="Rummager",[SOC_CIVIL]="Gatherer",[SOC_HIGH]="Forager"}
+    {},
+    {
+      [SKILL_ARCANA]  = 1200,
+      [SKILL_INSIGHT] = 600,
+    }
   },
-  [PROF_MINER]={PROF_MINER,
-    {[SOC_HIVE]=20,[SOC_PRIMITIVE]=6, [SOC_MARTIAL]=12,[SOC_CIVIL]=8,[SOC_HIGH]=4},
-    {[SOC_HIVE]="Digger",[SOC_PRIMITIVE]="Digger",[SOC_MARTIAL]="Miner"},
-    MOB_LOC_CAVE,
-    {[ATTR_STR]=.2,[ATTR_CON]=.2},
-    .skills = {[SKILL_STONE] = 600, [SKILL_WEAP_PICK] = 500}
+
+  [PROF_MYSTIC] = {
+    PROF_MYSTIC,
+    {
+      [SOC_PRIMITIVE] = SOC_N(20,"Mystic"),
+      [SOC_MARTIAL]   = SOC_N(14,"Mystic"),
+      [SOC_CIVIL]     = SOC_N(17,"Mystic"),
+      [SOC_HIGH]      = SOC_N(17,"Mystic"),
+    },
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
+    {},
+    {
+      [SKILL_NATURE] = 600,
+      [SKILL_HERB]   = 800,
+      [SKILL_ANIM]   = 800,
+      [SKILL_MED]    = 600,
+      [SKILL_RELIG]  = 400,
+    }
   },
-  [PROF_CHOPPER]={PROF_CHOPPER,
-    {[SOC_HIVE]=20,[SOC_PRIMITIVE]=12, [SOC_MARTIAL]=12,[SOC_CIVIL]=8,[SOC_HIGH]=4},
-    {[SOC_HIVE]="Cutter",[SOC_PRIMITIVE]="Cutter",[SOC_MARTIAL]="Logger", [SOC_CIVIL]="Lumberjack"},
+
+  [PROF_HEALER] = {
+    PROF_HEALER,
+    {
+      [SOC_PRIMITIVE] = SOC_N(9,"Healer"),
+      [SOC_MARTIAL]   = SOC_N(12,"Healer"),
+      [SOC_CIVIL]     = SOC_N(20,"Healer"),
+      [SOC_HIGH]      = SOC_N(21,"Healer"),
+    },
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
+    {},
+    {
+      [SKILL_RELIG]     = 1000,
+      [SKILL_MED]       = 1200,
+      [SKILL_SPELL_DIV] = 600,
+    }
+  },
+
+  [PROF_LABORER] = {
+    PROF_LABORER,
+    {
+      [SOC_PRIMITIVE] = SOC_N(10,"Worker"),
+      [SOC_MARTIAL]   = SOC_N(10,"Peon"),
+      [SOC_CIVIL]     = SOC_W(5),
+      [SOC_HIGH]      = SOC_W(4),
+    },
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
+    {
+      [ATTR_CON] = 0.125f,
+      [ATTR_STR] = 0.125f,
+    },
+    {
+      [SKILL_STONE]      = 400,
+      [SKILL_WOOD]       = 400,
+      [SKILL_WEAP_MACE]  = 400,
+    }
+  },
+
+  [PROF_HAULER] = {
+    PROF_HAULER,
+    {
+      [SOC_HIVE]       = SOC_N(20,"Packhand"),
+      [SOC_PRIMITIVE]  = SOC_N(10,"Lugger"),
+      [SOC_MARTIAL]    = SOC_N(5,"Packhand"),
+      [SOC_CIVIL]      = SOC_W(5),
+      [SOC_HIGH]       = SOC_W(2),
+    },
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
+    {
+      [ATTR_CON] = 0.10f,
+      [ATTR_STR] = 0.15f,
+    }
+  },
+
+  [PROF_RUNNER] = {
+    PROF_RUNNER,
+    {
+      [SOC_INSTINCTIVE] = SOC_N(25,"Creeper"),
+      [SOC_HIVE]        = SOC_N(5,"Creeper"),
+      [SOC_PRIMITIVE]   = SOC_N(10,"Runner"),
+      [SOC_MARTIAL]     = SOC_N(5,"Envoy"),
+      [SOC_CIVIL]       = SOC_W(5),
+      [SOC_HIGH]        = SOC_W(2),
+    },
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
+    {
+      [ATTR_DEX] = 0.15f,
+    },
+    {
+      [SKILL_SURV]    = 2100,
+      [SKILL_STEALTH] = 800,
+    }
+  },
+
+  [PROF_GATHERER] = {
+    PROF_GATHERER,
+    {
+      [SOC_INSTINCTIVE] = SOC_N(50,"Scavenger"),
+      [SOC_HIVE]        = SOC_N(20,"Scavenger"),
+      [SOC_PRIMITIVE]   = SOC_N(10,"Scavenger"),
+      [SOC_MARTIAL]     = SOC_N(5,"Rummager"),
+      [SOC_CIVIL]       = SOC_N(5,"Gatherer"),
+      [SOC_HIGH]        = SOC_N(2,"Forager"),
+    },
     MOB_LOC_FOREST,
-    {[ATTR_STR]=.2},
-    .skills = {[SKILL_WOOD] = 600, [SKILL_WEAP_AXE] = 500}
+    {},
+    {
+      [SKILL_SURV] = 2100,
+      [SKILL_HERB] = 1300,
+    }
   },
-  [PROF_TENDER]={PROF_TENDER,
-    {[SOC_HIVE]=15,[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=12,[SOC_CIVIL]=10,[SOC_HIGH]=8},
-    {[SOC_HIVE]="Broodhand",[SOC_PRIMITIVE]="Penkeeper",[SOC_MARTIAL]="Stockkeeper",[SOC_CIVIL]="Caretaker",[SOC_HIGH]="Animal Tender"}
+[PROF_MINER] = {
+    PROF_MINER,
+    {
+        [SOC_HIVE]       = SOC_N(20, "Digger"),
+        [SOC_PRIMITIVE]  = SOC_N(6,  "Digger"),
+        [SOC_MARTIAL]    = SOC_N(12, "Miner"),
+        [SOC_CIVIL]      = SOC_W(8),
+        [SOC_HIGH]       = SOC_W(4),
+    },
+    MOB_LOC_CAVE,
+    {
+      [ATTR_STR] = 0.2f,
+      [ATTR_CON] = 0.2f,
+    },
+    {
+      [SKILL_STONE]     = 600,
+      [SKILL_WEAP_PICK] = 500,
+    }
+},
+  [PROF_CHOPPER] = {
+    PROF_CHOPPER,
+    {
+      [SOC_HIVE]       = SOC_N(20, "Cutter"),
+      [SOC_PRIMITIVE]  = SOC_N(12, "Cutter"),
+      [SOC_MARTIAL]    = SOC_N(12, "Logger"),
+      [SOC_CIVIL]      = SOC_N(8,  "Lumberjack"),
+      [SOC_HIGH]       = SOC_W(4),
+    },
+    MOB_LOC_FOREST,
+    {
+      [ATTR_STR] = 0.2f,
+    },
+    {
+      [SKILL_WOOD]     = 600,
+      [SKILL_WEAP_AXE] = 500,
+    }
   },
-  [PROF_SCHOLAR]={PROF_SCHOLAR,
-    {[SOC_MARTIAL]=2,[SOC_CIVIL]=12,[SOC_HIGH]=15}
+  [PROF_TENDER] = {
+    PROF_TENDER,
+    {
+      [SOC_HIVE]       = SOC_N(15, "Broodhand"),
+      [SOC_PRIMITIVE]  = SOC_N(10, "Penkeeper"),
+      [SOC_MARTIAL]    = SOC_N(12, "Stockkeeper"),
+      [SOC_CIVIL]      = SOC_N(10, "Caretaker"),
+      [SOC_HIGH]       = SOC_N(8,  "Animal Tender"),
+    }
   },
-  [PROF_HUNTER]={PROF_HUNTER,
-    {[SOC_HIVE]=8,[SOC_PRIMITIVE]=12, [SOC_MARTIAL]=12,[SOC_CIVIL]=8,[SOC_HIGH]=4}
-  }, 
-  [PROF_FISHER]={PROF_FISHER,
-    {[SOC_PRIMITIVE]=8, [SOC_MARTIAL]=12,[SOC_CIVIL]=10,[SOC_HIGH]=6}
-  }, 
-  [PROF_BUILDER]={PROF_BUILDER,
-    {[SOC_HIVE]=12,[SOC_PRIMITIVE]=6, [SOC_MARTIAL]=10,[SOC_CIVIL]=10,[SOC_HIGH]=5}
+  [PROF_SCHOLAR] = {
+    PROF_SCHOLAR,
+    {
+      [SOC_MARTIAL] = SOC_W(2),
+      [SOC_CIVIL]   = SOC_W(12),
+      [SOC_HIGH]    = SOC_W(15),
+    }
   },
-  [PROF_COOK]={PROF_COOK,
-    {[SOC_PRIMITIVE]=2, [SOC_MARTIAL]=10,[SOC_CIVIL]=12,[SOC_HIGH]=10}
+  [PROF_HUNTER] = {
+    PROF_HUNTER,
+    {
+      [SOC_FAMILY]     = SOC_W(25),
+      [SOC_HIVE]       = SOC_W(8),
+      [SOC_PRIMITIVE]  = SOC_W(12),
+      [SOC_MARTIAL]    = SOC_W(12),
+      [SOC_CIVIL]      = SOC_W(8),
+      [SOC_HIGH]       = SOC_W(4),
+    }
   },
-  [PROF_MEDIC]={PROF_MEDIC,
-    {[SOC_PRIMITIVE]=2, [SOC_MARTIAL]=8,[SOC_CIVIL]=12,[SOC_HIGH]=12}
-  },  
-  [PROF_GUARD]={PROF_GUARD,
-    {[SOC_HIVE]=15,[SOC_PRIMITIVE]=10, [SOC_MARTIAL]=12,[SOC_CIVIL]=15,[SOC_HIGH]=10}
-  },  
-  [PROF_SCRIBE]={PROF_SCRIBE,
-    {[SOC_PRIMITIVE]=2, [SOC_MARTIAL]=5,[SOC_CIVIL]=10,[SOC_HIGH]=12}
-  }, 
-  [PROF_MERCHANT]={PROF_MERCHANT,
-    {[SOC_PRIMITIVE]=2, [SOC_MARTIAL]=2,[SOC_CIVIL]=15,[SOC_HIGH]=20}
+  [PROF_FISHER] = {
+    PROF_FISHER,
+    {
+      [SOC_FAMILY]     = SOC_W(20),
+      [SOC_PRIMITIVE]  = SOC_W(8),
+      [SOC_MARTIAL]    = SOC_W(12),
+      [SOC_CIVIL]      = SOC_W(10),
+      [SOC_HIGH]       = SOC_W(6),
+    }
   },
-  [PROF_WOOD]={PROF_WOOD,
+  [PROF_BUILDER] = {
+    PROF_BUILDER,
+    {
+      [SOC_HIVE]       = SOC_W(12),
+      [SOC_PRIMITIVE]  = SOC_W(6),
+      [SOC_MARTIAL]    = SOC_W(10),
+      [SOC_CIVIL]      = SOC_W(10),
+      [SOC_HIGH]       = SOC_W(5),
+    }
+  },
+  [PROF_COOK] = {
+    PROF_COOK,
+    {
+      [SOC_PRIMITIVE] = SOC_W(2),
+      [SOC_MARTIAL]   = SOC_W(10),
+      [SOC_CIVIL]     = SOC_W(12),
+      [SOC_HIGH]      = SOC_W(10),
+    }
+  },
+  [PROF_MEDIC] = {
+    PROF_MEDIC,
+    {
+      [SOC_PRIMITIVE] = SOC_W(2),
+      [SOC_MARTIAL]   = SOC_W(8),
+      [SOC_CIVIL]     = SOC_W(12),
+      [SOC_HIGH]      = SOC_W(12),
+    }
+  },
+  [PROF_GUARD] = {
+    PROF_GUARD,
+    {
+      [SOC_FAMILY]     = SOC_N(25, "Protector"),
+      [SOC_FERAL]      = SOC_N(25, "Protector"),
+      [SOC_HIVE]       = SOC_N(15, "Soldier"),
+      [SOC_PRIMITIVE]  = SOC_N(0, "Watcher"),
+      [SOC_MARTIAL]    = SOC_N(0, "Legionary"),
+      [SOC_CIVIL]      = SOC_N(0, "Guard"),
+      [SOC_HIGH]       = SOC_W(0),
+    },
+    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
+    {},
+    {
+      [SKILL_SURV]      = 1300,
+      [SKILL_WEAP_NONE] = 800,
+    }
+  },
+  /*
+     [PROF_SCRIBE]={PROF_SCRIBE,
+     {[SOC_PRIMITIVE]=2, [SOC_MARTIAL]=5,[SOC_CIVIL]=10,[SOC_HIGH]=12}
+     }, 
+     [PROF_MERCHANT]={PROF_MERCHANT,
+     {[SOC_PRIMITIVE]=2, [SOC_MARTIAL]=2,[SOC_CIVIL]=15,[SOC_HIGH]=20}
+     },
+     [PROF_WOOD]={PROF_WOOD,
     {[SOC_PRIMITIVE]=8, [SOC_MARTIAL]=10,[SOC_CIVIL]=15,[SOC_HIGH]=20}
   },
   [PROF_STONE]={PROF_STONE,
@@ -1151,6 +1420,7 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {[SOC_MARTIAL]=4,[SOC_CIVIL]=10,[SOC_HIGH]=18}
   },  
   [PROF_BOOKS]={},
+  */
 };
 
 typedef struct {
@@ -1170,29 +1440,6 @@ typedef struct {
 static inline int SpecToIndex(SpeciesType spec){
   return __builtin_ctzll(spec);
 }
-
-typedef uint64_t Archetypes;
-
-typedef enum{
-  CLASS_BASE_BARD    = BIT64(0),
-  CLASS_BASE_CLERIC  = BIT64(1),
-  CLASS_BASE_DRUID   = BIT64(2),
-  CLASS_BASE_FIGHTER = BIT64(3),
-  CLASS_BASE_MONK    = BIT64(4),
-  CLASS_BASE_RANGER  = BIT64(5),
-  CLASS_BASE_ROGUE   = BIT64(6),
-  CLASS_BASE_LOCK    = BIT64(7),
-  CLASS_BASE_WIZ     = BIT64(8),
-  CLASS_BASE_MASK    = 0x1FFULL,
-
-  CLASS_SUB_BERZ     = BIT64(9),
-  CLASS_SUB_CHAMP    = BIT64(10),
-  CLASS_SUB_ASSASSIN = BIT64(11),
-  CLASS_SUB_SHOOTER  = BIT64(12),
-  CLASS_SUB_SHAMAN   = BIT64(13),
-  CLASS_SUB_HEX      = BIT64(14),
-
-}Archetype;
 
 typedef struct{
   Archetype     archtype;
@@ -1214,10 +1461,10 @@ typedef struct{
 
 typedef struct{
   int         weight;
-  Archetype   base,sub,promo;
-  const char  main[MAX_NAME_LEN], second[MAX_NAME_LEN],rank[MAX_NAME_LEN];
+  Archetype   base;
+  const char  name[MAX_NAME_LEN];
   int         skills[SKILL_DONE];
-  int         rankups[SKILL_DONE];
+  int         beefups[SKILL_DONE];
 }race_class_t;
 
 typedef struct{
@@ -1233,6 +1480,11 @@ typedef struct{
   int           weight,rarity;
 }loot_t;
 
+typedef struct{
+  int           ranks;
+  Archetype     ladder[MAX_RANKS];
+}define_rankup_t;
+
 typedef enum{
   PROP_NONE           = 0,
   PROP_QUAL_TRASH     = BIT64(0),
@@ -1244,7 +1496,7 @@ typedef enum{
   PROP_QUAL_EXPERT    = BIT64(6),
   PROP_QUAL_MASTER    = BIT64(7),
   PROP_QUAL_ARTIFACT  = BIT64(8),
-  
+
   PROP_MAT_CLOTH      = BIT64(9),
   PROP_MAT_LEATHER    = BIT64(10),
   PROP_MAT_BONE       = BIT64(11),
@@ -1413,20 +1665,20 @@ static item_prop_mod_t PROP_MODS[ITEM_DONE][NUM_ITEM_PROPS]={
        */
     {PROP_MAT_BONE,2,
       .val_change = {
-         {VAL_DURI,AFF_FRACT,75},
-         {VAL_PENN, AFF_SUB, 1},
+        {VAL_DURI,AFF_FRACT,75},
+        {VAL_PENN, AFF_SUB, 1},
       }
     },
     {PROP_MAT_STONE,2, 
       .val_change = {
-         {VAL_DURI,AFF_FRACT,90},
-         {VAL_HIT, AFF_SUB, 1},
+        {VAL_DURI,AFF_FRACT,90},
+        {VAL_HIT, AFF_SUB, 1},
       }
     },
     {PROP_MAT_WOOD, 2,
       .val_change = {
-         {VAL_DURI,AFF_FRACT,60},
-         {VAL_PENN, AFF_SUB, 2},
+        {VAL_DURI,AFF_FRACT,60},
+        {VAL_PENN, AFF_SUB, 2},
       }
     },
   },
@@ -1458,19 +1710,19 @@ static item_prop_mod_t PROP_MODS[ITEM_DONE][NUM_ITEM_PROPS]={
 };
 
 static int CountItemPropMods(ItemProps props, WeaponProps wprops) {
-    int count = 0;
+  int count = 0;
 
-    while (props) {
-        props &= props - 1;
-        count++;
-    }
+  while (props) {
+    props &= props - 1;
+    count++;
+  }
 
-    while (wprops) {
-        wprops &= wprops - 1;
-        count++;
-    }
+  while (wprops) {
+    wprops &= wprops - 1;
+    count++;
+  }
 
-    return count;
+  return count;
 }
 
 typedef struct{

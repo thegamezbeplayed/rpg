@@ -6,19 +6,24 @@
 
 ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
-  {ABILITY_PUNCH,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 5, 1, 3,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
+  {ABILITY_PUNCH,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 0, 1, 3,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills[0] = SKILL_WEAP_NONE},
-  {ABILITY_BITE, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 17, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR,
+  {ABILITY_RAM,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 0, 2, 3,2, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
+    .skills[0] = SKILL_WEAP_NONE},
+  {ABILITY_BITE, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 20,1, 0, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR,
+    .skills = SKILL_WEAP_NONE,
+    .rankup = {[VAL_PENN] = 1, [VAL_DMG_BONUS] = 2}
+  },
+  {ABILITY_CHEW, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,2, 8, 1, 2,0, 1, STAT_ARMOR, ATTR_NONE, ATTR_NONE, ABILITY_GNAW, 
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_CHEW, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,2, 15, 1, 2,0, 1, STAT_ARMOR, ATTR_NONE, ATTR_NONE, ABILITY_GNAW, 
+  {ABILITY_GNAW,AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 0, 1, 2,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_GNAW,AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
+  {ABILITY_CLAW,AT_DMG,ACTION_ATTACK, DMG_SLASH, STAT_STAMINA, DES_NONE, 50,2, 0, 2, 3, 1, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_CLAW,AT_DMG,ACTION_ATTACK, DMG_SLASH, STAT_STAMINA, DES_NONE, 50,2, 6, 2, 3, 1, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
+  {ABILITY_SWIPE, AT_DMG,ACTION_ATTACK, DMG_SLASH,STAT_STAMINA, DES_NONE, 50,2,0, 2, 6, 3,1, STAT_HEALTH, ATTR_STR,
     .skills = SKILL_WEAP_NONE},
-  {ABILITY_SWIPE, AT_DMG,ACTION_ATTACK, DMG_SLASH,STAT_STAMINA, DES_NONE, 50,2, 6, 2, 6, 3,1, STAT_HEALTH, ATTR_STR,
-    .skills = SKILL_WEAP_NONE},
-  {ABILITY_BITE_POISON, AT_DMG,ACTION_ATTACK, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 4, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, SKILL_WEAP_NONE},
+
+  {ABILITY_BITE_POISON, AT_DMG,ACTION_ATTACK, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 0, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, SKILL_WEAP_NONE},
   {ABILITY_POISON, AT_DMG, ACTION_NONE, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,STAT_HEALTH, ATTR_CON, ATTR_NONE,
     .skills = SKILL_POISON},
  {ABILITY_MAGIC_MISSLE, AT_DMG, ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .num_skills =1, .skills = SKILL_SPELL_EVO},
@@ -92,7 +97,7 @@ item_fn_t item_funcs[ITEM_DONE] = {
 weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
   {WEAP_NONE},
   {WEAP_MACE, "Mace",
-    5,1250,0,1,0, 50,
+    550,1250,0,1,0, 50,
     .ability = ABILITY_WEAP_BLUDGEON,
     .skill = SKILL_WEAP_MACE,
     STORE_HELD,
@@ -100,7 +105,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     0x0200
   },
   {WEAP_SWORD, "Sword",
-    10,1000,0,1,0, 30,
+    900,1000,0,1,0, 30,
     .ability = ABILITY_WEAP_SLASH,
     .skill = SKILL_WEAP_SWORD,
      STORE_HELD,
@@ -108,7 +113,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     0x0400
   },
   {WEAP_AXE,"Axe",
-    7,1250,1,0,1, 50,
+    650,1250,1,0,1, 50,
     .ability = ABILITY_WEAP_CHOP, 
     .skill = SKILL_WEAP_AXE,
     STORE_HELD,
@@ -116,15 +121,23 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     0x0300
   },
   {WEAP_DAGGER, "Dagger",
-    2, 500,0, 1,0, 40,
+    200, 500,0, 1,0, 40,
     .ability = ABILITY_WEAP_STAB,
     .skill = SKILL_WEAP_DAGGER,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
     0x0100
   },
+  {WEAP_JAVELIN, "Javelin",
+    5, 850, 0, 1, 2, 20,
+    .ability = ABILITY_WEAP_PIERCE,
+    .skill = SKILL_WEAP_SPEAR,
+    STORE_HELD,
+    {[STORE_CARRY] = 2,[STORE_WORN]=1},
+    0x0300
+  },
   {WEAP_BOW, "Bow",
-    25,1250,0,2,0, 50,
+    2500,1250,0,2,0, 50,
     .w_props = PROP_WEAP_AMMO | PROP_WEAP_TWO_HANDED,
     .ability = ABILITY_WEAP_RANGE_PIERCE,
     .skill = SKILL_WEAP_BOW,
@@ -216,6 +229,27 @@ container_def_t CONTAINER_TEMPLATES[INV_DONE]={
   {INV_BELT},
   {INV_SLING, 1250, 25, 4, .size = 0x0100, 0x0020}
 };
+
+define_mobtype_t MOB_THEME[MT_DONE] = {
+  {MT_PREY,       MOB_THEME_GAME},
+  {MT_PRED,       MOB_THEME_PRED},
+  {MT_CRITTER,    MOB_THEME_CRITTER, SPEC_RODENT},
+  {MT_BUG,        MOB_THEME_CRITTER, SPEC_ARTHROPOD},
+  {MT_FACTION,    MOB_THEME_MARTIAL | MOB_THEME_CIVIL},
+  {MT_LOCALS,     MOB_THEME_PRIMITIVE},
+};
+
+biome_t BIOME[BIO_DONE] = {
+  {BIO_CAVE,
+  
+  },
+  {BIO_DUNGEON},
+  {BIO_FOREST,
+    .ratios = {
+      [MT_PREY] = .4f, [MT_PRED] = .08f, [MT_CRITTER] = .22f, [MT_BUG] = .12f, [MT_FACTION] = .05f, [MT_LOCALS] = .13f}
+  },
+};
+
 dice_roll_t* Die(int side, int num){
   dice_roll_t* die = malloc(sizeof(dice_roll_t));
 
@@ -562,11 +596,9 @@ float StatGetRatio(stat_t *self){
 void FormulaAddAttr(stat_t* self){
   int modifier = 0;
       
-  stat_attribute_relation_t* rel = &stat_modifiers[self->type];
-  
   for(int i = 0; i < ATTR_DONE;i++){
     if(self->modified_by[i]){
-      ModifierType mod = rel->modifier[i];
+      ModifierType mod = self->modified_by[i];
       switch(mod){
         case MOD_SQRT:  
           modifier += isqrt(self->owner->attribs[i]->val); 
@@ -584,7 +616,7 @@ void FormulaAddAttr(stat_t* self){
   }
 
   self->max = self->base+modifier;
-
+  self->current = imin(self->max, self->current);
 }
 
 void FormulaDie(stat_t* self){}
@@ -595,11 +627,9 @@ void FormulaBaseDie(stat_t* self){}
 void FormulaDieAddAttr(stat_t* self){
   int modifier = 0;
       
-  stat_attribute_relation_t* rel = &stat_modifiers[self->type];
-  
   for(int i = 0; i < ATTR_DONE;i++){
     if(self->modified_by[i]){
-      ModifierType mod = rel->modifier[i];
+      ModifierType mod = self->modified_by[i];
       switch(mod){
         case MOD_SQRT:  
           modifier += isqrt(self->owner->attribs[i]->val); 
@@ -620,6 +650,7 @@ void FormulaDieAddAttr(stat_t* self){
   int roll = self->die->roll(self->die, rolls);
   self->base+= roll;
   self->max+=roll+modifier;
+  self->current = imin(self->max, self->current);
 }
 
 skill_event_t* InitSkillEvent(skill_t* s, int cr){
@@ -766,7 +797,7 @@ bool SkillIncrease(struct skill_s* s, int amnt){
   s->point+=imin(MAX_SKILL_GAIN,amnt);
 
   if(s->point < s->threshold){
-    TraceLog(LOG_INFO,"%s %i experience in %s now (%0f / %i)",s->owner->name, s->owner->uid, SKILL_NAMES[s->id], s->point, s->threshold);
+    //TraceLog(LOG_INFO,"%s %i experience in %s now (%0f / %i)",s->owner->name, s->owner->uid, SKILL_NAMES[s->id], s->point, s->threshold);
     return false;
   }
 

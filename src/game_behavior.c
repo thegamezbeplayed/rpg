@@ -301,6 +301,8 @@ BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params){
 
   int count = WorldGetEnts(team, FilterEntByTeam, e);
 
+  AllyAdd(e->allies, e, 0);
+
   for (int i = 0; i < count; i++){
     int dist = cell_distance(e->pos, team[i]->pos);
     if (dist > 20)

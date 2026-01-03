@@ -8,13 +8,14 @@
 #include "game_math.h"
 
 #define MAX_ENTS 128  
-#define MAX_ENVS 2048  
+#define MAX_ENVS 4096  
 #define CARRY_SIZE 4
 #define NUM_ABILITIES 6
 #define MAX_ABILITIES 16
 
 #define INV_HELD_SIZE 0x1000
 #define INV_WORN_SIZE 0x3000
+
 
 typedef struct ent_s ent_t;
 typedef struct ability_s ability_t;
@@ -46,7 +47,7 @@ int AggroGetEntries(aggro_table_t* table, int count, aggro_entry_t  *entries);
 aggro_entry_t* AggroGetHighest(aggro_table_t* t);
 
 typedef struct{
-  ent_t* ally;          // chosen ally (best candidate)
+  ent_t* ally;          
 
   float  danger;        // how threatened they are
   float  need;          // how badly they need help
@@ -71,13 +72,16 @@ typedef struct{
 }ally_table_t;
 
 void InitAllyTable(ally_table_t* t, int cap, ent_t* owner);
-static void AllyEnsureCapacitiy(ally_table_t* t);
+static void AllyEnsureCapacity(ally_table_t* t);
 int AllyAdd(ally_table_t* t, ent_t* source, int dist);
 void AllySync(void* params);
 typedef struct{
   SpeciesType   race;
-  Archetypes    class_arch;
+  int           rank;
+  Archetype     class_arch, class_rank;
   Profession    prof;
+  char          race_name[MAX_NAME_LEN];
+  char          role_name[MAX_NAME_LEN];
   float         base_diff;
   PhysQual      body;
   MentalQual    mind;
@@ -85,8 +89,11 @@ typedef struct{
   PhysWeapon    natural_weaps;
   Feats         feats;
   Traits        traits;
+  int           cr, offr, defr;
 }properties_t;
-properties_t* InitProperties(race_define_t racials);
+
+
+properties_t* InitProperties(race_define_t racials, mob_define_t m);
 
 typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, struct ent_s* target, InteractResult result);
 typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, ent_t* target);
@@ -111,6 +118,7 @@ struct ability_s{
   stat_t*          stats[STAT_ENT_DONE];
   ability_t        *chain;
   value_t*            values[VAL_WORTH];
+  int                 rankup[VAL_WORTH];
   damage_reduction_t* dr;
   AbilityCb           on_success_cb, on_use_cb;
   AbilityFn           use_fn, chain_fn;
@@ -163,6 +171,7 @@ void AbilityApplyValues(ability_t* self, value_t* v);
 ability_t AbilityLookup(AbilityID id);
 ability_t* EntFindAbility(ent_t* e, AbilityID id);
 ability_t* InitAbility(ent_t* owner, AbilityID);
+bool AbilityRankup(ent_t* owner, ability_t* a);
 ability_t* InitAbilityDummy(ent_t* owner, ability_t copy);
 bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other);
 ability_t* EntChoosePreferredAbility(ent_t* e, int budget);
@@ -253,7 +262,7 @@ typedef struct {
  uint64_t   mask;
 }trait_pool_t;
 //===ENT_T===>
-typedef struct ent_s{
+struct ent_s{
   int                   uid;
   char                  name[MAX_NAME_LEN];
   uint64_t              class_id;
@@ -278,13 +287,14 @@ typedef struct ent_s{
   ally_table_t*         allies;
   struct ent_s*         last_hit_by;
   int                   team;
-} ent_t;
+};
 
 ent_t* InitEntByRace(mob_define_t def, MobRules rules);
 ent_t* InitEnt(EntityType id, Cell pos);
 ent_t* InitMob(EntityType mob, Cell pos);
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race);
-void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class);
+void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class);
+int PromoteEntClass(ent_t* e, int ranks);
 int EntBuild(mob_define_t def, MobRules rules, ent_t** pool);
 void EntAddTraits(traits_t* t, uint64_t mask, uint64_t shift);
 void EntCalcStats(ent_t* e, race_define_t* racial);
@@ -370,4 +380,16 @@ typedef struct env_s{
 }env_t;
 
 env_t* InitEnv(EnvTile t,Cell pos);
+
+
+static int CompareEntByCR(const void *a, const void *b)
+{
+    const ent_t *ea = *(const ent_t * const *)a;
+    const ent_t *eb = *(const ent_t * const *)b;
+
+
+    if (ea->props->cr < eb->props->cr) return  1;
+    if (ea->props->cr > eb->props->cr) return -1;
+    return 0;
+}
 #endif

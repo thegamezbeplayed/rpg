@@ -75,10 +75,17 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
 
   ent_t* e = malloc(sizeof(ent_t));
   *e = (ent_t){0};
-  e->type = racial.base_ent;
+  e->props = InitProperties(racial, def);
+  if(racial.base_ent == ENT_NONE){
+    e->type = def.id;
+    strcpy(e->props->race_name, def.name);
+  }
+  else{
+    e->type = racial.base_ent;
+    strcpy(e->props->race_name, racial.name);
+  }
+  strcpy(e->name, e->props->race_name);
   e->team = __builtin_ctzll(def.race);
-  strcpy(e->name, TextFormat("%s",racial.name));
-  e->props = InitProperties(racial);
   e->pos = CELL_UNSET;
   e->facing = CELL_UNSET;
   e->sprite = InitSpriteByID(e->type,SHEET_ENT);
@@ -194,8 +201,12 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   if(e->props->natural_weaps > 0){
     for(int i = 0; i < 16; i++){
       natural_weapons_t w = NAT_WEAPS[i];
-      if(!e->props->natural_weaps & w.pq)
+      if((e->props->natural_weaps & w.pq) == 0)
         continue;
+
+      for(int j = SKILL_RANGE_WEAP.x; j < SKILL_RANGE_WEAP.y; j++)
+        if(w.skillup[j]>0)
+        SkillIncreaseUncapped(e->skills[j], w.skillup[j]);
 
       for(int j = 0; j < w.num_abilities; j++){
         ability_t* a = InitAbility(e, w.abilities[j]);
@@ -224,7 +235,8 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
   ent_t* e = InitEntByRace(def,rules);
-  strcpy(e->name, TextFormat("%s %s",racial.name,sel->social_name[def.civ]));
+  strcpy(e->props->role_name, sel->soc[def.civ].name);
+  strcpy(e->name, TextFormat("%s %s", e->props->race_name, e->props->role_name));
   e->aggro = calloc(1,sizeof(aggro_table_t));
   e->allies = calloc(1,sizeof(aggro_table_t));
   InitAggroTable(e->aggro, 4, e);
@@ -292,96 +304,52 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
   return e;
 }
 
-ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race){
-  define_race_class_t arch = RACE_CLASS_DEFINE[__builtin_ctzll( race)][class_id];
-
-/*
-  race_define_t racial = DEFINE_RACE[__builtin_ctzll(race)];
-
-  define_archetype_t data = CLASS_DATA[__builtin_ctzll(arch.base)];
-
-
-  ent_t* e = malloc(sizeof(ent_t));
-  *e = (ent_t){0};  // zero initialize if needed
-
-  e->type = racial.base_ent;
-
-  strcpy(e->name, TextFormat("%s %s",racial.name,arch.b_name));
-
-  e->pos = CELL_UNSET;
-  e->facing = CELL_UNSET;
-  e->sprite = InitSpriteByID(e->type,SHEET_ENT);
-  e->sprite->owner = e;
-  e->events = InitEvents();
-
-  e->control = InitController();
-
-  e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,0,20);
-  e->traits = calloc(1,sizeof(traits_t));
-  for (int i = 0; i < ATTR_DONE; i++){
-    int val = BASE_ATTR_VAL + size.attr[e->size][i];
-    e->attribs[i] = InitAttribute(i,val);
-    e->attribs[i]->asi = data.ASI[i];
-    e->attribs[i]->expand = AttributeScoreIncrease;
-  }
-
-  for (int i = 0; i < STAT_ENT_DONE;i++){
-    int val = base.stats[i] + size.stats[e->size][i];
-    int base = val;
-
-    if(i == STAT_HEALTH)
-      base = data.hitdie;
-
-    e->stats[i] = InitStat(i,0,val,base);
-
-    e->stats[i]->owner = e;
-    e->stats[i]->start(e->stats[i]);
-
-    switch(i){
-      case STAT_STAMINA:
-      case STAT_ENERGY:
-        e->stats[i]->on_stat_change = EntResetRegen;
-        break;
-      case STAT_STAMINA_REGEN_RATE:
-      case STAT_ENERGY_REGEN_RATE:
-        e->stats[i]->on_turn = StatIncreaseValue;
-        e->stats[i]->on_stat_full = EntRestoreResource;
-        break;
-      default:
-        break;
-    }
-  }
-  AbilityID abilities[MAX_ABILITIES];
-  int num_abilities = FilterAbilities(abilities, data.archtype, race);
-  for (int i = 0; i < num_abilities; i++){
-    define_ability_class_t def_ab = CLASS_ABILITIES[abilities[i]];
-    if(def_ab.lvl > 1)
-      continue;
-
-    ability_t* a = InitAbility(e, def_ab.id);
-
-    ActionSlotAddAbility(e,a);
-  }
-  return e;
-  */
-}
 void RankUpEnt(ent_t* e, race_class_t* race_class){
   for (int i = 0; i < SKILL_DONE; i++){
-    if(race_class->skills[i] == 0)
+    int beef = race_class->beefups[i];
+    if(beef == 0)
       continue;
-    SkillIncreaseUncapped(e->skills[i], race_class->skills[i]);
-
+    for(int j = 0; j < beef; j++){
+    int increase = e->skills[i]->threshold;
+    SkillIncreaseUncapped(e->skills[i], increase);
+    }
   }
 }
 
-void PromoteEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
+int PromoteEntClass(ent_t* e, int ranks){
+  define_rankup_t ladder = CLASS_LADDER[e->type][e->props->class_arch];
+
+  if(ladder.ranks <= e->props->rank)
+    return 0;
+
+  Archetype rank = ladder.ladder[e->props->rank];
+  race_class_t pro = PROMOTE_RACE[e->type][rank];
+
+  e->props->class_rank = pro.base;
+
+  for(int i = 0; i < SKILL_DONE; i++){
+    if(pro.skills[i] == 0)
+      continue;
+    for(int j = 0; j < pro.skills[i]; j++){
+      int increase = e->skills[i]->threshold;
+      SkillIncreaseUncapped(e->skills[i], increase);
+    }
+
+  }
+  e->props->rank++;
+
+  return 1;
+}
+
+void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
   define_archetype_t data = CLASS_DATA[__builtin_ctzll(race_class->base)];
 
   e->props->traits |= data.traits;
   e->control->behave_traits |= data.traits;
 
-  strcpy(e->name, TextFormat("%s %s",racial.name,race_class->main));
+  strcpy(e->props->role_name,race_class->name);
 
+  strcpy(e->name, TextFormat("%s %s", e->props->race_name, e->props->role_name));
   for (int i = 0; i < SKILL_DONE; i++){
     if(race_class->skills[i] == 0)
       continue;
@@ -461,6 +429,10 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   MobRules tmp = def.rules&=rules;
   rules&=tmp;
 
+  if(def.id == ENT_PERSON)
+    return 0;
+
+  TraceLog(LOG_INFO,"====Build %s ====\n\n", def.name);
   race_define_t racial = DEFINE_RACE[ __builtin_ctzll(def.race)];
   MobRules spawn = GetMobRulesByMask(rules,MOB_SPAWN_MASK);
   MobRules group = GetMobRulesByMask(rules,MOB_GROUPING_MASK);
@@ -492,7 +464,8 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
     }
   }
 
-  bool swarm=false,outfit=false, promote=false,diverse=false,pat=false,suprise=false,elite=false;
+  int promote = 0, elite = 0;
+  bool swarm=false,outfit=false, diverse=false,pat=false,suprise=false;
   if(spawn > 0){
     while(spawn){
       uint64_t stype = spawn & -spawn;
@@ -509,19 +482,21 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
           break;
         case MOB_SPAWN_CHALLENGE:
           beef++;
-          promote=true;
+          promote++;
           diverse = true;
           break;
         case MOB_SPAWN_CAMP:
           count+=2;
           diverse = true;
           beef++;
+          promote+=2;
+          elite++;
           arm = true;
           don =true;
           break;
         case MOB_SPAWN_PATROL:
           diverse = true;
-          promote = true;
+          promote++;
           arm = true;
           don = true;
           pat = true;
@@ -577,10 +552,10 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
             max = 7 + (group==MOB_GROUPING_SQUAD)?2:0;
           break;
         case MOB_GROUPING_WARBAND:
-          promote=true;
+          promote++;
           outfit=true;
           beef++;
-          elite=true;
+          elite++;
           if (max < 8)
             max = 9;
           break;
@@ -608,9 +583,9 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   if(amount>2)
     monster_size =0;
 
-  int chief_w = 0, captain_w = 0, commander_w =0;
+  int chief = 0, captain = 0, commander =0;
   if(!race_classes[def.id])
-    race_classes[def.id] = GetRaceClassPool(def.race,7,ChooseByWeight);
+    race_classes[def.id] = GetRaceClassPool(def.id,7,ChooseByWeight);
 
   choice_pool_t* class_choice = race_classes[def.id];
   
@@ -624,20 +599,22 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
       switch(tactic){
         case RACE_TACTICS_ARCANA:
           if(amount>4)
-            chief_w= amount*12;
+            chief++;
           break;
         case RACE_TACTICS_MARTIAL:
           if(amount>3)
-            captain_w += amount*10;
-          if(amount>7)
-            commander_w += amount*7;
+            captain ++;
+          if(amount>7){
+            captain++;
+            commander ++;
+          }
           break;
         case RACE_TACTICS_SIMPLE:
         case RACE_TACTICS_CRUDE:
           break;
         case RACE_TACTICS_RANKS:
           if(amount>4){
-            captain_w+=2;
+            captain+=2;
           }
           break;
         default:
@@ -664,7 +641,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   choice_pool_t* picker = StartChoice(&race_profs[def.id],avail, ChooseByWeight, &picking);
 
   for(int i = 0; i < avail; i++)
-    AddChoice(picker, i, local_jobs[i].social_weights[def.civ], &local_jobs[i],NULL);
+    AddChoice(picker, i, local_jobs[i].soc[def.civ].weight, &local_jobs[i],NULL);
 
 
   for(int i = 0; i < amount; i++){
@@ -673,41 +650,66 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
     define_prof_t* sel = chosen->context;
 
     ent_t* e = IntEntCommoner(def,rules, sel);
-    if((diverse && promote) || sel->id < PROF_LABORER){
-      if(sel->id < PROF_LABORER){
-        define_race_class_t* pc = GetRaceClassForSpec(def.race,sel->id);
-        for (int j = 0; j < pc->count; j++)
-          AddFilter(class_choice, pc->classes[j].base + pc->classes[j].sub, &pc->classes[j]);
-      }
-      choice_t *selection = class_choice->choose(class_choice); 
-      race_class_t* drc = selection->context;
+    if(e == NULL)
+      continue;
 
-      PromoteEntClass(e,racial,drc);
+    if(sel->id < PROF_LABORER){
+      define_race_class_t* pc = GetRaceClassForSpec(def.id,sel->id);
+      for (int j = 0; j < pc->count; j++)
+        AddFilter(class_choice, pc->classes[j].base, &pc->classes[j]);
+      choice_t *selection = class_choice->choose(class_choice); 
+      if(selection == NULL)
+        continue;
+
+      race_class_t* drc = selection->context;
+      if(drc == NULL)
+        continue;
+
+      GrantEntClass(e,racial,drc);
 
       for(int j = 0; j < beef; j++)
         RankUpEnt(e,drc);
 
-      class_choice->filtered = 0;
+      //class_choice->filtered = 0;
     }
     
     pool[count++] = e;
+
+//    EndChoice(race_profs[def.id], false);
+  //  EndChoice(race_classes[def.id], false);
+
   }
+  promote+=captain+commander+chief;
+/*
+  if(promote > 0){
+    qsort(pool, count, sizeof(ent_t*), CompareEntByCR);
+    for(int i = 0; i < count; i++){
+      ent_t* e = pool[i];
+      if(e->props->class_arch < 0)
+        continue;
 
-  EndChoice(race_profs[def.id], false);
-  EndChoice(race_classes[def.id], false);
-
+      define_rankup_t r = CLASS_LADDER[e->type][e->props->class_arch];
+      if(r.ranks == 0)
+        continue;
+      
+      promote-=PromoteEntClass(e,1);
+      if(promote <= 0)
+        break;
+    }
+  }
+  */
   return count;
 }
 
-properties_t* InitProperties(race_define_t racials){
+properties_t* InitProperties(race_define_t racials, mob_define_t m){
   properties_t* p = calloc(1,sizeof(properties_t));
 
   p->race = racials.race;
   p->base_diff = racials.base_challenge;
-  p->body = racials.body;
-  p->mind = racials.mind;
-  p->covering = racials.covering;
-  p->natural_weaps = racials.weaps;
+  p->body = racials.body | m.flags.body;
+  p->mind = racials.mind | m.flags.mind;
+  p->covering = racials.covering | m.flags.covering;
+  p->natural_weaps = racials.weaps | m.flags.weaps;
   mind_result_t mind = GetMindResult(p->mind);
   body_result_t body = GetBodyResult(p->body);
 
@@ -847,6 +849,10 @@ void EntInitOnce(ent_t* e){
 
 void EntApplyTraits(ent_t* e){
 
+
+    e->props->offr = EntGetOffRating(e);
+    e->props->defr = EntGetDefRating(e);
+    e->props->cr = e->props->defr*10 + e->props->offr;
 }
 
 void EntPollInventory(ent_t* e){
@@ -936,9 +942,18 @@ int EntAddAggro(ent_t* owner, ent_t* source, int threat, float mul){
 
 int AbilityAddPB(ent_t* e, ability_t* a, StatType s){
   SkillRank rank = SkillRankGet(e->skills[a->skills[0]]);
-  if(rank < SR_PROFIC)
+  if(rank < SR_SKILLED)
     return 0;
 
+  define_skill_rank_t dsr = SKILL_RANKS[rank];
+  if(dsr.proficiency > MOD_NONE){
+    a->stats[s]->base = e->stats[s]->base;
+    for (int i = 0; i < ATTR_DONE; i++){
+      if(a->stats[s]->modified_by[i] > MOD_NONE)
+        a->stats[s]->modified_by[i] = dsr.proficiency;
+    }
+    a->stats[s]->start(a->stats[s]);
+  }
   return a->stats[s]->current;
 }
 
@@ -1167,7 +1182,7 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
 
   *a = AbilityLookup(id);
 
-  a->hit = Die(a->hdie,1);
+  a->hit = Die(20,1);
 
   a->dc = Die(a->side,a->die);
 

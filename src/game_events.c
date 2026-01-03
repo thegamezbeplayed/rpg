@@ -206,6 +206,7 @@ int AddEvent(events_t* pool, cooldown_t* cd){
       if(pool->cooldowns[i].type == EVENT_NONE){
         pool->cooldowns[i] = *cd;
         pool->cooldown_used[i] = true;
+        pool->num_used++;
         return i;
       }
       else
@@ -214,6 +215,7 @@ int AddEvent(events_t* pool, cooldown_t* cd){
     else{
       pool->cooldowns[i] = *cd;
       pool->cooldown_used[i] = true;
+      pool->num_used++;
       return i;
     }
   }
@@ -507,7 +509,7 @@ void InitAllyTable(ally_table_t* t, int cap, ent_t* owner){
 
 }
 
-static void AllyEnsureCapacitiy(ally_table_t* t){
+static void AllyEnsureCapacity(ally_table_t* t){
   if (t->count < t->cap)
     return;
 
@@ -517,6 +519,8 @@ static void AllyEnsureCapacitiy(ally_table_t* t){
 }
 
 int AllyAdd(ally_table_t* t, ent_t* source, int dist){
+
+  AllyEnsureCapacity(t);
 
   int off = EntGetOffRating(source);
   int def = EntGetDefRating(source);

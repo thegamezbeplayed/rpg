@@ -298,6 +298,8 @@ void WorldInitOnce(){
   InteractionStep();
   for(int i = 0; i< world.num_ent; i++)
     EntInitOnce(world.ents[i]);
+
+  WorldMapLoaded(world.map);
 }
 
 void WorldPreUpdate(){
@@ -364,8 +366,11 @@ void WorldTurnUpdate(void* context){
   }
 }
 void PrepareWorldRegistry(void){
-world = (world_t){0};
+  world = (world_t){0};
 
+  for(int i = 0; i < STEP_DONE; i++){
+    world.events[i] = InitEvents();
+  }
   world.time = InitStatOnMin(STAT_TIME,0,180);
   world.time->on_stat_full = StatReverse; 
   world.time->on_stat_full = StatReverse; 
@@ -382,6 +387,7 @@ world = (world_t){0};
 
 void InitWorld(void){
   world.data = InitWorldData();
+
   if(MapGetStatus()==GEN_DONE){
     world.map =  InitMapGrid();
     Cell player_pos = MapApplyContext(world.map);
@@ -392,9 +398,7 @@ void InitWorld(void){
     ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
 
   }
-  for(int i = 0; i < STEP_DONE; i++){
-    world.events[i] = InitEvents();
-  }
+
 
 }
 
@@ -530,6 +534,7 @@ void InitGameEvents(){
 
 bool WorldAddEvent(event_uid_i eid, cooldown_t* cd, StepType when){
 
+  return AddEvent(world.events[when], cd) > 0;
 }
 
 bool GameTransitionScreen(){
