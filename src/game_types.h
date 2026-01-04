@@ -92,7 +92,6 @@ typedef struct{
   int           cr, offr, defr;
 }properties_t;
 
-
 properties_t* InitProperties(race_define_t racials, mob_define_t m);
 
 typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, struct ent_s* target, InteractResult result);
@@ -294,10 +293,12 @@ ent_t* InitEnt(EntityType id, Cell pos);
 ent_t* InitMob(EntityType mob, Cell pos);
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race);
 void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class);
+int EnhanceEnts(ent_t** pool, MobRules rule, int num_count);
 int PromoteEntClass(ent_t* e, int ranks);
 int EntBuild(mob_define_t def, MobRules rules, ent_t** pool);
 void EntAddTraits(traits_t* t, uint64_t mask, uint64_t shift);
 void EntCalcStats(ent_t* e, race_define_t* racial);
+void EntPrepare(ent_t* e);
 void EntPollInventory(ent_t* e);
 item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
 bool EntAddItem(ent_t* e, item_t* item, bool equip);

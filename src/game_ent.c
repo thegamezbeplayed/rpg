@@ -341,6 +341,29 @@ int PromoteEntClass(ent_t* e, int ranks){
   return 1;
 }
 
+int EnhanceEnt(ent_t* e, bool promote, bool enlarge, bool *enlarged, bool *promoted){
+
+}
+
+int EnhanceEnts(ent_t** pool, MobRules rule, int count ){
+  int promotions = count / 3;
+  bool enlarge = (rule & MOB_SPAWN_LAIR)>0;
+  int total_cr = 0;
+  for(int i = 0; i < count; i++){
+    ent_t* e = pool[i];
+    MobRules  m_rules = MONSTER_MASH[e->type].rules;
+    if(enlarge && ((m_rules&MOB_SPAWN_LAIR)==0))
+      enlarge = false;
+
+    bool enlarged = false;
+    bool promoted = false;
+    total_cr += EnhanceEnt(e, (promotions>0), enlarge, &enlarged, &promoted);
+    if(promoted)
+      promotions--;
+  }
+
+
+}
 void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
   define_archetype_t data = CLASS_DATA[__builtin_ctzll(race_class->base)];
 
@@ -439,16 +462,13 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   MobRules modif = GetMobRulesByMask(rules,MOB_MOD_MASK);
 
   int beef = 0;
-  bool enlarge = false,arm=false,don=false;
+  bool arm=false,don=false;
 
   if(modif > 0){
     while(modif){
       uint64_t mod = modif & -modif;
       modif &= modif -1;
       switch(mod){
-        case MOB_MOD_ENLARGE:
-          enlarge = true;         
-          break;
         case MOB_MOD_WEAPON:
           arm = true;
           break;
@@ -464,59 +484,11 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
     }
   }
 
-  int promote = 0, elite = 0;
-  bool swarm=false,outfit=false, diverse=false,pat=false,suprise=false;
-  if(spawn > 0){
-    while(spawn){
-      uint64_t stype = spawn & -spawn;
-      spawn &= spawn -1;
-
-      switch(stype){
-        case MOB_SPAWN_TRAP:
-        case MOB_SPAWN_SECRET:
-          //suprise = true;         
-          diverse = true;
-          break;
-        case MOB_SPAWN_LAIR:
-          elite = true;
-          break;
-        case MOB_SPAWN_CHALLENGE:
-          beef++;
-          promote++;
-          diverse = true;
-          break;
-        case MOB_SPAWN_CAMP:
-          count+=2;
-          diverse = true;
-          beef++;
-          promote+=2;
-          elite++;
-          arm = true;
-          don =true;
-          break;
-        case MOB_SPAWN_PATROL:
-          diverse = true;
-          promote++;
-          arm = true;
-          don = true;
-          pat = true;
-          count++;
-          break;
-        default:
-          break;
-      }
-    }
-  }
-
-
   int min=99,max=-99;
   if (group > 0){
     while(group){
       uint64_t size = group & -group;
       group &= group -1;
-
-      if(size > MOB_GROUPING_TROOP)
-        diverse = true;
 
       if(size > MOB_GROUPING_CREW)
         don = arm = true;
@@ -552,26 +524,15 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
             max = 7 + (group==MOB_GROUPING_SQUAD)?2:0;
           break;
         case MOB_GROUPING_WARBAND:
-          promote++;
-          outfit=true;
           beef++;
-          elite++;
           if (max < 8)
             max = 9;
           break;
         case MOB_GROUPING_SWARM:
-          swarm=true;
           break;
 
       }
     }
-  }
-
-  int monster_size = 0;
-  if(enlarge){
-    monster_size++;
-    if(beef)
-      monster_size++;
   }
 
   int amount = 0;
@@ -580,8 +541,6 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   else
     amount = max+count;
 
-  if(amount>2)
-    monster_size =0;
 
   int chief = 0, captain = 0, commander =0;
   if(!race_classes[def.id])
@@ -589,7 +548,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
 
   choice_pool_t* class_choice = race_classes[def.id];
   
-  if(diverse && amount>1){
+  if(amount>1){
     RaceProps tactics = GET_FLAG(racial.props, RACE_TACTICS_MASK);
     
     while(tactics){
@@ -673,31 +632,13 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
       //class_choice->filtered = 0;
     }
     
+    EntPrepare(e);    
     pool[count++] = e;
 
 //    EndChoice(race_profs[def.id], false);
   //  EndChoice(race_classes[def.id], false);
 
   }
-  promote+=captain+commander+chief;
-/*
-  if(promote > 0){
-    qsort(pool, count, sizeof(ent_t*), CompareEntByCR);
-    for(int i = 0; i < count; i++){
-      ent_t* e = pool[i];
-      if(e->props->class_arch < 0)
-        continue;
-
-      define_rankup_t r = CLASS_LADDER[e->type][e->props->class_arch];
-      if(r.ranks == 0)
-        continue;
-      
-      promote-=PromoteEntClass(e,1);
-      if(promote <= 0)
-        break;
-    }
-  }
-  */
   return count;
 }
 
@@ -814,21 +755,9 @@ void EntKill(stat_t* self, float old, float cur){
   SetState(e, STATE_DIE,NULL);
 }
 
-void EntInitOnce(ent_t* e){
-  EntSync(e);
-
-  if(e->type == ENT_PERSON)
-    DO_NOTHING();
-
-
+void EntPrepare(ent_t* e){
   EntPollInventory(e);
-  //if(e->items[0]
-  /*
-   * if(e->attack==NULL)
-   e->attack = InitBasicAttack(e);
-   */
-
-  for(int i = 0; i < STAT_ENT_DONE; i++){
+ for(int i = 0; i < STAT_ENT_DONE; i++){
     if(!e->stats[i])
       continue;
 
@@ -843,6 +772,29 @@ void EntInitOnce(ent_t* e){
   }
 
   EntApplyTraits(e);
+
+}
+
+void EntInitOnce(ent_t* e){
+  EntSync(e);
+
+  if(e->type == ENT_PERSON)
+    DO_NOTHING();
+
+
+  //if(e->items[0]
+  /*
+   * if(e->attack==NULL)
+   e->attack = InitBasicAttack(e);
+   */
+
+  for(int i = 0; i < STAT_ENT_DONE; i++){
+    if(!e->stats[i])
+      continue;
+
+    StatMaxOut(e->stats[i]);
+  }
+
   cooldown_t* spawner = InitCooldown(3,EVENT_SPAWN,StepState_Adapter,e);
   AddEvent(e->events, spawner);
 }

@@ -138,13 +138,12 @@ typedef enum {
     ROOM_PURPOSE_TRAPPED         = 0x0020,
     ROOM_PURPOSE_SECRET          = 0x0030,
     ROOM_PURPOSE_TREASURE        = 0x0040,
-    ROOM_PURPOSE_TREASURE_FALSE  = 0x0050,
-    ROOM_PURPOSE_CHALLENGE = 0x0060,
-    ROOM_PURPOSE_LAIR      = 0x0070,
-    ROOM_PURPOSE_START     = 0x0080,
-    ROOM_PURPOSE_CONNECT   = 0x0090,
-    ROOM_PURPOSE_STAIRS    = 0x00A0,
-    ROOM_PURPOSE_MAX      = 0x00A0,
+    ROOM_PURPOSE_CHALLENGE = 0x0050,
+    ROOM_PURPOSE_LAIR      = 0x0060,
+    ROOM_PURPOSE_START     = 0x0070,
+    ROOM_PURPOSE_CONNECT   = 0x0080,
+    ROOM_PURPOSE_STAIRS    = 0x0090,
+    ROOM_PURPOSE_MAX      = 0x00B0,
     ROOM_PURPOSE_MASK      = 0x00F0,
 
     // ----- Shape (bits 0–3) -----
@@ -218,6 +217,7 @@ typedef enum{
   MOB_THEME_CIVIL       = BIT64(27),
   MOB_THEME_GAME        = BIT64(28),
   MOB_THEME_PRED        = BIT64(29),
+  MOB_THEME_MONSTER     = BIT64(30),
   MOB_THEME_MASK        = 0xFFULL << 24,
 
   MOB_FREQ_COMMON      = BIT64(32),
@@ -263,6 +263,7 @@ typedef struct {
 
 typedef struct {
   Biome     id;
+  float     r_lairs, r_chall, r_secrets, r_traps, r_treasure;
   float     ratios[MT_DONE];
   int       desired[MT_DONE];
   int       current[MT_DONE];
@@ -340,6 +341,7 @@ typedef enum {
   MN_GRAPH,
   MN_FIX,
   MN_ECO,
+  MN_ENH,
   MAP_NODE_DONE
 } MapNodeID;
 
@@ -376,7 +378,7 @@ struct room_node_s{
 typedef struct{
   MapID           id;
   Biome           biome;
-  float           diff;
+  float           diff,max_diff;
   TileFlags       map_flag;
   int             density,min_rooms,min_mobs;
   TileFlags       opening_flag;
@@ -463,6 +465,13 @@ MapNodeResult MapAssignPositions(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapEnhance(map_context_t *ctx, map_node_t *node);
+
+void MapAssignTreasures(map_context_t *ctx, room_t** rooms, int count);
+void MapAssignTraps(map_context_t *ctx, room_t** rooms, int count);
+void MapAssignSecrets(map_context_t *ctx, room_t** rooms, int count);
+void MapAssignChallenges(map_context_t *ctx, room_t** rooms, int count);
+void MapAssignLairs(map_context_t *ctx, room_t** rooms, int count);
 
 struct map_node_s {
   MapNodeType type;
@@ -484,6 +493,7 @@ map_node_t* MapCreateLeafNode(MapNodeFn fn, MapNodeID id);
 map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count);
 
 static inline map_node_t* LeafMapPlaceSpawns(MapNodeID id)  { return MapCreateLeafNode(MapPlaceSpawns,id); }
+static inline map_node_t* LeafMapEnhance(MapNodeID id)  { return MapCreateLeafNode(MapEnhance,id); }
 static inline map_node_t* LeafMapBuildBiome(MapNodeID id)  { return MapCreateLeafNode(MapBuildBiome,id); }
 static inline map_node_t* LeafMapFillWalls(MapNodeID id)  { return MapCreateLeafNode(MapFillWalls,id); }
 static inline map_node_t* LeafMapPlayerSpawn(MapNodeID id)  { return MapCreateLeafNode(MapPlayerSpawn,id); }

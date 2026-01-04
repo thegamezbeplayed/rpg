@@ -1533,7 +1533,6 @@ node_option_t TryNodeOption(room_node_t* root, node_connector_t* conn, RoomFlags
      opt.score = 0;
      break;
     case ROOM_PURPOSE_TREASURE:
-    case ROOM_PURPOSE_TREASURE_FALSE:
     case ROOM_PURPOSE_CHALLENGE:
      opt.score -=25;
      break;
@@ -1584,8 +1583,7 @@ node_option_t TryNodeOption(room_node_t* root, node_connector_t* conn, RoomFlags
     break;
     case ROOM_PURPOSE_SECRET:
     case ROOM_PURPOSE_TREASURE:
-    case ROOM_PURPOSE_TREASURE_FALSE:
-    if(GetRoomPurpose(pflags) > ROOM_PURPOSE_TREASURE_FALSE)
+    if(GetRoomPurpose(pflags) > ROOM_PURPOSE_TREASURE)
       opt.score += depth + p_area;
     else
       opt.score -= root->num_children;
@@ -2017,6 +2015,213 @@ MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node) {
   }
 
   return MAP_NODE_SUCCESS;
+}
+
+MapNodeResult MapEnhance(map_context_t *ctx, map_node_t *node) {
+  int count = 0;
+  room_t *enhance[ctx->num_rooms-2];
+  for(int i = 0; i < ctx->num_rooms; i++){
+    room_t* r = ctx->rooms[i];
+    RoomFlags purpose = r->flags & ROOM_PURPOSE_MASK;
+
+    if(purpose < ROOM_PURPOSE_TRAPPED)
+      continue;
+
+    enhance[count++] = r;
+
+  }
+
+  int traps = 0, loots = 0, chals = 0, lairs = 0, shh=0;
+  room_t* trap[count];
+  room_t* chest[count];
+  room_t* chall[count];
+  room_t* lair[count];
+  room_t* secret[count];
+  
+  for(int i = 0; i < count; i++){
+    room_t* r = ctx->rooms[i];
+    RoomFlags purpose = r->flags & ROOM_PURPOSE_MASK;
+    
+    switch(purpose){
+      case ROOM_PURPOSE_TRAPPED:
+        trap[traps++] = r;
+        break;
+      case ROOM_PURPOSE_SECRET:
+        secret[shh++] = r;
+        break;
+      case ROOM_PURPOSE_TREASURE:
+        chest[loots++] = r;
+        break;
+      case ROOM_PURPOSE_CHALLENGE:
+        chall[chals++] = r;
+        break;
+      case ROOM_PURPOSE_LAIR:
+        lair[lairs++] = r;
+        break;
+      default:
+        continue;
+        break;
+
+    };
+
+  }
+
+  MapAssignTreasures(ctx, chest, loots);
+  MapAssignTraps(ctx, trap, traps);
+  MapAssignSecrets(ctx, secret, shh);
+  MapAssignChallenges(ctx, chall, chals);
+  MapAssignLairs(ctx, lair, lairs);
+
+  return MAP_NODE_SUCCESS;
+}
+
+int RoomScore(room_t* r){
+  int w,h;
+  RoomDimensionsFromFlags(r->flags, &w, &h);
+  return (r->depth+1) * w*h;
+};
+
+void RoomAddTreasure(room_t* r, int score){
+
+}
+
+void MapAssignTreasures(map_context_t *ctx, room_t** rooms, int count){
+  int cap = ctx->num_rooms * BIOME[ctx->map_rules->biome].r_treasure;
+
+  if(cap < 1)
+    return;
+
+  choice_pool_t* picker = InitChoicePool(count, ChooseBest);
+
+  for(int i = 0; i < count; i++){
+    int score = RoomScore(rooms[i]);
+    AddChoice(picker, i, score, rooms[i], DiscardChoice);
+  }
+
+  for(int i = 0; i < cap; i++){
+    choice_t* c = picker->choose(picker);
+    if(c==NULL)
+      continue;
+    room_t* r = c->context;
+    if(r == NULL)
+      continue;
+
+    RoomAddTreasure(r,c->score);
+  }
+}
+
+int RoomScoreByMobs(room_t* r, MobRules spawn, MobRules rules, RaceProps props){
+
+  float spawn_mod = 0.5;
+  float r_score = 0;
+  float p_score = 0;
+  ent_t* e = r->mobs[0];
+  
+  RaceProps m_props = DEFINE_RACE[SpecToIndex(e->props->race)].props;
+  MobRules  m_rules = MONSTER_MASH[e->type].rules;
+
+  if((m_rules & spawn)>0)
+    spawn_mod = 1;
+  while(rules){
+    uint64_t rule = rules & -rules;
+    rules &= rules - 1;
+
+    if((m_rules&rule)>0)
+      r_score+spawn_mod;
+  }
+
+  while(props){
+    uint64_t prop = props & -props;
+    props &= props - 1;
+
+    if((m_props&prop)>0)
+      p_score+=spawn_mod;
+  }
+
+  return r->num_mobs * (p_score+r_score) * e->props->base_diff;
+
+}
+
+void RoomAddMobs(map_context_t* ctx, room_t* r, int score, MobRules rule){
+  int beef = r->depth+1;
+  int max_cr = score + (75*beef) * ctx->map_rules->diff;
+}
+
+void RoomEnhanceMobs(map_context_t* ctx, room_t* r, int score, MobRules rule){
+  ent_t* e = r->mobs[0];
+
+  RaceProps m_props = DEFINE_RACE[SpecToIndex(e->props->race)].props;
+  MobRules  m_rules = MONSTER_MASH[e->type].rules;
+
+  if((m_rules & rule)==0){
+    RoomAddMobs(ctx, r, score, rule);
+    return;
+  }
+
+  int beef = r->depth+1;
+  int max_cr = score + ((75*beef) * ctx->map_rules->max_diff);
+  int min_cr = score + ((75*beef) * ctx->map_rules->diff);
+
+  int total_cr = 0, cr_cap = max_cr*r->num_mobs;
+
+    while(total_cr < cr_cap){
+      total_cr = EnhanceEnts(r->mobs, rule, r->num_mobs);
+    }
+}
+
+
+void MapAssignChallenges(map_context_t *ctx, room_t** rooms, int count){
+  int cap = ctx->num_rooms * BIOME[ctx->map_rules->biome].r_chall;
+
+  if(cap < 1)
+    return;
+
+  if(count < cap)
+    cap = count;
+
+  choice_pool_t* picker = InitChoicePool(count, ChooseBest);
+
+  for(int i = 0; i < count; i++){
+    room_t* r = rooms[i];
+    int score = 0;
+    if(r->num_mobs == 0)
+      score = RoomScore(r);
+    else{
+      score = RoomScoreByMobs(r,MOB_SPAWN_CHALLENGE, MOB_SPAWN_CAMP | 
+          MOB_SPAWN_PATROL | MOB_MOD_MASK | MOB_THEME_MARTIAL | MOB_THEME_PRIMITIVE,
+          RACE_USE_WEAPS | RACE_USE_ARMOR | RACE_USE_POTIONS | RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_SPELLS | RACE_DIFF_PETS);
+      if(score<5)
+        score+=RoomScore(r);
+    }
+    TraceLog(LOG_INFO,"score %i",score);
+    AddChoice(picker, i, score, r, DiscardChoice);
+  }
+
+  for(int i = 0; i < cap; i++){
+    choice_t* c = picker->choose(picker);
+    if(c==NULL)
+      continue;
+    room_t* r = c->context;
+    if(r == NULL)
+      continue;
+
+    if(r->num_mobs == 0)
+      RoomAddMobs(ctx, r,c->score, MOB_SPAWN_CHALLENGE);
+    else
+      RoomEnhanceMobs(ctx, r, c->score, MOB_SPAWN_CHALLENGE);
+  }
+}
+
+void MapAssignTraps(map_context_t *ctx, room_t** rooms, int count){
+
+}
+
+void MapAssignSecrets(map_context_t *ctx, room_t** rooms, int count){
+
+}
+
+void MapAssignLairs(map_context_t *ctx, room_t** rooms, int count){
+
 }
 
 MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node) {

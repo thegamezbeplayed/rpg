@@ -1,7 +1,27 @@
 #ifndef __GAME_LIST__
 #define __GAME_LIST__
 #include "game_define.h"
+#define NUM_FACTIONS 10
 
+static faction_t FACTIONS[NUM_FACTIONS] = {
+  {"Dark Legion",
+    SPEC_GOBLINOID | SPEC_ORC | SPEC_SULKING,
+    {[BIO_FOREST] = 10, [BIO_CAVE] = 40, [BIO_DUNGEON] = 50},
+    {[ENT_GOBLIN] = 35, [ENT_ORC] = 24, [ENT_HOBGOBLIN] = 16,
+      [ENT_OGRE] = 4, [ENT_OROG] = 6, [ENT_BUGBEAR] = 15
+    }
+  },
+  {"Forest Tribe Oak",
+    SPEC_SULKING,
+    {[BIO_FOREST] = 100},
+    {[ENT_BUGBEAR] = 25,[ENT_FOREST_TROLL] = 5}
+  },
+  {"Solensted",
+    SPEC_HUMAN,
+    {[BIO_FOREST] = 10},
+    {[ENT_KNIGHT] = 10, [ENT_FOOTMAN]=25}
+  }
+};
 
 static const char* DAMAGE_STRING[DMG_DONE]={
   "Blunt",
@@ -792,7 +812,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_PRIMITIVE |
       MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_GOBLINOID,
-      {10,32}, 4,
+      {0,0}, 4,
       0.5,
       SOC_PRIMITIVE,
       .promotions = {[CLASS_BASE_ROGUE] = 2, [CLASS_BASE_FIGHTER] = 1, [CLASS_BASE_SHAMAN] = 1}
@@ -805,7 +825,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_MARTIAL |
       MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_ORC,
-      {6,24}, 9,
+      {0,0}, 9,
       .925,
       SOC_MARTIAL,
       .promotions = {[CLASS_BASE_FIGHTER] = 2, [CLASS_BASE_BERZ] = 2, [CLASS_BASE_SHAMAN] = 1}
@@ -821,7 +841,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_THEME_MARTIAL |
       MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_GOBLINOID,
-      {10,20}, 12,
+      {0,0}, 12,
       1.5f,
       SOC_MARTIAL
   },
@@ -853,24 +873,24 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_SPAWN_LAIR |
       MOB_MOD_ENLARGE |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST|
-      MOB_THEME_PRIMITIVE |
+      MOB_THEME_MONSTER |
       MOB_FREQ_RARE |
       MOB_GROUPING_SOLO,
       SPEC_GIANT,
       {6,5}, 5,
-      3,
+      2.25f,
       SOC_INSTINCTIVE
   },
   {ENT_TROLL_CAVE, "Cave Troll",
     MOB_SPAWN_LAIR |
       MOB_MOD_ENLARGE |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE |
-      MOB_THEME_PRIMITIVE |
+      MOB_THEME_MONSTER |
       MOB_FREQ_RARE|
       MOB_GROUPING_SOLO,
     SPEC_GIANT,
     {1,5}, 6,
-    4,
+    2.75f,
     SOC_INSTINCTIVE
   },
   {ENT_BEAR, "Bear",
@@ -909,7 +929,10 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       .25,
       SOC_HIVE
   },
-  {ENT_SKELETON},
+  {ENT_SKELETON,"Skeleton",
+    MOB_THEME_MONSTER
+
+  },
   {ENT_DEER, "Deer",
     MOB_MOD_ENLARGE | MOB_LOC_FOREST |
     MOB_THEME_GAME | MOB_FREQ_COMMON |

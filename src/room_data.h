@@ -45,7 +45,7 @@ static room_gen_t ROOM_TEMPLATES[8]={
 };
 
 static map_gen_t MAPS[MAP_DONE]= {
-  {DARK_FOREST, BIO_FOREST, 0.5,
+  {DARK_FOREST, BIO_FOREST, 0.5, 1.25f,
     MAPFLAG_FOREST, 1, 5, 32, TILEFLAG_FLOOR,
     .mobs = {
       MOB_LOC_FOREST | MOB_FREQ_COMMON |
@@ -62,7 +62,7 @@ static map_gen_t MAPS[MAP_DONE]= {
     MN_GRID,
   
   },
-  {DANK_DUNGEON, BIO_DUNGEON, 0.75,
+  {DANK_DUNGEON, BIO_DUNGEON, 0.75,2.0f,
     MAPFLAG_DUNGEON, 2,20,36, TILEFLAG_DOOR,
     .mobs={
       MOB_LOC_DUNGEON |
@@ -95,7 +95,7 @@ static map_node_data_t room_nodes[MAP_NODE_DONE] = {
   {MN_CARVE_TILES, MAP_NODE_LEAF, LeafMapCarveTiles,0},
   {MN_GRAPH_ROOTS, MAP_NODE_LEAF, LeafMapGraphNodes,0},
   {MN_BUILD, MAP_NODE_SEQUENCE, NULL, 1,{MN_CARVE_TILES }}, 
-  {MN_DETAIL, MAP_NODE_SEQUENCE, NULL, 4,{MN_ECO, MN_ENCASE_FLOORS, MN_PLACE_POI,MN_SET_PLAYER}},
+  {MN_DETAIL, MAP_NODE_SEQUENCE, NULL, 4,{MN_ECO, MN_ENCASE_FLOORS, MN_PLACE_POI,MN_ENH, MN_SET_PLAYER}},
   {MN_ENCASE_FLOORS, MAP_NODE_LEAF, LeafMapFillWalls,0},
   {MN_PLACE_POI, MAP_NODE_SEQUENCE, NULL,1,{MN_PLACE_SPAWNS}},
   {MN_SET_PLAYER, MAP_NODE_LEAF, LeafMapPlayerSpawn,0},
@@ -109,6 +109,7 @@ static map_node_data_t room_nodes[MAP_NODE_DONE] = {
   {MN_GRAPH, MAP_NODE_SEQUENCE, NULL, 1, { MN_GRAPH_ROOTS}},
   {MN_FIX, MAP_NODE_LEAF, LeafMapApplyFixes,0},
   {MN_ECO, MAP_NODE_LEAF, LeafMapBuildBiome,0},
+  {MN_ENH, MAP_NODE_LEAF, LeafMapEnhance,0},
 };
 
 static const ItemInstance room_items[GEAR_DONE] = {

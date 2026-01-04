@@ -200,6 +200,7 @@ typedef enum{
   ENT_OROG,
   ENT_SCORPION,
   ENT_SPIDER,
+  ENT_FOREST_TROLL,
   ENT_TROLL,
   ENT_TROLL_CAVE,
   ENT_BEAR,
@@ -209,6 +210,8 @@ typedef enum{
   ENT_DEER,
   ENT_KOBOLD,
   ENT_BUGBEAR,
+  ENT_KNIGHT,
+  ENT_FOOTMAN,
   ENT_DONE
 }EntityType;
 
@@ -275,6 +278,7 @@ typedef enum{
   MT_CRITTER,
   MT_BUG,
   MT_FACTION,
+  MT_MONSTER,
   MT_LOCALS,
   MT_DONE
 }MobType;

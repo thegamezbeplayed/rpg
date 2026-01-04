@@ -63,6 +63,23 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
   return pool;
 }
 
+void DiscardChoice(choice_pool_t* pool, choice_t* self){
+  if (!pool || !self || pool->count <= 0)
+    return;
+
+  for (int i = 0; i < pool->count; i++) {
+    if (pool->choices[i]->id == self->id) {
+      // Remove from choices by swapping last element
+      pool->choices[i] = pool->choices[pool->count - 1];
+      pool->choices[pool->count - 1] = NULL;
+
+      pool->count--;
+
+      return;
+    }
+  }
+}
+
 void ChoiceReduceScore(choice_pool_t* pool, choice_t* self){
   int avg = pool->total/pool->count;
   self->score -= avg/2;
@@ -152,9 +169,10 @@ choice_t* ChooseBest(choice_pool_t* pool){
     best = c->score;
   }
 
+  choice_t* out = pool->choices[best_index];
   if(pool->choices[best_index]->cb)
     pool->choices[best_index]->cb(pool,pool->choices[best_index]);
-  return pool->choices[best_index];
+  return out;
 
 }
 

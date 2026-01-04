@@ -38,6 +38,7 @@
 
 #define MAX_PATHS 3
 #define MAX_RANKS 4
+#define FACTION_NAME(id)  Faction_Name(id)
 
 typedef enum{
   SPEC_NONE       = BIT64(0),
@@ -57,6 +58,17 @@ typedef enum{
   SPEC_RUMINANT   = BIT64(14),
   SPEC_SULKING    = BIT64(15),
 }SpeciesType;
+
+typedef uint32_t Faction;
+typedef struct{
+  const char  name[MAX_NAME_LEN];
+  SpeciesType species;
+  int         bio_pref[BIO_DONE];
+  int         member_ratio[ENT_DONE];
+  Faction     id;
+}faction_t;
+Faction Faction_Register(const char* name);
+const char* Faction_Name(Faction id);
 
 typedef struct{
   uint64_t    body;

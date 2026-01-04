@@ -4,6 +4,14 @@
 #include "game_gen.h"
 #include <stdio.h>
 
+Faction Faction_Register(const char* name){
+
+}
+
+const char* Faction_Name(Faction id){
+
+}
+
 ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
   {ABILITY_PUNCH,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 0, 1, 3,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
@@ -236,6 +244,7 @@ define_mobtype_t MOB_THEME[MT_DONE] = {
   {MT_CRITTER,    MOB_THEME_CRITTER, SPEC_RODENT},
   {MT_BUG,        MOB_THEME_CRITTER, SPEC_ARTHROPOD},
   {MT_FACTION,    MOB_THEME_MARTIAL | MOB_THEME_CIVIL},
+  {MT_MONSTER,    MOB_THEME_MONSTER},
   {MT_LOCALS,     MOB_THEME_PRIMITIVE},
 };
 
@@ -245,8 +254,9 @@ biome_t BIOME[BIO_DONE] = {
   },
   {BIO_DUNGEON},
   {BIO_FOREST,
+    0.1f, 0.15f, 0.05f, 0.1f, 0.05f,
     .ratios = {
-      [MT_PREY] = .4f, [MT_PRED] = .08f, [MT_CRITTER] = .22f, [MT_BUG] = .12f, [MT_FACTION] = .05f, [MT_LOCALS] = .13f}
+      [MT_PREY] = .40f, [MT_PRED] = .08f, [MT_CRITTER] = .20f, [MT_BUG] = .12f, [MT_FACTION] = .0f, [MT_MONSTER] = 0.07f, [MT_LOCALS] = .13f},
   },
 };
 
