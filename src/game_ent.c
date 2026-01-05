@@ -235,8 +235,10 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
   ent_t* e = InitEntByRace(def,rules);
+  TraceLog(LOG_INFO,"Make Commoner %s profession %i",e->name, sel->id);
   strcpy(e->props->role_name, sel->soc[def.civ].name);
   strcpy(e->name, TextFormat("%s %s", e->props->race_name, e->props->role_name));
+  e->props->prof = sel->id;
   e->aggro = calloc(1,sizeof(aggro_table_t));
   e->allies = calloc(1,sizeof(aggro_table_t));
   InitAggroTable(e->aggro, 4, e);
@@ -257,34 +259,7 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
     e->attribs[i]->asi += sel->attributes[i];
     e->attribs[i]->expand = AttributeScoreIncrease;
   }
-/*
-  for (int i = 0; i < STAT_ENT_DONE;i++){
-    int val = base.stats[i] + size.stats[e->size][i];
-    int base = val;
-
-    if(i == STAT_HEALTH)
-      base = e->size;
-
-    e->stats[i] = InitStat(i,0,val,base);
-
-    e->stats[i]->owner = e;
-    e->stats[i]->start(e->stats[i]);
-
-    switch(i){
-      case STAT_STAMINA:
-      case STAT_ENERGY:
-        e->stats[i]->on_stat_change = EntResetRegen;
-        break;
-      case STAT_STAMINA_REGEN_RATE:
-      case STAT_ENERGY_REGEN_RATE:
-        e->stats[i]->on_turn = StatIncreaseValue;
-        e->stats[i]->on_stat_full = EntRestoreResource;
-        break;
-      default:
-        break;
-    }
-  }
-  */
+  
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
 
  
@@ -348,7 +323,9 @@ bool ModifyEnt(ent_t* e, int amnt, MobMod mod){
   uint64_t mq = modif.mind;
 
   int level_end = modif.lvl_boost + e->skills[SKILL_LVL]->val;
-  
+ 
+  strcpy(e->name,TextFormat(modif.name, e->props->race_name));
+
   for (int i = 1; i < STAT_ENT_DONE;i++){
     StatClassif classif = GetStatClassif(i, pq, mq);
     int val = STAT_STANDARDS[i][classif];
@@ -429,7 +406,47 @@ bool ModifyEnt(ent_t* e, int amnt, MobMod mod){
 
 }
 
-int EnhanceEnt(ent_t* e, bool promote, bool enlarge, bool *enlarged, bool *promoted, RaceProps props){
+void GrantClassByProf(ent_t* e, Profession p){
+  choice_pool_t* pool = InitChoicePool(CLASS_BASE_DONE, ChooseByWeight);
+
+  define_prof_t prof = DEFINE_PROF[p];
+  int found = 0;
+  for (int i = 0; i < CLASS_BASE_DONE; i++){
+    if(prof.combat_rel[i] == 0)
+      break;
+    for(int k = 0; k < PROF_LABORER; k++){
+      define_race_class_t c = RACE_CLASS_DEFINE[e->type][k];
+      if(c.race != e->type)
+        continue;
+      for(int j = 0; j < c.count; j++){
+        if(c.classes[j].base != prof.combat_rel[i])
+          continue;
+
+        found++;
+        AddChoice(pool, c.classes[j].base, c.classes[j].weight, &c.classes[j], NULL);
+      }
+    }
+  }
+
+  if(found == 0){
+    define_race_class_t def = RACE_CLASS_DEFINE[ENT_PERSON][PROF_NONE];
+    for(int i = 0; i < def.count; i++)
+    AddChoice(pool, def.classes[i].base, def.classes[i].weight, &def.classes[i], NULL);
+  }
+
+  choice_t* sel = pool->choose(pool);
+
+  if(sel==NULL){
+    TraceLog(LOG_WARNING,"Issue finding class for %s", e->name);
+    return;
+  }
+
+  race_define_t racial = DEFINE_RACE[__builtin_ctzll(e->props->race)]; 
+  GrantEntClass(e, racial, sel->context);
+    
+}
+
+int EnhanceEnt(ent_t* e, bool promote, bool *promoted, RaceProps props){
 
   if(promote){
     if((props&RACE_MOD_CLASS)>0)
@@ -437,64 +454,83 @@ int EnhanceEnt(ent_t* e, bool promote, bool enlarge, bool *enlarged, bool *promo
     else if ((props&RACE_MOD_ALPHA)>0)
       *promoted = ModifyEnt(e,1, MM_ALPHA);
   }
-  else if(enlarge)
-    *enlarged = ModifyEnt(e,1, MM_BRUTE);
   else{
-    race_class_t* rc = GetRaceClass(e->type, e->props->class_arch);
-    RankUpEnt(e, rc);
+    if((props&RACE_MOD_CLASS)>0){
+      if(e->props->class_arch > 0){
+        race_class_t* rc = GetRaceClass(e->type, e->props->class_arch);
+        RankUpEnt(e, rc);
+      }
+      else{
+        GrantClassByProf(e, e->props->prof);
+      }
+    }
+    else if((props&RACE_MOD_ENLARGE)>0)
+      ModifyEnt(e, 1, MM_BRUTE);
+    else{
+      int inc = e->skills[SKILL_LVL]->threshold;
+      SkillIncreaseUncapped(e->skills[SKILL_LVL], inc);
+    }
+
   }
 
   return EntGetChallengeRating(e);
 }
 
 int EnhanceEnts(ent_t** pool, MobRules rule, int count ){
-  int promotions = count>3?1:0;
-  bool enlarge = (rule & MOB_SPAWN_LAIR)>0;
+  int promotions = 0;
+  switch(rule){
+    case MOB_SPAWN_LAIR:
+      promotions = 1;
+      break;
+    case MOB_SPAWN_CHALLENGE:
+      promotions = count>3?1:0;
+      break;
+  }
   int total_cr = 0;
   for(int i = 0; i < count; i++){
     ent_t* e = pool[i];
     MobRules  m_rules = MONSTER_MASH[e->type].rules;
     RaceProps modif = DEFINE_RACE[__builtin_ctzll(e->props->race)].props & RACE_MOD_MASK;
 
-    if(enlarge && ((m_rules&MOB_SPAWN_LAIR)==0))
-      enlarge = false;
 
-    bool enlarged = false;
     bool promoted = false;
-    int cr = EnhanceEnt(e, true, enlarge, &enlarged, &promoted, modif);
+    int cr = EnhanceEnt(e, (promotions>0), &promoted, modif);
 
-   if(cr == e->props->cr){
-     while(modif){
-       uint64_t mod = modif & -modif;
-       modif &= modif -1;
-       switch(mod){
-         case MM_ALPHA:
-         case MM_BRUTE:
-           int cr = ModifyEnt(e,1,mod);
-           break;
-         default:
-           while(cr==e->props->cr){
-             int inc = e->skills[SKILL_LVL]->threshold;
-             SkillIncreaseUncapped(e->skills[SKILL_LVL], inc);
-             cr = EntGetChallengeRating(e);
-           }
-           break;
-       };
-     }
-   }
+    if(cr == e->props->cr){
+      while(modif){
+        uint64_t mod = modif & -modif;
+        modif &= modif -1;
+        switch(mod){
+          case MM_ALPHA:
+          case MM_BRUTE:
+            cr = ModifyEnt(e,1,mod);
+            break;
+          default:
+            while(cr==e->props->cr){
+              int inc = e->skills[SKILL_LVL]->threshold;
+              SkillIncreaseUncapped(e->skills[SKILL_LVL], inc);
+              cr = EntGetChallengeRating(e);
+            }
+            break;
+        };
+      }
+    }
 
-   e->props->cr = cr;
-   total_cr += cr;
+    TraceLog(LOG_INFO,"====MOB ENHANCED===\n %s challenge rating now %i, from %i",e->name, cr, e->props->cr);
+    e->props->cr = cr;
+    total_cr += cr;
 
-   if(promoted)
+    if(promoted)
       promotions--;
   }
 
   return total_cr;
 
 }
+
+
 void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
-  define_archetype_t data = CLASS_DATA[__builtin_ctzll(race_class->base)];
+  define_archetype_t data = CLASS_DATA[race_class->base];
 
   e->props->traits |= data.traits;
   e->control->behave_traits |= data.traits;
@@ -505,7 +541,10 @@ void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
   for (int i = 0; i < SKILL_DONE; i++){
     if(race_class->skills[i] == 0)
       continue;
-    SkillIncreaseUncapped(e->skills[i], race_class->skills[i]);
+    for(int j = 0; j < race_class->skills[i]; i++){
+      int inc = e->skills[i]->threshold;
+      SkillIncreaseUncapped(e->skills[i], inc);
+    }
 
   }
 
@@ -614,53 +653,51 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   }
 
   int min=99,max=-99;
-  if (group > 0){
-    while(group){
-      uint64_t size = group & -group;
-      group &= group -1;
+  while(group){
+    uint64_t size = group & -group;
+    group &= group -1;
 
-      if(size > MOB_GROUPING_CREW)
-        don = arm = true;
+    if(size > MOB_GROUPING_CREW)
+      don = arm = true;
 
-      switch(size){
-        case MOB_GROUPING_SOLO:
-          if (min > 1)
-            min = 1;
-          break;
-        case MOB_GROUPING_PAIRS:
-          if (min >2)
-            min = 2;
-          if (max < 2)
-            max = 2;
-          break;
-        case MOB_GROUPING_TROOP:
-          if (min >3)
-            min = 3;
-          if (max < 4)
-            max = 4;
-          break;
-        case MOB_GROUPING_PARTY:
-          if (min >5)
-            min = 5;
-          if (max < 5)
-            max = 5;
-          break;
-        case MOB_GROUPING_CREW:
-        case MOB_GROUPING_SQUAD:
-          if (min >6)
-            min = 6 + (group==MOB_GROUPING_SQUAD)?1:0;
-          if (max < 6)
-            max = 7 + (group==MOB_GROUPING_SQUAD)?2:0;
-          break;
-        case MOB_GROUPING_WARBAND:
-          beef++;
-          if (max < 8)
-            max = 9;
-          break;
-        case MOB_GROUPING_SWARM:
-          break;
+    switch(size){
+      case MOB_GROUPING_SOLO:
+        if (min > 1)
+          min = 1;
+        break;
+      case MOB_GROUPING_PAIRS:
+        if (min >2)
+          min = 2;
+        if (max < 2)
+          max = 2;
+        break;
+      case MOB_GROUPING_TROOP:
+        if (min >3)
+          min = 3;
+        if (max < 4)
+          max = 4;
+        break;
+      case MOB_GROUPING_PARTY:
+        if (min >5)
+          min = 5;
+        if (max < 5)
+          max = 5;
+        break;
+      case MOB_GROUPING_CREW:
+      case MOB_GROUPING_SQUAD:
+        if (min >6)
+          min = 6 + (group==MOB_GROUPING_SQUAD?1:0);
+        if (max < 6)
+          max = 7 + (group==MOB_GROUPING_SQUAD?2:0);
+        break;
+      case MOB_GROUPING_WARBAND:
+        beef++;
+        if (max < 8)
+          max = 9;
+        break;
+      case MOB_GROUPING_SWARM:
+        break;
 
-      }
     }
   }
 
@@ -1213,7 +1250,8 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   }
 
   if(success){
-    TraceLog(LOG_INFO,"%s now %i",STAT_STRING[a->resource].name, (int)e->stats[a->resource]->current);
+    if(a->resource > STAT_NONE)
+      TraceLog(LOG_INFO,"%s now %i",STAT_STRING[a->resource].name, (int)e->stats[a->resource]->current);
     a->stats[STAT_DAMAGE]->start(a->stats[STAT_DAMAGE]);
 
     StatMaxOut(a->stats[STAT_DAMAGE]);

@@ -210,10 +210,10 @@ choice_t* ChooseByWeight(choice_pool_t* pool){
     if (r >= running)
       continue;
 
+    choice_t* out = pool->choices[i];
     if(pool->choices[i]->cb)
-      pool->choices[i]->cb(pool, pool->choices[i]);
-
-    return pool->choices[i];
+      pool->choices[i]->cb(pool,pool->choices[i]);
+    return out;
   }
 
   return NULL;

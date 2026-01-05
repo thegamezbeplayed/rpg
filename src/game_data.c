@@ -31,7 +31,8 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_SWIPE, AT_DMG,ACTION_ATTACK, DMG_SLASH,STAT_STAMINA, DES_NONE, 50,2,0, 2, 6, 3,1, STAT_HEALTH, ATTR_STR,
     .skills = SKILL_WEAP_NONE},
 
-  {ABILITY_BITE_POISON, AT_DMG,ACTION_ATTACK, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 0, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, SKILL_WEAP_NONE},
+  {ABILITY_BITE_POISON, AT_DMG,ACTION_ATTACK, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 0, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, .skills = SKILL_WEAP_NONE,
+  },
   {ABILITY_POISON, AT_DMG, ACTION_NONE, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,STAT_HEALTH, ATTR_CON, ATTR_NONE,
     .skills = SKILL_POISON},
  {ABILITY_MAGIC_MISSLE, AT_DMG, ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SELECT_TARGET, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .num_skills =1, .skills = SKILL_SPELL_EVO},
@@ -320,6 +321,7 @@ int RollDie(dice_roll_t* d, int* results){
 attribute_t* InitAttribute(AttributeType type, int val){
   attribute_t* t = calloc(1,sizeof(attribute_t));
 
+  t->type = type;
   t->max = t->min = t->val = val;
   t->asi = 0;
   t->rollover = 0;
@@ -345,7 +347,7 @@ bool AttributeScoreIncrease(attribute_t* a){
   float new = a->max+a->rollover;
   a->rollover = new - (int)new;
   a->max = a->val = (int)new;
-
+  TraceLog(LOG_INFO,"===== ATTRIBUTE %s ====\n increased to %i",attributes[a->type].name, a->val);
   return true;
 }
 // Allocates a copy of the filename without extension
@@ -827,15 +829,19 @@ bool SkillIncrease(struct skill_s* s, int amnt){
 }
 
 void SkillupRelated(skill_t* self, float old, float cur){
-  skill_relation_t related =  SKILLUP_RELATION[self->id];
 
   for (int i = 0; i < MAG_DONE; i++){
-    int mag = i+1;
+    if(!SKILLUP_RELATION[i].skills[self->id])
+      continue;
+    skill_relation_t related = SKILLUP_RELATION[i];
+
+    int mag = i+2;
     int inc = (mag*mag-i)*cur;
-    SkillType rel = related.magnitude[i];
+    SkillType rel = related.skill;
     if (rel == SKILL_NONE)
       continue;
-    SkillIncrease(self->owner->skills[rel], inc);
+    if(SkillIncrease(self->owner->skills[rel], inc))
+      DO_NOTHING();
 
   }
 }

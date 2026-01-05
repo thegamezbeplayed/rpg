@@ -64,8 +64,9 @@ typedef enum{
   TILEFLAG_DOOR        = 1 << 13,
   TILEFLAG_START       = 1 << 14,
   TILEFLAG_INTERACT    = 1 << 15,
-  MAPFLAG_DUNGEON      = 1 << 16,
-  MAPFLAG_FOREST       = 1 << 17,
+  TILEFLAG_EXIT        = 1 << 16,
+  MAPFLAG_DUNGEON      = 1 << 17,
+  MAPFLAG_FOREST       = 1 << 18,
 }TileFlags;
 
 static const uint32_t EnvTileFlags[ENV_DONE] = {
@@ -108,6 +109,7 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
   [ENV_DOOR_VAULT]    = MAPFLAG_DUNGEON | TILEFLAG_DOOR | TILEFLAG_OBSTRUCT | TILEFLAG_INTERACT,
   [ENV_BORDER_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_BORDER | TILEFLAG_SOLID,
   [ENV_FURNITURE_CHAIR]  = MAPFLAG_DUNGEON | TILEFLAG_SPAWN | TILEFLAG_DECOR,
+  [ENV_EXIT]  = MAPFLAG_DUNGEON | MAPFLAG_FOREST |  TILEFLAG_EXIT,
 };
 
 typedef enum {
@@ -140,10 +142,12 @@ typedef enum {
     ROOM_PURPOSE_TREASURE        = 0x0040,
     ROOM_PURPOSE_CHALLENGE = 0x0050,
     ROOM_PURPOSE_LAIR      = 0x0060,
-    ROOM_PURPOSE_START     = 0x0070,
-    ROOM_PURPOSE_CONNECT   = 0x0080,
-    ROOM_PURPOSE_STAIRS    = 0x0090,
-    ROOM_PURPOSE_MAX      = 0x00B0,
+    ROOM_PURPOSE_CONNECT   = 0x0070,
+    ROOM_PURPOSE_CAMP      = 0x0080,
+    ROOM_PURPOSE_START     = 0x0090,
+    ROOM_PURPOSE_STAIRS    = 0x00A0,
+    ROOM_PURPOSE_EXIT      = 0x00B0,
+    ROOM_PURPOSE_MAX       = 0x00C0,
     ROOM_PURPOSE_MASK      = 0x00F0,
 
     // ----- Shape (bits 0–3) -----
@@ -212,12 +216,12 @@ typedef enum{
   MOB_LOC_MASK          = 0xFFULL << 16,
 
   MOB_THEME_CRITTER     = BIT64(24),
-  MOB_THEME_PRIMITIVE   = BIT64(25),
-  MOB_THEME_MARTIAL     = BIT64(26),
-  MOB_THEME_CIVIL       = BIT64(27),
-  MOB_THEME_GAME        = BIT64(28),
-  MOB_THEME_PRED        = BIT64(29),
-  MOB_THEME_MONSTER     = BIT64(30),
+  MOB_THEME_GAME        = BIT64(25),
+  MOB_THEME_PRED        = BIT64(26),
+  MOB_THEME_MONSTER     = BIT64(27),
+  MOB_THEME_PRIMITIVE   = BIT64(28),
+  MOB_THEME_MARTIAL     = BIT64(29),
+  MOB_THEME_CIVIL       = BIT64(30),
   MOB_THEME_MASK        = 0xFFULL << 24,
 
   MOB_FREQ_COMMON      = BIT64(32),
@@ -355,7 +359,7 @@ struct room_gen_s{
 typedef struct{
   int           index;
   room_node_t*  owner;
-  bool          used,enter;
+  bool          used,enter, exit;
   int           depth;
   cell_bounds_t range;
   Cell          dir,pos;
@@ -395,6 +399,12 @@ typedef struct{
   RoomStatus    status;
 }room_connection_t;
 
+typedef struct{
+  TileFlags        tile;
+  room_node_t      *room;
+  node_connector_t *conn;
+}map_exit_t;
+
 typedef struct {
   GenStatus   status;
   map_gen_t   *map_rules;
@@ -405,7 +415,8 @@ typedef struct {
   Rectangle   room_bounds[MAX_ROOMS];
   room_t      *rooms[MAX_ROOMS];
   Cell        player_start;
-  int                num_conn;
+  map_exit_t  *exits[4];
+  int          num_exits, num_conn;
   room_connection_t* connections[MAX_ROOMS*3];
   int         alloc_w, alloc_h;
   // random seed etc if you want

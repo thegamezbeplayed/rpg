@@ -244,8 +244,9 @@ typedef struct{
 }skill_rate_relation_t;
 
 typedef struct{
-  SkillType     main;
-  SkillType     magnitude[MAG_DONE];
+  Magnitude     mag;
+  SkillType     skill;
+  bool          skills[SKILL_DONE];
 }skill_relation_t;
 
 typedef struct{
@@ -1061,55 +1062,18 @@ typedef struct{
   mob_modification_t  mods[MM_DONE];
 }mob_variants_t;
 
-typedef enum{
-  PROF_NONE,
-  PROF_SOLDIER,
-  PROF_ARCHER,
-  PROF_MAGICIAN,
-  PROF_MYSTIC,
-  PROF_HEALER,
-  PROF_LABORER,
-  PROF_HAULER,
-  PROF_RUNNER,
-  PROF_GATHERER,
-  PROF_MINER,
-  PROF_CHOPPER,
-  PROF_TENDER,
-  PROF_SCHOLAR,
-  PROF_HUNTER,
-  PROF_FISHER,
-  PROF_BUILDER,
-  PROF_COOK,
-  PROF_MEDIC,
-  PROF_GUARD,
-  PROF_SCRIBE,
-  PROF_MERCHANT,
-  PROF_WOOD,
-  PROF_STONE,
-  PROF_METAL,
-  PROF_FLETCHER,
-  PROF_TANNER,
-  PROF_TAILOR,
-  PROF_TRAPPER,
-  PROF_ENGINEER,
-  PROF_RESEARCH,
-  PROF_ALCHEMIST,
-  PROF_ARCHITECT,
-  PROF_SURGEON,
-  PROF_BOOKS,
-  PROF_END
-}Profession;
-
 typedef struct{
   int         weight;
   const char* name;
 }define_social_t;
+
 typedef struct{
   Profession      id;
   define_social_t soc[SOC_DONE];
   uint64_t        rules;
   float           attributes[ATTR_DONE];
   int             skills[SKILL_DONE];
+  Archetype       combat_rel[CLASS_BASE_DONE];
 }define_prof_t;
 
 static const define_prof_t DEFINE_PROF[PROF_END]= {
@@ -1132,7 +1096,11 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SOC_HIGH]      = SOC_N(14,"Soldier"),
     },
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {},
+    {
+      [ATTR_CON] = 0.075f,
+      [ATTR_STR] = 0.15f,
+      [ATTR_DEX] = 0.15f
+    },
     {
       [SKILL_SURV]      = 400,
       [SKILL_ATH]       = 400,
@@ -1149,7 +1117,11 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SOC_HIGH]      = SOC_N(20,"Archer"),
     },
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {},
+    {
+      [ATTR_CON] = 0.075f,
+      [ATTR_STR] = 0.075f,
+      [ATTR_DEX] = 0.225f
+    },
     {
       [SKILL_PERCEPT]  = 600,
       [SKILL_ACRO]     = 600,
@@ -1166,7 +1138,11 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SOC_HIGH]      = SOC_N(20,"Magician"),
     },
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {},
+    {
+      [ATTR_CHAR] = 0.075f,
+      [ATTR_WIS] =  0.15f,
+      [ATTR_INT] = 0.15f,
+    },
     {
       [SKILL_ARCANA]  = 1200,
       [SKILL_INSIGHT] = 600,
@@ -1182,7 +1158,11 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SOC_HIGH]      = SOC_N(17,"Mystic"),
     },
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {},
+    {
+      [ATTR_CON] = 0.075f,
+      [ATTR_CHAR] = 0.075f,
+      [ATTR_WIS] = 0.225f
+    },
     {
       [SKILL_NATURE] = 600,
       [SKILL_HERB]   = 800,
@@ -1201,7 +1181,11 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SOC_HIGH]      = SOC_N(21,"Healer"),
     },
     MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {},
+    {
+      [ATTR_WIS] = 0.225f,
+      [ATTR_INT] = 0.075f,
+      [ATTR_CHAR] = 0.075f
+    },
     {
       [SKILL_RELIG]     = 1000,
       [SKILL_MED]       = 1200,
@@ -1226,7 +1210,8 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SKILL_STONE]      = 400,
       [SKILL_WOOD]       = 400,
       [SKILL_WEAP_MACE]  = 400,
-    }
+    },
+    .combat_rel = CLASS_BASE_FIGHTER
   },
 
   [PROF_HAULER] = {
@@ -1242,7 +1227,8 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {
       [ATTR_CON] = 0.10f,
       [ATTR_STR] = 0.15f,
-    }
+    },
+    .combat_rel = CLASS_BASE_FIGHTER
   },
 
   [PROF_RUNNER] = {
@@ -1262,7 +1248,8 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {
       [SKILL_SURV]    = 2100,
       [SKILL_STEALTH] = 800,
-    }
+    },
+    .combat_rel = {CLASS_BASE_ROGUE, CLASS_BASE_RANGER}
   },
 
   [PROF_GATHERER] = {
@@ -1280,7 +1267,8 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {
       [SKILL_SURV] = 2100,
       [SKILL_HERB] = 1300,
-    }
+    },
+    .combat_rel = {CLASS_BASE_DRUID, CLASS_BASE_RANGER},
   },
 [PROF_MINER] = {
     PROF_MINER,
@@ -1299,7 +1287,8 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {
       [SKILL_STONE]     = 600,
       [SKILL_WEAP_PICK] = 500,
-    }
+    },
+    .combat_rel = CLASS_BASE_FIGHTER,
 },
   [PROF_CHOPPER] = {
     PROF_CHOPPER,
@@ -1317,7 +1306,8 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     {
       [SKILL_WOOD]     = 600,
       [SKILL_WEAP_AXE] = 500,
-    }
+    },
+    .combat_rel = CLASS_BASE_FIGHTER
   },
   [PROF_TENDER] = {
     PROF_TENDER,
@@ -1327,7 +1317,14 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SOC_MARTIAL]    = SOC_N(12, "Stockkeeper"),
       [SOC_CIVIL]      = SOC_N(10, "Caretaker"),
       [SOC_HIGH]       = SOC_N(8,  "Animal Tender"),
-    }
+    },
+    .skills = {
+      [SKILL_ANIM] = 800,
+      [SKILL_NATURE] = 350,
+      [SKILL_MED] = 400,
+    },
+    .combat_rel = {CLASS_BASE_DRUID, CLASS_BASE_RANGER}
+
   },
   [PROF_SCHOLAR] = {
     PROF_SCHOLAR,
@@ -1335,18 +1332,42 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SOC_MARTIAL] = SOC_W(2),
       [SOC_CIVIL]   = SOC_W(12),
       [SOC_HIGH]    = SOC_W(15),
-    }
+    },
+    MOB_LOC_MASK,
+    {
+      [ATTR_INT] = 0.25f,
+      [ATTR_WIS] = 0.125f,
+    },
+    .skills = {
+      [SKILL_ARCANA] = 400,
+      [SKILL_CALL] = 800,
+      [SKILL_HIST] = 1600,
+      [SKILL_INSIGHT] = 800,
+    },
+    .combat_rel = CLASS_BASE_WIZ
   },
   [PROF_HUNTER] = {
     PROF_HUNTER,
     {
-      [SOC_FAMILY]     = SOC_W(25),
-      [SOC_HIVE]       = SOC_W(8),
-      [SOC_PRIMITIVE]  = SOC_W(12),
-      [SOC_MARTIAL]    = SOC_W(12),
-      [SOC_CIVIL]      = SOC_W(8),
-      [SOC_HIGH]       = SOC_W(4),
-    }
+      [SOC_FAMILY]     = SOC_N(25,"Prowler"),
+      [SOC_HIVE]       = SOC_N(8, "Hunter"),
+      [SOC_PRIMITIVE]  = SOC_N(12, "Scamp"),
+      [SOC_MARTIAL]    = SOC_N(12, "Stalker"),
+      [SOC_CIVIL]      = SOC_N(8, "Huntsman"),
+      [SOC_HIGH]       = SOC_N(4, "Huntsman"),
+    },
+    MOB_LOC_FOREST,
+    {
+      [ATTR_DEX] = 0.125f
+    },
+    {
+      [SKILL_SURV] = 800,
+      [SKILL_NATURE] = 400,
+      [SKILL_ANIM] = 800,
+      [SKILL_WEAP_BOW] = 400,
+      [SKILL_WEAP_DAGGER] = 400
+    },
+    .combat_rel = CLASS_BASE_RANGER
   },
   [PROF_FISHER] = {
     PROF_FISHER,
@@ -1361,30 +1382,50 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
   [PROF_BUILDER] = {
     PROF_BUILDER,
     {
-      [SOC_HIVE]       = SOC_W(12),
-      [SOC_PRIMITIVE]  = SOC_W(6),
-      [SOC_MARTIAL]    = SOC_W(10),
-      [SOC_CIVIL]      = SOC_W(10),
-      [SOC_HIGH]       = SOC_W(5),
-    }
+      [SOC_HIVE]       = SOC_N(12, "Maker"),
+      [SOC_MARTIAL]    = SOC_N(10, "Builder"),
+      [SOC_CIVIL]      = SOC_N(10, "Constructor"),
+      [SOC_HIGH]       = SOC_N(5, "Constructor"),
+    },
+    MOB_LOC_MASK,
+    {
+      [ATTR_CON] = 0.125f,
+      [ATTR_STR] = 0.075f,
+    },
+    {
+      [SKILL_CARP] = 2100,
+      [SKILL_MASON] = 1600,
+      [SKILL_STONE] = 400,
+      [SKILL_WOOD] = 400,
+      [SKILL_WEAP_MACE] = 1350,
+    },
+    .combat_rel = CLASS_BASE_FIGHTER
   },
   [PROF_COOK] = {
     PROF_COOK,
     {
-      [SOC_PRIMITIVE] = SOC_W(2),
-      [SOC_MARTIAL]   = SOC_W(10),
-      [SOC_CIVIL]     = SOC_W(12),
-      [SOC_HIGH]      = SOC_W(10),
+      [SOC_MARTIAL]   = SOC_N(10, "Cook"),
+      [SOC_CIVIL]     = SOC_N(12, "Cook"),
+      [SOC_HIGH]      = SOC_N(10, "Cook"),
     }
   },
   [PROF_MEDIC] = {
     PROF_MEDIC,
     {
-      [SOC_PRIMITIVE] = SOC_W(2),
-      [SOC_MARTIAL]   = SOC_W(8),
-      [SOC_CIVIL]     = SOC_W(12),
-      [SOC_HIGH]      = SOC_W(12),
-    }
+      [SOC_PRIMITIVE] = SOC_N(2, "Croaker"),
+      [SOC_MARTIAL]   = SOC_N(8, "Medic"),
+      [SOC_CIVIL]     = SOC_N(12, "Medic"),
+      [SOC_HIGH]      = SOC_N(12, "Physician"),
+    },
+    MOB_LOC_MASK,
+    {
+      [ATTR_WIS] = 0.125f,
+    },
+    {
+      [SKILL_MED] = 2100,
+      [SKILL_HERB] = 800,
+    },
+    .combat_rel = CLASS_BASE_CLERIC
   },
   [PROF_GUARD] = {
     PROF_GUARD,
@@ -1397,12 +1438,19 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SOC_CIVIL]      = SOC_N(0, "Guard"),
       [SOC_HIGH]       = SOC_W(0),
     },
-    MOB_LOC_FOREST | MOB_LOC_CAVE | MOB_LOC_DUNGEON,
-    {},
+    MOB_LOC_MASK,
+    {
+      [ATTR_CON] = 0.125f,
+      [ATTR_STR] = 0.125f,
+      [ATTR_DEX] = 0.05f
+    },
     {
       [SKILL_SURV]      = 1300,
       [SKILL_WEAP_NONE] = 800,
-    }
+      [SKILL_WEAP_SIMP] = 800,
+      [SKILL_WEAP_MART] = 400,
+    },
+    .combat_rel = CLASS_BASE_FIGHTER
   },
   /*
      [PROF_SCRIBE]={PROF_SCRIBE,
@@ -1496,6 +1544,7 @@ typedef struct{
 }race_class_t;
 
 typedef struct{
+  EntityType    race;
   Profession    id;
   int           count;
   race_class_t  classes[10];

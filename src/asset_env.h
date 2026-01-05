@@ -53,5 +53,6 @@ static sub_texture_t ENVIRO_SPRITES[ENV_DONE] = {
   { ENV_DOOR_VAULT, 8, 8, 64, 64, 16, 16, LIGHTGRAY ,0,0, 0, 0 },
   { ENV_BORDER_DUNGEON, 8, 8, 80, 64, 16, 16,BLACK, 0, 0, 0, 0 },
   { ENV_FURNITURE_CHAIR , 8, 8, 96, 64, 16, 16, BROWN, 0, 0, 0, 0 },
+  { ENV_EXIT, 8, 8, 112, 64, 16, 16, BLUE},
 
 };

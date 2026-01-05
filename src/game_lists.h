@@ -292,7 +292,7 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   },
   {SPEC_ELF},
   {SPEC_ARCHAIN},
-  {SPEC_GOBLINOID, "Goblin", ENT_GOBLIN,
+  {SPEC_GOBLINOID, "Goblin", ENT_NONE,
     RACE_USE_TOOLS | RACE_USE_WEAPS | RACE_USE_ARMOR | RACE_USE_POTIONS |RACE_USE_SCROLLS |
       RACE_ARMOR_CRUDE | RACE_ARMOR_LIGHT| RACE_ARMS_CRUDE | RACE_ARMS_LIGHT |
       RACE_MOD_CLASS | RACE_TACTICS_CRUDE |
@@ -300,7 +300,7 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
       RACE_BUILD_CRUDE | 
       RACE_SPECIAL_TRAPS | RACE_SPECIAL_FOCI | RACE_SPECIAL_WARDS,
     TRAIT_POISON_RESIST | TRAIT_EXP_DAGGER | TRAIT_EXP_BOW,
-    PQ_SMALL | PQ_LIGHT | PQ_BIPED,
+    PQ_BIPED,
     MQ_TERRITORIAL | MQ_SENTIENT | MQ_ANXIOUS | MQ_CUNNING | MQ_CAUTIOUS | MQ_OBEDIENT,
     PW_NONE,
     PQ_THICK_SKIN,
@@ -404,7 +404,7 @@ static Traits SKILL_TRAITS[SKILL_DONE] = {
 
 };
 
-static const define_archetype_t CLASS_DATA[ENT_DONE] = {
+static const define_archetype_t CLASS_DATA[CLASS_DONE] = {
   {CLASS_BASE_BARD},
   {CLASS_BASE_CLERIC, 6, ATTR_WIS,ATTR_INT,ATTR_CHAR,
     {[ATTR_WIS]=1,[ATTR_INT]=0.5f,[ATTR_INT]=0.5f, [ATTR_CHAR] =.75f},
@@ -455,8 +455,29 @@ static const define_archetype_t CLASS_DATA[ENT_DONE] = {
 };
 
 static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
+  [ENT_PERSON] = {ENT_PERSON, PROF_NONE, 2,
+    {
+      { 25, CLASS_BASE_FIGHTER, "Warrior", 
+        .skills = {
+          [SKILL_ARMOR_PADDED]=2, [SKILL_WEAP_SIMP]=2,
+        },
+        .beefups = {
+          [SKILL_ARMOR_PADDED]=1, [SKILL_WEAP_SIMP]=1,
+        }
+      },
+      { 15, CLASS_BASE_BARD, "Upholder",
+        .skills = {
+          [SKILL_ARMOR_CLOTH] = 2, [SKILL_ARCANA] = 4,
+          [SKILL_PERFORM] = 5, 
+        },
+        .beefups = {
+          [SKILL_ARMOR_CLOTH] = 1, [SKILL_ARCANA] = 2
+        }
+      }
+    }
+  },
   [ENT_GOBLIN] = {
-    [PROF_SOLDIER] = {PROF_SOLDIER,2,
+    [PROF_SOLDIER] = {ENT_GOBLIN, PROF_SOLDIER,2,
       {
         { 15, CLASS_BASE_FIGHTER, "Brawler",
           .skills = {
@@ -480,7 +501,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         }
       }
     },
-    [PROF_ARCHER] = { PROF_ARCHER,1,
+    [PROF_ARCHER] = {ENT_GOBLIN, PROF_ARCHER,1,
       {
         {
           10, CLASS_BASE_RANGER, "Tracker",// "Stinger",
@@ -495,7 +516,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         },
       }
     },
-    [PROF_MYSTIC] = { PROF_MYSTIC,1,
+    [PROF_MYSTIC] = { ENT_GOBLIN, PROF_MYSTIC,1,
       {
         {
           5, CLASS_BASE_SHAMAN, "Pestcaller",//"Seer", "Mystic",
@@ -510,7 +531,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         },
       }
     },
-    [PROF_MAGICIAN] = { PROF_MAGICIAN,1,
+    [PROF_MAGICIAN] = { ENT_GOBLIN, PROF_MAGICIAN,1,
       {
         {
           5, CLASS_BASE_LOCK,"Filthcaller",
@@ -523,7 +544,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         },
       }
     },
-    [PROF_HEALER] = {PROF_HEALER, 1,
+    [PROF_HEALER] = {ENT_GOBLIN, PROF_HEALER, 1,
       {
         {
           5, CLASS_BASE_CLERIC, "Giver", //"Witch-doctor", "Shadow Priest",
@@ -539,7 +560,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
     },
   },
   [ENT_ORC] = {
-    [PROF_SOLDIER] = { PROF_SOLDIER, 3,
+    [PROF_SOLDIER] = {ENT_ORC, PROF_SOLDIER, 3,
       {
         {
           25, CLASS_BASE_FIGHTER, "Grunt",//"Champion","Warlord",
@@ -572,7 +593,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         }
       }
     },
-    [PROF_ARCHER] = { PROF_ARCHER, 1,
+    [PROF_ARCHER] = { ENT_ORC, PROF_ARCHER, 1,
       {
         {
           10, CLASS_BASE_RANGER, "Stalker",// "Slayer", "Hunter",
@@ -585,7 +606,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         },
       }
     },
-    [PROF_MYSTIC] = { PROF_MYSTIC,1,
+    [PROF_MYSTIC] = { ENT_ORC, PROF_MYSTIC,1,
       {
         {
           5, CLASS_BASE_SHAMAN, "Shaman",//"Seer", "Farseer",
@@ -600,7 +621,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         },
       }
     },
-    [PROF_MAGICIAN] = { PROF_MAGICIAN, 1, 
+    [PROF_MAGICIAN] = { ENT_ORC, PROF_MAGICIAN, 1, 
       {
         {
           4, CLASS_BASE_LOCK, "Doomsayer",
@@ -614,7 +635,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         }
       }
     },
-    [PROF_HEALER] = { PROF_HEALER,1,
+    [PROF_HEALER] = { ENT_ORC, PROF_HEALER,1,
       {
         {
           5, CLASS_BASE_CLERIC, "Priest",
@@ -629,8 +650,113 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
       }
     }
   },
+    [ENT_HOBGOBLIN] = {
+    [PROF_SOLDIER] = {ENT_HOBGOBLIN, PROF_SOLDIER, 2,
+      {
+        {
+          25, CLASS_BASE_FIGHTER, "Foot-Soldier",//"Champion","Warlord",
+          .skills = {
+            [SKILL_WEAP_SWORD] = 2, [SKILL_ARMOR_PLATE] = 2, [SKILL_ARMOR_SHIELD] = 1
+          },
+          .beefups = {
+            [SKILL_WEAP_SWORD] = 2, [SKILL_ARMOR_PLATE] = 2, [SKILL_ARMOR_SHIELD] = 1
+          }
+        },
+        {
+          6, CLASS_BASE_ROGUE, "Ambusher",
+          .skills = {
+            [SKILL_WEAP_DAGGER] = 3, [SKILL_ARMOR_LEATHER] = 2,
+            [SKILL_STEALTH] = 1,
+          },
+          .beefups = {
+            [SKILL_WEAP_DAGGER] = 2, [SKILL_ARMOR_LEATHER] = 2,
+            [SKILL_STEALTH] = 1,
+          }
+        },
+      }
+    },
+    [PROF_ARCHER] = { ENT_HOBGOBLIN, PROF_ARCHER, 1,
+      {
+        {
+          14, CLASS_BASE_RANGER, "Bowman",// "Slayer", "Hunter",
+          .skills = {
+            [SKILL_WEAP_BOW] = 3, [SKILL_WEAP_SWORD] = 1, [SKILL_ARMOR_LEATHER] = 2
+          },
+          .beefups = {
+            [SKILL_WEAP_BOW] = 2, [SKILL_WEAP_SWORD] = 1, [SKILL_ARMOR_LEATHER] = 1
+          }
+        },
+      }
+    },
+    [PROF_MYSTIC] = { ENT_HOBGOBLIN, PROF_MYSTIC, 2,
+      {
+        {
+          5, CLASS_BASE_SHAMAN, "Shaman",//"Seer", "Farseer",
+          .skills = {
+            [SKILL_ARMOR_CLOTH]=1, [SKILL_WEAP_AXE]=2,
+            [SKILL_SPELL_ABJ] = 1, [SKILL_SPELL_TRANS]=2, [SKILL_SPELL_CONJ] = 1,
+          },
+          .beefups = {
+            [SKILL_ARMOR_CLOTH] =1, [SKILL_WEAP_AXE]=1,
+            [SKILL_SPELL_ABJ] = 1, [SKILL_SPELL_TRANS]=1, [SKILL_SPELL_CONJ] = 1,
+          }
+        },
+        {
+          8, CLASS_BASE_DRUID, "Monster-Tamer",
+          .skills = {
+            [SKILL_ARMOR_LEATHER] = 3, [SKILL_WEAP_SPEAR] = 2,
+            [SKILL_ANIM] = 4, [SKILL_INTIM] = 3, [SKILL_ALCH] = 3,
+            [SKILL_SURV] = 2, [SKILL_SPELL_ENCH] = 3
+          },
+          .beefups = {
+            [SKILL_ARMOR_LEATHER] = 1, [SKILL_WEAP_SPEAR] = 1,
+            [SKILL_ANIM] = 2, [SKILL_SPELL_ENCH] = 2
+          }
+        }
+      }
+    },
+    [PROF_MAGICIAN] = { ENT_HOBGOBLIN, PROF_MAGICIAN, 1,
+      {
+        {
+          4, CLASS_BASE_LOCK, "Warlock",
+          .skills = {
+            [SKILL_WEAP_DAGGER] = 1, [SKILL_ARMOR_CLOTH] = 1,
+            [SKILL_SPELL_EVO] = 2, [SKILL_SPELL_CONJ] = 1, [SKILL_SPELL_NECRO] = 2,
+          },
+          .beefups = {
+            [SKILL_SPELL_EVO] = 2, [SKILL_SPELL_CONJ] = 1, [SKILL_SPELL_NECRO] = 2,
+          }
+        },
+        {
+          4, CLASS_BASE_WIZ, "Sorceror",
+          .skills = {
+            [SKILL_WEAP_DAGGER] = 1, [SKILL_ARMOR_CLOTH] = 1,
+            [SKILL_SPELL_EVO] = 2, [SKILL_SPELL_ILL] = 2,
+          },
+          .beefups = {
+            [SKILL_SPELL_ABJ] = 2, [SKILL_SPELL_EVO] = 1,
+            [SKILL_SPELL_ILL] = 1
+          }
+        }
+      }
+    },
+    [PROF_HEALER] = { ENT_HOBGOBLIN, PROF_HEALER,1,
+      {
+        {
+          5, CLASS_BASE_CLERIC, "Priest",
+          .skills = {
+            [SKILL_WEAP_STAFF] = 2, [SKILL_ARMOR_CLOTH] = 1, [SKILL_SPELL_ENCH] = 1, [SKILL_SPELL_ABJ] = 1, [SKILL_SPELL_NECRO] = 2,
+          },
+          .beefups = {
+            [SKILL_ARMOR_CLOTH] = 1 ,[SKILL_SPELL_ENCH] = 1, [SKILL_SPELL_ABJ] = 1, [SKILL_SPELL_NECRO] = 2,
+          }
+
+        },
+      }
+    }
+  },
   [ENT_BUGBEAR] = {
-      [PROF_SOLDIER] = {PROF_SOLDIER, 40,
+      [PROF_SOLDIER] = {ENT_BUGBEAR, PROF_SOLDIER, 2,
         {
           { 15, CLASS_BASE_FIGHTER, "Brawler",//"Brute","Champ",
             .skills = {
@@ -654,7 +780,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
           }
         }
       },
-      [PROF_ARCHER] = { PROF_ARCHER,1,
+      [PROF_ARCHER] = { ENT_BUGBEAR, PROF_ARCHER,1,
         {
           {
             10, CLASS_BASE_RANGER, "Tracker",// "Beast-Master", "Beast-Lord",
@@ -725,7 +851,56 @@ static race_class_t PROMOTE_GENERIC[CLASS_DONE] = {
       [SKILL_ANIM] = 4, [SKILL_STEALTH] = 2, [SKILL_SURV] = 2
     },
   },
+  [CLASS_SUB_NECRO] = {
+    .skills = {
+      [SKILL_SPELL_NECRO] = 7, [SKILL_ARCANA] = 4, [SKILL_RELIG] = 5,
+      [SKILL_MED] = 4, [SKILL_ALCH] =3
+    },
+    .beefups = {
+      [SKILL_SPELL_NECRO] = 3, [SKILL_ARCANA] = 2, [SKILL_RELIG] = 1,
+    }
 
+  },
+  [CLASS_SUB_HARBINGER] = {
+    .skills = {
+      [SKILL_ARMOR_PLATE] = 7, [SKILL_WEAP_MART] = 7, [SKILL_WEAP_GREAT] = 7, [SKILL_ARCANA] = 4
+    },
+    .beefups = {
+      [SKILL_ARMOR_PLATE] = 4, [SKILL_WEAP_MART] = 4, [SKILL_WEAP_GREAT] = 4, [SKILL_ARCANA] = 1
+    }
+  },
+  [CLASS_SUB_WARMAG] =  {
+    .skills = {
+      [SKILL_WEAP_MART] = 5, [SKILL_ARMOR_CHAIN] = 5,
+      [SKILL_SPELL_ABJ] = 4, [SKILL_SPELL_EVO] = 4, [SKILL_SPELL_TRANS] = 4
+    },
+    .beefups = {
+      [SKILL_DUEL] = 2, [SKILL_WEAP_SHOT] = 2, [SKILL_INTIM] = 2,
+      [SKILL_WEAP_GREAT] = 4
+    }
+
+  },
+  [CLASS_SUB_DEATH] = {
+    .skills = {
+      [SKILL_SPELL_NECRO] = 4, [SKILL_ARCANA] = 3, [SKILL_WEAP_MART] = 4,
+      [SKILL_SPELL_CONJ] = 4, [SKILL_ALCH] =3, [SKILL_POISON] = 2
+    },
+    .beefups = {
+      [SKILL_SPELL_NECRO] = 2, [SKILL_ARCANA] = 2, [SKILL_WEAP_MART] = 2,
+      [SKILL_SPELL_CONJ] = 2
+    }
+
+  },
+  [CLASS_SUB_DUNG] = {
+    .skills = {
+      [SKILL_DUEL] = 3, [SKILL_ARMOR_LEATHER] = 4, [SKILL_WEAP_WHIP] = 6,
+      [SKILL_ANIM] = 3, [SKILL_SURV] = 3, [SKILL_ACRO] = 3
+    },
+    .beefups = {
+      [SKILL_DUEL] = 2, [SKILL_ARMOR_LEATHER] = 2, [SKILL_ANIM] = 2,
+      [SKILL_ACRO] = 2
+    }
+  }
 };
 
 static define_rankup_t CLASS_LADDER[ENT_DONE][CLASS_BASE_DONE] = {
@@ -741,6 +916,35 @@ static define_rankup_t CLASS_LADDER[ENT_DONE][CLASS_BASE_DONE] = {
     },
 
   },
+  [ENT_ORC] = {
+
+  },
+  [ENT_HOBGOBLIN] = {
+    [CLASS_BASE_FIGHTER] = {
+      2, {CLASS_SUB_CHAMP, CLASS_SUB_WARLORD}
+    },
+    [CLASS_BASE_ROGUE] =  {
+      1, {CLASS_SUB_ASSASSIN}
+    },
+    [CLASS_BASE_RANGER] =  {
+      1, {CLASS_SUB_SHOOTER}
+    },
+    [CLASS_BASE_SHAMAN] = {
+      2, {CLASS_SUB_HEX, CLASS_SUB_WARMAG}
+    },
+    [CLASS_BASE_DRUID] = {
+      2, {CLASS_SUB_BEAST, CLASS_SUB_DUNG}
+    },
+    [CLASS_BASE_LOCK] = {
+      3, {CLASS_SUB_HARBINGER, CLASS_SUB_CHAMP, CLASS_SUB_WARLORD}
+    },
+    [CLASS_BASE_WIZ] = {
+      1, {CLASS_SUB_NECRO}
+    },
+    [CLASS_BASE_CLERIC] = {
+      2, {CLASS_SUB_WARMAG, CLASS_SUB_DEATH}
+    }
+  },
   [ENT_BUGBEAR] = {
     [CLASS_BASE_FIGHTER] = {
       2, {CLASS_SUB_CHAMP, CLASS_SUB_WARLORD}
@@ -755,8 +959,103 @@ static define_rankup_t CLASS_LADDER[ENT_DONE][CLASS_BASE_DONE] = {
 
 
 };
-  static race_class_t PROMOTE_RACE[ENT_DONE][CLASS_DONE] = {
-  [ENT_BUGBEAR] = {
+static race_class_t PROMOTE_RACE[ENT_DONE][CLASS_DONE] = {
+  [ENT_HOBGOBLIN] = {
+    [CLASS_SUB_CHAMP] = {0,
+      CLASS_SUB_CHAMP, "Champion",
+      .skills = {
+        [SKILL_WEAP_SWORD] = 5, [SKILL_ARMOR_PLATE] = 5,
+        [SKILL_WEAP_GREAT] = 7,
+      },
+      .beefups = {
+        [SKILL_WEAP_SWORD] = 3, [SKILL_ARMOR_PLATE] = 3,
+        [SKILL_WEAP_GREAT] = 3
+      }
+    },
+    [CLASS_SUB_ASSASSIN] = {0,
+      CLASS_SUB_ASSASSIN, "Infiltrator",
+      .skills = {
+        [SKILL_ARMOR_LEATHER]=5,
+        [SKILL_WEAP_DAGGER]=6, [SKILL_WEAP_MACE]=5
+      },
+      .beefups = {
+        [SKILL_ARMOR_LEATHER]=3,
+        [SKILL_WEAP_MACE] = 2, [SKILL_WEAP_DAGGER]=4,
+      }
+    },
+    [CLASS_SUB_WARLORD] = {0,
+      CLASS_SUB_WARLORD, "CHIEF",
+      .skills = {
+        [SKILL_WEAP_MACE] = 7, [SKILL_ARMOR_LEATHER] = 7,
+      },
+      .beefups = {
+        [SKILL_WEAP_MACE] = 3, [SKILL_ARMOR_LEATHER] = 3,
+      }
+
+    },
+    [CLASS_SUB_BEAST] = {0,
+      CLASS_SUB_BEAST, "Beast-Master",
+      .skills = {
+        [SKILL_WEAP_NET] = 4, [SKILL_WEAP_SPEAR] = 4, [SKILL_ARMOR_LEATHER] = 5,
+      },
+      .beefups = {
+        [SKILL_WEAP_NET] = 2, [SKILL_WEAP_SPEAR] = 3, [SKILL_ARMOR_LEATHER] = 3,
+      }
+
+    },
+    [CLASS_SUB_DUNG] = {0,
+      CLASS_SUB_BEAST, "Dungeon-Master",
+      .skills = {
+        [SKILL_SPELL_ENCH] = 4, [SKILL_WEAP_WHIP] = 3, [SKILL_WEAP_NET] = 3, [SKILL_ANIM] = 3, [SKILL_ALCH] = 3
+      },
+      .beefups = {
+        [SKILL_WEAP_WHIP] = 2, [SKILL_ANIM] = 2, [SKILL_WEAP_NET] = 2,
+        [SKILL_SPELL_ENCH] = 1
+      }
+    },
+    [CLASS_SUB_NECRO] = {0,
+      CLASS_SUB_NECRO, "Necromancer",
+      .skills = {
+        [SKILL_ARMOR_CLOTH] = 3, [SKILL_WEAP_DAGGER] = 2, [SKILL_SPELL_CONJ] = 4,
+      },
+      .beefups = {
+        [SKILL_SPELL_CONJ] = 2, [SKILL_WEAP_DAGGER] = 2, [SKILL_SPELL_ABJ]= 2
+      }
+
+    },
+    [CLASS_SUB_WARMAG] = {0,
+      CLASS_SUB_WARMAG, "Devastator",
+      .skills = {
+        [SKILL_WEAP_SWORD] = 5, [SKILL_WEAP_GREAT] = 5, [SKILL_INSIGHT] = 6, [SKILL_SPELL_EVO] = 4, [SKILL_SPELL_ABJ] = 4,
+      },
+      .beefups = {
+        [SKILL_WEAP_SWORD] = 2, [SKILL_WEAP_GREAT] = 2,
+        [SKILL_SPELL_EVO] = 2, [SKILL_SPELL_ABJ] = 2
+      }
+    },
+    [CLASS_SUB_DEATH] = {0,
+      CLASS_SUB_DEATH, "Death-Lord",
+      .skills = {
+        [SKILL_WEAP_SWORD] = 4, [SKILL_WEAP_MART] = 3, [SKILL_ATH] = 4,
+        [SKILL_MED] = 3, [SKILL_SPELL_CONJ] = 3, [SKILL_SPELL_ABJ] = 3
+      },
+      .beefups = {
+        [SKILL_WEAP_SWORD] = 2, [SKILL_WEAP_MART] = 1, [SKILL_MED] = 1,
+        [SKILL_SPELL_CONJ] = 1, [SKILL_SPELL_TRANS] = 2
+      }
+    },
+    [CLASS_SUB_SHOOTER] = {0,
+      CLASS_SUB_SHOOTER, "Marskman",
+      .skills = {
+        [SKILL_WEAP_BOW] = 4, [SKILL_WEAP_MART] = 5, [SKILL_WEAP_GREAT] = 4, [SKILL_ATH] = 4,
+      },
+      .beefups = {
+         [SKILL_WEAP_BOW] = 3, [SKILL_WEAP_MART] = 2, [SKILL_WEAP_GREAT] =2, [SKILL_ATH] = 1,
+      }
+
+    }
+  },
+    [ENT_BUGBEAR] = {
     [CLASS_SUB_CHAMP] = {0,
       CLASS_SUB_CHAMP, "Brute",
       .skills = {
@@ -800,7 +1099,7 @@ static define_rankup_t CLASS_LADDER[ENT_DONE][CLASS_BASE_DONE] = {
   },
 };
 
-static const mob_define_t MONSTER_MASH[ENT_DONE] = {
+static mob_define_t MONSTER_MASH[ENT_DONE] = {
   {ENT_PERSON,
     .race = SPEC_HUMAN
   },
@@ -815,7 +1114,9 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       {0,0}, 4,
       0.5,
       SOC_PRIMITIVE,
-      .promotions = {[CLASS_BASE_ROGUE] = 2, [CLASS_BASE_FIGHTER] = 1, [CLASS_BASE_SHAMAN] = 1}
+      .flags = {
+        PQ_SMALL | PQ_LIGHT
+      } 
   },
   {ENT_ORC, "Orc",
       MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
@@ -843,7 +1144,11 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
       SPEC_GOBLINOID,
       {0,0}, 12,
       1.5f,
-      SOC_MARTIAL
+      SOC_MARTIAL,
+      .flags = {
+        PQ_LONG_LIMB,
+        MQ_STRATEGIC | MQ_DISCIPLINED | MQ_LEADER
+      }
   },
   {ENT_OROG},
   {ENT_SCORPION, "Scorpion",
@@ -967,7 +1272,7 @@ static const mob_define_t MONSTER_MASH[ENT_DONE] = {
     .flags = PQ_SMALL
   },
   {ENT_BUGBEAR, "Bugbear",
-    /*MOB_SPAWN_CHALLENGE |*/ MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
+    MOB_SPAWN_CHALLENGE | MOB_SPAWN_LAIR | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
     MOB_MOD_WEAPON | MOB_LOC_FOREST | MOB_LOC_CAVE |
       MOB_THEME_PRIMITIVE |
       MOB_FREQ_COMMON | MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP |
@@ -1000,7 +1305,7 @@ static mob_variants_t MOB_MODS[ENT_DONE] = {
   {ENT_SPIDER,
     {
       [MM_ALPHA] = {
-        MM_ALPHA, BLANK, 3, "Brood-Mother",
+        MM_ALPHA, BLANK, 3, "%s Brood-Mother",
         PQ_LARGE | PQ_LONG_LIMB | PQ_DENSE_MUSCLE,
         MQ_TERRITORIAL,
         PQ_CLAWS,
@@ -1016,32 +1321,65 @@ static mob_variants_t MOB_MODS[ENT_DONE] = {
   {ENT_BEAR,
     {
       [MM_ALPHA] = {
-        MM_ALPHA, BLANK, 4, "Apex",
+        MM_ALPHA, BLANK, 4, "Apex %s",
         PQ_LARGE_HANDS | PQ_LARGE_FEET | PQ_TALL,
         .skillups = {
-            SKILL_ATH, SKILL_ARMOR_NATURAL, SKILL_INTIM, SKILL_WEAP_NONE, SKILL_SURV
+          SKILL_ATH, SKILL_ARMOR_NATURAL, SKILL_INTIM, SKILL_WEAP_NONE, SKILL_SURV
 
+        }
+      },
+      [MM_BRUTE] = {
+        MM_BRUTE, BLANK, 3, "Dire %s",
+        PQ_HUGE,
+        MQ_CUNNING,
+        .skillups = { 
+          SKILL_ACRO, SKILL_ARMOR_NATURAL, SKILL_ATH, SKILL_WEAP_NONE, SKILL_SURV
         }
       }
     }
+
   },
   {ENT_WOLF,
     {
       [MM_ALPHA] = {
-        MM_ALPHA, BLANK, 3, "Alpha", 
+        MM_ALPHA, BLANK, 3, "Alpha %s", 
         PQ_DENSE_MUSCLE | PQ_LARGE_HANDS | PQ_LARGE_FEET,
         MQ_PROTECTIVE | MQ_LEADER,
         PQ_SHARP_CLAWS | PQ_SHARP_TEETH,
           .skillups = {
             SKILL_ACRO, SKILL_ARMOR_NATURAL, SKILL_INTIM, SKILL_WEAP_NONE, SKILL_SURV
           }
+      },
+      [MM_BRUTE] = {
+        MM_BRUTE, BLANK, 2, "Dire %s", 
+        PQ_LARGE,
+        MQ_CUNNING,
+          .skillups = {
+            SKILL_ACRO, SKILL_ARMOR_NATURAL, SKILL_ATH, SKILL_WEAP_NONE, SKILL_SURV
+          }
       }
+
     }
   },
   {ENT_RAT},
   {ENT_SKELETON},
-  {ENT_DEER},
-  {ENT_KOBOLD},
+  {ENT_DEER,
+    {
+      [MM_BRUTE] = {
+        MM_BRUTE, BLANK, 3, "Stag",
+        PQ_TALL | PQ_LARGE,
+        MQ_DETERMINED,
+        PQ_TOUGH_HORNS,
+        PQ_TOUGH_HIDE,
+        .skillups = {
+          SKILL_ACRO, SKILL_ARMOR_NATURAL, SKILL_INTIM, SKILL_WEAP_NONE, SKILL_SURV
+        }
+      }
+    }
+  },
+  {ENT_KOBOLD,
+  
+  },
   {ENT_BUGBEAR},
   {ENT_KNIGHT},
   {ENT_FOOTMAN},
@@ -1132,110 +1470,88 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
   },
 
 };
+static skill_relation_t SKILLUP_RELATION[MAG_DONE] = {
+  [MAG_MINOR] = {
+    .mag = MAG_MINOR,
+    .skill = SKILL_LVL,
+    .skills = {
+      [SKILL_WEAP_NONE]        = true,
+      [SKILL_WEAP_SIMP]        = true,
+      [SKILL_ARMOR_NATURAL]    = true,
+      [SKILL_ALCH]             = true,
+      [SKILL_ANIM]           = true,
+      [SKILL_ATH]           = true,
+      [SKILL_CALL]           = true,
+      [SKILL_CARP]           = true,
+      [SKILL_CART]           = true,
+      [SKILL_COBB]           = true,
+      [SKILL_COOK]           = true,
+      [SKILL_DECEPT]           = true,
+      [SKILL_DUEL]           = true,
+      [SKILL_GLASS]           = true,
+      [SKILL_HIST]           = true,
+      [SKILL_HERB]           = true,
+      [SKILL_INSIGHT]           = true,
+      [SKILL_INTIM]           = true,
+      [SKILL_INVEST]           = true,
+      [SKILL_JEWL]           = true,
+      [SKILL_LW]           = true,
+      [SKILL_MASON]           = true,
+      [SKILL_MED]           = true,
+      [SKILL_NATURE]           = true,
+      [SKILL_PAINT]           = true,
+      [SKILL_PERCEPT]           = true,
+      [SKILL_PERFORM]           = true,
+      [SKILL_PERSUAD]           = true,
+      [SKILL_POTT]           = true,
+      [SKILL_RELIG]           = true,
+      [SKILL_SLEIGHT]           = true,
+      [SKILL_SMITH]           = true,
+      [SKILL_STONE]           = true,
+      [SKILL_TINK]           = true,
+      [SKILL_WEAV]           = true,
+      [SKILL_WOOD]           = true,
+    }
+  },
 
-static skill_relation_t SKILLUP_RELATION[SKILL_DONE] = {
-  [SKILL_WEAP_NONE] = {SKILL_WEAP_NONE,
-    {
-      [MAG_MINOR] = SKILL_LVL
+  [MAG_NOMINAL] = {
+    .mag = MAG_NOMINAL,
+    .skill = SKILL_LVL,
+    .skills = {
+      [SKILL_POISON]           = true,
+      [SKILL_STEALTH]          = true,
+      [SKILL_SURV]             = true,
+      [SKILL_THEFT]            = true,
+      [SKILL_WEAP_MACE]        = true,
+      [SKILL_WEAP_SWORD]       = true,
+      [SKILL_WEAP_AXE]         = true,
+      [SKILL_WEAP_DAGGER]      = true,
+      [SKILL_WEAP_BOW]         = true,
+      [SKILL_WEAP_PICK]        = true,
+      [SKILL_ARMOR_SHIELD]     = true,
     }
   },
-  [SKILL_WEAP_SIMP] = {SKILL_WEAP_SIMP,
-    {
-      [MAG_MINOR] = SKILL_LVL
+
+  [MAG_MODEST] = {
+    .mag = MAG_MODEST,
+    .skill = SKILL_LVL,
+    .skills = {
+      [SKILL_WEAP_MART]        = true,
+      [SKILL_ARMOR_PADDED]     = true,
+      [SKILL_ARMOR_LEATHER]    = true,
+      [SKILL_ARMOR_CHAIN]      = true,
+      [SKILL_ARMOR_PLATE]      = true,
+
+      [SKILL_SPELL_ABJ]        = true,
+      [SKILL_SPELL_CONJ]       = true,
+      [SKILL_SPELL_DIV]        = true,
+      [SKILL_SPELL_ENCH]       = true,
+      [SKILL_SPELL_EVO]        = true,
+      [SKILL_SPELL_ILL]        = true,
+      [SKILL_SPELL_NECRO]      = true,
     }
   },
-  [SKILL_WEAP_MACE] = {SKILL_WEAP_MACE,
-    {
-      [MAG_NOMINAL] = SKILL_LVL
-    }
-  },
-  [SKILL_WEAP_SWORD] = {SKILL_WEAP_SWORD,
-    {
-      [MAG_NOMINAL] = SKILL_LVL
-    }
-  },
-  [SKILL_WEAP_AXE] = {SKILL_WEAP_AXE,
-    {
-      [MAG_NOMINAL] = SKILL_LVL
-    }
-  },
-  [SKILL_WEAP_DAGGER] = {SKILL_WEAP_DAGGER,
-    {
-      [MAG_NOMINAL] = SKILL_LVL
-    }
-  },
-  [SKILL_WEAP_BOW] = {SKILL_WEAP_BOW,
-    {
-      [MAG_NOMINAL] = SKILL_LVL
-    }
-  },
-  [SKILL_WEAP_PICK] = {SKILL_WEAP_PICK,
-    {
-      [MAG_NOMINAL] = SKILL_LVL
-    }
-  },
-  [SKILL_WEAP_MART] = {SKILL_WEAP_MART,
-    {
-      [MAG_MODEST] = SKILL_LVL
-    }
-  },
-  [SKILL_ARMOR_NATURAL] =  {SKILL_ARMOR_NATURAL,
-    {
-      [MAG_MINOR] = SKILL_LVL
-    }
-  },
-  [SKILL_ARMOR_PADDED] = { SKILL_ARMOR_PADDED,
-    {
-      [MAG_MODEST] = SKILL_LVL
-    }
-  },
-  [SKILL_ARMOR_LEATHER] = { SKILL_ARMOR_LEATHER,
-    {
-      [MAG_MODEST] = SKILL_LVL
-    }
-  },
-  [SKILL_ARMOR_CHAIN] = { SKILL_ARMOR_CHAIN,
-    {
-      [MAG_MODEST] = SKILL_LVL
-    }
-  },
-  [SKILL_ARMOR_PLATE] = { SKILL_ARMOR_PLATE,
-    {
-      [MAG_MODEST] = SKILL_LVL
-    }
-  },
-  [SKILL_ARMOR_SHIELD] = { SKILL_ARMOR_SHIELD,
-    {
-      [MAG_NOMINAL] = SKILL_LVL
-    }
-  },
-  [SKILL_ARCANA] = {SKILL_ARCANA,
-    {[MAG_MINOR] = SKILL_LVL}
-  },
-  [SKILL_SPELL_ABJ] = {SKILL_SPELL_ABJ,
-    {[MAG_MODEST] = SKILL_LVL}
-  },
-  [SKILL_SPELL_CONJ] = {SKILL_SPELL_CONJ,
-    {[MAG_MODEST] = SKILL_LVL}
-  },
-  [SKILL_SPELL_DIV] = {SKILL_SPELL_DIV,
-    {[MAG_MODEST] = SKILL_LVL}
-  },
-  [SKILL_SPELL_ENCH] = {SKILL_SPELL_ENCH,
-    {[MAG_MODEST] = SKILL_LVL}
-  },
-  [SKILL_SPELL_EVO] = {SKILL_SPELL_EVO,
-    {[MAG_MODEST] = SKILL_LVL}
-  },
-  [SKILL_SPELL_ILL] = {SKILL_SPELL_ILL,
-    {[MAG_MODEST] = SKILL_LVL}
-  },
-  [SKILL_SPELL_NECRO] = {SKILL_SPELL_NECRO,
-    {[MAG_MODEST] = SKILL_LVL}
-  },
-  [SKILL_SPELL_CONJ] = {SKILL_SPELL_CONJ,
-    {[MAG_MODEST] = SKILL_LVL}
-  }
+
 };
 
 static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {

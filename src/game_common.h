@@ -156,16 +156,16 @@ static inline bool ProfHasAnyRules(Profession p, uint64_t rules) {
 }
 
 static inline int FilterProfsByRules(uint64_t rules, define_prof_t* in, int size, define_prof_t *pool) {
-    int count = 0;
+  int count = 0;
 
-    for (int i = 0; i < size; i++) {
+  for (int i = 0; i < size; i++) {
 
-      if (!ProfHasAnyRules(in[i].id, rules))
-        continue;
+    if (!ProfHasAnyRules(in[i].id, rules))
+      continue;
 
-      pool[count++] = in[i];
-    }
-    return count;
+    pool[count++] = in[i];
+  }
+  return count;
 }
 
 static inline int GetProfessionsBySociety(SocietyType s, define_prof_t *pool) {
@@ -211,6 +211,7 @@ struct attribute_s;
 typedef bool (*AttributeCallback)(struct attribute_s *a);
 
 typedef struct attribute_s{ 
+  AttributeType       type;
   int                 val,min,max,cap;
   float               rollover,asi;
   bool                event[ASI_DONE];

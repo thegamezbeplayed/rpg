@@ -570,6 +570,7 @@ static void RoomDimensionsFromFlags(RoomFlags f, int *w, int *h) {
         case ROOM_SIZE_XL:      *w = 9; *h = 9; break;
         case ROOM_SIZE_HUGE:    *w = 11; *h = 11; break;
         case ROOM_SIZE_MASSIVE: *w = 13; *h = 13; break;
+        case ROOM_SIZE_MAX:     *w = 14; *h = 14; break;
         default:                *w = 4; *h = 4; break;
     }
 }
