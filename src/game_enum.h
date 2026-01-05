@@ -84,6 +84,14 @@ typedef enum{
 }ValueAffix;
 
 typedef enum{
+  MM_NONE,
+  MM_ALPHA,
+  MM_BRUTE,
+  MM_HYBRID,
+  MM_REGION,
+  MM_DONE
+}MobMod;
+typedef enum{
   MOD_NONE,
   MOD_SQRT,
   MOD_CBRT,

@@ -59,7 +59,7 @@ ent_t* InitEnt(EntityType id,Cell pos){
     const char* name = attributes[i].name;
     TraceLog(LOG_INFO,"%i %s",val,name);
   }
-
+  EntPrepare(e);
   SetState(e,STATE_SPAWN,NULL);
   return e;
 }
@@ -137,7 +137,7 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
       if(!asi)
         continue;
 
-      e->attribs[i]->event[i] = true;
+      e->attribs[i]->event[j] = true;
 
       int asi_bonus = 1;
 
@@ -341,27 +341,156 @@ int PromoteEntClass(ent_t* e, int ranks){
   return 1;
 }
 
-int EnhanceEnt(ent_t* e, bool promote, bool enlarge, bool *enlarged, bool *promoted){
+bool ModifyEnt(ent_t* e, int amnt, MobMod mod){
+  mob_modification_t modif = MOB_MODS[e->type].mods[mod];
+
+  uint64_t pq = modif.body;
+  uint64_t mq = modif.mind;
+
+  int level_end = modif.lvl_boost + e->skills[SKILL_LVL]->val;
+  
+  for (int i = 1; i < STAT_ENT_DONE;i++){
+    StatClassif classif = GetStatClassif(i, pq, mq);
+    int val = STAT_STANDARDS[i][classif];
+
+    if(classif <= e->stats[i]->classif)
+      continue;
+
+    e->stats[i]->classif = classif;
+    e->stats[i]->base += val;
+    e->stats[i]->start(e->stats[i]);
+  }
+
+  for (int i = 0; i < ATTR_BLANK; i++){
+    for(int j = 0; j < ASI_DONE; j++){
+      asi_bonus_t *asi = GetAsiBonus(i,pq,mq,j);
+      if(!asi)
+        continue;
+
+      e->attribs[i]->event[j] = true;
+
+      if(j == ASI_INIT){
+        e->attribs[i]->cap++;
+
+        if(asi->pq)
+          e->attribs[i]->max++;
+        if(asi->pq)
+          e->attribs[i]->max++;
+      }
+
+      AttributeMaxOut(e->attribs[i]);
+    }
+  }
+
+   if(modif.weaps > 0){
+    for(int i = 0; i < 16; i++){
+      natural_weapons_t w = NAT_WEAPS[i];
+      if((modif.weaps & w.pq) == 0)
+        continue;
+
+      for(int j = SKILL_RANGE_WEAP.x; j < SKILL_RANGE_WEAP.y; j++)
+        if(w.skillup[j]>0)
+        SkillIncreaseUncapped(e->skills[j], w.skillup[j]);
+
+      for(int j = 0; j < w.num_abilities; j++){
+        ability_t* a = InitAbility(e, w.abilities[j]);
+        a->cost--;
+
+        ActionSlotAddAbility(e,a);
+      }
+    }
+  }
+
+   if(modif.covering > 0){
+    for(int i = 0; i < 16; i++){
+      body_covering_t c = COVERINGS[i];
+      if(!modif.covering & c.pq)
+        continue;
+      e->props->traits |= c.traits;
+    } 
+  }
+
+  if(modif.lvl_boost > 0){
+    int rounds = 0;
+    while(e->skills[SKILL_LVL]->val < level_end){
+      rounds++;
+      for (int i = 0; i < 5; i++){
+        SkillIncreaseUncapped(e->skills[SKILL_LVL],rounds*(level_end+10));
+        SkillType s = modif.skillups[i];
+        if(s == SKILL_NONE)
+          continue;
+
+        int increase = e->skills[s]->threshold;
+        SkillIncreaseUncapped(e->skills[s], increase);
+      }
+      DO_NOTHING();
+    }
+  }
 
 }
 
+int EnhanceEnt(ent_t* e, bool promote, bool enlarge, bool *enlarged, bool *promoted, RaceProps props){
+
+  if(promote){
+    if((props&RACE_MOD_CLASS)>0)
+      *promoted = (PromoteEntClass(e,1)>0);
+    else if ((props&RACE_MOD_ALPHA)>0)
+      *promoted = ModifyEnt(e,1, MM_ALPHA);
+  }
+  else if(enlarge)
+    *enlarged = ModifyEnt(e,1, MM_BRUTE);
+  else{
+    race_class_t* rc = GetRaceClass(e->type, e->props->class_arch);
+    RankUpEnt(e, rc);
+  }
+
+  return EntGetChallengeRating(e);
+}
+
 int EnhanceEnts(ent_t** pool, MobRules rule, int count ){
-  int promotions = count / 3;
+  int promotions = count>3?1:0;
   bool enlarge = (rule & MOB_SPAWN_LAIR)>0;
   int total_cr = 0;
   for(int i = 0; i < count; i++){
     ent_t* e = pool[i];
     MobRules  m_rules = MONSTER_MASH[e->type].rules;
+    RaceProps modif = DEFINE_RACE[__builtin_ctzll(e->props->race)].props & RACE_MOD_MASK;
+
     if(enlarge && ((m_rules&MOB_SPAWN_LAIR)==0))
       enlarge = false;
 
     bool enlarged = false;
     bool promoted = false;
-    total_cr += EnhanceEnt(e, (promotions>0), enlarge, &enlarged, &promoted);
-    if(promoted)
+    int cr = EnhanceEnt(e, true, enlarge, &enlarged, &promoted, modif);
+
+   if(cr == e->props->cr){
+     while(modif){
+       uint64_t mod = modif & -modif;
+       modif &= modif -1;
+       switch(mod){
+         case MM_ALPHA:
+         case MM_BRUTE:
+           int cr = ModifyEnt(e,1,mod);
+           break;
+         default:
+           while(cr==e->props->cr){
+             int inc = e->skills[SKILL_LVL]->threshold;
+             SkillIncreaseUncapped(e->skills[SKILL_LVL], inc);
+             cr = EntGetChallengeRating(e);
+           }
+           break;
+       };
+     }
+   }
+
+   e->props->cr = cr;
+   total_cr += cr;
+
+   if(promoted)
       promotions--;
   }
 
+  return total_cr;
 
 }
 void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
@@ -802,9 +931,7 @@ void EntInitOnce(ent_t* e){
 void EntApplyTraits(ent_t* e){
 
 
-    e->props->offr = EntGetOffRating(e);
-    e->props->defr = EntGetDefRating(e);
-    e->props->cr = e->props->defr*10 + e->props->offr;
+    e->props->cr = EntGetChallengeRating(e);
 }
 
 void EntPollInventory(ent_t* e){
@@ -1459,15 +1586,6 @@ bool CheckEntAvailable(ent_t* e){
   return (e->state < STATE_DIE);
 }
 
-
-SpeciesType GetEntitySpecies(EntityType t){
-  if (t >= 0 && t < ENT_DONE)
-        return RACE_MAP[t];
-    return SPEC_HUMAN; // fallback default
-
-}
-
-
 ability_t* EntFindAbility(ent_t* e, AbilityID id){
   ActionType act = ABILITIES[id].action;
 
@@ -1570,10 +1688,11 @@ Cell EntSimulateBattle(ent_t* e, ent_t* t, int sims){
   return CELL_NEW(e_wins,t_wins);
 }
 
-int EntGetChallengeRating(ent_t* e, ent_t* t){
-  Cell results = EntSimulateBattle(e,t, MAX_SKILL_GAIN);
+int EntGetChallengeRating(ent_t* e){
+  e->props->offr = EntGetOffRating(e);
+  e->props->defr = EntGetDefRating(e);
+  return  e->props->defr*10 + e->props->offr;
 
-  return MAX_SKILL_GAIN-results.x;
 }
 
 bool EntCanSee(ent_t* e, ent_t* tar, int depth){

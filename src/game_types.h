@@ -323,7 +323,7 @@ void EntAddExp(ent_t *e, int exp);
 void EntAddPos(ent_t *e, Vector2 pos);
 void EntSetPos(ent_t *e, Vector2 pos);
 void EntControlStep(ent_t *e);
-int EntGetChallengeRating(ent_t* e, ent_t* t);
+int EntGetChallengeRating(ent_t* e);
 int EntGetDefRating(ent_t* e);
 int EntGetOffRating(ent_t* e);
 int EntAddAggro(ent_t* owner, ent_t* source, int threat_gain, float mul);

@@ -585,8 +585,6 @@ void RoomSpawnMob(map_grid_t* m, room_t* r);
 Cell MapApplyContext(map_grid_t* m);
 
 EntityType MobGetByRules(MobRules rules);
-MobCategory GetEntityCategory(EntityType t);
-SpeciesType GetEntitySpecies(EntityType t);
 
 int ResistDmgLookup(uint64_t trait);
 #endif

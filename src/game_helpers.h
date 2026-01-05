@@ -1061,4 +1061,19 @@ static choice_pool_t* GetRaceClassPool(EntityType type, int size, ChoiceFn fn){
 
   return class_choice;
 }
+
+static race_class_t* GetRaceClass(EntityType e, Archetype id){
+
+  for(int i = 0; i < PROF_LABORER; i++){
+    define_race_class_t drc = RACE_CLASS_DEFINE[e][i];
+
+    for(int j = 0; j < drc.count; j++){
+      if(drc.classes[j].base == id)
+        return &RACE_CLASS_DEFINE[e][i].classes[j];
+    }
+  }
+
+  return NULL;
+
+}
 #endif

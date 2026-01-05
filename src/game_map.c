@@ -2154,7 +2154,7 @@ void RoomEnhanceMobs(map_context_t* ctx, room_t* r, int score, MobRules rule){
   MobRules  m_rules = MONSTER_MASH[e->type].rules;
 
   if((m_rules & rule)==0){
-    RoomAddMobs(ctx, r, score, rule);
+    //RoomAddMobs(ctx, r, score, rule);
     return;
   }
 

@@ -978,7 +978,7 @@ typedef enum{
   RACE_USE_ARMOR     = BIT64(2),
   RACE_USE_POTIONS   = BIT64(3),
   RACE_USE_SCROLLS   = BIT64(4),
-
+  RACE_USE_CLASSES   = BIT64(5),
   RACE_USE_MASK       = 0xFFULL,
 
   RACE_ARMOR_CRUDE     = BIT64(8),
@@ -1002,10 +1002,10 @@ typedef enum{
   RACE_ARMS_SKILLED   = BIT64(23),
   RACE_ARMS_MASK      = 0xFFULL << 16,
 
-  RACE_SIZE_SMALL     = BIT64(24),
-  RACE_SIZE_BIG       = BIT64(25),
-  RACE_SIZE_GIANT     = BIT64(26),
-  RACE_SIZE_MASK      = 0xFFULL << 24,
+  RACE_MOD_CLASS     = BIT64(24),
+  RACE_MOD_ENLARGE   = BIT64(25),
+  RACE_MOD_ALPHA     = BIT64(26),
+  RACE_MOD_MASK      = 0xFFULL << 24,
 
   RACE_TACTICS_CRUDE   = BIT64(32),
   RACE_TACTICS_SIMPLE  = BIT64(33),
@@ -1044,6 +1044,22 @@ typedef enum{
 
   RACE_BUILD_MASK      = 0xFFULL << 56,
 }RaceProp;
+
+typedef struct{
+  MobMod      id;
+  Color       col;
+  int         lvl_boost;
+  const char  name[MAX_NAME_LEN];
+  RaceProps   props;
+  uint64_t    body, mind, weaps, covering;
+  SkillType   skillups[5];
+  EntityType  alt_sprite;
+}mob_modification_t;
+
+typedef struct{
+  EntityType          base;
+  mob_modification_t  mods[MM_DONE];
+}mob_variants_t;
 
 typedef enum{
   PROF_NONE,
