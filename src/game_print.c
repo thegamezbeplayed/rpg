@@ -3,7 +3,12 @@
 #include <stdio.h>
 
 void PrintMobDetail(ent_t* e){
-  TraceLog(LOG_INFO,"%s lvl %i\n",e->name, e->skills[SKILL_LVL]->val);
+  faction_t* f = GetFactionByID(e->team);
+  char* team = "";
+  if(f)
+    team = strdup(f->name);
+  TraceLog(LOG_INFO,"%s lvl %i\n %s\n",e->name, e->skills[SKILL_LVL]->val,
+      team);
 
   stat_t* health = e->stats[STAT_HEALTH];
   TraceLog(LOG_INFO,"%s: [%i/%i] \n",STAT_STRING[STAT_HEALTH].name, (int)health->current,(int)health->max);

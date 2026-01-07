@@ -15,6 +15,16 @@ typedef enum {
 }Magnitude;
 
 typedef enum {
+  TREAT_NONE,
+  TREAT_KILL,
+  TREAT_DEFEND,
+  TREAT_EAT,
+  TREAT_HELP,
+  TREAT_FLEE,
+  TREAT_DONE
+}Treatment;
+
+typedef enum {
   DATA_NONE,
   DATA_INT,
   DATA_FLOAT,
@@ -128,7 +138,6 @@ typedef enum{
   STAT_DAMAGE,
   STAT_HEALTH,
   STAT_ARMOR,
-  STAT_AGGRO,
   STAT_ACTIONS,
   STAT_ENERGY,
   STAT_STAMINA,
@@ -145,6 +154,19 @@ typedef enum{
   STAT_TIME,
   STAT_DONE,
 }StatType;
+
+typedef enum{
+  SEN_HEAR,
+  SEN_SEE,
+  SEN_SMELL,
+  SEN_DONE
+}Senses;
+
+typedef enum{
+  N_HUNGER,
+  N_WATER,
+  N_DONE,
+}Needs;
 
 typedef enum{
   ATTR_NONE,// = -1,
@@ -202,13 +224,9 @@ typedef enum{
   ENT_GOBLIN,
   ENT_ORC,
   ENT_OGRE,
-  ENT_ORC_FIGHTER,
-  ENT_BERSERKER,
   ENT_HOBGOBLIN,
-  ENT_OROG,
   ENT_SCORPION,
   ENT_SPIDER,
-  ENT_FOREST_TROLL,
   ENT_TROLL,
   ENT_TROLL_CAVE,
   ENT_BEAR,
@@ -383,6 +401,7 @@ typedef enum{
   TILE_ISSUES,
   TILE_COLLISION,
   TILE_OCCUPIED,
+  TILE_REACHABLE,
   TILE_BORDER,
   TILE_OUT_OF_BOUNDS,
   TILE_ERROR
@@ -495,6 +514,7 @@ typedef enum{
   ABILITY_MAGIC_MISSLE,
   ABILITY_ELDRITCH_BLAST,
   ABILITY_RESISTANCE,
+  ABILITY_GUIDING_BOLT,
   ABILITY_SACRED_FLAME,
   ABILITY_STARRY_WISP,
   ABILITY_MAGIC_STONE,
@@ -676,6 +696,7 @@ typedef enum{
   SKILL_WEAP_GREAT,
   SKILL_WEAP_NONE,
   SKILL_WOOD,
+  SKILL_WRESTLE,
   SKILL_DONE
 }SkillType;
 

@@ -1,20 +1,19 @@
 #ifndef __GAME_LIST__
 #define __GAME_LIST__
 #include "game_define.h"
-#define NUM_FACTIONS 10
 
-static faction_t FACTIONS[NUM_FACTIONS] = {
+static faction_t FACTION_DEFS[3] = {
   {"Dark Legion",
     SPEC_GOBLINOID | SPEC_ORC | SPEC_SULKING,
     {[BIO_FOREST] = 10, [BIO_CAVE] = 40, [BIO_DUNGEON] = 50},
     {[ENT_GOBLIN] = 35, [ENT_ORC] = 24, [ENT_HOBGOBLIN] = 16,
-      [ENT_OGRE] = 4, [ENT_OROG] = 6, [ENT_BUGBEAR] = 15
+      [ENT_OGRE] = 4, [ENT_BUGBEAR] = 15
     }
   },
   {"Forest Tribe Oak",
     SPEC_SULKING,
     {[BIO_FOREST] = 100},
-    {[ENT_BUGBEAR] = 25,[ENT_FOREST_TROLL] = 5}
+    {[ENT_BUGBEAR] = 25,[ENT_TROLL] = 5}
   },
   {"Solensted",
     SPEC_HUMAN,
@@ -46,7 +45,6 @@ static stat_name_t STAT_STRING[STAT_ENT_DONE]={
   {STAT_DAMAGE,"Damage"},
   {STAT_HEALTH,"Health"},
   {STAT_ARMOR, "Armor"},
-  {STAT_AGGRO, "Sight"},
   {STAT_ACTIONS, "Actions"},
   {STAT_ENERGY,"Spell Energy"},
   {STAT_STAMINA, "Stamina"},
@@ -102,26 +100,6 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
     [SC_SUPER]   = 4,
     [SC_MAX]     = 6,
   },
-  [STAT_AGGRO] = {
-    [SC_MIN]     = 0,
-    [SC_INFER]   = 2,
-    [SC_BELOW]   = 4,
-    [SC_AVERAGE] = 6,
-    [SC_ABOVE]   = 8,
-    [SC_SUPER]   = 10,
-    [SC_MAX]     = 12
-  },
-  /*
-  [STAT_STEALTH] = {
-    [SC_MIN]     = 0,
-    [SC_INFER]   = 1,
-    [SC_BELOW]   = 3,
-    [SC_AVERAGE] = 4,
-    [SC_ABOVE]   = 5,
-    [SC_SUPER]   = 7,
-    [SC_MAX]     = 8
-  },
-  */
   [STAT_ACTIONS] = {
     [SC_MIN]     = 1,
     [SC_AVERAGE] = 1,
@@ -299,8 +277,8 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
       RACE_DIFF_LVL | RACE_DIFF_SKILL | RACE_DIFF_SPELLS | RACE_DIFF_PETS | RACE_DIFF_ALPHA |
       RACE_BUILD_CRUDE | 
       RACE_SPECIAL_TRAPS | RACE_SPECIAL_FOCI | RACE_SPECIAL_WARDS,
-    TRAIT_POISON_RESIST | TRAIT_EXP_DAGGER | TRAIT_EXP_BOW,
-    PQ_BIPED,
+    TRAIT_POISON_RESIST,
+    PQ_BIPED | PQ_LARGE_EARS,
     MQ_TERRITORIAL | MQ_SENTIENT | MQ_ANXIOUS | MQ_CUNNING | MQ_CAUTIOUS | MQ_OBEDIENT,
     PW_NONE,
     PQ_THICK_SKIN,
@@ -350,7 +328,8 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   {SPEC_VAMPIRIC},
   {SPEC_CANIFORM, "Predator", ENT_NONE,
     RACE_MOD_ENLARGE | RACE_MOD_ALPHA | RACE_TACTICS_CRUDE | RACE_DIFF_LVL | RACE_DIFF_ALPHA,
-    0, PQ_BIPED, MQ_AGGRESSIVE | MQ_TERRITORIAL,
+    0,
+    PQ_LARGE_NOSE | PQ_LARGE_EARS | PQ_BIPED, MQ_AGGRESSIVE | MQ_TERRITORIAL,
     PQ_CLAWS | PQ_TEETH,
     PQ_FUR,
     0,
@@ -358,7 +337,8 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   },
   {SPEC_RODENT, "Rat", ENT_RAT,
   RACE_MOD_ENLARGE | RACE_TACTICS_CRUDE | RACE_DIFF_LVL | RACE_DIFF_ALPHA,
-  0, PQ_TINY | PQ_LIGHT | PQ_QUADPED | PQ_TAIL | PQ_TINY_HEAD,
+  0,
+  PQ_LARGE_EARS | PQ_SENSITIVE_NOSE | PQ_TINY | PQ_LIGHT | PQ_QUADPED | PQ_TAIL | PQ_TINY_HEAD,
   MQ_SIMPLE | MQ_CAUTIOUS | MQ_ALERT | MQ_HIVE_MIND,
   PQ_TOUGH_TEETH | PQ_TEETH,
   PQ_FUR,
@@ -368,7 +348,7 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   { SPEC_RUMINANT, "Grazer", ENT_NONE,
     RACE_MOD_ENLARGE | RACE_MOD_ALPHA | RACE_TACTICS_CRUDE | RACE_DIFF_ALPHA,
     0,
-    PQ_SMALL | PQ_QUADPED,
+    PQ_SMALL | PQ_QUADPED | PQ_LARGE_EARS,
     MQ_SIMPLE | MQ_CAUTIOUS | MQ_ALERT | MQ_PROTECTIVE,
     PQ_HORNED,
     PQ_FUR | PQ_HIDE,
@@ -377,7 +357,8 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   },
   {SPEC_SULKING, "Kobold", ENT_NONE,
     RACE_MOD_CLASS | RACE_TACTICS_CRUDE | RACE_DIFF_LVL | RACE_DIFF_ALPHA,
-    0,  PQ_BIPED | PQ_TAIL,
+    0,  
+    PQ_SENSITIVE_NOSE | PQ_LARGE_EARS | PQ_BIPED | PQ_TAIL,
     MQ_SIMPLE | MQ_CAUTIOUS | MQ_ALERT | MQ_TERRITORIAL,
     PQ_TOUGH_TEETH | PQ_TEETH,
     PQ_FUR,
@@ -656,7 +637,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         {
           25, CLASS_BASE_FIGHTER, "Foot-Soldier",//"Champion","Warlord",
           .skills = {
-            [SKILL_WEAP_SWORD] = 2, [SKILL_ARMOR_PLATE] = 2, [SKILL_ARMOR_SHIELD] = 1
+            [SKILL_WEAP_SWORD] = 3, [SKILL_ARMOR_PLATE] = 2, [SKILL_ARMOR_SHIELD] = 2
           },
           .beefups = {
             [SKILL_WEAP_SWORD] = 2, [SKILL_ARMOR_PLATE] = 2, [SKILL_ARMOR_SHIELD] = 1
@@ -666,7 +647,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
           6, CLASS_BASE_ROGUE, "Ambusher",
           .skills = {
             [SKILL_WEAP_DAGGER] = 3, [SKILL_ARMOR_LEATHER] = 2,
-            [SKILL_STEALTH] = 1,
+            [SKILL_STEALTH] = 2,
           },
           .beefups = {
             [SKILL_WEAP_DAGGER] = 2, [SKILL_ARMOR_LEATHER] = 2,
@@ -680,7 +661,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
         {
           14, CLASS_BASE_RANGER, "Bowman",// "Slayer", "Hunter",
           .skills = {
-            [SKILL_WEAP_BOW] = 3, [SKILL_WEAP_SWORD] = 1, [SKILL_ARMOR_LEATHER] = 2
+            [SKILL_WEAP_BOW] = 4, [SKILL_WEAP_SWORD] = 2, [SKILL_ARMOR_LEATHER] = 2
           },
           .beefups = {
             [SKILL_WEAP_BOW] = 2, [SKILL_WEAP_SWORD] = 1, [SKILL_ARMOR_LEATHER] = 1
@@ -761,7 +742,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
           { 15, CLASS_BASE_FIGHTER, "Brawler",//"Brute","Champ",
             .skills = {
               [SKILL_ARMOR_LEATHER]=2,
-              [SKILL_WEAP_MACE]=2, [SKILL_WEAP_SPEAR]=2
+              [SKILL_WEAP_MACE]=3, [SKILL_WEAP_SPEAR]=2
             },
             .beefups = {
               [SKILL_ARMOR_LEATHER]=1,
@@ -770,7 +751,7 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
           },
           { 10, CLASS_BASE_ROGUE, "Ambusher", //"Infiltrator", "Assassin",
             .skills = {
-              [SKILL_ARMOR_LEATHER]=1,[SKILL_STEALTH]=3,
+              [SKILL_ARMOR_LEATHER]=1,[SKILL_STEALTH]=4,
               [SKILL_WEAP_DAGGER]=3, [SKILL_WEAP_MACE]=2
             },
             .beefups = {
@@ -785,8 +766,8 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
           {
             10, CLASS_BASE_RANGER, "Tracker",// "Beast-Master", "Beast-Lord",
             .skills = {
-              [SKILL_ARMOR_LEATHER]=2, [SKILL_STEALTH] = 2,
-              [SKILL_WEAP_SPEAR]=4, [SKILL_WEAP_DAGGER]=1
+              [SKILL_ARMOR_LEATHER]=3, [SKILL_STEALTH] = 2,
+              [SKILL_WEAP_SPEAR]=4, [SKILL_WEAP_DAGGER]=2
             },
             .beefups = {
               [SKILL_ARMOR_LEATHER]=1, [SKILL_STEALTH]=1,
@@ -795,6 +776,22 @@ static define_race_class_t RACE_CLASS_DEFINE[ENT_DONE][PROF_LABORER] = {
           },
         }
       },
+      [PROF_MYSTIC] = { ENT_BUGBEAR, PROF_MYSTIC,1,
+        {
+          {
+            7, CLASS_BASE_SHAMAN, "Shaman",
+            .skills = {
+              [SKILL_WEAP_NONE] = 2, [SKILL_ARMOR_NATURAL] = 4,
+              [SKILL_SPELL_ENCH] = 2, [SKILL_SPELL_ABJ] = 2
+            },
+            .beefups = {
+              [SKILL_WEAP_NONE] = 1, [SKILL_ARMOR_NATURAL] = 1,
+              [SKILL_SPELL_ENCH] = 1, [SKILL_SPELL_ABJ] = 1
+            }
+          }
+        }
+      }
+
 
   }
 };
@@ -1127,13 +1124,11 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_ORC,
       {0,0}, 9,
-      .925,
+      1.15,
       SOC_MARTIAL,
       .promotions = {[CLASS_BASE_FIGHTER] = 2, [CLASS_BASE_BERZ] = 2, [CLASS_BASE_SHAMAN] = 1}
   },
   {ENT_OGRE},
-  {ENT_ORC_FIGHTER},
-  {ENT_BERSERKER},
   {ENT_HOBGOBLIN, "Hobgoblin",
       MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
       MOB_MOD_ENLARGE | MOB_MOD_WEAPON | MOB_MOD_ARMOR |
@@ -1143,14 +1138,13 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND,
       SPEC_GOBLINOID,
       {0,0}, 12,
-      1.5f,
+      1.2f,
       SOC_MARTIAL,
       .flags = {
         PQ_LONG_LIMB,
         MQ_STRATEGIC | MQ_DISCIPLINED | MQ_LEADER
       }
   },
-  {ENT_OROG},
   {ENT_SCORPION, "Scorpion",
       MOB_MOD_ENLARGE |
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
@@ -1172,19 +1166,10 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {80,69}, 2,
     0.25,
     SOC_INSTINCTIVE,
-    .flags = {.weaps = PQ_FANGS | PQ_POISON_FANGS,}
-  },
-  {ENT_FOREST_TROLL, "Forest Troll",
-      MOB_SPAWN_LAIR |
-      MOB_MOD_ENLARGE |
-      MOB_LOC_FOREST|
-      MOB_THEME_MONSTER |
-      MOB_FREQ_RARE |
-      MOB_GROUPING_SOLO,
-      SPEC_GIANT,
-      {7,0}, 5,
-      2.0f,
-      SOC_INSTINCTIVE
+    .flags = {
+      PQ_MANY_EYES,
+      .weaps = PQ_FANGS | PQ_POISON_FANGS
+    }
   },
   {ENT_TROLL, "Troll",
       MOB_SPAWN_LAIR |
@@ -1217,8 +1202,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_SQUAD,
       SPEC_CANIFORM,
       {32,0}, 2,
-      1,
-      SOC_FAMILY,
+      .975,
+      SOC_FERAL,
       .flags = {
         PQ_LARGE | PQ_DENSE_MUSCLE | PQ_LARGE_HANDS,
       0, PQ_SHARP_CLAWS | PQ_SHARP_TEETH | PQ_TOUGH_CLAWS,
@@ -1232,8 +1217,11 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_GROUPING_TROOP | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD,
       SPEC_CANIFORM,
       {64,0}, 1,
-      0.5,
-      SOC_FERAL
+      0.65,
+      SOC_FERAL,
+      .flags = {
+        PQ_SENSITIVE_NOSE
+      }
   },
   {ENT_RAT, "Rat",
       MOB_MOD_ENLARGE |
@@ -1275,14 +1263,14 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     MOB_SPAWN_CHALLENGE | MOB_SPAWN_LAIR | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
     MOB_MOD_WEAPON | MOB_LOC_FOREST | MOB_LOC_CAVE |
       MOB_THEME_PRIMITIVE |
-      MOB_FREQ_COMMON | MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP |
+      MOB_FREQ_COMMON | MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS |
       MOB_GROUPING_PARTY,
     SPEC_SULKING,
     {54,8}, 3,
-    .875,
+    1.25,
     SOC_PRIMITIVE,
     .flags = {
-      PQ_LARGE | PQ_DENSE_MUSCLE | PQ_LONG_LIMB,
+      PQ_LARGE_NOSE | PQ_LARGE | PQ_DENSE_MUSCLE | PQ_LONG_LIMB,
       MQ_SENTIENT,
       PQ_SHARP_TEETH | PQ_SHARP_CLAWS,
       PQ_THICK_FUR
@@ -1297,10 +1285,7 @@ static mob_variants_t MOB_MODS[ENT_DONE] = {
   {ENT_GOBLIN},
   {ENT_ORC},
   {ENT_OGRE},
-  {ENT_ORC_FIGHTER},
-  {ENT_BERSERKER},
   {ENT_HOBGOBLIN},
-  {ENT_OROG},
   {ENT_SCORPION},
   {ENT_SPIDER,
     {
@@ -1315,7 +1300,6 @@ static mob_variants_t MOB_MODS[ENT_DONE] = {
       }
     }
   },
-  {ENT_FOREST_TROLL},
   {ENT_TROLL},
   {ENT_TROLL_CAVE},
   {ENT_BEAR,
@@ -1414,6 +1398,10 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
     0,3,8,
     SPEC_HUMAN// | SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
   },
+  {ABILITY_GUIDING_BOLT, true, true,
+    CLASS_BASE_CLERIC,
+    0, 3, 6,
+  },
   {ABILITY_SACRED_FLAME, true, true,
     CLASS_BASE_CLERIC,
     CLASS_BASE_CLERIC,
@@ -1505,7 +1493,6 @@ static skill_relation_t SKILLUP_RELATION[MAG_DONE] = {
       [SKILL_PERSUAD]           = true,
       [SKILL_POTT]           = true,
       [SKILL_RELIG]           = true,
-      [SKILL_SLEIGHT]           = true,
       [SKILL_SMITH]           = true,
       [SKILL_STONE]           = true,
       [SKILL_TINK]           = true,
@@ -1518,7 +1505,6 @@ static skill_relation_t SKILLUP_RELATION[MAG_DONE] = {
     .mag = MAG_NOMINAL,
     .skill = SKILL_LVL,
     .skills = {
-      [SKILL_POISON]           = true,
       [SKILL_STEALTH]          = true,
       [SKILL_SURV]             = true,
       [SKILL_THEFT]            = true,
@@ -1537,6 +1523,7 @@ static skill_relation_t SKILLUP_RELATION[MAG_DONE] = {
     .skill = SKILL_LVL,
     .skills = {
       [SKILL_WEAP_MART]        = true,
+      [SKILL_WEAP_SHOT]        = true,
       [SKILL_ARMOR_PADDED]     = true,
       [SKILL_ARMOR_LEATHER]    = true,
       [SKILL_ARMOR_CHAIN]      = true,
@@ -1551,6 +1538,18 @@ static skill_relation_t SKILLUP_RELATION[MAG_DONE] = {
       [SKILL_SPELL_NECRO]      = true,
     }
   },
+  [MAG_SIGNIF] = {
+    .mag = MAG_SIGNIF,
+    .skill = SKILL_LVL,
+    .skills = {
+      [SKILL_SLEIGHT]           = true,
+      [SKILL_WRESTLE]         = true,
+      [SKILL_WEAP_GREAT]      = true,
+      [SKILL_WEAP_NET]        = true,
+      [SKILL_WEAP_WHIP]       = true,
+      [SKILL_POISON]           = true,
+  }
+  }
 
 };
 
@@ -1702,14 +1701,19 @@ static const char* SKILL_NAMES[SKILL_DONE] = {
   [SKILL_WEAP_SIMP]         = "Simple Weapons",
   [SKILL_WEAP_MART]         = "Martial Weapons",
   [SKILL_WEAP_MACE]         = "Maces",
+  [SKILL_WEAP_SHOT]         = "Shooting",
   [SKILL_WEAP_SWORD]        = "Swords",
   [SKILL_WEAP_AXE]          = "Axes",
   [SKILL_WEAP_DAGGER]       = "Daggers",
   [SKILL_WEAP_BOW]          = "Bows",
   [SKILL_WEAP_PICK]         = "Picks",
   [SKILL_WEAP_STAFF]        = "Staves",
+  [SKILL_WEAP_SPEAR]        = "Spears",
+  [SKILL_WEAP_WHIP]         = "Whips",
+  [SKILL_WEAP_NET]          = "Nets",
+  [SKILL_WEAP_GREAT]        = "Two Handed Weapons",
   [SKILL_WEAP_NONE]         = "Unarmed",
-
+  [SKILL_WRESTLE]           = "Wrestling",
   [SKILL_WOOD]              = "Woodworking",
 };
 static define_skill_rank_t SKILL_RANKS[SR_DONE] = {
@@ -1726,5 +1730,98 @@ static define_skill_rank_t SKILL_RANKS[SR_DONE] = {
   [SR_MASTER_H]  = { SR_MASTER_H,  95, 400 },
   [SR_MASTER_G]  = { SR_MASTER_G,  97, 600 },
   [SR_LEGEND]    = { SR_LEGEND,    99, 800 },
-};  
+}; 
+
+static skill_proficiency_bonus_t GRANTS_PB[SKILL_DONE] = {
+  [SKILL_NONE]  =  {},           
+  [SKILL_LVL]  =  {},            
+  [SKILL_ACRO]  =  {},           
+  [SKILL_ALCH]  =  {},           
+  [SKILL_ANIM]  =  {},           
+  [SKILL_ARCANA]  =  {},         
+
+  [SKILL_ARMOR_NATURAL]  =  {},  
+  [SKILL_ARMOR_PADDED]  =  {},   
+  [SKILL_ARMOR_LEATHER]  =  {},  
+  [SKILL_ARMOR_CHAIN]  =  {},    
+  [SKILL_ARMOR_PLATE]  =  {},    
+  [SKILL_ARMOR_SHIELD]  =  {},   
+
+  [SKILL_ATH]  =  {},            
+  [SKILL_CALL]  =  {},           
+  [SKILL_CARP]  =  {},           
+  [SKILL_CART]  =  {},           
+  [SKILL_COBB]  =  {},           
+  [SKILL_COOK]  =  {},           
+
+  [SKILL_DECEPT]  =  {},         
+  [SKILL_GLASS]  =  {},          
+  [SKILL_HIST]  =  {},           
+  [SKILL_HERB]  =  {},           
+  [SKILL_INSIGHT]  =  {},        
+  [SKILL_INTIM]  =  {},          
+  [SKILL_INVEST]  =  {},         
+  [SKILL_JEWL]  =  {},           
+  [SKILL_LW]  =  {},             
+
+  [SKILL_MASON]  =  {},          
+  [SKILL_MED]  =  {},            
+  [SKILL_NATURE]  =  {},         
+  [SKILL_PAINT]  =  {},          
+  [SKILL_PERCEPT]  =  {
+    SKILL_PERCEPT,
+    10,
+    SKILL_STEALTH,
+    ATTR_WIS,
+    PC_HIT
+  },        
+  [SKILL_PERFORM]  =  {},        
+  [SKILL_PERSUAD]  =  {},        
+
+  [SKILL_POISON]  =  {},         
+  [SKILL_POTT]  =  {},           
+  [SKILL_RELIG]  =  {},          
+  [SKILL_SLEIGHT]  =  {},        
+  [SKILL_SMITH]  =  {},          
+
+  [SKILL_SPELL_ABJ]  =  {},      
+  [SKILL_SPELL_CONJ]  =  {},     
+  [SKILL_SPELL_DIV]  =  {},      
+  [SKILL_SPELL_ENCH]  =  {},     
+  [SKILL_SPELL_EVO]  =  {},      
+  [SKILL_SPELL_ILL]  =  {},      
+  [SKILL_SPELL_NECRO]  =  {},    
+  [SKILL_SPELL_TRANS]  =  {},    
+
+  [SKILL_STEALTH]  =  {
+    SKILL_STEALTH,
+    SKILL_PERCEPT,
+    4,
+    ATTR_DEX,
+    PC_SAVE
+  },        
+  [SKILL_STONE]  =  {},          
+  [SKILL_SURV]  =  {},           
+  [SKILL_TINK]  =  {},           
+  [SKILL_THEFT]  =  {},          
+  [SKILL_WEAV]  =  {},           
+
+  [SKILL_WEAP_SIMP]  =  {},      
+  [SKILL_WEAP_MART]  =  {},      
+  [SKILL_WEAP_MACE]  =  {},      
+  [SKILL_WEAP_SHOT]  =  {},      
+  [SKILL_WEAP_SWORD]  =  {},     
+  [SKILL_WEAP_AXE]  =  {},       
+  [SKILL_WEAP_DAGGER]  =  {},    
+  [SKILL_WEAP_BOW]  =  {},       
+  [SKILL_WEAP_PICK]  =  {},      
+  [SKILL_WEAP_STAFF]  =  {},     
+  [SKILL_WEAP_SPEAR]  =  {},     
+  [SKILL_WEAP_WHIP]  =  {},      
+  [SKILL_WEAP_NET]  =  {},       
+  [SKILL_WEAP_GREAT]  =  {},     
+  [SKILL_WEAP_NONE]  =  {},      
+  [SKILL_WRESTLE]  =  {},        
+  [SKILL_WOOD]  =  {},           
+};
 #endif

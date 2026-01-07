@@ -117,6 +117,19 @@ static inline int FilterMobsByRules(uint64_t rules, mob_define_t* in, int size, 
     return count;
 }
 
+static inline int GetMobsByDiff(float diff, mob_define_t* pool){
+  int count = 0;
+
+  for (int i = 0; i < ENT_DONE; i++) {
+    if (MONSTER_MASH[i].diff > diff)
+      continue;
+
+    pool[count++] = MONSTER_MASH[i];
+  }
+  return count;
+
+}
+
 static inline int GetMobsByRules(uint64_t rules, mob_define_t *pool) {
     int count = 0;
 
@@ -402,7 +415,6 @@ static stat_attribute_relation_t stat_modifiers[STAT_ENT_DONE]={
   [STAT_DAMAGE]={STAT_DAMAGE,{[ATTR_STR]=MOD_SQRT},FormulaAddAttr,FormulaAddAttr },
   [STAT_HEALTH]={STAT_HEALTH,{[ATTR_CON]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_ARMOR]={STAT_ARMOR,{[ATTR_DEX]=MOD_SQRT},FormulaAddAttr,FormulaAddAttr},
-  [STAT_AGGRO]={STAT_AGGRO,{},FormulaNothing,FormulaNothing},
   [STAT_ACTIONS]={STAT_ACTIONS,{},FormulaNothing,FormulaNothing},
   [STAT_ENERGY] = {STAT_ENERGY,{[ATTR_INT]=MOD_ADD,[ATTR_WIS]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_STAMINA]= {STAT_STAMINA,{[ATTR_CON]=MOD_ADD,MOD_ADD,[ATTR_STR]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
@@ -437,6 +449,21 @@ static stat_attribute_relation_t stat_modifiers[STAT_ENT_DONE]={
   },
 };
 
+typedef struct skill_s skill_t;
+
+typedef struct{
+  ent_t*            owner;
+  skill_t*          skill;
+  int               base;
+  SkillType         id,counter;
+  ModifierType      bonus[ATTR_BLANK];
+  ProficiencyCheck  type;
+  dice_roll_t*      die;
+}skill_check_t;
+
+skill_check_t* InitSkillCheck(skill_t* skill);
+InteractResult SkillCheck(skill_t* s, skill_t* against);
+
 typedef struct{
   SkillType   skill;
   SkillRate   rate;
@@ -445,8 +472,7 @@ typedef struct{
   int         falloff;  
 }skill_decay_t;
 
-typedef struct skill_s skill_t;
-typedef void (*SkillCallback)(struct skill_s* self, float old, float cur);
+typedef void (*SkillCallback)(skill_t* self, float old, float cur);
 typedef bool (*SkillOnEvent)(skill_t* self, int gain);
 typedef void (*SkillProficiencyFormula)(skill_t* self);
 
@@ -458,8 +484,8 @@ struct skill_s{
  float                    point;
  SkillCallback            on_skill_up;
  SkillOnEvent             on_success,on_use,on_fail;
- ProficiencyChecks        checks;
  SkillProficiencyFormula  get_bonus;
+ skill_check_t            *checks;
  struct ent_s             *owner;
  SkillRate                rate;
 };
@@ -470,7 +496,7 @@ typedef struct{
   uint64_t            interact_uid;
   int                 uses;
   float               challenge;
-  skill_decay_t*        decay;
+  skill_decay_t*      decay;
 }skill_event_t;
 
 skill_event_t* InitSkillEvent(skill_t* s, int challenge);
@@ -497,6 +523,11 @@ static SkillRank SkillRankGet(skill_t* s){
   return best;
 }
 
+static void SkillCapOff(skill_t* s){
+  int inc = s->threshold - s->point;
+  SkillIncreaseUncapped(s, inc);
+}
+
 stat_t* InitStatOnMin(StatType attr, float min, float max);
 stat_t* InitStatOnMax(StatType attr, float val, AttributeType modified_by);
 stat_t* InitStatEmpty(void);
@@ -512,6 +543,16 @@ void StatReverse(struct stat_s* self, float old, float cur);
 bool StatIsEmpty(stat_t* s);
 float StatGetRatio(stat_t *self);
 //<====STATS
+typedef struct{
+  Senses        type;
+  SkillType     skill;
+  AttributeType attr;
+  ModifierType  attr_mod;
+  int           base, range;
+  ent_t*        owner;
+}sense_t;
+
+sense_t* InitSense(ent_t* e, Senses type, int val);
 
 typedef bool (*StateComparator)(int a, int b);
 
@@ -544,6 +585,7 @@ typedef struct{
 typedef struct{
   Cell        coords;
   TileStatus  status;
+  TileFlags   flags;
   env_t*      tile;
   ent_t*      occupant;
   Color       fow;
@@ -551,6 +593,7 @@ typedef struct{
 }map_cell_t;
 
 typedef struct{
+  int             id;
   RoomFlags       purpose;
   int             num_mobs, total_cr, avg_cr, best_cr;
   ent_t           *mobs[MOB_ROOM_MAX];

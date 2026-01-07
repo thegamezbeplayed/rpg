@@ -39,6 +39,22 @@
 #define MAX_PATHS 3
 #define MAX_RANKS 4
 #define FACTION_NAME(id)  Faction_Name(id)
+#define SPEC_RELATE_NEGATIVE ( \
+    SPEC_FEAR    | \
+    SPEC_AVOID   | \
+    SPEC_HOSTILE | \
+    SPEC_HUNTS   )
+
+#define SPEC_RELATE_POSITIVE ( \
+    SPEC_FRIEND  | \
+    SPEC_REVERED | \
+    SPEC_KIN     )
+
+#define SPEC_RELATE_NEUTRAL ( \
+    SPEC_RELATE_NONE | \
+    SPEC_INDIF       )
+#define MAX_FACTIONS 20
+extern int NUM_FACTIONS;
 
 typedef enum{
   SPEC_NONE       = BIT64(0),
@@ -57,18 +73,129 @@ typedef enum{
   SPEC_RODENT     = BIT64(13),
   SPEC_RUMINANT   = BIT64(14),
   SPEC_SULKING    = BIT64(15),
+  SPEC_DONE       = BIT64(16),
 }SpeciesType;
+
+typedef enum{
+  SPEC_RELATE_NONE ,
+  SPEC_FEAR        ,
+  SPEC_AVOID       ,
+  SPEC_INDIF       ,
+  SPEC_HOSTILE     ,
+  SPEC_CAUT        ,
+  SPEC_HUNTS       ,
+  SPEC_FRIEND      ,
+  SPEC_REVERED     ,
+  SPEC_KIN         ,
+  SPEC_RELATE_DONE
+}SpeciesRelate;
+
+static float TREATMENT[SPEC_RELATE_DONE][TREAT_DONE] = {
+  [SPEC_RELATE_NONE]  = 0, 
+  [SPEC_FEAR]         = {
+    [TREAT_KILL]      = 0,
+    [TREAT_DEFEND]    = 0.75,
+    [TREAT_EAT]       = 0,
+    [TREAT_HELP]      = 0,
+    [TREAT_FLEE]      = 1.0,
+},
+[SPEC_AVOID]        = {
+    [TREAT_KILL]      = 0.125,
+    [TREAT_DEFEND]    = 0.875,
+    [TREAT_EAT]       = 0,
+    [TREAT_HELP]      = 0,
+    [TREAT_FLEE]      = 0.25,
+
+},
+[SPEC_INDIF]        = {
+    [TREAT_KILL]      = 0.125,
+    [TREAT_DEFEND]    = 1,
+    [TREAT_EAT]       = 0,
+    [TREAT_HELP]      = 0.075,
+    [TREAT_FLEE]      = 0.125,
+},  
+[SPEC_HOSTILE]      = {
+    [TREAT_KILL]      = 0.875,
+    [TREAT_DEFEND]    = 1,
+    [TREAT_EAT]       = 0,
+    [TREAT_HELP]      = 0,
+    [TREAT_FLEE]      = 0.125,
+},
+[SPEC_CAUT]         = {
+    [TREAT_KILL]      = 0.125,
+    [TREAT_DEFEND]    = 0.875,
+    [TREAT_EAT]       = 0,
+    [TREAT_HELP]      = 0.125,
+    [TREAT_FLEE]      = 0.5,
+}, 
+[SPEC_HUNTS]        = {
+    [TREAT_KILL]      = 0.875,
+    [TREAT_DEFEND]    = 1,
+    [TREAT_EAT]       = 1,
+    [TREAT_HELP]      = 0,
+    [TREAT_FLEE]      = 0.125,
+},
+[SPEC_FRIEND]       = {
+    [TREAT_KILL]      = 0,
+    [TREAT_DEFEND]    = 0.375,
+    [TREAT_EAT]       = 0,
+    [TREAT_HELP]      = 0.75,
+    [TREAT_FLEE]      = 0,
+},
+[SPEC_REVERED]      = {
+    [TREAT_KILL]      = 0,
+    [TREAT_DEFEND]    = 0.125,
+    [TREAT_EAT]       = 0,
+    [TREAT_HELP]      = 1.0,
+    [TREAT_FLEE]      = 0,
+},
+[SPEC_KIN]          = {
+    [TREAT_KILL]      = 0,
+    [TREAT_DEFEND]    = 0.25,
+    [TREAT_EAT]       = 0,
+    [TREAT_HELP]      = 1.0,
+    [TREAT_FLEE]      = 0,
+}
+};
+
+typedef struct{
+  SpeciesType     spec;
+  SpeciesType     relation[SPEC_RELATE_DONE];
+}species_relation_t;
+extern species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)];
 
 typedef uint32_t Faction;
 typedef struct{
-  const char  name[MAX_NAME_LEN];
+  const char  *name;
   SpeciesType species;
   int         bio_pref[BIO_DONE];
   int         member_ratio[ENT_DONE];
   Faction     id;
 }faction_t;
-Faction Faction_Register(const char* name);
+extern faction_t* FACTIONS[MAX_FACTIONS];
+
+faction_t* InitFaction(const char* name);
+Faction RegisterFaction(const char* name);
+Faction RegisterFactionByType(ent_t* e);
 const char* Faction_Name(Faction id);
+static inline faction_t* GetFactionBySpec(SpeciesType spec){
+  for (int i = 0; i < NUM_FACTIONS; i++){
+    if(FACTIONS[i]->species == spec)
+      return FACTIONS[i];
+  }
+
+  return NULL;
+  
+}
+
+static inline faction_t* GetFactionByID(Faction id){
+  for (int i = 0; i < NUM_FACTIONS; i++){
+    if(FACTIONS[i]->id == id)
+      return FACTIONS[i];
+  }
+
+  return NULL;
+}
 
 typedef struct{
   uint64_t    body;
@@ -232,6 +359,14 @@ typedef enum{
 }ProficiencyCheck;
 
 typedef struct{
+  SkillType         id;
+  SkillType         counter;
+  int               base;
+  AttributeType     attr;
+  ProficiencyCheck  type;
+}skill_proficiency_bonus_t;
+
+typedef struct{
   SkillRate   rate;
   int         weights[IR_MAX];
   int         dr[IR_MAX];
@@ -296,8 +431,18 @@ typedef enum {
   PQ_TWIN_HEADED  = 1ULL << (PQ_SPECIAL_SHIFT + 4),
   PQ_TRI_HEADED   = 1ULL << (PQ_SPECIAL_SHIFT + 5),
   PQ_MANY_HEADED  = 1ULL << (PQ_SPECIAL_SHIFT + 6),
-  PQ_LARGE_FEET   = 1ULL << (PQ_SPECIAL_SHIFT + 7),
-  PQ_LARGE_HANDS  = 1ULL << (PQ_SPECIAL_SHIFT + 8),
+  PQ_LARGE_HEAD   = 1ULL << (PQ_SPECIAL_SHIFT + 7),
+  PQ_NO_HEAD      = 1ULL << (PQ_SPECIAL_SHIFT + 8),
+  PQ_LARGE_FEET   = 1ULL << (PQ_SPECIAL_SHIFT + 9),
+  PQ_LARGE_HANDS  = 1ULL << (PQ_SPECIAL_SHIFT + 10),
+  PQ_LARGE_EARS   = 1ULL << (PQ_SPECIAL_SHIFT + 11),
+  PQ_LARGE_EYES   = 1ULL << (PQ_SPECIAL_SHIFT + 12),
+  PQ_MANY_EYES    = 1ULL << (PQ_SPECIAL_SHIFT + 13),
+  PQ_ONE_EYE      = 1ULL << (PQ_SPECIAL_SHIFT + 14),
+  PQ_NO_EYES      = 1ULL << (PQ_SPECIAL_SHIFT + 15),
+  PQ_LARGE_NOSE     = 1ULL << (PQ_SPECIAL_SHIFT + 16),
+  PQ_SENSITIVE_NOSE = 1ULL << (PQ_SPECIAL_SHIFT + 17),
+
 } PhysQual;
 
 typedef enum {
@@ -714,6 +859,14 @@ typedef struct{
   MentalQual    mind[ASI_DONE];
 }attribute_quality_t;
 
+typedef struct{
+  Senses        type;
+  PhysQual      body[SC_DONE];
+  MentalQual    mind[SC_DONE];
+  int           base[SC_DONE];
+}sense_quality_t;
+extern sense_quality_t SENSE_QUAL[SEN_DONE];
+
 static const attribute_quality_t ATTR_QUAL[ATTR_DONE] = {
   [ATTR_STR] = {
     .attr = ATTR_STR,
@@ -883,16 +1036,6 @@ static const stat_quality_t STAT_QUAL[STAT_ENT_DONE] = {
       [SC_LESSER]  = PQ_SMALL,
       [SC_BELOW]   = PQ_LIGHT,
       [SC_ABOVE]   = PQ_DENSE_MUSCLE,
-    }
-  },
-  [STAT_AGGRO]  = {
-    .stat = STAT_AGGRO,
-    .psyche = {
-      [SC_INFER] = MQ_OBLIVIOUS | MQ_ABSENT,
-      [SC_BELOW] = MQ_PATIENT | MQ_CUNNING,
-      [SC_ABOVE] = MQ_ALERT,
-      [SC_SUPER] = MQ_PROTECTIVE | MQ_AGGRESSIVE,
-      [SC_MAX]    = MQ_TERRITORIAL 
     }
   },
   [STAT_ACTIONS] = {
@@ -1102,9 +1245,10 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_DEX] = 0.15f
     },
     {
-      [SKILL_SURV]      = 400,
-      [SKILL_ATH]       = 400,
-      [SKILL_WEAP_MART] = 600,
+      [SKILL_SURV]      = 4,
+      [SKILL_ATH]       = 5,
+      [SKILL_WEAP_MART] = 3,
+      [SKILL_WEAP_SIMP] = 8,
     }
   },
 
@@ -1123,9 +1267,10 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_DEX] = 0.225f
     },
     {
-      [SKILL_PERCEPT]  = 600,
-      [SKILL_ACRO]     = 600,
-      [SKILL_WEAP_BOW] = 600,
+      [SKILL_PERCEPT]   = 4,
+      [SKILL_ACRO]      = 2,
+      [SKILL_WEAP_SHOT] = 7,
+      [SKILL_SURV]      = 2,
     }
   },
 
@@ -1144,8 +1289,9 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_INT] = 0.15f,
     },
     {
-      [SKILL_ARCANA]  = 1200,
-      [SKILL_INSIGHT] = 600,
+      [SKILL_ARCANA]  = 10,
+      [SKILL_INSIGHT] = 4,
+      [SKILL_CALL] = 2,
     }
   },
 
@@ -1164,11 +1310,11 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_WIS] = 0.225f
     },
     {
-      [SKILL_NATURE] = 600,
-      [SKILL_HERB]   = 800,
-      [SKILL_ANIM]   = 800,
-      [SKILL_MED]    = 600,
-      [SKILL_RELIG]  = 400,
+      [SKILL_NATURE] = 8,
+      [SKILL_HERB]   = 3,
+      [SKILL_ANIM]   = 6,
+      [SKILL_MED]    = 6,
+      [SKILL_RELIG]  = 4,
     }
   },
 
@@ -1187,9 +1333,9 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_CHAR] = 0.075f
     },
     {
-      [SKILL_RELIG]     = 1000,
-      [SKILL_MED]       = 1200,
-      [SKILL_SPELL_DIV] = 600,
+      [SKILL_RELIG]     = 10,
+      [SKILL_MED]       = 10,
+      [SKILL_SPELL_DIV] = 2,
     }
   },
 
@@ -1207,9 +1353,14 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_STR] = 0.125f,
     },
     {
-      [SKILL_STONE]      = 400,
-      [SKILL_WOOD]       = 400,
-      [SKILL_WEAP_MACE]  = 400,
+      [SKILL_STONE]      = 4,
+      [SKILL_WOOD]       = 4,
+      [SKILL_TINK]       = 3,
+      [SKILL_WOOD]       = 2,
+      [SKILL_STONE]      = 2,
+      [SKILL_MASON]      = 3,
+      [SKILL_CARP]       = 3,
+      [SKILL_WRESTLE]    = 5,
     },
     .combat_rel = CLASS_BASE_FIGHTER
   },
@@ -1217,7 +1368,6 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
   [PROF_HAULER] = {
     PROF_HAULER,
     {
-      [SOC_HIVE]       = SOC_N(20,"Packhand"),
       [SOC_PRIMITIVE]  = SOC_N(10,"Lugger"),
       [SOC_MARTIAL]    = SOC_N(5,"Packhand"),
       [SOC_CIVIL]      = SOC_W(5),
@@ -1228,6 +1378,10 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_CON] = 0.10f,
       [ATTR_STR] = 0.15f,
     },
+    {
+      [SKILL_ATH] = 10,
+      [SKILL_WRESTLE] = 5,
+    },
     .combat_rel = CLASS_BASE_FIGHTER
   },
 
@@ -1237,6 +1391,8 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [SOC_INSTINCTIVE] = SOC_N(25,"Creeper"),
       [SOC_HIVE]        = SOC_N(5,"Creeper"),
       [SOC_PRIMITIVE]   = SOC_N(10,"Runner"),
+      [SOC_FERAL]       = SOC_N(10,"Prowler"),
+      [SOC_FAMILY]      = SOC_N(10,"Scout"),
       [SOC_MARTIAL]     = SOC_N(5,"Envoy"),
       [SOC_CIVIL]       = SOC_W(5),
       [SOC_HIGH]        = SOC_W(2),
@@ -1246,8 +1402,9 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_DEX] = 0.15f,
     },
     {
-      [SKILL_SURV]    = 2100,
-      [SKILL_STEALTH] = 800,
+      [SKILL_SURV]    = 8,
+      [SKILL_STEALTH] = 2,
+      [SKILL_ACRO]    = 4,
     },
     .combat_rel = {CLASS_BASE_ROGUE, CLASS_BASE_RANGER}
   },
@@ -1256,6 +1413,7 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     PROF_GATHERER,
     {
       [SOC_INSTINCTIVE] = SOC_N(50,"Scavenger"),
+      [SOC_FAMILY]      = SOC_N(20,"Scavenger"),
       [SOC_HIVE]        = SOC_N(20,"Scavenger"),
       [SOC_PRIMITIVE]   = SOC_N(10,"Scavenger"),
       [SOC_MARTIAL]     = SOC_N(5,"Rummager"),
@@ -1265,15 +1423,15 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
     MOB_LOC_FOREST,
     {},
     {
-      [SKILL_SURV] = 2100,
-      [SKILL_HERB] = 1300,
+      [SKILL_NATURE] = 7,
+      [SKILL_SURV]   = 2,
+      [SKILL_HERB]   = 10,
     },
     .combat_rel = {CLASS_BASE_DRUID, CLASS_BASE_RANGER},
   },
 [PROF_MINER] = {
     PROF_MINER,
     {
-        [SOC_HIVE]       = SOC_N(20, "Digger"),
         [SOC_PRIMITIVE]  = SOC_N(6,  "Digger"),
         [SOC_MARTIAL]    = SOC_N(12, "Miner"),
         [SOC_CIVIL]      = SOC_W(8),
@@ -1285,15 +1443,14 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_CON] = 0.2f,
     },
     {
-      [SKILL_STONE]     = 600,
-      [SKILL_WEAP_PICK] = 500,
+      [SKILL_STONE]     = 10,
+      [SKILL_WEAP_PICK] = 3,
     },
     .combat_rel = CLASS_BASE_FIGHTER,
 },
   [PROF_CHOPPER] = {
     PROF_CHOPPER,
     {
-      [SOC_HIVE]       = SOC_N(20, "Cutter"),
       [SOC_PRIMITIVE]  = SOC_N(12, "Cutter"),
       [SOC_MARTIAL]    = SOC_N(12, "Logger"),
       [SOC_CIVIL]      = SOC_N(8,  "Lumberjack"),
@@ -1304,24 +1461,23 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_STR] = 0.2f,
     },
     {
-      [SKILL_WOOD]     = 600,
-      [SKILL_WEAP_AXE] = 500,
+      [SKILL_WOOD]     = 10,
+      [SKILL_WEAP_AXE] = 3,
     },
     .combat_rel = CLASS_BASE_FIGHTER
   },
   [PROF_TENDER] = {
     PROF_TENDER,
     {
-      [SOC_HIVE]       = SOC_N(15, "Broodhand"),
       [SOC_PRIMITIVE]  = SOC_N(10, "Penkeeper"),
       [SOC_MARTIAL]    = SOC_N(12, "Stockkeeper"),
       [SOC_CIVIL]      = SOC_N(10, "Caretaker"),
       [SOC_HIGH]       = SOC_N(8,  "Animal Tender"),
     },
     .skills = {
-      [SKILL_ANIM] = 800,
-      [SKILL_NATURE] = 350,
-      [SKILL_MED] = 400,
+      [SKILL_ANIM] = 10,
+      [SKILL_NATURE] = 5,
+      [SKILL_MED] = 5,
     },
     .combat_rel = {CLASS_BASE_DRUID, CLASS_BASE_RANGER}
 
@@ -1339,18 +1495,17 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_WIS] = 0.125f,
     },
     .skills = {
-      [SKILL_ARCANA] = 400,
-      [SKILL_CALL] = 800,
-      [SKILL_HIST] = 1600,
-      [SKILL_INSIGHT] = 800,
+      [SKILL_ARCANA] = 4,
+      [SKILL_CALL] = 8,
+      [SKILL_HIST] = 15,
+      [SKILL_INSIGHT] = 8,
     },
     .combat_rel = CLASS_BASE_WIZ
   },
   [PROF_HUNTER] = {
     PROF_HUNTER,
     {
-      [SOC_FAMILY]     = SOC_N(25,"Prowler"),
-      [SOC_HIVE]       = SOC_N(8, "Hunter"),
+      [SOC_FERAL]      = SOC_N(15, "Stalker"),
       [SOC_PRIMITIVE]  = SOC_N(12, "Scamp"),
       [SOC_MARTIAL]    = SOC_N(12, "Stalker"),
       [SOC_CIVIL]      = SOC_N(8, "Huntsman"),
@@ -1361,11 +1516,11 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_DEX] = 0.125f
     },
     {
-      [SKILL_SURV] = 800,
-      [SKILL_NATURE] = 400,
-      [SKILL_ANIM] = 800,
-      [SKILL_WEAP_BOW] = 400,
-      [SKILL_WEAP_DAGGER] = 400
+      [SKILL_SURV] = 5,
+      [SKILL_NATURE] = 5,
+      [SKILL_ANIM] = 10,
+      [SKILL_WEAP_BOW] = 4,
+      [SKILL_WEAP_DAGGER] = 2
     },
     .combat_rel = CLASS_BASE_RANGER
   },
@@ -1382,7 +1537,6 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
   [PROF_BUILDER] = {
     PROF_BUILDER,
     {
-      [SOC_HIVE]       = SOC_N(12, "Maker"),
       [SOC_MARTIAL]    = SOC_N(10, "Builder"),
       [SOC_CIVIL]      = SOC_N(10, "Constructor"),
       [SOC_HIGH]       = SOC_N(5, "Constructor"),
@@ -1393,11 +1547,12 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_STR] = 0.075f,
     },
     {
-      [SKILL_CARP] = 2100,
-      [SKILL_MASON] = 1600,
-      [SKILL_STONE] = 400,
-      [SKILL_WOOD] = 400,
-      [SKILL_WEAP_MACE] = 1350,
+      [SKILL_CARP] = 5,
+      [SKILL_MASON] = 5,
+      [SKILL_STONE] = 3,
+      [SKILL_WOOD] = 3,
+      [SKILL_TINK] = 7,
+      [SKILL_WEAP_MACE] = 4,
     },
     .combat_rel = CLASS_BASE_FIGHTER
   },
@@ -1422,17 +1577,17 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_WIS] = 0.125f,
     },
     {
-      [SKILL_MED] = 2100,
-      [SKILL_HERB] = 800,
+      [SKILL_MED] = 10,
+      [SKILL_HERB] = 6,
     },
     .combat_rel = CLASS_BASE_CLERIC
   },
   [PROF_GUARD] = {
     PROF_GUARD,
     {
-      [SOC_FAMILY]     = SOC_N(25, "Protector"),
-      [SOC_FERAL]      = SOC_N(25, "Protector"),
-      [SOC_HIVE]       = SOC_N(15, "Soldier"),
+      [SOC_FAMILY]     = SOC_N(15, "Protector"),
+      [SOC_FERAL]      = SOC_N(15, "Protector"),
+      [SOC_INSTINCTIVE]= SOC_N(15, "Protector"),
       [SOC_PRIMITIVE]  = SOC_N(0, "Watcher"),
       [SOC_MARTIAL]    = SOC_N(0, "Legionary"),
       [SOC_CIVIL]      = SOC_N(0, "Guard"),
@@ -1445,10 +1600,9 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
       [ATTR_DEX] = 0.05f
     },
     {
-      [SKILL_SURV]      = 1300,
-      [SKILL_WEAP_NONE] = 800,
-      [SKILL_WEAP_SIMP] = 800,
-      [SKILL_WEAP_MART] = 400,
+      [SKILL_SURV]      = 8,
+      [SKILL_ATH]       = 6,
+      [SKILL_WEAP_NONE] = 5,
     },
     .combat_rel = CLASS_BASE_FIGHTER
   },

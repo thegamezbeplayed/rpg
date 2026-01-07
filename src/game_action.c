@@ -141,14 +141,16 @@ bool ActionInput(void){
               ent_t* pool[8];
               int dist = ability->reach;
               Rectangle r = Rect(player->pos.x - dist, player->pos.y - dist, dist*2,2* dist);
-              int num_near = WorldGetEnts(pool, FilterEntInRect,&r);
+              /*
+               * int num_near = WorldGetEnts(pool, FilterEntInRect,&r);
               if(num_near < 2)
                 break;
               else{
+              */
                 SetState(player, STATE_SELECTION,NULL);
                 SetAction(player, a, ability, ability->targeting);
                 ActionMakeSelection(player->facing, ability->reach ,true);
-              }
+              //}
               break;
             case DES_NONE:
             case DES_FACING:

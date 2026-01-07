@@ -20,25 +20,24 @@ extern Font font;
 static int fixedFPS = 60;
 
 typedef void (*UpdateFn)(void);
-typedef bool EntFilterFn(ent_t* e, void* params); 
+typedef bool EntFilterFn(ent_t* e, ent_t* other); 
 
-static bool FilterEntInRect(ent_t* e, void* params){
-  Rectangle* rect = params;
+static bool FilterEntOtherTeam(ent_t* e, ent_t* other){
+  if(!other)
+    return false;
 
-  if(cell_in_rect(e->pos, *rect))
-    return e;
-
-  return NULL;
-}
-
-static bool FilterEntByTeam(ent_t* e, void* params){
-  ent_t* other = params;
   int team = other->team;
 
-  if(e->team == team)
-    return e;
+  return(e->team != team);
+}
 
-  return NULL;
+static bool FilterEntByTeam(ent_t* e, ent_t* other){
+  if(!other)
+    return false;
+
+  int team = other->team;
+
+  return (e->team == team);
 }
 
 //INTERACTIONS_T===>
@@ -176,7 +175,7 @@ Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);
 map_cell_t* WorldGetTile(Cell pos);
 map_grid_t* WorldGetMap(void);
-int WorldGetEnts(ent_t** results,EntFilterFn fn, void* params);
+int WorldGetEnts(ent_t** results,EntFilterFn fn, ent_t* e);
 bool WorldGetTurnState(void);
 bool WorldAddEvent(event_uid_i eid, cooldown_t* cd, StepType when);
 bool RegisterBehaviorTree(BehaviorData data);

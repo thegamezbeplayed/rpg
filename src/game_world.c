@@ -136,14 +136,18 @@ Cell GetWorldCoordsFromIntGrid(Cell pos, float len){
 }
 
 
-int WorldGetEnts(ent_t** results,EntFilterFn fn, void* params){
+int WorldGetEnts(ent_t** results,EntFilterFn fn, ent_t* e){
   int num_results = 0;
   for(int i = 0; i < world.num_ent; i++){
-    if(!fn(world.ents[i],params))
+    if(!world.ents[i])
+      continue;
+    if(world.ents[i]->uid == e->uid)
       continue;
 
-    results[num_results] = world.ents[i];
-    num_results++;
+    if(!fn(world.ents[i],e))
+      continue;
+
+    results[num_results++] = world.ents[i];
   }
 
   return num_results;
@@ -270,9 +274,7 @@ bool RegisterEnt( ent_t *e){
 
   if(e->type == ENT_PERSON){
     player = e;
-
-    EntAddExp(player,200);
-    EntAddExp(player,200);
+    SkillCapOff(player->skills[SKILL_LVL]);
     WorldTestPrint();
   }
 
@@ -296,9 +298,16 @@ bool RegisterItem(ItemInstance g){
 
 void WorldInitOnce(){
   InteractionStep();
-  for(int i = 0; i< world.num_ent; i++)
-    EntInitOnce(world.ents[i]);
+  for(int i = 0; i< world.num_ent; i++){
+    for(int j = 0; j < world.num_ent; j++){
+      if(i == j)
+        continue;
 
+      EntAddSurroundings(world.ents[i], world.ents[j]);
+    }
+    
+    EntInitOnce(world.ents[i]);
+  }
   WorldMapLoaded(world.map);
 }
 
@@ -383,6 +392,14 @@ void PrepareWorldRegistry(void){
     RegisterItem(room_items[i]);
   }
 
+  int f_count = ARRAY_COUNT(FACTION_DEFS);
+  for(int i = 0; i < f_count; i++){
+    RegisterFaction(FACTION_DEFS[i].name);
+    FACTIONS[i]->species = FACTION_DEFS[i].species;
+    for(int j = 0; j < ENT_DONE; j++)
+      FACTIONS[i]->member_ratio[j] = FACTION_DEFS[i].member_ratio[j];
+
+  }
 }
 
 void InitWorld(void){

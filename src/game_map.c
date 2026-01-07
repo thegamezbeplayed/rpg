@@ -113,17 +113,18 @@ void WorldMapLoaded(map_grid_t* m){
     }
 
 
-    if(mr->num_mobs < 3)
+    if(mr->num_mobs < 1)
       continue;
 
     TraceLog(LOG_INFO,"===== ROOM DUMP ====\n Room %i has %i mobs\n Strongest - %s with %i  total %i avg %i",i, mr->num_mobs, mr->strongest->name, mr->best_cr, mr->total_cr,mr->avg_cr);
 
   }
-  DO_NOTHING();
 }
 
 
 bool MapUpdateBiome(map_context_t* ctx, int count, mob_define_t* e){
+  ctx->mob_pool->filtered = 0;
+  return true;
   MobRules theme = e->rules & MOB_THEME_MASK;
   SpeciesType spec = e->race;
 
@@ -160,7 +161,7 @@ MapNodeResult MapBuildBiome(map_context_t* ctx, map_node_t *node){
 
   ctx->eco->total = gen->min_mobs;
   for (int i = 0; i < MT_DONE; i++){
-    int count = imax(1, ctx->eco->ratios[i] * gen->min_mobs);
+    int count = imax(1, ctx->eco->ratios[i] * ctx->num_rooms);
     ctx->eco->desired[i] = count;
   }
 
@@ -172,8 +173,9 @@ MapNodeResult MapBuildBiome(map_context_t* ctx, map_node_t *node){
 
       MobType mt  = MobTypeByFlags(theme, spec);
       int desired = ctx->eco->desired[mt];
-      int score = (int)((desired + mob_pool[i].weight[ctx->map_rules->id])/2);
-      AddPurchase(ctx->mob_pool, mob_pool[i].id, score, mob_pool[i].cost, &mob_pool[i], NULL);
+      int score =  mob_pool[i].weight[ctx->map_rules->id];
+      for(int j = 0; j < desired; j++)
+        AddPurchase(ctx->mob_pool, mob_pool[i].id, score, mob_pool[i].cost, &mob_pool[i], DiscardChoice);
     }
   }
 
@@ -679,21 +681,33 @@ int RoomFindClosestOpening(map_context_t* ctx, room_t* r){
 }
 
 void RoomSpawnMob(map_grid_t* m, room_t* r){
-  Cell pos = r->center;
-  
+  Rectangle bounds = RecFromBounds(&r->bounds);
+  int area = bounds.width * bounds.height;
+  choice_pool_t* picker = InitChoicePool(area,ChooseByWeight);
+
+  for (int x = r->bounds.min.x; x < r->bounds.max.x; x++){
+    for (int y = r->bounds.min.y; y < r->bounds.max.y; y++){
+      map_cell_t* c = &m->tiles[x][y];
+      if(c->status!= TILE_EMPTY)
+        continue;
+
+      int dist = 1 + cell_distance(r->center, c->coords);
+
+      AddChoice(picker, x*1000+y, area/dist, c, DiscardChoice);
+    }
+  }
+
   for(int i = 0; i < r->num_mobs; i++){
-    r->mobs[i]->pos = pos;
+    choice_t* sel = picker->choose(picker);
+    map_cell_t* c = sel->context;
+    r->mobs[i]->pos = c->coords;
     if(RegisterEnt(r->mobs[i])){
       r->mobs[i]->map = m; 
       SetState(r->mobs[i],STATE_SPAWN,NULL);
     }
-
-    if(i%2==0)
-      pos.x++;
-    else
-      pos.y++;
   }
 }
+
 
 void MapSpawn(TileFlags flags, int x, int y){
 
@@ -1898,30 +1912,22 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
 
  int importance = size>>10; 
 
-  MobRules theme = GetMobRulesByMask(ctx->map_rules->mobs.rules, MOB_THEME_MASK);
-
-  mob_rules |= theme;
-  
-  MobRules freq = GetMobRulesByMask(ctx->map_rules->mobs.rules, MOB_FREQ_MASK);
   int budget =( size>>12); 
 
   switch(purpose){
     case ROOM_PURPOSE_CHALLENGE:
       mob_rules |= MOB_SPAWN_CHALLENGE;
-      freq+= MOB_FREQ_COMMON;
       importance +=40+(r->depth*10);
       budget+=4+(r->depth*5);
       diff+=.375*r->depth;
       break;
     case ROOM_PURPOSE_LAIR:
       mob_rules |= MOB_SPAWN_LAIR;
-      freq+= MOB_FREQ_COMMON;
       importance +=50;
       diff+=.5*r->depth;
       for(int d = 5; d<r->depth; d++){
         importance+=10;
         budget+=2;
-        freq+=MOB_FREQ_COMMON/2;
       }
       break;
     case ROOM_PURPOSE_CONNECT:
@@ -1985,20 +1991,14 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
 */
   int filtered = 0;
 
-  for(int i = 3; i < r->depth; i++){
-    freq+=(MOB_FREQ_COMMON/4);
-  }
-
   int mobs = ctx->mob_pool->count;
   mob_define_t filtered_pool[ENT_DONE]; 
-  filtered = FilterMobsByRules(grouping,MONSTER_MASH,ENT_DONE,filtered_pool);
-  filtered = FilterMobsByRules(theme,filtered_pool,filtered,filtered_pool);
-  filtered = FilterMobsInRules(freq,filtered_pool,filtered,filtered_pool);
+  filtered = GetMobsByDiff(diff, filtered_pool);
+  filtered = FilterMobsByRules(grouping,filtered_pool,filtered,filtered_pool);
 
  for(int i = 0; i < filtered; i++)
     AddFilter(ctx->mob_pool, filtered_pool[i].id,  &filtered_pool[i]);
  
-  mob_rules |= freq;
   mob_rules |= GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_MOD_MASK);
   mob_rules |= grouping;
   int built = 0;
@@ -2251,7 +2251,7 @@ void RoomEnhanceMobs(map_context_t* ctx, room_t* r, int score, MobRules rule){
   MobRules  m_rules = MONSTER_MASH[e->type].rules;
 
   if((m_rules & rule)==0){
-    RoomAddMobs(ctx, r, score, rule);
+    //RoomAddMobs(ctx, r, score, rule);
     return;
   }
 
@@ -2259,11 +2259,17 @@ void RoomEnhanceMobs(map_context_t* ctx, room_t* r, int score, MobRules rule){
   int max_cr = score + ((75*beef) * ctx->map_rules->max_diff);
   int min_cr = score + ((75*beef) * ctx->map_rules->diff);
 
-  int total_cr = 0, cr_cap = max_cr*r->num_mobs;
+  int total_cr = 0, cr_cap = max_cr*r->num_mobs, cr_min = min_cr*r->num_mobs;
 
-    while(total_cr < cr_cap){
-      total_cr = EnhanceEnts(r->mobs, rule, r->num_mobs);
-    }
+  for(int i = 0; i < r->num_mobs; i++)
+    total_cr+=r->mobs[i]->props->cr;
+
+  if(total_cr > min_cr)
+    return;
+
+  while(total_cr < cr_cap){
+    total_cr = EnhanceEnts(r->mobs, rule, r->num_mobs);
+  }
 }
 
 

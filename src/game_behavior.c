@@ -142,15 +142,16 @@ BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
   if(!CheckEntAvailable(player))
     return BEHAVIOR_FAILURE;
 
-  if(CellDistGrid(e->pos,player->pos) > e->stats[STAT_AGGRO]->current)
-    return BEHAVIOR_FAILURE;
-
   ent_t* tar = player;
-  Cell next;
-
-  if(!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next,50,TileBlocksSight))
+  if(tar == NULL)
     return BEHAVIOR_FAILURE;
-  e->control->target = tar;
+
+  for(int i = 0; i < SEN_DONE; i++)
+    if(EntCanDetect(e, tar, i)){
+      e->control->target = tar;
+      return BEHAVIOR_FAILURE;
+    }
+
   return BEHAVIOR_SUCCESS;
 }
 
@@ -164,7 +165,7 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
 
   ent_t* tar = e->control->target;
   Cell next;
-  if (!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next,70,TileBlocksMovement))
+  if (!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next,70))
     return BEHAVIOR_FAILURE;
 
   e->control->destination = cell_dir(e->pos,next);
@@ -178,7 +179,6 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
-
 
   if(cell_compare(e->control->destination,CELL_UNSET))
     e->control->destination = random_direction();
@@ -201,7 +201,7 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
 
   Cell tar = CellInc(e->pos,e->control->destination);
   Cell next;
-  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next,35,TileBlocksMovement)){
+  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next,35)){
     e->control->destination = CELL_UNSET;
     return BEHAVIOR_FAILURE;
   }
@@ -233,16 +233,17 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
   if( !e->control->target)
     return BEHAVIOR_FAILURE;
 
-  if(cell_distance(e->pos,e->control->target->pos) <=  e->stats[STAT_REACH]->current)
-    return BEHAVIOR_SUCCESS;
   if(e->control->pref == NULL)
     e->control->pref = EntChoosePreferredAbility(e, e->stats[STAT_ENERGY]->current);
 
   if(!e->control->pref)
     return BEHAVIOR_FAILURE;
 
-  if(cell_distance(e->pos,e->control->target->pos) <=  e->control->pref->stats[STAT_REACH]->current)
-    return BEHAVIOR_SUCCESS;
+  if(cell_distance(e->pos,e->control->target->pos) >  e->control->pref->stats[STAT_REACH]->current)
+    return BEHAVIOR_FAILURE;
+
+  if(EntCanDetect(e, e->control->target, e->control->pref->stats[STAT_REACH]->current), SEN_SEE)
+      return BEHAVIOR_SUCCESS;
   
   return BEHAVIOR_FAILURE;
 }
@@ -293,7 +294,7 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
 }
 
 BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params){
-  struct ent_s* e = params->owner;
+  ent_t* e = params->owner;
   if(!e)
     return BEHAVIOR_FAILURE;
 
@@ -305,10 +306,8 @@ BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params){
 
   for (int i = 0; i < count; i++){
     int dist = cell_distance(e->pos, team[i]->pos);
-    if (dist > 20)
-      continue;
 
-    if(!EntCanSee(e, team[i], 24))
+    if(!EntCanDetect(e, team[i], SEN_SEE))
       continue;
 
 
@@ -321,10 +320,10 @@ BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params){
 
 BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params){
   struct ent_s* e = params->owner;
-  if(!e && !e->control->target)
+  if(!e || e->control->target == NULL )
     return BEHAVIOR_FAILURE;
 
-  if(!EntCanSee(e, e->control->target,24))
+  if(!EntCanDetect(e, e->control->target,SEN_SEE))
     return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;

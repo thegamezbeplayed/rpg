@@ -1,4 +1,5 @@
 #include "game_process.h"
+#include "game_helpers.h"
 
 static interaction_t *interactions[MAX_INTERACTIONS];
 static bool interaction_used[MAX_INTERACTIONS]; 
@@ -371,7 +372,7 @@ void AggroEnsureCapacity(aggro_table_t* t){
       t->cap * sizeof(aggro_entry_t));
 }
 
-int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul){
+int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul, bool init){
   // Check if already present
   
   float threat = mul * threat_gain;
@@ -380,6 +381,8 @@ int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul){
 
   aggro_entry_t* e = AggroGetEntry(table,source);
   if (e && e->enemy == source) {
+    if(init)
+      e->initiated = true;
     e->threat += threat;
     e->last_turn = TURN;
     //            ResetEvent(events, e->decay_event);
@@ -396,6 +399,7 @@ int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul){
   float cr = (off*def) /10;
    
   e = &table->entries[table->count++];
+  e->initiated = init;
   e->enemy = source;
   e->last_turn = TURN;
   e->offensive_rating = off;
@@ -551,3 +555,73 @@ void AllySync(void* params){
 
   }
 }
+
+surroundings_t* InitSurroundings(ent_t* e){
+  surroundings_t* s = calloc(1,sizeof(surroundings_t));
+
+  *s = (surroundings_t){
+    .owner = e,
+      .count = 0,
+      .cap = 6,
+      .entries = calloc(6, sizeof(surrounding_ctx_t)),
+  };
+
+  return s;
+}
+
+ent_t* RemoveEntryByRel(surroundings_t* t, SpeciesRelate rel){
+  for (int i = 0; i < t->count; i++){
+    surrounding_ctx_t *ctx = &t->entries[i];
+    if(ctx->prune || ctx->rel != rel)
+      continue;
+
+    ctx->prune = true;
+
+    return ctx->other;
+  }
+
+  return NULL;
+}
+
+void SurroundPrune(surroundings_t* t){
+  for (int i = 0; i < t->count; ) {
+    if (!t->entries[i].other || t->entries[i].prune ||
+        t->entries[i].other->state == STATE_DEAD)
+    {
+      t->entries[i] = t->entries[--t->count];
+    } else {
+      i++;
+    }
+  }
+
+}
+
+void SurroundEnsureCap(surroundings_t* t){
+  if (t->count < t->cap)
+    return;
+
+  t->cap *= 2;
+  t->entries = realloc(t->entries,
+      t->cap * sizeof(surrounding_ctx_t));
+
+}
+
+void AddSurroundings(surroundings_t* s, ent_t* e, SpeciesRelate rel){
+  SurroundEnsureCap(s);
+
+  int dist = cell_distance(e->pos, s->owner->pos);
+  surrounding_ctx_t* ctx = &s->entries[s->count++];
+
+  if(e->type == s->owner->type)
+    rel = SPEC_KIN;
+
+  for (int i = 0; i < TREAT_DONE; i++)
+    ctx->treatment[i] = TREATMENT[rel][i];
+
+  ctx->cr = EntGetChallengeRating(e);
+  ctx->other = e;
+  ctx->rel = rel;
+  ctx->dist = dist;
+
+}
+

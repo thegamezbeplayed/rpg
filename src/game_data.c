@@ -4,19 +4,116 @@
 #include "game_gen.h"
 #include <stdio.h>
 
-Faction Faction_Register(const char* name){
+faction_t* FACTIONS[MAX_FACTIONS];
+int NUM_FACTIONS = 0;
 
-}
+species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)] = {
+  {SPEC_NONE},      
+  {SPEC_HUMAN,
 
-const char* Faction_Name(Faction id){
+  },    
+  {SPEC_ELF,
 
-}
+  },      
+  {SPEC_ARCHAIN,
+
+  },   
+  {SPEC_GOBLINOID,
+    {
+      [SPEC_HOSTILE]  = SPEC_HUMAN | SPEC_ELF,
+      [SPEC_INDIF]     = SPEC_RUMINANT ,
+      [SPEC_KIN]       = SPEC_ORC,
+      [SPEC_FRIEND]   = SPEC_SULKING,
+      [SPEC_CAUT]      = SPEC_ARCHAIN | SPEC_SKELETAL | SPEC_ROTTING,
+      [SPEC_AVOID]     = SPEC_CANIFORM | SPEC_GIANT,
+      [SPEC_REVERED]   = SPEC_ARTHROPOD | SPEC_RODENT
+    }
+  }, 
+  {SPEC_ORC,
+    {
+      [SPEC_HOSTILE]   = SPEC_HUMAN | SPEC_ELF,
+      [SPEC_INDIF]     = SPEC_RUMINANT | SPEC_ARTHROPOD | SPEC_RODENT ,
+      [SPEC_KIN]       = SPEC_GOBLINOID,
+      [SPEC_FRIEND]    = SPEC_SULKING,
+      [SPEC_CAUT]      = SPEC_ARCHAIN | SPEC_SKELETAL | SPEC_ROTTING,
+      [SPEC_AVOID]     = SPEC_GIANT,
+      [SPEC_REVERED]   = SPEC_CANIFORM 
+    }
+  },      
+  {SPEC_GIANT,
+
+  },     
+  {SPEC_ARTHROPOD,
+    {
+      [SPEC_FEAR]       = SPEC_RODENT | SPEC_ELF | SPEC_HUMAN,
+      [SPEC_AVOID]      = SPEC_CANIFORM | SPEC_RUMINANT,
+      [SPEC_REVERED]    = SPEC_GOBLINOID | SPEC_SULKING,
+      [SPEC_INDIF]      = SPEC_ARCHAIN | SPEC_GIANT,
+      [SPEC_FRIEND]     = SPEC_SKELETAL | SPEC_ROTTING,
+      [SPEC_HUNTS]      = SPEC_ARTHROPOD
+    }
+  }, 
+  {SPEC_ETHEREAL,
+
+  },  
+  {SPEC_ROTTING,
+
+  },   
+  {SPEC_SKELETAL,
+
+  },  
+  {SPEC_VAMPIRIC,
+
+  }, 
+  {SPEC_CANIFORM,
+    {
+      [SPEC_FEAR]        = SPEC_ROTTING,
+      [SPEC_AVOID]       = SPEC_HUMAN | SPEC_ELF | SPEC_SKELETAL,
+      [SPEC_INDIF]       = SPEC_SULKING | SPEC_ARCHAIN,
+      [SPEC_HOSTILE]     = SPEC_ARTHROPOD,
+      [SPEC_CAUT]        = SPEC_CANIFORM | SPEC_ETHEREAL | SPEC_VAMPIRIC,
+      [SPEC_HUNTS]       = SPEC_RUMINANT | SPEC_RODENT,
+      [SPEC_FRIEND]      = SPEC_ORC | SPEC_GOBLINOID,
+      [SPEC_REVERED]     = SPEC_GIANT,
+    }
+  },  
+  {SPEC_RODENT,
+    {
+      [SPEC_FEAR]        = SPEC_CANIFORM,
+      [SPEC_AVOID]       = SPEC_HUMAN | SPEC_ELF | SPEC_SKELETAL,
+      [SPEC_INDIF]       = SPEC_ARCHAIN | SPEC_ROTTING,
+      [SPEC_CAUT]        = SPEC_RUMINANT | SPEC_GIANT | SPEC_ETHEREAL | SPEC_VAMPIRIC,
+      [SPEC_HUNTS]       = SPEC_ARTHROPOD,
+      [SPEC_FRIEND]      = SPEC_ORC | SPEC_GOBLINOID,
+      [SPEC_REVERED]     = SPEC_SULKING,
+    }
+  },    
+  {SPEC_RUMINANT,
+    {
+      [SPEC_FEAR]        = SPEC_CANIFORM | SPEC_VAMPIRIC | SPEC_SULKING | SPEC_ORC | SPEC_GOBLINOID,
+      [SPEC_AVOID]       = SPEC_HUMAN | SPEC_SKELETAL | SPEC_ARTHROPOD,
+        [SPEC_INDIF]       = SPEC_ARCHAIN | SPEC_ROTTING,
+        [SPEC_CAUT]        = SPEC_RODENT | SPEC_GIANT | SPEC_ETHEREAL,
+        [SPEC_FRIEND]      = SPEC_ELF,
+      }
+    },  
+    {SPEC_SULKING,
+      {
+        [SPEC_FEAR]       = SPEC_GIANT | SPEC_ROTTING | SPEC_VAMPIRIC,
+        [SPEC_AVOID]      = SPEC_CANIFORM,
+        [SPEC_HOSTILE]    = SPEC_HUMAN | SPEC_ELF,    
+        [SPEC_CAUT]       = SPEC_ARCHAIN,     
+        [SPEC_HUNTS]      = SPEC_SKELETAL | SPEC_RUMINANT | SPEC_ARTHROPOD,       [SPEC_FRIEND]     = SPEC_ORC | SPEC_GOBLINOID, 
+        [SPEC_REVERED]  = SPEC_RODENT,
+      }
+    }   
+};
 
 ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
   {ABILITY_PUNCH,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 0, 1, 3,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills[0] = SKILL_WEAP_NONE},
-  {ABILITY_RAM,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 0, 2, 3,2, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
+  {ABILITY_RAM,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 0, 1, 3,2, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
     .skills[0] = SKILL_WEAP_NONE},
   {ABILITY_BITE, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 20,1, 0, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR,
     .skills = SKILL_WEAP_NONE,
@@ -41,6 +138,8 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_RESISTANCE,
     .skills = SKILL_SPELL_ABJ
   },
+  {ABILITY_GUIDING_BOLT, AT_DMG, ACTION_MAGIC, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 20, 4, 0, 1, 6, 0, STAT_HEALTH, ATTR_NONE, ATTR_WIS,
+    .skills = SKILL_SPELL_EVO },
   {ABILITY_SACRED_FLAME, AT_DMG,ACTION_MAGIC, DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 25, 8, 4, 1, 8, 0, 5, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
     .skills = SKILL_SPELL_EVO},
   {ABILITY_STARRY_WISP, AT_DMG,ACTION_MAGIC,DMG_RADIANT, STAT_ENERGY, DES_SELECT_TARGET, 25, 8, 14 , 1, 8, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_WIS,
@@ -260,6 +359,207 @@ biome_t BIOME[BIO_DONE] = {
       [MT_PREY] = .40f, [MT_PRED] = .08f, [MT_CRITTER] = .20f, [MT_BUG] = .12f, [MT_FACTION] = .0f, [MT_MONSTER] = 0.07f, [MT_LOCALS] = .13f},
   },
 };
+
+sense_quality_t SENSE_QUAL[SEN_DONE] = {
+  [SEN_HEAR] = { SEN_HEAR,
+    {
+      [SC_MIN]     = PQ_NO_HEAD,
+      [SC_LESSER]  = PQ_TINY_HEAD,
+      [SC_BELOW]   = PQ_SMALL_HEAD,
+      [SC_ABOVE]   = PQ_TWIN_HEADED, PQ_TRI_HEADED,
+      [SC_GREATER] = PQ_MANY_HEADED,
+      [SC_SUPER]   = PQ_LARGE_EARS
+    },
+    {
+      [SC_ABOVE]   = MQ_ANXIOUS | MQ_CAUTIOUS,
+      [SC_GREATER] = MQ_ALERT,
+      [SC_SUPER]   = MQ_ATTUNED
+    },
+    {
+      [SC_MIN]      = 0,
+      [SC_LESSER]   = 1,
+      [SC_BELOW]    = 3,
+      [SC_AVERAGE]  = 5,
+      [SC_ABOVE]    = 7,
+      [SC_GREATER]  = 9,
+      [SC_SUPER]    = 11,
+      [SC_MAX]      = 13,
+    }
+  },
+  [SEN_SEE] = { SEN_SEE,
+    {
+      [SC_MIN]      = PQ_NO_HEAD | PQ_NO_EYES,
+      [SC_INFER]    = PQ_ONE_EYE | PQ_SHORT,
+      [SC_LESSER]   = PQ_TINY_HEAD,
+      [SC_BELOW]    = PQ_SMALL_HEAD,
+      [SC_ABOVE]    = PQ_TWIN_HEADED | PQ_TRI_HEADED | PQ_MANY_HEADED,
+      [SC_GREATER]  = PQ_LARGE_HEAD | PQ_TALL,
+      [SC_SUPER]    = PQ_HUGE | PQ_GIG
+    },
+    {
+      [SC_ABOVE]    = MQ_PERCEPTIVE | MQ_AWARE
+    },
+    {
+      [SC_MIN]      = 0,
+      [SC_INFER]    = 4,
+      [SC_LESSER]   = 6,
+      [SC_BELOW]    = 8,
+      [SC_AVERAGE]  = 10,
+      [SC_ABOVE]    = 12,
+      [SC_GREATER]  = 14,
+      [SC_SUPER]    = 16,
+      [SC_MAX]      = 20,
+    }
+  },
+  [SEN_SMELL] = {
+    SEN_SMELL,
+    {
+      [SC_MIN]      = PQ_NO_HEAD,
+      [SC_ABOVE]    = PQ_TWIN_HEADED | PQ_TRI_HEADED | PQ_MANY_HEADED,
+      [SC_GREATER]  = PQ_LARGE_HEAD | PQ_TALL,
+      [SC_SUPER]    = PQ_LARGE_NOSE | PQ_SENSITIVE_NOSE,
+    },
+    {
+      [SC_ABOVE]    = MQ_HIVE_MIND,
+      [SC_GREATER]  = MQ_PERCEPTIVE,
+      [SC_SUPER]    = MQ_TERRITORIAL,
+    },
+    {
+      [SC_MIN]      = 0,
+      [SC_INFER]    = 1,
+      [SC_LESSER]   = 2,
+      [SC_BELOW]    = 3,
+      [SC_AVERAGE]  = 4,
+      [SC_ABOVE]    = 6,
+      [SC_GREATER]  = 8,
+      [SC_SUPER]    = 10,
+      [SC_MAX]      = 11
+    }
+  },
+};
+
+  
+static sense_t SENSE_BASE[SEN_DONE] = {
+  {SEN_HEAR, SKILL_PERCEPT, ATTR_WIS, MOD_SQRT},
+  {SEN_SEE, SKILL_PERCEPT, ATTR_WIS, MOD_CBRT},
+  {SEN_SMELL, SKILL_PERCEPT, ATTR_WIS, MOD_SQRT}
+};
+
+Faction FactionMakeHashID(int count, param_t* params[count]){
+
+  char name[256];
+  int  len = 0;
+  
+  len += snprintf(name + len, sizeof(name) - len, "RUNTIME");
+  for(int i = 0; i < count; i++){
+    switch(params[i]->type_id){
+      case DATA_INT:
+      case DATA_FLOAT:
+      case DATA_BOOL:
+      case DATA_PTR:
+      case DATA_ENTITY:
+      case DATA_CELL:
+      break;
+      case DATA_STRING:
+      len += snprintf(name + len, sizeof(name) - len,
+          "_%s", ParamReadString(params[i]));
+      break;
+
+    }
+
+  }
+
+  return RegisterFaction(name);
+}
+
+faction_t* GetFactionByType(EntityType type){
+  for(int i = 0; i < NUM_FACTIONS; i++){
+
+    if(FACTIONS[i]->member_ratio[type]>0)
+      return FACTIONS[i];
+  }
+
+  return NULL;
+}
+
+Faction FindFaction(ent_t* e){
+  faction_t* exists = GetFactionBySpec(e->props->race);
+
+  if(exists)
+    return exists->id;
+
+  exists = GetFactionByType(e->type);
+  if(exists)
+    return exists->id;
+
+  return 0;
+}
+
+Faction RegisterFactionByType(ent_t* e){
+  Faction exists = FindFaction(e);
+  
+  if(exists > 0)
+    return exists;
+
+  param_t name = {
+    .type_id = DATA_STRING,
+    .data = (void*)&e->props->race_name,
+    .size = strlen(e->props->race_name)+1
+  };
+
+  race_define_t race = DEFINE_RACE[SpecToIndex(e->props->race)];
+  param_t spec = {
+    .type_id = DATA_STRING,
+    .data = (void*)&race.name,
+    .size = strlen(race.name)+1
+  };
+
+  param_t* params[2];
+  
+  params[0] = &name;
+  params[1] = &spec;
+
+  Faction fid = FactionMakeHashID(2, params);
+  faction_t* f = GetFactionByID(fid);
+  f->species = e->props->race;
+  f->member_ratio[e->type]++;
+}
+
+Faction RegisterFaction(const char* name){
+  Faction f = hash_str(name);
+
+  for(int i = 0; i < NUM_FACTIONS; i++){
+    if(FACTIONS[i]->id == f)
+      return f;
+
+    if(strcmp(name,FACTIONS[i]->name) == 0){
+      FACTIONS[i]->id = f;
+      return f;
+    }
+  
+  }
+
+
+  return InitFaction(name)->id;
+}
+
+faction_t* InitFaction(const char* name){
+  faction_t* f = calloc(1, sizeof(faction_t));
+
+  Faction id = hash_str(name);
+
+  f->id = id;
+  f->name = strdup(name);
+
+  FACTIONS[NUM_FACTIONS++] = f;
+  return f;
+}
+
+const char* Faction_Name(Faction id){
+
+}
+
+
 
 dice_roll_t* Die(int side, int num){
   dice_roll_t* die = malloc(sizeof(dice_roll_t));
@@ -665,6 +965,48 @@ void FormulaDieAddAttr(stat_t* self){
   self->current = imin(self->max, self->current);
 }
 
+void SenseAddAttr(sense_t* self){
+  int mod = 0;
+
+  ModifierType modif = self->attr_mod;
+  AttributeType t = self->attr;
+  switch(modif){
+    case MOD_CBRT:
+      mod += cbrt(self->owner->attribs[t]->val);
+      break;
+    case MOD_SQRT:
+      mod += isqrt(self->owner->attribs[t]->val);
+      break;
+    case MOD_NEG_SQRT:
+      mod -= isqrt(self->owner->attribs[t]->val);
+      break;
+    case MOD_ADD:
+      mod += self->owner->attribs[t]->val;
+      break;
+    default:
+      break;
+  }
+
+  self->range = self->base+mod;
+}
+
+sense_t* InitSense(ent_t* e, Senses type, int val){
+  sense_t* s = calloc(1,sizeof(sense_t));
+
+  sense_t base = SENSE_BASE[type];
+
+  *s = (sense_t){
+    .type     = type,
+    .owner    = e,
+    .skill    = base.skill,
+    .attr     = base.attr,
+    .attr_mod = base.attr_mod,
+    .base     = val,
+  };
+
+  SenseAddAttr(s);
+}
+
 skill_event_t* InitSkillEvent(skill_t* s, int cr){
   skill_event_t* skev = calloc(1,sizeof(skill_event_t));
 
@@ -674,6 +1016,25 @@ skill_event_t* InitSkillEvent(skill_t* s, int cr){
       .challenge = cr,
       .decay     = decay
   };
+}
+
+skill_check_t* InitSkillCheck(skill_t* skill){
+  skill_check_t* sc = calloc(1,sizeof(skill_check_t));
+
+  skill_proficiency_bonus_t spb = GRANTS_PB[skill->id];
+
+  AttributeType bonus =spb.attr;
+  *sc = (skill_check_t){
+    .owner = skill->owner,
+      .skill = skill,
+      .id  = skill->id,
+      .counter = spb.counter,
+      .type = spb.type,
+      .die = Die(spb.base,1)
+  };
+
+
+  sc->bonus[bonus] = MOD_CBRT;
 }
 
 bool SkillUseSecondary(skill_t* self, int gain, InteractResult result){
@@ -791,8 +1152,26 @@ skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
     .owner = owner,
     .on_skill_up = SkillupRelated
   };
+
+  s->checks = InitSkillCheck(s); 
   return s;
 
+}
+
+InteractResult SkillCheck(skill_t* s, skill_t* against){
+  if(s->checks == NULL)
+    return IR_CRITICAL_FAIL;
+
+  if(against->checks == NULL)
+    return IR_TOTAL_SUCC;
+
+  int hits[1];
+  int hit = s->checks->die->roll(s->checks->die, hits);
+
+  int saves[1];
+  int save = against->checks->die->roll(s->checks->die, saves);
+
+  return (hit > save)?IR_SUCCESS:IR_FAIL;
 }
 
 bool SkillIncreaseUncapped(struct skill_s* s, int amnt){
@@ -840,9 +1219,10 @@ void SkillupRelated(skill_t* self, float old, float cur){
     SkillType rel = related.skill;
     if (rel == SKILL_NONE)
       continue;
-    if(SkillIncrease(self->owner->skills[rel], inc))
-      DO_NOTHING();
-
+    SkillIncrease(self->owner->skills[rel], inc);
+    if(self->owner->type == ENT_PERSON)
+      TraceLog(LOG_INFO, "%s %0f exp till level %i",self->owner->name,
+          self->threshold - self->point, self->val+1);
   }
 }
 

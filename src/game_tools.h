@@ -48,6 +48,7 @@
 #define CellSub(c1,c2) (Cell){(c1.x - c2.x),(c1.y - c2.y)}
 #define CellFlip(c) (Cell){(c.y),(c.x)}
 
+#define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
 static int IntGridIndex(int x, int y){
   return x*1000 + y;
 }
@@ -62,6 +63,11 @@ static void shuffle_array(void *base, size_t n, size_t size) {
         memcpy(arr + i * size, arr + j * size, size);
         memcpy(arr + j * size, tmp, size);
     }
+}
+
+static inline uint32_t HashCombine(uint32_t h, uint32_t v)
+{
+    return h ^ (v + 0x9e3779b9 + (h << 6) + (h >> 2));
 }
 
 static uint32_t hash_str(const char *str) {

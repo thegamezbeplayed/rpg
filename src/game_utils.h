@@ -30,7 +30,14 @@ static param_t ParamMake(uint32_t type, size_t size, const void* src) {
     memcpy(o.data, src, size);
     return o;
 }
+static inline const char* ParamReadString(param_t* o){
+  assert(o);
+  assert(o->type_id == DATA_STRING);
+  assert(o->data);
+  assert(o->size > 0);
 
+  return (const char*)o->data;
+}
 static inline int ParamReadInt(const param_t* o) {
     assert(o->type_id == DATA_INT);
     assert(o->size == sizeof(int));
@@ -50,6 +57,7 @@ static inline void DO_NOTHING(void){}
 static inline bool BOOL_DO_NOTHING(){return false;}
 static inline const char* CHAR_DO_NOTHING(){return "\0";}
 //<===== OPTION CHOOSE
+
 typedef struct choice_s choice_t;
 typedef struct choice_pool_s choice_pool_t;
 typedef void (*OnChosen)(choice_pool_t* pool, choice_t* self);
@@ -187,6 +195,7 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params);
 BehaviorStatus BehaviorTakeTurn(behavior_params_t *params);
 BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params);
 BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params);
+BehaviorStatus BehaviorBuildAwareness(behavior_params_t *params);
 
 static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeState,params); }
 static inline behavior_tree_node_t* LeafMoveToTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToTarget,params); }
@@ -203,5 +212,6 @@ static inline behavior_tree_node_t* LeafAttackTarget(behavior_params_t *params) 
 static inline behavior_tree_node_t* LeafTakeTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorTakeTurn,params); }
 static inline behavior_tree_node_t* LeafCanSeeTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCanSeeTarget,params); }
 static inline behavior_tree_node_t* LeafBuildAllyTable(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorBuildAllyTable,params); }
+static inline behavior_tree_node_t* LeafBuildAwareness(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorBuildAwareness,params); }
 
 #endif

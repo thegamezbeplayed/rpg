@@ -24,6 +24,7 @@ typedef struct item_s item_t;
 
 typedef struct{
   ent_t*    enemy;
+  bool      initiated;
   int       challenge;
   int       offensive_rating, defensive_rating;
   float     threat_mul, threat;
@@ -39,7 +40,7 @@ typedef struct{
 
 void InitAggroTable(aggro_table_t* t, int cap, ent_t* owner);
 static void AggroEnsureCapacity(aggro_table_t* t);
-int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul);
+int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul, bool init);
 void AggroDecayCallback(void* params);
 void AggroPrune(aggro_table_t* t);
 aggro_entry_t* AggroGetEntry(aggro_table_t* table, ent_t* source);
@@ -48,7 +49,7 @@ aggro_entry_t* AggroGetHighest(aggro_table_t* t);
 
 typedef struct{
   ent_t* ally;          
-
+  SpeciesRelate relation;
   float  danger;        // how threatened they are
   float  need;          // how badly they need help
   float  offense;       // how dangerous they are if supported
@@ -75,6 +76,26 @@ void InitAllyTable(ally_table_t* t, int cap, ent_t* owner);
 static void AllyEnsureCapacity(ally_table_t* t);
 int AllyAdd(ally_table_t* t, ent_t* source, int dist);
 void AllySync(void* params);
+
+typedef struct{
+  ent_t*        other;
+  bool          prune;
+  SpeciesRelate rel;
+  int           cr;
+  float         treatment[TREAT_DONE];
+  int           dist;
+}surrounding_ctx_t;
+
+typedef struct{
+  ent_t*             owner;
+  surrounding_ctx_t* entries;
+  int                count,cap;
+}surroundings_t;
+
+surroundings_t* InitSurroundings(ent_t* e);
+void AddSurroundings(surroundings_t*, ent_t* e, SpeciesRelate rel);
+void EntAddSurroundings(ent_t* e, ent_t* other);
+ent_t* RemoveEntryByRel(surroundings_t*, SpeciesRelate rel);
 typedef struct{
   SpeciesType   race;
   int           rank;
@@ -236,7 +257,7 @@ item_t* InitItem(item_def_t* def);
 item_def_t* GetItemDefByID(GearID id);
 
 typedef struct{
-  struct ent_s*           target;
+  ent_t*                  target;
   Cell                    start,destination;
   int                     ranges[RANGE_EMPTY];
   behavior_tree_node_t*   bt[STATE_END];
@@ -268,6 +289,7 @@ struct ent_s{
   stat_t*               stats[STAT_DONE];
   attribute_t*          attribs[ATTR_DONE];
   skill_t*              skills[SKILL_DONE];
+  sense_t*              senses[SEN_DONE];
   traits_t              *traits;
   properties_t          *props;
   int                   num_abilities;
@@ -284,8 +306,9 @@ struct ent_s{
   float                 challenge;
   aggro_table_t*        aggro;
   ally_table_t*         allies;
+  surroundings_t*       surroundings;
   struct ent_s*         last_hit_by;
-  int                   team;
+  Faction               team;
 };
 
 ent_t* InitEntByRace(mob_define_t def, MobRules rules);
@@ -308,6 +331,7 @@ void EntInitOnce(ent_t* e);
 int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source);
 InteractResult EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
+bool EntSkillCheck(ent_t* owner, ent_t* target, SkillType s);
 void EntSync(ent_t* e);
 void EntTurnSync(ent_t* e);
 void EntResetRegen(stat_t* self, float old, float cur);
@@ -326,8 +350,8 @@ void EntControlStep(ent_t *e);
 int EntGetChallengeRating(ent_t* e);
 int EntGetDefRating(ent_t* e);
 int EntGetOffRating(ent_t* e);
-int EntAddAggro(ent_t* owner, ent_t* source, int threat_gain, float mul);
-bool EntCanSee(ent_t* owner, ent_t* e, int depth);
+int EntAddAggro(ent_t* e, ent_t* source, int threat, float mul, bool init);
+bool EntCanDetect(ent_t* owner, ent_t* e, Senses s);
 
 typedef void (*StateChangeCallback)(ent_t *e, EntityState old, EntityState s);
 void SetViableTile(ent_t*, EntityState old, EntityState s);

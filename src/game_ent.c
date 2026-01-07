@@ -31,7 +31,7 @@ ent_t* InitEnt(EntityType id,Cell pos){
   e->stats[STAT_ACTIONS]->on_stat_empty = EntActionsTaken;
   e->stats[STAT_ACTIONS]->current = 1;
   e->stats[STAT_ACTIONS]->max = 1;
-  
+ 
   e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE, DES_FACING, NULL,NULL);
   e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
   e->actions[ACTION_MAGIC] = InitAction(ACTION_MAGIC, DES_MULTI_TARGET, ActionMultiTarget,NULL);
@@ -85,7 +85,6 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
     strcpy(e->props->race_name, racial.name);
   }
   strcpy(e->name, e->props->race_name);
-  e->team = __builtin_ctzll(def.race);
   e->pos = CELL_UNSET;
   e->facing = CELL_UNSET;
   e->sprite = InitSpriteByID(e->type,SHEET_ENT);
@@ -96,13 +95,7 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
 
   e->skills[SKILL_LVL] = InitSkill(SKILL_LVL,e,0,20);
   e->skills[SKILL_LVL]->on_skill_up = EntOnLevelUp;
-  for(int i = 0; i < SKILL_DONE; i++){
-    if(e->skills[i] == NULL)
-      e->skills[i] = InitSkill(i,e,0,100);
-    Traits t = SKILL_TRAITS[i];
-    if(t && (e->props->traits & t))
-      SkillIncreaseUncapped(e->skills[i], 400);
-  }
+
   
   trait_pool_t res[4] = {
     {TRAIT_RESIST_SCHOOL_MASK, e->props->traits & TRAIT_RESIST_SCHOOL_MASK},
@@ -194,7 +187,25 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   }
   
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
-  
+
+  for (int i = 0; i < SEN_DONE; i++){
+    int val = GetSenseVal(i, e->props->body, e->props->mind);
+    e->senses[i] = InitSense(e, i, val);
+  }
+
+  for(int i = 0; i < SKILL_DONE; i++){
+    if(e->skills[i] == NULL)
+      e->skills[i] = InitSkill(i,e,0,100);
+    Traits t = SKILL_TRAITS[i];
+    if(t && (e->props->traits & t)){
+      int rank = SKILL_RANKS[SR_SKILLED].skill_thresh;
+      for(int j = 0; j < rank; j++){  
+        int inc = e->skills[i]->threshold;
+
+        SkillIncreaseUncapped(e->skills[i], inc);
+      }
+    }
+  } 
   for(int i = 0; i < SLOT_ALL; i++)
     e->slots[i] = InitActionSlot(i, e, 1, 1);  
 
@@ -226,7 +237,9 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
     if(i < INV_SLING)
       e->inventory[i]->active = true;
   }
- 
+  e->team = RegisterFactionByType(e); 
+  
+  e->surroundings = InitSurroundings(e);
   return e;
 }
 
@@ -246,11 +259,11 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
 
 
   for(int i = 0; i < SKILL_DONE; i++){
-    if(sel->skills[i]==0)
-      continue;
+    for(int j = 0; j < sel->skills[i]; j++){
+      int inc = e->skills[i]->threshold;
 
-    SkillIncreaseUncapped(e->skills[i], sel->skills[i]);
-
+      SkillIncreaseUncapped(e->skills[i], inc);
+    }
   }
  
   for (int i = 0; i < ATTR_DONE; i++){
@@ -276,6 +289,10 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
 
     }
   }
+
+  if(e->skills[SKILL_LVL]->val == 2)
+    DO_NOTHING();
+
   return e;
 }
 
@@ -541,7 +558,7 @@ void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
   for (int i = 0; i < SKILL_DONE; i++){
     if(race_class->skills[i] == 0)
       continue;
-    for(int j = 0; j < race_class->skills[i]; i++){
+    for(int j = 0; j < race_class->skills[i]; j++){
       int inc = e->skills[i]->threshold;
       SkillIncreaseUncapped(e->skills[i], inc);
     }
@@ -656,6 +673,9 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   while(group){
     uint64_t size = group & -group;
     group &= group -1;
+
+    if((size & def.rules)==0)
+      continue;
 
     if(size > MOB_GROUPING_CREW)
       don = arm = true;
@@ -941,6 +961,21 @@ void EntPrepare(ent_t* e){
 
 }
 
+void EntBuildAllyTable(ent_t* e){
+  AllyAdd(e->allies, e, 0);
+
+  for (int i = 0; i < e->surroundings->count; i++){
+    ent_t* other = RemoveEntryByRel(e->surroundings, SPEC_KIN);
+    if(other == NULL)
+      break;
+
+    int dist = cell_distance(e->pos, other->pos);
+    AllyAdd(e->allies, other, dist);
+
+  }
+
+}
+
 void EntInitOnce(ent_t* e){
   EntSync(e);
 
@@ -960,6 +995,8 @@ void EntInitOnce(ent_t* e){
 
     StatMaxOut(e->stats[i]);
   }
+
+  EntBuildAllyTable(e);
 
   cooldown_t* spawner = InitCooldown(3,EVENT_SPAWN,StepState_Adapter,e);
   AddEvent(e->events, spawner);
@@ -1045,13 +1082,14 @@ InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target){
   return ires;
 }
 
-int EntAddAggro(ent_t* owner, ent_t* source, int threat, float mul){
-    int cr = AggroAdd(owner->aggro, source, threat, mul);
+int EntAddAggro(ent_t* owner, ent_t* source, int threat, float mul, bool init){
+    int cr = AggroAdd(owner->aggro, source, threat, mul, init);
     
     for (int i = 0; i < owner->allies->count; i++){
       ent_t* e = owner->allies->entries[i].ally;
-
-      AggroAdd(e->aggro, source, threat, 0.1f);
+      Cell next;
+      if(EntCanDetect(e, owner,SEN_SEE))
+        AggroAdd(e->aggro, source, threat, 0.1f, false);
     } 
 
 }
@@ -1114,7 +1152,7 @@ InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source){
     int damage = -1 * dummy->final_dmg; 
     e->last_hit_by = source; 
 
-    EntAddAggro(e, source, -1*damage, source->props->base_diff);
+    EntAddAggro(e, source, -1*damage, source->props->base_diff, true);
     if(StatChangeValue(e,e->stats[a->damage_to], damage)){
       TraceLog(LOG_INFO,"%s level %i hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
           source->name, 
@@ -1228,8 +1266,8 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   bool success = true;
   InteractResult ires = IR_NONE;
 
-  int cr = AggroAdd(e->aggro, target, 1, target->props->base_diff);
-  AggroAdd(target->aggro, e, 1, 1);//e->props->base_diff);
+  int cr = AggroAdd(e->aggro, target, 1, target->props->base_diff, false);
+  AggroAdd(target->aggro, e, 1, 1, false);//e->props->base_diff);
 
   if(a->resource>STAT_NONE && a->cost > 0)
     if(!StatChangeValue(e,e->stats[a->resource],-1*a->cost)){
@@ -1243,7 +1281,7 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   if(save)
     save_roll = AbilityUse(target,save, e, a->sim_fn(e,a,target));
   if(!success || save_roll){
-    EntAddAggro(target, e, a->cost, e->props->base_diff);
+    EntAddAggro(target, e, a->cost, e->props->base_diff, false);
     TraceLog(LOG_INFO,"%s misses",e->name);
     success = false;
     ires = IR_FAIL;
@@ -1285,8 +1323,7 @@ bool FreeEnt(ent_t* e){
 }
 
 controller_t* InitController(ent_t* e){
-  controller_t* ctrl = malloc(sizeof(controller_t));
-  *ctrl = (controller_t){0};
+  controller_t* ctrl = calloc(1,sizeof(controller_t));
 
   ctrl->destination = CELL_UNSET;
 
@@ -1456,7 +1493,7 @@ void AbilityApplyValues(ability_t* self, value_t* v){
 }
 
 void EntComputeFOV(ent_t* e){
-  int radius = e->stats[STAT_AGGRO]->current/2;
+  int radius = e->senses[SEN_SEE]->range;
 
   for (int oct = 0; oct < 8; oct++)
     CastLight(e->map, e->pos, 1, 1.0, 0.0, radius,
@@ -1732,9 +1769,58 @@ int EntGetChallengeRating(ent_t* e){
   return  e->props->defr*10 + e->props->offr;
 
 }
+bool EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
+  InteractResult res = IR_CRITICAL_FAIL;
 
-bool EntCanSee(ent_t* e, ent_t* tar, int depth){
-  Cell next;
-  return FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next,depth,TileBlocksSight);
+  SkillType counter = tar->skills[s]->checks->counter;
+  int diff = 0;
+  if(owner->skills[counter] && owner->skills[counter]->checks){
+    res = SkillCheck(owner->skills[counter], tar->skills[s]);
+
+    diff = tar->skills[s]->val;
+
+    SkillUse(owner->skills[counter], owner->uid, tar->uid, diff, res);
+    
+    int gain = owner->skills[counter]->val;
+    InteractResult tarres = IR_NONE;
+    switch(res){
+      case IR_CRITICAL_FAIL:
+        tarres = IR_TOTAL_SUCC;
+        break;
+      case IR_FAIL:
+        tarres = IR_SUCCESS;
+        break;
+      case IR_SUCCESS:
+        tarres = IR_FAIL;
+        break;
+      case IR_TOTAL_SUCC:
+        tarres = IR_CRITICAL_FAIL;
+        break;
+    }
+
+    SkillUse(tar->skills[s], tar->uid, owner->uid, gain, tarres);
+  }
+
+        return res > IR_CRITICAL_FAIL;
+}
+
+void EntAddSurroundings(ent_t* e, ent_t* other){
+  SpeciesRelate rel = GetSpecRelation(e->props->race, other->props->race);
+  AddSurroundings(e->surroundings, other, rel);
+
+}
+
+bool EntCanDetect(ent_t* e, ent_t* tar, Senses s){
+  int depth = e->senses[s]->range;
+  if(cell_distance(e->pos, tar->pos) > depth)
+    return false;
+
+
+  bool los = HasLOS(e->map, e->pos, tar->pos);
+
+  if(!los)
+    return false;
+
+  return EntSkillCheck(e, tar, SKILL_STEALTH);
 
 }

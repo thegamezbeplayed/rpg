@@ -880,15 +880,39 @@ static void CastLight(map_grid_t *m, Cell pos,
   }
 }
 
-static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep, int depth, TileBlock fn){
+static bool IsDiagBlocked(map_grid_t* m, map_cell_t* cc, map_cell_t* nc, TileBlock fn){
+
+  int dx = cc->coords.x - nc->coords.x;
+  int dy = cc->coords.y - nc->coords.y;
+
+  if (abs(dx) == 1 && abs(dy) == 1) {
+    map_cell_t* cv = &m->tiles[cc->coords.x][cc->coords.y + dy];
+    map_cell_t* ch = &m->tiles[cc->coords.x + dx][cc->coords.y];
+    if(fn(ch) && fn(cv))
+      return true;
+  }
+
+  return false;
+}
+
+static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep, int depth){
+  Cell sc = CELL_NEW(sx,sy);
     // Early out: same tile
     if (sx == tx && sy == ty)
         return false;
 
+    depth = CLAMP(depth,20,80);
     // Init nodes
     for (int y = 0; y < m->height; y++)
     for (int x = 0; x < m->width; x++) {
-        nodes[x][y] = (path_node_t){
+      map_cell_t mc = m->tiles[x][y];
+      if(mc.status > TILE_REACHABLE)
+        continue;
+
+      if(cell_distance(mc.coords, sc)>depth)
+        continue;
+
+      nodes[x][y] = (path_node_t){
             .x = x, .y = y,
             .gCost = 999999,
             .hCost = 0,
@@ -909,7 +933,6 @@ static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNex
     start->fCost = start->hCost;
     start->open = true;
 
-    depth = CLAMP(depth,20,80);
     int passes = 0;
     while (depth > passes)
     {
@@ -947,8 +970,11 @@ static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNex
             int nx = current->x + dirs[i][0];
             int ny = current->y + dirs[i][1];
 
+            map_cell_t* curr_cell = &m->tiles[current->x][current->y];
+            map_cell_t* next_cell = &m->tiles[nx][ny];
+            
             if (!InBounds(m, nx, ny)) continue;
-            if (!(nx == tx && ny == ty) &&fn(&m->tiles[nx][ny])) continue;
+            if (!(nx == tx && ny == ty) &&TileBlocksMovement(next_cell)) continue;
 
             path_node_t *neighbor = &nodes[nx][ny];
             if (neighbor->closed) continue;
@@ -985,13 +1011,57 @@ static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNex
 
     return true;
 }
+
+static bool HasLOS(map_grid_t* m, Cell c0, Cell c1){
+  int x0 = c0.x;
+  int y0 = c0.y;
+  int x1 = c1.x;
+  int y1 = c1.y;
+
+
+  int dx = abs(x1 - x0);
+  int dy = abs(y1 - y0);
+  int sx = (x0 < x1) ? 1 : -1;
+  int sy = (y0 < y1) ? 1 : -1;
+  int err = dx - dy;
+
+  int x = x0;
+  int y = y0;
+
+  while (!(x == x1 && y == y1))
+  {
+    if (TileBlocksSight(&m->tiles[x][y]))
+      return false;
+
+    int e2 = err * 2;
+
+    int nx = x;
+    int ny = y;
+
+    if (e2 > -dy) { err -= dy; nx += sx; }
+    if (e2 <  dx) { err += dx; ny += sy; }
+
+    /* Corner blocking */
+    if (nx != x && ny != y) {
+      if (TileBlocksSight(&m->tiles[nx][y]) &&
+          TileBlocksSight(&m->tiles[x][ny]))
+        return false;
+    }
+
+    x = nx;
+    y = ny;
+  }
+
+  return true;
+}
+
 static inline define_race_class_t* GetRaceClassForSpec(EntityType spec, Profession prof)
 {
 
-    define_race_class_t *entry = &RACE_CLASS_DEFINE[spec][prof];
+  define_race_class_t *entry = &RACE_CLASS_DEFINE[spec][prof];
 
-    // Check if this SPEC actually has an entry for this CLASS
-    /*if (entry->race_class == 0)
+  // Check if this SPEC actually has an entry for this CLASS
+  /*if (entry->race_class == 0)
         return NULL;
 */
     return entry;
@@ -1045,6 +1115,67 @@ static inline StatClassif GetStatClassif(
     return best;
 }
 
+static inline int GetSenseVal(Senses s, PhysQual pq, MentalQual mq){
+  sense_quality_t sq = SENSE_QUAL[s];
+
+  int counts[SC_DONE] = {0,0,0,0,0,0};
+
+  StatClassif largest = SC_MIN;
+  if(pq == PQ_NONE && mq == MQ_NONE)
+    return sq.base[SC_AVERAGE];
+
+  while(pq && mq){
+    uint64_t mbit = -1;
+
+    if(mq){
+      mbit = mq & - mq;
+      mq &= mq - 1;
+    }
+
+    uint64_t pbit = -1;
+    if(pq){
+      pbit = pq & - pq;
+      pq &= pq - 1;
+    }
+
+    for(int i = 0; i < SC_DONE; i++){
+      uint64_t sen_p = sq.body[i];
+      uint64_t sen_m = sq.mind[i];
+      if((pbit & sen_p) > 0){
+        counts[i]++;
+        if(i > largest)
+          largest = i;
+      }
+
+      if((mbit & sen_m) > 0){
+        counts[i]++;
+        if(i > largest)
+          largest = i;
+      }
+
+    }
+  }
+
+  if(counts[largest] == 0)
+    return sq.base[SC_AVERAGE];
+
+  int base = sq.base[largest];
+  counts[largest]--;
+
+  for(int i = 0; i < SC_DONE; i++){
+    int inc = i - SC_AVERAGE;
+
+    base += inc * counts[i];
+  }
+
+
+  base = CLAMP(base,sq.base[SC_MIN],sq.base[SC_MAX]);
+  return base;
+
+
+
+}
+
 static choice_pool_t* GetRaceClassPool(EntityType type, int size, ChoiceFn fn){
   choice_pool_t* class_choice = InitChoicePool(size,ChooseByWeight);
 
@@ -1075,6 +1206,18 @@ static race_class_t* GetRaceClass(EntityType e, Archetype id){
   }
 
   return NULL;
+
+}
+
+static SpeciesRelate GetSpecRelation(SpeciesType main, SpeciesType other){
+  species_relation_t sr = SPEC_ALIGN[SpecToIndex(main)];
+
+  for (int i = 0; i < SPEC_RELATE_DONE; i++){
+    if((sr.relation[i] & other) > 0)
+      return i;
+  }
+
+  return SPEC_RELATE_NONE;
 
 }
 #endif
