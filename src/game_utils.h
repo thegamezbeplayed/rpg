@@ -4,10 +4,9 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-
+#define MAX_DEBUG_ITEMS 128
 #define MAX_PLAYERS 32
 #define MAX_BEHAVIOR_TREE 12
-#define MAX_OPTIONS 256  
 #include "game_common.h"
 
 #define COMBO_KEY(a, b) ((a << 8) | b)
@@ -15,12 +14,17 @@
 #define MAKE_ADAPTER(name, T) \
     static void name##_Adapter(void *p) { name((T)p); }
 
-
 typedef struct{
   uint32_t type_id;
   void*    data;
   size_t   size;
 }param_t;
+
+typedef struct{
+  DebugType type;
+  Color     color;
+  param_t   *info;
+}debug_info_t;
 
 static param_t ParamMake(uint32_t type, size_t size, const void* src) {
     param_t o;
@@ -44,6 +48,16 @@ static inline int ParamReadInt(const param_t* o) {
     return *(int*)o->data;
 }
 
+static inline Cell ParamReadCell(const param_t* o){
+  assert(o->type_id == DATA_CELL);
+  assert(o->size == sizeof(Cell));
+  return *(Cell*)o->data;
+
+}
+
+ent_t* ParamReadEnt(const param_t* o);
+env_t* ParamReadEnv(const param_t* o);
+map_cell_t* ParamReadMapCell(const param_t* o);
 static void ParamFree(param_t* o) {
     free(o->data);
     o->data = NULL;
@@ -69,6 +83,7 @@ choice_t* ChooseBest(choice_pool_t* pool);
 choice_t* ChooseByWeight(choice_pool_t* pool);
 choice_t* ChooseByBudget(choice_pool_t* pool);
 choice_t* ChooseByWeightInBudget(choice_pool_t* pool);
+choice_t* ChooseCheapest(choice_pool_t* pool);
 void ChoiceReduceScore(choice_pool_t* pool, choice_t* self);
 
 struct choice_s{
@@ -194,7 +209,12 @@ BehaviorStatus BehaviorCheckTurn(behavior_params_t *params);
 BehaviorStatus BehaviorAttackTarget(behavior_params_t *params);
 BehaviorStatus BehaviorTakeTurn(behavior_params_t *params);
 BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params);
-BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params);
+BehaviorStatus BehaviorCheckNeeds(behavior_params_t *params);
+BehaviorStatus BehaviorCheckNeed(behavior_params_t *params);
+BehaviorStatus BehaviorFindResource(behavior_params_t *params);
+BehaviorStatus BehaviorSeekResource(behavior_params_t *params);
+BehaviorStatus BehaviorFillNeeds(behavior_params_t *params);
+BehaviorStatus BehaviorFillNeed(behavior_params_t *params);
 BehaviorStatus BehaviorBuildAwareness(behavior_params_t *params);
 
 static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeState,params); }
@@ -211,7 +231,15 @@ static inline behavior_tree_node_t* LeafCheckTurn(behavior_params_t *params)  { 
 static inline behavior_tree_node_t* LeafAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAttackTarget,params); }
 static inline behavior_tree_node_t* LeafTakeTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorTakeTurn,params); }
 static inline behavior_tree_node_t* LeafCanSeeTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCanSeeTarget,params); }
-static inline behavior_tree_node_t* LeafBuildAllyTable(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorBuildAllyTable,params); }
+static inline behavior_tree_node_t* LeafCheckNeeds(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckNeeds,params); }
+static inline behavior_tree_node_t* LeafCheckNeed(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckNeed,params); }
+static inline behavior_tree_node_t* LeafFindResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorFindResource,params); }
+static inline behavior_tree_node_t* LeafSeekResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorSeekResource,params); }
+static inline behavior_tree_node_t* LeafFillNeeds(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorFillNeeds,params); }
+static inline behavior_tree_node_t* LeafFillNeed(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorFillNeed,params); }
 static inline behavior_tree_node_t* LeafBuildAwareness(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorBuildAwareness,params); }
+
+
+
 
 #endif

@@ -1,0 +1,609 @@
+#include "game_types.h"
+
+item_t* InitItem(item_def_t* def){
+  item_t* item = malloc(sizeof(item_t));
+
+  *item = (item_t){
+    .def = def
+  };
+
+  if(item_funcs[def->category].cat != ITEM_NONE){
+    for(int i = 0; i < item_funcs[def->category].num_equip; i++)
+      item->on_equip[i] = item_funcs[def->category].on_equip[i];
+    for(int i = 0; i < item_funcs[def->category].num_use; i++)
+      item->on_use = item_funcs[def->category].on_use[i];
+  }
+
+  return item;
+}
+
+item_pool_t* InitItemPool(void) {
+    item_pool_t* ip = calloc(1, sizeof(item_pool_t));
+    ip->size = 0;
+    return ip;
+}
+
+inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit){
+  inventory_t* a = calloc(1,sizeof(inventory_t));
+
+  *a = (inventory_t){
+    .id     = id,
+      .owner  = e,
+      .cap  = cap,
+      .limit = limit
+  };
+
+  define_inventory_t def = ITEMS_ALLOWED[id];
+
+  if(def.cap>0)
+    a->cap = def.cap;
+
+  for(int i = 0; i < ITEM_DONE; i++){
+    a->limits[i] = def.limits[i];
+    a->size = def.base_size;
+  }
+
+  a->space = a->size;
+  a->unburdened = a->limit;
+
+  a->items = calloc(a->cap, sizeof(item_t));
+  return a;
+
+}
+
+void InventoryPoll(ent_t* e, ItemSlot id){
+  inventory_t* inv = e->inventory[id];
+  if(inv==NULL || !inv->active)
+    return;
+
+  for (int i = 0; i < inv->count; i++){
+    if(!inv->items[i]->equipped)
+      continue;
+
+    for(int j = 0; j < 2; j++)
+    if(inv->items[i]->on_equip[j])
+      inv->items[i]->on_equip[j](e, inv->items[i]);
+  }
+}
+
+void InventorySetPrefs(inventory_t* inv, uint64_t traits){
+  if (!inv->active || inv->count < 2)
+    return;
+
+  choice_pool_t* items = InitChoicePool(inv->count, ChooseBest);
+  for(int i = 0; i < inv->count; i++){
+    inv->items[i]->equipped = false;
+    SkillType s = inv->items[i]->def->skills[0];
+    if(!inv->items[i]->owner->skills[s])
+      continue; 
+
+    int score = inv->items[i]->owner->skills[s]->val;
+    AddChoice(items, i, score, inv->items[i], NULL);
+  }
+
+  choice_t* sel = items->choose(items);
+
+  item_t* pref = sel->context;
+
+  pref->equipped = true;
+}
+
+ItemSlot InventoryGetAvailable(ent_t* e, ItemCategory cat, int size, int weight){
+  for (int i = 0; i < INV_DONE; i++){
+    if(e->inventory[i] == NULL || !e->inventory[i]->active)
+      continue;
+
+    if(e->inventory[i]->limits[cat] == 0)
+      continue;
+
+    if(e->inventory[i]->current[cat] >= e->inventory[i]->limits[cat])
+      continue;
+
+    if(e->inventory[i]->space < size)
+      continue;
+
+    if(e->inventory[i]->unburdened < weight)
+      continue;
+
+    return i;
+
+  }
+
+  return INV_NONE;
+}
+
+ItemSlot InventoryAddStorage(ent_t* e, item_t* i){
+  ItemSlot s = i->def->type;
+  inventory_t* slot = e->inventory[s];
+  if(slot->container){
+
+  }
+  else{
+    slot->active = true;
+    slot->container = i;
+    slot->space = slot->size = i->def->values[VAL_STORAGE]->val;
+    slot->cap = i->def->values[VAL_QUANT]->val;
+    slot->limit = slot->unburdened = i->def->values[VAL_WEIGHT]->val;
+    i->equipped = true;
+    i->owner = e;
+    for(int j = 0; j < ITEM_DONE; j++){
+      if(slot->limits[j]>0)
+        slot->limits[j] = slot->cap;
+    }
+  }
+}
+
+bool InventorySlotAddItem(ent_t* e, ItemSlot id, item_t* i){
+  inventory_t* inv = e->inventory[id];
+  inv->items[inv->count++] = i;
+
+  i->owner = e;
+  i->equipped = inv->method[i->def->pref];
+
+  inv->space-= i->def->values[VAL_STORAGE]->val;
+  inv->unburdened-= i->def->values[VAL_WEIGHT]->val;
+
+  inv->current[i->def->category]++;
+
+  return true;
+    
+}
+
+bool InventoryAddItem(ent_t* e, item_t* i){
+  int size   = i->def->values[VAL_STORAGE]->val;
+  int weight = i->def->values[VAL_WEIGHT]->val;
+  ItemSlot slot = INV_NONE;
+  switch(i->def->category){
+    case ITEM_CONTAINER:
+      slot = InventoryAddStorage(e, i);
+      return true;
+      break;
+    default:
+      slot = InventoryGetAvailable(e, i->def->category, size, weight);
+      break;
+  }
+  if(slot <= INV_NONE)
+    return false;
+  else if (slot >= INV_DONE)
+    DO_NOTHING();
+
+  return InventorySlotAddItem(e, slot, i);
+}
+
+item_t* InventoryGetEquipped(ent_t* e, ItemSlot id){
+  for (int i = 0; i < e->inventory[id]->count; i++){
+    if(e->inventory[id]->items[i]->equipped)
+      return e->inventory[id]->items[i];
+  }
+
+  return NULL;
+}
+
+item_def_t* DefineArmor(ItemInstance data){
+  item_def_t* item = DefineArmorByType(data.equip_type, data.props, data.et_props);
+  item->id = data.id;
+
+  return item;
+}
+
+item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps a){
+  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item->category = ITEM_ARMOR;
+
+  item->type = t;
+  item->dr = calloc(1,sizeof(damage_reduction_t));
+
+  item->ability = ABILITY_NONE;
+  armor_def_t temp = ARMOR_TEMPLATES[t];
+  //item->stats[STAT_ARMOR] = InitStat(STAT_ARMOR,0,temp.armor_class, temp.armor_class);
+
+  item->values[VAL_DURI] = InitValue(VAL_DURI,temp.durability);
+  item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
+  item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
+  item->values[VAL_ADV_SAVE] = InitValue(VAL_ADV_SAVE,0);
+  item->values[VAL_SAVE] = InitValue(VAL_SAVE,temp.armor_class);
+  item->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp.size);
+
+
+  *item->dr = temp.dr_base;
+  ApplyItemProps(item, p, a);
+
+  //item->weight = temp.weight;
+
+  item->ability = ABILITY_ARMOR_SAVE;
+  item->skills[item->num_skills++] = temp.skill;
+
+  for(int i = 0; i < VAL_ALL; i++){
+    if(!item->values[i])
+      continue;
+
+    item->values[i]->val = ValueRebase(item->values[i]);
+  }
+  return item;
+
+}
+
+item_def_t* DefineWeapon(ItemInstance data){
+  item_def_t* item = DefineWeaponByType(data.equip_type, data.props, data.et_props);
+
+  item->id = data.id;
+
+  return item;
+}
+
+item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_props){
+  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item->category = ITEM_WEAPON;
+  item->type = t;
+  weapon_def_t temp = WEAPON_TEMPLATES[t];
+
+  //TODO CHANGE TO VALUE_T
+  //item->weight = temp.weight;
+
+  strcpy(item->name, temp.name);
+  item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
+  item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
+  item->values[VAL_PENN] = InitValue(VAL_PENN,temp.penn);
+  item->values[VAL_DURI] = InitValue(VAL_DURI,temp.durability);
+  item->values[VAL_REACH] = InitValue(VAL_REACH,temp.reach_bonus);
+  
+  item->values[VAL_ADV_HIT] = InitValue(VAL_ADV_HIT,0);
+  item->values[VAL_ADV_DMG] = InitValue(VAL_ADV_DMG,0);
+ 
+  item->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp.size);
+  
+  item->skills[item->num_skills++] = temp.skill; 
+  item->ability = temp.ability; 
+  ApplyItemProps(item, props, w_props);
+ 
+  for(int i = 0; i < VAL_ALL; i++){
+    if(!item->values[i])
+      continue;
+
+    item->values[i]->val = ValueRebase(item->values[i]);
+  } 
+  return item;
+
+}
+
+item_def_t* DefineConsumable(ItemInstance data){
+  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item->id = data.id;
+  item->type = data.equip_type; 
+  item->category = ITEM_CONSUMABLE;
+
+  consume_def_t temp = CONSUME_TEMPLATES[data.equip_type];
+
+  item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
+  item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
+  item->values[VAL_DURI] = InitValue(VAL_DURI,temp.quanity);
+  item->values[VAL_EXP] = InitValue(VAL_EXP,temp.exp);
+  item->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp.size);
+ 
+  item->skills[item->num_skills++] = temp.skill;
+  item->ability = temp.ability;
+
+
+  ApplyItemProps(item, data.props, data.et_props);
+
+  for(int i = 0; i < VAL_ALL; i++){
+    if(!item->values[i])
+      continue;
+
+    item->values[i]->val = ValueRebase(item->values[i]);
+  }
+  return item;
+}
+
+item_def_t* DefineContainer(ItemInstance data){
+  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item->id = data.id;
+  item->type = data.equip_type; 
+
+  item->category = ITEM_CONTAINER;
+
+  container_def_t temp = CONTAINER_TEMPLATES[item->type];
+
+  item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
+  item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
+  item->values[VAL_QUANT] = InitValue(VAL_QUANT,temp.slots);
+  item->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp.size);
+
+  ApplyItemProps(item, data.props, data.et_props);
+
+  for(int i = 0; i < VAL_ALL; i++){
+    if(!item->values[i])
+      continue;
+
+    item->values[i]->val = ValueRebase(item->values[i]);
+  }
+  return item;
+}
+
+item_def_t* DefineItem(ItemInstance data){
+  item_def_t* item;
+  switch(data.cat){
+    case ITEM_ARMOR:
+      item = DefineArmor(data);
+      break;
+    case ITEM_WEAPON:
+      item = DefineWeapon(data);
+      break;
+    case ITEM_CONSUMABLE:
+      item = DefineConsumable(data);
+      break;
+    case ITEM_CONTAINER:
+      item = DefineContainer(data);
+      break;
+    default:
+      return NULL;
+      break;
+  }
+
+
+  return item;
+}
+
+bool ItemApplyStats(struct ent_s* owner, item_t* item){
+  for(int i = 0; i < VAL_ALL; i++){
+    if(item->def->values[i] == NULL)
+      continue;
+    if(item->def->values[i]->stat_relates_to == STAT_NONE)
+      continue;
+
+    StatType rel = item->def->values[i]->stat_relates_to;
+    StatExpand(owner->stats[rel],item->def->values[i]->val,true);
+  }
+}
+
+bool ItemAddAbility(struct ent_s* owner, item_t* item){
+  const item_def_t* def = item->def;
+
+  ability_t* a = InitAbility(owner, def->ability);
+//  a->cost = def->
+  for(int i = 0; i < VAL_WORTH; i++){
+    if(def->values[i]==NULL)
+      continue;
+    if(def->values[i]->val == 0)
+      continue;
+
+    switch(i){
+      case VAL_ADV_HIT:
+      case VAL_ADV_DMG:
+      case VAL_ADV_SAVE:
+      case VAL_HIT:
+      case VAL_SAVE:
+        a->values[i]->on_change = ValueUpdateDie;
+        break;
+      case VAL_REACH:
+        a->values[i]->on_change = ValueUpdateStat;
+      default:
+        break;
+    }
+
+    AbilityApplyValues(a, def->values[i]);
+  }
+
+  a->dr = def->dr;
+  for(int i = 0; i < def->num_skills; i++)
+    a->skills[a->num_skills++] = def->skills[i];
+
+  int pref = owner->skills[def->skills[0]]->val * 10;
+  if(a->chain){
+    a->chain->skills[a->chain->num_skills++] = def->skills[0];
+
+    if(a->chain->type == AT_DR){
+      a->chain->dr = def->dr;
+      ActionSlotAddAbility(owner,a->chain);
+    }
+    else
+      a->chain->weight+=pref;
+  }
+  if(a->type != AT_SAVE)
+    a->weight+=pref;
+  
+  a->item = item;
+  return ActionSlotAddAbility(owner, a);
+}
+
+bool ItemSkillup(ent_t* owner, item_t* item, InteractResult result){
+  int exp = item->def->values[VAL_EXP]->val;
+  if(exp == 0)
+    return false;
+
+  for(int i = 0; i < item->def->num_skills; i++)
+    SkillUse(owner->skills[item->def->skills[i]],owner->uid,item->def->category,exp,result);
+
+  return true;
+}
+
+int GetWeaponByTrait(Traits t, weapon_def_t *arms){
+  int count = 0;
+  for (int i = 0; i < WEAP_DONE; i++){
+    if(t & WEAPON_TEMPLATES[i].skill != 0)
+      continue;
+
+    arms[count++] = WEAPON_TEMPLATES[i];
+  }
+
+  return count;
+}
+
+
+void ApplyItemProps(item_def_t *w, ItemProps props, uint64_t e_props){
+  while(props){
+    uint64_t prop = props & -props;
+    props &= props - 1;
+    for(int i = 0; i < NUM_ITEM_PROPS; i++){
+      if(PROP_MODS[ITEM_NONE][i].propID != prop)
+        continue;
+
+      item_prop_mod_t mod = PROP_MODS[ITEM_NONE][i];
+      for(int i = 0; i < mod.num_aff; i++){
+        if(w->values[mod.val_change[i].modifies])
+          ValueAddBaseMod(w->values[mod.val_change[i].modifies], mod.val_change[i]);
+      }
+    }
+  }
+
+  while(e_props){
+    uint64_t wprop = e_props & -e_props;
+    e_props &= e_props -1;
+
+    for(int i = 0; i < NUM_WEAP_PROPS; i++){
+
+      if(PROP_MODS[w->category][i].propID != wprop)
+        continue;
+
+      item_prop_mod_t mod = PROP_MODS[w->category][i];
+
+      if(mod.add_skill > SKILL_LVL)
+        w->skills[w->num_skills++] = mod.add_skill;
+      for(int i = 0; i < mod.num_aff; i++){
+      if(mod.val_change[i].affix>AFF_NONE)
+        ValueAddBaseMod(w->values[mod.val_change[i].modifies], mod.val_change[i]);
+      }
+    }
+  }
+}
+
+ItemProps GetItemQualByRaceProp(RaceProp prop){
+  //Increments the quality by 1
+  switch(prop){
+    case RACE_BUILD_CRUDE:
+    case RACE_BUILD_SIMPLE:
+    case RACE_BUILD_BASIC:
+    case RACE_BUILD_SOPH:
+    case RACE_ARMS_ARTISAN:
+      return PROP_QUAL_TRASH;
+      break;
+    default:
+      break;
+  }
+}
+
+ItemProps GetItemMatsByRaceProp(RaceProp prop){
+  switch(prop){
+    case RACE_ARMS_CRUDE:
+    case RACE_ARMS_SIMPLE:
+      return PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE;
+      break;
+    case RACE_ARMOR_CRUDE:
+      return PROP_MAT_CLOTH | PROP_MAT_LEATHER | PROP_MAT_BONE;
+      break;
+    case RACE_ARMS_ARTISAN:
+      return PROP_WEAP_MARTIAL;
+      break;
+    default:
+      break;
+  }
+}
+
+ArmorProps GetArmorPropsByRaceProp(RaceProp prop){
+  switch(prop){
+    case RACE_ARMOR_CRUDE:
+    case RACE_ARMOR_SIMPLE:
+    default:
+      return PROP_ARMOR_NONE;
+      break;
+  }
+}
+
+WeaponProps GetWeaponPropsByRaceProp(RaceProp prop){
+  switch(prop){
+    case RACE_ARMS_CRUDE:
+    case RACE_ARMS_SIMPLE:
+      return PROP_WEAP_SIMP;
+      break;
+  }
+}
+
+item_def_t* BuildArmor(SkillType skill, ItemProps props, ArmorProps w_props){
+
+  ArmorType type = GetArmorTypeBySkill(skill);
+
+  item_def_t* item = DefineArmorByType(type, props, w_props);
+  item->pref = INV_WORN;
+  return item;
+}
+
+item_def_t* BuildArmorForMob(ent_t* e, RaceProps props,SkillType sk){
+  RaceProps r_props = props & RACE_ARMOR_MASK;
+  r_props |= props & RACE_BUILD_MASK;
+
+  ItemProps qual_props = 0;//PROP_QUAL_TRASH;
+  ItemProps mat_props = PROP_NONE;
+  ArmorProps a_props = PROP_NONE;
+
+  while(r_props){
+    uint64_t rprop = r_props & - r_props;
+    r_props &= r_props -1;
+    a_props |= GetArmorPropsByRaceProp(rprop);
+    mat_props |= GetItemMatsByRaceProp(rprop);
+    qual_props += GetItemQualByRaceProp(rprop);
+  }
+
+  return BuildArmor(sk, qual_props | mat_props, a_props);
+
+}
+
+item_def_t* BuildSpecialForMob(ent_t* e, RaceProps props){
+  RaceProps s_props = props & RACE_SPECIAL_MASK;
+
+}
+
+item_def_t* BuildWeaponForMob(ent_t* e, RaceProps props, SkillType sk){
+  RaceProps a_props = props & RACE_ARMS_MASK;
+  a_props |= props & RACE_BUILD_MASK;
+  ItemProps qual_props = 0;//PROP_QUAL_TRASH;
+  ItemProps mat_props = PROP_NONE;
+  WeaponProps w_props = PROP_NONE;
+
+  while(a_props){
+    uint64_t rprop = a_props & - a_props;
+    a_props &= a_props -1;
+    w_props |= GetWeaponPropsByRaceProp(rprop);
+    mat_props |= GetItemMatsByRaceProp(rprop);
+    qual_props += GetItemQualByRaceProp(rprop);
+  }
+
+  return BuildWeapon(sk, qual_props | mat_props, w_props);
+}
+
+item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s){
+  item_def_t* item;
+  RaceProps r_props = GetRaceByFlag(e->props->race).props;
+
+  switch(cat){
+    case ITEM_WEAPON:
+    item = BuildWeaponForMob(e, r_props, s);
+    break;
+    case ITEM_ARMOR:
+    item = BuildArmorForMob(e, r_props, s);
+    break;
+    case ITEM_CONSUMABLE:
+    item = BuildSpecialForMob(e, r_props);
+    break;
+  }
+
+  return item;
+}
+
+item_def_t* BuildWeapon(SkillType skill, ItemProps props, WeaponProps w_props){
+
+  WeaponType type = GetWeapTypeBySkill(skill);
+
+  item_def_t* item = DefineWeaponByType(type, props, w_props);
+
+  item->pref = INV_HELD;
+  return item;
+}
+
+bool AbilityRankup(ent_t* owner, ability_t* a){
+  ability_t base = ABILITIES[a->id];
+  for(int i = 0; i < VAL_EXP; i++){
+    if(base.rankup[i]==0)
+      continue;
+  }
+}
+

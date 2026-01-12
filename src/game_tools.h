@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
+#define UID_INVALID ((game_object_uid_i)0)
+#define BAD_INDEX   -1337
 
 #define CLAMPV2(v,a,b) ((v)<(a)?(a):((v)>(b)?(b):(v)))
 #define VEC_UNSET (Vector2){FLT_MAX, FLT_MAX}
@@ -29,6 +31,7 @@
 #define RectSize(r) ((Vector2){(r.width),(r.height)})
 #define RectXY(r) ((Vector2){(r.x),(r.y)})
 #define Rect(px,py,sx,sy) ((Rectangle){ (px),(py), (sx), (sy) })
+#define RECT_CELL(cp,cs) ((Rectangle){ (cp.x),(cp.y), (cs.x), (cs.y) })
 #define RECT_ZERO   (Rectangle){ 0.0f, 0.0f,0.0f,0.0f}
 #define RectArea(r) (int){(r.width)*(r.height)}
 #define RectInner(r,i) (Rectangle){(r.x+i),(r.y+i),(r.width-i),(r.height-i)}
@@ -49,6 +52,45 @@
 #define CellFlip(c) (Cell){(c.y),(c.x)}
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
+
+static inline uint64_t hash_combine_64(uint64_t h, uint64_t v) {
+    h ^= v + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+    return h;
+}
+
+static inline uint32_t hash_combine_32(uint32_t h, uint32_t v)
+{
+    return h ^ (v + 0x9e3779b9 + (h << 6) + (h >> 2));
+}
+
+static uint32_t hash_str_32(const char *str) {
+    uint32_t hash = 5381; // djb2 starting seed
+    int c;
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + (uint32_t)c; // hash * 33 + c
+    return hash;
+}
+
+static inline uint64_t hash_string_64(const char* s) {
+    uint64_t h = 1469598103934665603ULL; // FNV offset basis
+    while (*s) {
+        h ^= (uint8_t)(*s++);
+        h *= 1099511628211ULL; // FNV prime
+    }
+    return h;
+}
+
+typedef uint64_t game_object_uid_i;
+static game_object_uid_i GameObjectMakeUID(const char* cat, int index, int time, int turn){
+  uint64_t h = hash_string_64(cat);
+
+  h = hash_combine_64(h, (uint32_t)index);
+  h = hash_combine_64(h, (uint32_t)time);
+  h = hash_combine_64(h, (uint32_t)turn);
+
+  return (game_object_uid_i)h;
+}
+
 static int IntGridIndex(int x, int y){
   return x*1000 + y;
 }
@@ -64,20 +106,6 @@ static void shuffle_array(void *base, size_t n, size_t size) {
         memcpy(arr + j * size, tmp, size);
     }
 }
-
-static inline uint32_t HashCombine(uint32_t h, uint32_t v)
-{
-    return h ^ (v + 0x9e3779b9 + (h << 6) + (h >> 2));
-}
-
-static uint32_t hash_str(const char *str) {
-    uint32_t hash = 5381; // djb2 starting seed
-    int c;
-    while ((c = *str++))
-        hash = ((hash << 5) + hash) + (uint32_t)c; // hash * 33 + c
-    return hash;
-}
-
 typedef struct {
   int x,y;
 } Cell;
@@ -209,6 +237,15 @@ static inline Vector2 Vector2Avg(Vector2 a, Vector2 b){
 }
 static inline Cell vec_to_cell(Vector2 v,float scale){
   return CELL_NEW(v.x/scale,v.y/scale);
+}
+
+static inline Rectangle RectWorldToScreen(Rectangle r, float scale){
+  Vector2 pos = Vector2FromXY(r.x,r.y);
+  Vector2 size = Vector2FromXY(r.width,r.height);
+
+  pos = Vector2Scale(pos, scale);
+  size = Vector2Scale(size, scale);
+  return RECT_CELL(pos,size);
 }
 
 static inline Vector2 CellToVector2(Cell c, float scale){
@@ -365,4 +402,6 @@ static void MakeTriangleFromRect(Rectangle r, Cell dir, Vector2 out[3]) {
       out[2] = (Vector2){ r.x, r.y + r.height };            // bottom-left
     }
 }
+
+
 #endif

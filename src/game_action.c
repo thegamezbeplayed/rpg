@@ -1,12 +1,443 @@
 #include "game_types.h"
 #include "game_process.h"
 
-void InitActions(action_turn_t* actions[ACTION_DONE]){
-  for (int i = 0; i < ACTION_DONE; i++)
-    actions[i] = InitAction(ACTION_NONE,DES_NONE,NULL,NULL);
+static turn_action_manager_t ActionMan;
+
+int ActionCompareImpDsc(const void* a, const void* b){
+  const action_t* A = (const action_t*)a;
+  const action_t* B = (const action_t*)b;
+  
+  if (A->score > B->score) return -1;
+  if (A->score < B->score) return  1;
+
+  if (A->weight > B->weight) return -1;
+  if (A->weight < B->weight) return  1;
+
+  if(A->initiative > B->initiative) return -1;
+  if(A->initiative < B->initiative) return  1;
+
+  return 0;
 }
 
-action_turn_t* InitAction(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb){
+int ActionCompareInitDsc(const void* a, const void* b){
+  const action_t* A = *(const action_t* const*)a;
+  const action_t* B = *(const action_t* const*)b;
+
+  if(A->initiative > B->initiative) return -1;
+  if(A->initiative < B->initiative) return  1;
+
+  ent_t *be = B->owner, *ae = A->owner;
+  if (be->attribs[ATTR_DEX]->val > ae->attribs[ATTR_DEX]->val) return -1;
+  if (be->attribs[ATTR_DEX]->val < ae->attribs[ATTR_DEX]->val) return  1;
+
+
+  if (A->score > B->score) return -1;
+  if (A->score < B->score) return  1;
+
+  return 0;
+}
+
+void ActionQueueSortByImportance(action_queue_t* q){
+  if (!q || q->count <= 1)
+    return;
+
+  qsort(q->entries,
+      q->count,
+      sizeof(action_t),
+      ActionCompareImpDsc);
+
+}
+
+void ActionQueueSortByInitiative(action_queue_t* q){
+  if (!q || q->count <= 1)
+    return;
+  
+  qsort(q->entries,
+      q->count,
+      sizeof(action_t),
+      ActionCompareInitDsc);
+
+}
+
+void InitActionRound(ActionCategory cat, TurnPhase phase, int cap){
+  ActionMan.round[phase] = (action_round_t){
+    .cap = cap,
+      .allowed = cat,
+      .phase = phase,
+
+  }; 
+}
+
+void InitActionManager(void){
+
+  for (int i = 0; i < TURN_ALL; i++)
+    InitActionRound(ACT_MAIN, i, MAX_PHASE_ACTIONS);
+
+  ActionMan.phase = TURN_INIT;
+  ActionMan.next = TURN_START;
+}
+
+bool ActionManagerInsert(action_t* a, TurnPhase phase){
+  if(ActionMan.round[phase].count >= MAX_PHASE_ACTIONS)
+    return false;
+
+  ActionMan.round[phase].entries[ ActionMan.round[phase].count++] = a;
+
+  return true;
+}
+
+void ActionManagerBuildQueue(TurnPhase phase, ActionCategory cat){
+  int state = STATE_DEAD;
+  param_t ctx = ParamMake(DATA_INT, sizeof(int), &state);
+
+  ent_t* ents[MAX_ENTS] = {0};
+
+  int alive = WorldGetEnts(ents, FilterEntByState, &ctx);
+  for (int i = 0; i < alive; i++){
+    ent_t* e = ents[i];
+    if(!e->control->actions->valid)
+      ActionPoolSync(e->control->actions);
+
+    action_t* a = ActionForPhase(e->control->actions->queues[cat], phase);
+    if(a == NULL)
+      continue;
+
+    a->status = ACT_STATUS_NEXT;
+
+    if(!ActionManagerInsert(a, phase))
+      break;
+  }
+
+  if (phase == TURN_MAIN && ActionMan.round[phase].count > 1)
+    TraceLog(LOG_INFO,"==== PHASE %i built with %i actions ====", phase, ActionMan.round[phase].count);
+}
+
+ActionStatus ActionMove(action_t* a){
+  if(a->ctx.type_id != DATA_CELL)
+    return ACT_STATUS_BAD_DATA;
+
+  Cell dest = ParamReadCell(&a->ctx);
+  TileStatus tstat = EntGridStep(a->owner,CellSub(dest, a->owner->pos));
+  if(tstat >= TILE_ISSUES)
+    a->status = ACT_STATUS_BLOCK;
+  else
+    a->status = ACT_STATUS_TAKEN;
+
+  return a->status;
+}
+
+ActionStatus ActionRun(action_t* a){
+  if(a->status != ACT_STATUS_NEXT)
+    return ACT_STATUS_MISQUEUE;
+
+  a->status = ACT_STATUS_RUNNING;
+  ActionStatus res = ACT_STATUS_ERROR;
+  switch(a->type){
+    case ACTION_MOVE:
+      res = ActionMove(a);
+      break;
+    default:
+      break;
+  }
+
+  if(a->owner->type == ENT_PERSON && a->status != ACT_STATUS_TAKEN)
+    DO_NOTHING();
+
+  a->owner->control->actions->valid = false;
+  return res;
+}
+
+void ActionRoundSort(TurnPhase phase, int count){
+  if (count <= 1)
+    return;
+  
+  qsort(ActionMan.round[phase].entries,
+      count,
+      sizeof(action_t*),
+      ActionCompareInitDsc);
+  
+}   
+
+void ActionManagerRunQueue(TurnPhase phase){
+  int count = ActionMan.round[phase].count;
+
+  ActionRoundSort(phase,count);
+
+  for (int i = 0; i < count; i++)
+    ActionRun(ActionMan.round[phase].entries[i]);
+}
+
+bool ActionTurnStep(TurnPhase phase){
+  if(ActionMan.phase == TURN_STANDBY && phase != TURN_STANDBY)
+    return false;
+
+  if(ActionMan.phase != TURN_STANDBY && phase == TURN_STANDBY){
+    ActionMan.phase = TURN_STANDBY;
+
+    return true;;
+  }
+
+  if(ActionMan.next < TURN_END){
+    ActionMan.phase = ActionMan.next;
+    ActionMan.next++;
+
+    return true;
+  }
+  else{
+    ActionMan.phase = ActionMan.next;
+    ActionMan.next = TURN_INIT;
+    return true;
+  }
+
+ TraceLog(LOG_WARNING,"===== ACTION MANAGER TURN =====\nShouldnt reach here...");
+ return false; 
+
+}
+
+void ActionPoolRestart(action_pool_t* p){
+  p->valid = false;
+  for (int i = 0; i < ACT_DONE; i++)
+    p->queues[i]->charges = p->queues[i]->allowed;
+
+}
+
+void ActionManagerEndRound(TurnPhase phase){
+  int count = ActionMan.round[phase].count;
+  for(int i = 0; i < count; i++)
+    ActionPoolRestart(ActionMan.round[phase].entries[i]->owner->control->actions);
+
+  ActionMan.round[phase].count = 0;
+
+}
+void ActionManagerReset(){
+  for(int i = 0; i < TURN_ALL; i++)
+    ActionManagerEndRound(i);
+}
+
+void ActionManagerEndTurn(){
+  if(!ActionTurnStep(TURN_STANDBY))
+    return;
+
+  ActionManagerReset();
+  ActionMan.turn++;
+}
+
+void ActionPhaseStep(TurnPhase phase){
+
+  switch(phase){
+    case TURN_NONE:
+      ActionMan.next = TURN_INIT;
+      ActionTurnStep(TURN_STANDBY);
+      break;
+    case TURN_INIT:
+      if(ActionTurnStep(TURN_STANDBY)){
+        ActionManagerBuildQueue(TURN_START, ACT_BONUS);
+        ActionManagerBuildQueue(TURN_MAIN, ACT_MAIN);
+      }
+      break;
+    case TURN_START:
+    case TURN_MAIN:
+      if(ActionTurnStep(TURN_STANDBY))
+        ActionManagerRunQueue(phase);
+      break;
+    case TURN_STANDBY:
+      ActionTurnStep(TURN_STANDBY);
+      break;
+    case TURN_POST:
+      ActionTurnStep(TURN_STANDBY);
+      break;
+    case TURN_END:
+      ActionManagerEndTurn();
+      WorldEndTurn();
+      break;
+  }
+}
+
+TurnPhase ActionManagerPreSync(void){
+  bool input = InputCheck(ActionMan.phase, ActionMan.turn);
+
+  if(ActionMan.phase == TURN_INIT && !input)
+    return TURN_STANDBY;
+
+  ActionPhaseStep(ActionMan.phase);
+    return ActionMan.phase;
+}
+
+void ActionManagerSync(void){
+  InputSync(ActionMan.phase, ActionMan.turn);
+}
+
+action_t* InitAction(ent_t* e, uint64_t id, ActionType type, ActionCategory cat, param_t ctx, int weight){
+  action_t* a = calloc(1, sizeof(action_t));
+
+  *a = (action_t) {
+    .owner = e,
+      .id = id,
+      .type = type,
+      .cat = cat,
+      .ctx = ctx,
+      .weight = weight,
+      .score = weight,
+      .turn  = ActionMan.turn,
+      .phase = ActionMan.next,
+  };
+
+  return a;
+}
+
+action_t* InitActionMove(ent_t* e, ActionCategory cat, Cell dest, int weight){
+
+  int id = IntGridIndex(dest.x, dest.y);
+
+  param_t ctx = ParamMake(DATA_CELL, sizeof(Cell), &dest);
+
+  return InitAction(e, id, ACTION_MOVE, cat, ctx, weight);
+}
+
+action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap){
+
+  action_queue_t* q = calloc(1, sizeof(action_queue_t));
+
+  int charges = (cat == ACT_MAIN)?1:0;
+  *q = (action_queue_t) {
+    .owner = e,
+    .id = cat,
+    .cap = cap,
+    .charges = charges,
+    .allowed = charges
+  };
+
+  q->entries = calloc(q->cap, sizeof(action_t));
+
+  return q;
+}
+
+action_t* ActionForPhase(action_queue_t* q, TurnPhase phase){
+  if(q->charges <1)
+    return NULL;
+
+  if(q->count > 1)
+    DO_NOTHING();
+
+  for(int i = 0; i < q->count; i++){
+    if(q->entries[i].status > ACT_STATUS_QUEUED)
+      continue;
+    q->charges--;
+    return &q->entries[i];
+  }
+
+  return NULL;
+}
+
+action_pool_t* InitActionPool(ent_t* e){
+
+  action_pool_t* p = calloc(1, sizeof(action_pool_t));
+
+  for(int i = 0; i < ACT_DONE; i++)
+    p->queues[i] = InitActionQueue(e, i, 5);
+
+  return p;
+}
+
+bool ActionQueueEnsureCap(action_queue_t *q){
+  if(q->count < q->cap)
+    return true;
+
+  if(q->cap >= MAX_ACTIONS)
+    return false;
+
+  q->cap++;
+
+  q->entries = realloc(q->entries, q->cap * sizeof(action_t));
+
+  return true;
+}
+
+action_t* ActionFindByID(action_queue_t *q, action_t* t){
+  for(int i = 0; i < q->count; i++){
+    if(q->entries[i].id == t->id)
+      return &q->entries[i];
+  }
+
+  return NULL;
+}
+
+ActionStatus AddAction(action_queue_t *q, action_t* t){
+  t->status = ACT_STATUS_QUEUED; 
+  q->entries[q->count++] = *t;
+
+  return t->status;
+}
+
+ActionStatus QueueAction(action_pool_t *p, action_t* t){
+  action_queue_t* q = p->queues[t->cat];
+
+  action_t* dupe = ActionFindByID(q,t);
+
+  if(dupe){
+    dupe->weight = t->weight;
+    dupe->initiative = t->initiative;
+
+    return dupe->status;
+
+  }
+
+  if(!ActionQueueEnsureCap(q))
+    return ACT_STATUS_FULL;
+
+
+  
+  return AddAction(q, t);
+}
+
+void ActionPrune(action_queue_t* q, int i) {
+  if(q->count > 1)
+    q->entries[i] = q->entries[--q->count];
+  else
+    q->count--;
+}
+
+bool ActionSync(action_t* a){
+  if(!a || a->status >= ACT_STATUS_TAKEN)
+    return false;
+
+
+  return true;
+}
+
+void ActionQueueSync(action_queue_t* q){
+
+  for (int i = 0; i < q->count; i++){
+    action_t* a = &q->entries[i];
+    if(ActionSync(&q->entries[i]))
+      continue;
+
+    ActionPrune(q, i);
+  }
+
+  if(q->count < 2)
+    return;
+
+  ActionQueueSortByImportance(q);
+}
+
+void ActionPoolSync(action_pool_t* p){
+  if(p->valid)
+    return;
+
+  for(int i = 0; i < ACT_DONE; i++)
+    ActionQueueSync(p->queues[i]);
+
+  p->valid = true;
+}
+
+
+void InitActions(action_turn_t* actions[ACTION_DONE]){
+  for (int i = 0; i < ACTION_DONE; i++)
+    actions[i] = InitActionTurn(ACTION_NONE,DES_NONE,NULL,NULL);
+}
+
+action_turn_t* InitActionTurn(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb){
   action_turn_t* a = calloc(1,sizeof(action_turn_t));
 
   a->targeting = targeting;
@@ -44,7 +475,7 @@ bool ActionPlayerAttack(ent_t* e, ActionType type, KeyboardKey k,ActionSlot slot
   return false;
 }
 
-bool ActionMove(ent_t* e, ActionType a, KeyboardKey k, ActionSlot slot){
+bool ActionTurnMove(ent_t* e, ActionType a, KeyboardKey k, ActionSlot slot){
   if(!EntCanTakeAction(e))
     return false;
 
@@ -87,7 +518,7 @@ bool EntCanTakeAction(ent_t* e){
   return WorldGetTurnState();
 }
 
-void ActionSync(ent_t* e){
+void ActionTurnSync(ent_t* e){
 
   StatMaxOut(e->stats[STAT_ACTIONS] );
 
@@ -110,6 +541,7 @@ bool ActionMakeSelection(Cell start, int num, bool occupied){
 }
 
 bool ActionInput(void){
+  return false;
   if(player->state == STATE_SELECTION)
     return false;
 
@@ -165,8 +597,8 @@ bool ActionInput(void){
 
   if(acted > ACTION_NONE)
     return ActionTaken(player,acted);
-  
-  return true;//false;
+  else
+   return false;
     
 }
 

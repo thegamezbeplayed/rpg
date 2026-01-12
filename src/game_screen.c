@@ -221,7 +221,7 @@ void ScreenSyncMouse(void){
   ScreenEntMouseHover();
   if(!mousectrl.target && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
 
-    mousectrl.target = ScreenEntMouseCollision();
+  //  mousectrl.target = ScreenEntMouseCollision();
     if(mousectrl.target){
       mousectrl.offset = Vector2Subtract(mousectrl.pos, mousectrl.target->sprite->pos);
       mousectrl.is_dragging = true;
@@ -282,24 +282,6 @@ ent_t* ScreenEntMouseHover(void){
     PrintMobDetail(e);
   }
   return e;
-}
-
-ent_t* ScreenEntMouseCollision(void){
- /*
-  ent_t* shape_pool[GRID_WIDTH * GRID_HEIGHT];
-
-  int num_shapes = WorldGetEnts(shape_pool,FilterEntShape, NULL);
-  if(num_shapes <= 0)
-    return NULL;
-
-  for(int i = 0; i < num_shapes; i++){
-    if(shape_pool[i]->control->moves<1)
-      continue;
-    if(CheckEntPosition(shape_pool[i],mousectrl.pos))
-      return shape_pool[i];
-  }
-*/
-  return NULL;
 }
 
 float GetApproxDPIScale(void)

@@ -4,6 +4,15 @@
 #define BIT64(n) (1ULL << (n))
 
 #define SKILL_RANGE_WEAP (Cell){SKILL_WEAP_MACE, SKILL_WOOD}
+#define TREAT_AGGRO_MASK (TREAT_KILL | TREAT_EAT)
+#define TREAT_RUN_MASK (TREAT_AVOID | TREAT_FEAR)
+
+typedef enum{
+  OBJ_ENT,
+  OBJ_ENV,
+  OBJ_MAP_CELL,
+  OBJ_ALL
+}ObjectCategory;
 
 typedef enum {
   MAG_NONE = -1,
@@ -31,9 +40,19 @@ typedef enum {
   DATA_BOOL,
   DATA_PTR,
   DATA_ENTITY,
+  DATA_ENV,
+  DATA_MAP_CELL,
   DATA_CELL,
   DATA_STRING
 } DataType;
+
+typedef enum {
+  DEBUG_NONE,
+  DEBUG_CELL,
+  DEBUG_SHAPE,
+  DEBUG_TEXT,
+  DEBUG_ALL
+}DebugType;
 
 typedef enum{
   STEP_NONE = -1,
@@ -101,6 +120,7 @@ typedef enum{
   MM_REGION,
   MM_DONE
 }MobMod;
+
 typedef enum{
   MOD_NONE,
   MOD_SQRT,
@@ -156,17 +176,29 @@ typedef enum{
 }StatType;
 
 typedef enum{
-  SEN_HEAR,
   SEN_SEE,
+  SEN_HEAR,
   SEN_SMELL,
   SEN_DONE
 }Senses;
 
 typedef enum{
+  N_NONE,
+  N_SOC,
   N_HUNGER,
-  N_WATER,
+  N_SLEEP,
+  N_THIRST,
   N_DONE,
 }Needs;
+
+typedef enum{
+  NEED_MET = 0,
+  NEED_LOW,
+  NEED_OK,
+  NEED_HIGH,
+  NEED_CRITICAL,
+  NEED_DONE
+} NeedStatus;
 
 typedef enum{
   ATTR_NONE,// = -1,
@@ -211,6 +243,8 @@ typedef enum{
   STATE_ACTION,
   STATE_AGGRO,
   STATE_ATTACK,
+  STATE_REQ,
+  STATE_NEED,
   STATE_STANDBY,
   STATE_SELECTION,
   STATE_DIE,//<===== In MOST cases. Should not be able to go down from DIE
@@ -423,6 +457,38 @@ typedef enum{
 }ActionType;
 
 typedef enum{
+  ACT_MAIN,
+  ACT_BONUS,
+  ACT_REACT,
+  ACT_DONE
+}ActionCategory;
+
+typedef enum{
+  TURN_NONE = -1,
+  TURN_INIT,
+  TURN_START,
+  TURN_MAIN,
+  TURN_POST,
+  TURN_END,
+  TURN_ALL,
+  TURN_STANDBY,
+}TurnPhase;
+
+typedef enum{
+  ACT_STATUS_NONE,
+  ACT_STATUS_QUEUED,
+  ACT_STATUS_NEXT,
+  ACT_STATUS_RUNNING,
+  ACT_STATUS_TAKEN,
+  ACT_STATUS_ERROR,
+  ACT_STATUS_BLOCK,
+  ACT_STATUS_BAD_DATA,
+  ACT_STATUS_MISQUEUE,
+  ACT_STATUS_FULL,
+  ACT_STATUS_DONE
+}ActionStatus;
+
+typedef enum{
   SLOT_NONE = -1,
   SLOT_ATTACK,
   SLOT_INATE,
@@ -562,39 +628,47 @@ typedef enum{
 }DesignationType;
 
 typedef enum{
-  BEHAVIOR_NONE,
-  BEHAVIOR_CHANGE_STATE,      //1
-  BEHAVIOR_GET_TARGET,        //2
-  BEHAVIOR_GET_DEST,          //3
-  BEHAVIOR_MOVE_TO_TARGET,    //4
-  BEHAVIOR_MOVE_TO_DEST,      //4
-  BEHAVIOR_CAN_ATTACK,        //5
-  BEHAVIOR_ATTACK,            //6
-  BEHAVIOR_SEE,               //8
-  BEHAVIOR_CHECK_TURN_STATE,  //9
-  BEHAVIOR_TAKE_TURN,         //10
-  BEHAVIOR_MOVE,              //11
-  BEHAVIOR_CHECK_AGGRO,       //12
-  BEHAVIOR_ACQUIRE,           //13
-  BEHAVIOR_TRY_ATTACK,        //14
-  BEHAVIOR_APPROACH,          //15
-  BEHAVIOR_WANDER,            //16
-  BEHAVIOR_SEEK,              //17
-  BEHAVIOR_TAKE_ACTION,       //18
-  BEHAVIOR_ACTION,            //19
-  BEHAVIOR_NO_ACTION,         //20
-  BEHAVIOR_COMBAT,            //21
-  BEHAVIOR_MOB_AGGRO,         //22
-  BEHAVIOR_AGGRO_TABLE,
-  BEHAVIOR_CHECK_SENSE,
-  BEHAVIOR_CHECK_ENEMIES,
-  BEHAVIOR_GET_AGGRO,
-  BEHAVIOR_FIND_ENEMY,
-  BEHAVIOR_SPAWN,
-  BEHAVIOR_BUILD_ALLIES,
-  BEHAVIOR_PREPARE_GEAR,
-  BEHAVIOR_PREPARE_ABILITIES,
-  BEHAVIOR_COUNT
+  BN_NONE,
+  BN_CHANGE_STATE,      //1
+  BN_GET_TARGET,        //2
+  BN_GET_DEST,          //3
+  BN_MOVE_TO_TARGET,    //4
+  BN_MOVE_TO_DEST,      //4
+  BN_CAN_ATTACK,        //5
+  BN_ATTACK,            //6
+  BN_SEE,               //8
+  BN_CHECK_TURN_STATE,  //9
+  BN_TAKE_TURN,         //10
+  BN_MOVE,              //11
+  BN_CHECK_AGGRO,       //12
+  BN_ACQUIRE,           //13
+  BN_TRY_ATTACK,        //14
+  BN_APPROACH,          //15
+  BN_WANDER,            //16
+  BN_SEEK,              //17
+  BN_TAKE_ACTION,       //18
+  BN_ACTION,            //19
+  BN_NO_ACTION,         //20
+  BN_COMBAT,            //21
+  BN_MOB_AGGRO,         //22
+  BN_AGGRO_TABLE,
+  BN_CHECK_SENSE,
+  BN_CHECK_ENEMIES,
+  BN_GET_AGGRO,
+  BN_FIND_ENEMY,
+  BN_SPAWN,
+  BN_CHECK_NEEDS,
+  BN_FILL_NEEDS,
+  BN_NEEDS,
+  BN_PREPARE_GEAR,
+  BN_PREPARE_ABILITIES,
+  BN_REQ,
+  BN_FIND_RESOURCE,
+  BN_SEEK_RESOURCE,
+  BN_FILL_NEED,
+  BN_NEED,
+  BN_CHECK_NEED,
+  BN_COUNT
 }BehaviorID;
 
 typedef enum{
@@ -779,5 +853,18 @@ typedef enum{
   SOC_HIGH,
   SOC_DONE
 }SocietyType;
+
+typedef enum{
+  RES_NONE,
+  RES_VEG,
+  RES_MEAT,
+  RES_BONE,
+  RES_STONE,
+  RES_METAL,
+  RES_WOOD,
+  RES_WATER,
+  RES_BLOOD,
+  RES_DONE
+}Resource;
 
 #endif

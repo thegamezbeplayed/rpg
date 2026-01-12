@@ -35,7 +35,8 @@
 
 #define SOC_W(w)        { (w), NULL }
 #define SOC_N(w, n)     { (w), (n) }
-
+#define NUM_RES_DEF 20
+#define MAX_SEN_DIST 21
 #define MAX_PATHS 3
 #define MAX_RANKS 4
 #define FACTION_NAME(id)  Faction_Name(id)
@@ -53,6 +54,23 @@
 #define SPEC_RELATE_NEUTRAL ( \
     SPEC_RELATE_NONE | \
     SPEC_INDIF       )
+
+#define SPEC_DESIRE ( \
+    SPEC_HUNTS | \
+    SPEC_WANTS       )
+
+#define PQ_SIZE_MASK (\
+    PQ_TINY | PQ_SMALL | PQ_LARGE | PQ_HUGE | PQ_GIG)
+ 
+#define PQ_WEIGHT_MASK (\
+    PQ_LIGHT | PQ_HEAVY | PQ_ETHEREAL)
+   
+#define PQ_VOL_MASK (\
+    PQ_NO_BONES | PQ_SHORT | PQ_TALL | PQ_LONG | PQ_TAIL |\
+    PQ_LONG_LIMB | PQ_SHORT_LIMB | PQ_LARGE_HANDS | PQ_LARGE_HEAD |\
+    PQ_LARGE_FEET | PQ_TINY_HEAD | PQ_SMALL_HEAD | PQ_WIDE |\
+    PQ_DENSE_MUSCLE)
+  
 #define MAX_FACTIONS 20
 extern int NUM_FACTIONS;
 
@@ -87,6 +105,7 @@ typedef enum{
   SPEC_FRIEND      ,
   SPEC_REVERED     ,
   SPEC_KIN         ,
+  SPEC_WANTS       ,
   SPEC_RELATE_DONE
 }SpeciesRelate;
 
@@ -198,6 +217,69 @@ static inline faction_t* GetFactionByID(Faction id){
 }
 
 typedef struct{
+  Resource    type;
+  uint64_t    amount;
+}resource_t;
+
+typedef struct{
+  Resource        type;
+  ObjectCategory  cat;
+  uint64_t        cat_flags;
+  int             quantity;      
+}define_resource_t;
+extern define_resource_t DEF_RES[20];
+static inline define_resource_t* GetResourceByCatFlags(Resource type, ObjectCategory cat, uint64_t flags){
+  for(int i = 0; i < NUM_RES_DEF; i++){
+    define_resource_t *res = &DEF_RES[i];
+    if(res->type != type)
+      continue;
+
+    if(res->cat != cat)
+      continue;
+
+    if((res->cat_flags & flags) > 0)
+      return res;
+  }
+
+  return NULL;
+}
+
+typedef enum{
+  NREQ_NONE   = 0,
+  NREQ_MIN    = 0x0100,
+  NREQ_LOW    = 0x0200,
+  NREQ_AVG    = 0x0300,
+  NREQ_HIGH   = 0x0400,
+  NREQ_GREAT  = 0x0500,
+  NREQ_SUPER  = 0x0700,
+  NREQ_MAX    = 0x0A00,
+}NeedRequirements;
+
+typedef struct{
+  Needs         id;
+  ent_t*        owner;
+  Resource      resource;
+  local_ctx_t*  goal;
+  StatType      stat_rel;
+  NeedStatus    status;
+  int           vals[NEED_DONE];
+  int           prio, val, meter;
+}need_t;
+
+need_t* InitNeed(Needs id, ent_t* owner);
+void NeedStep(need_t* n);
+void NeedIncrement(Needs id, ent_t* owner, int amount);
+
+typedef struct{
+  Needs             type;
+  uint64_t          body;
+  uint64_t          mind;
+  uint64_t          req;
+}define_need_req_t;
+
+extern define_need_req_t NEEDS_REQ[N_DONE][8];
+
+typedef struct{
   uint64_t    body;
   uint64_t    mind;
   uint64_t    weaps;
@@ -213,8 +295,8 @@ typedef struct{
   int         cost;
   float       diff;
   SocietyType civ;
+  Resource    eats;
   mob_flags_t flags;
-  int         promotions[CLASS_BASE_DONE];
 }mob_define_t;
 
 typedef struct{
@@ -338,6 +420,7 @@ typedef struct{
 typedef struct{
   StatType   main;
   StatType   related;
+  Needs      need;
 }stat_relate_t;
 
 typedef struct{
@@ -442,6 +525,7 @@ typedef enum {
   PQ_NO_EYES      = 1ULL << (PQ_SPECIAL_SHIFT + 15),
   PQ_LARGE_NOSE     = 1ULL << (PQ_SPECIAL_SHIFT + 16),
   PQ_SENSITIVE_NOSE = 1ULL << (PQ_SPECIAL_SHIFT + 17),
+  PQ_NO_BONES       = 1ULL << (PQ_SPECIAL_SHIFT + 18),
 
 } PhysQual;
 
@@ -1023,7 +1107,7 @@ static const stat_quality_t STAT_QUAL[STAT_ENT_DONE] = {
       [SC_INFER]   = PQ_TINY,
       [SC_LESSER]  = PQ_SMALL,
       [SC_BELOW]   = PQ_LIGHT,
-      [SC_ABOVE]   = PQ_LARGE,
+      [SC_ABOVE]   = PQ_LARGE | PQ_TALL,
       [SC_GREATER] = PQ_HUGE | PQ_WIDE,
       [SC_SUPER]   = PQ_HEAVY,
       [SC_MAX]     = PQ_GIG

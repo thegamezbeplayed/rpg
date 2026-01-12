@@ -3,38 +3,6 @@
 
 #include "game_common.h"
 
-typedef bool (*TileBlock)(map_cell_t *c);
-
-static const int mult[8][4] = {
-  { 1, 0, 0, 1 }, { 0, 1, 1, 0 },
-  { 0, -1, 1, 0 }, { -1, 0, 0, 1 },
-  { -1, 0, 0, -1 }, { 0, -1, -1, 0 },
-  { 0, 1, -1, 0 }, { 1, 0, 0, -1 }
-};
-
-typedef struct {
-    int x, y;
-
-    int gCost;          // cost from start
-    int hCost;          // heuristic
-    int fCost;          // g + h
-
-    int parentX;
-    int parentY;
-
-    bool open;
-    bool closed;
-} path_node_t;
-static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
-
-static inline int Heuristic(int x1, int y1, int x2, int y2) {
-    return abs(x1 - x2) + abs(y1 - y2);
-}
-
-static inline bool InBounds(map_grid_t *m, int x, int y) {
-    return (x >= 0 && x < m->width && y >= 0 && y < m->height);
-}
-
 static int permutation[256] = {
 151,160,137,91,90,15,
 131,13,201,95,96,53,194,233,7,225,140,36,
@@ -699,47 +667,6 @@ static int overlap_value(cell_bounds_t a, cell_bounds_t b)
     return w * h; // area of overlap
 }
 
-static bool TileFlagHasAccess(TileFlags f) {
-              
-  return (f & TILEFLAG_DOOR) || (f & TILEFLAG_FLOOR) || (f & TILEFLAG_EMPTY);
-}             
-
-
-static bool TileFlagBlocksMovement(TileFlags f)
-{
-    // Treat ANY of these as blocking
-    return
-        (f & TILEFLAG_SOLID)   ||
-        (f & TILEFLAG_BORDER)  ||
-        (f & TILEFLAG_WALL);
-        // Add more if needed  
-} 
-
-static bool TileCellBlocksMovement(map_context_t* ctx, Cell c){
-  RoomFlags f = ctx->tiles[c.x][c.y];
-
-  return TileFlagBlocksMovement(f);
-}
-static bool TileBlocksMovement(map_cell_t *c) {
-  if(c->occupant)
-    return true;
-
-  if(c->tile==NULL)
-    return false;
-
-  uint32_t f = EnvTileFlags[c->tile->type];
-  return (f & TILEFLAG_SOLID) || (f & TILEFLAG_BORDER);
-} 
-    
-static bool TileBlocksSight(map_cell_t *c) {
-  if(c->tile==NULL)
-    return false;
-
-  uint32_t f = EnvTileFlags[c->tile->type];
-  return (f & TILEFLAG_SOLID) || (f & TILEFLAG_OBSTRUCT);
-}
-
-   
 static bool FindBestOpeningPair(room_t *A, room_t *B,room_opening_t **outA,room_opening_t **outB){
   int bestScore = -1; 
   room_opening_t *bestA = NULL;
@@ -772,286 +699,6 @@ static bool FindBestOpeningPair(room_t *A, room_t *B,room_opening_t **outA,room_
 
   *outA = bestA;
   *outB = bestB;
-  return true;
-}
-
-static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
-    return (EnvTileFlags[t] & flag) != 0;
-} 
-
-static inline bool TileHasAllFlags(EnvTile t, uint32_t flags) {
-    return ( (EnvTileFlags[t] & flags) == flags );
-} 
-  
-static inline bool TileHasAnyFlags(EnvTile t, uint32_t flags) {
-    return (EnvTileFlags[t] & flags) != 0;
-} 
-
-static inline EnvTile GetTileByFlags(uint32_t flags) {
-    for (int i = 0; i < ENV_DONE; i++) {
-        if (TileHasAllFlags(i, flags))
-            return (EnvTile)i;
-    }
-    return (EnvTile)-1; // NONE
-}
-static bool TileCellHasFlag(map_context_t* ctx, Cell c, RoomFlags f){
-  EnvTile t = ctx->tiles[c.x][c.y];
-
-  return TileHasFlag(t,f); 
-}   
-
-static bool room_has_access(map_context_t* ctx, cell_bounds_t room,Cell *access){
-    int left   = room.min.x;
-    int right  = room.max.x;
-    int top    = room.min.y;
-    int bottom = room.max.y;
-    
-    int map_h = ctx->height;
-    int map_w = ctx->width;
-    // Loop over room perimeter
-    for (int x = left; x <= right; x++) {
-        for (int y = top; y <= bottom; y++) {
-    
-            bool is_edge = (x == left || x == right || y == top || y == bottom);
-            if (!is_edge) continue; // skip interior tiles
-
-            // If touching outside of map, it counts as enclosed
-            if (x < 0 || x >= map_w || y < 0 || y >= map_h)
-                continue;
- 
-            if (TileFlagHasAccess(ctx->tiles[x][y])){
-              access->x = x;
-              access->y = y;
-              return true;
-            }
-        }
-    }
-  
-    return false;
-}   
-
-static void CastLight(map_grid_t *m, Cell pos,
-               int row, float start, float end,
-               int radius,
-               int xx, int xy, int yx, int yy)
-{
-  int cx = pos.x;
-  int cy = pos.y;
-
-  if (start < end) return;
-
-  float new_start = start;
-  for (int i = row; i <= radius; i++) {
-    bool blocked = false;
-    for (int dx = -i, dy = -i; dx <= 0; dx++) {
-      float l_slope = (dx - 0.5f) / (dy + 0.5f);
-      float r_slope = (dx + 0.5f) / (dy - 0.5f);
-
-      if (r_slope > start) continue;
-      if (l_slope < end) break;
-
-      int x = cx + dx * xx + dy * xy;
-      int y = cy + dx * yx + dy * yy;
-
-      if (!InBounds(m, x, y)) continue;
-
-      float dist = sqrtf(dx*dx + dy*dy);
-      if (dist <= radius)
-        m->tiles[x][y].fow.a = 0;
-
-      if (blocked) {
-        if (TileBlocksSight(&m->tiles[x][y])) {
-          new_start = r_slope;
-          continue;
-        } else {
-          blocked = false;
-          start = new_start;
-        }
-      } else {
-        if (TileBlocksSight(&m->tiles[x][y]) && i < radius) {
-          blocked = true;
-          CastLight(m, pos, i+1, start, l_slope,
-                    radius, xx, xy, yx, yy);
-          new_start = r_slope;
-        }
-      }
-    }
-    if (blocked) break;
-  }
-}
-
-static bool IsDiagBlocked(map_grid_t* m, map_cell_t* cc, map_cell_t* nc, TileBlock fn){
-
-  int dx = cc->coords.x - nc->coords.x;
-  int dy = cc->coords.y - nc->coords.y;
-
-  if (abs(dx) == 1 && abs(dy) == 1) {
-    map_cell_t* cv = &m->tiles[cc->coords.x][cc->coords.y + dy];
-    map_cell_t* ch = &m->tiles[cc->coords.x + dx][cc->coords.y];
-    if(fn(ch) && fn(cv))
-      return true;
-  }
-
-  return false;
-}
-
-static bool FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep, int depth){
-  Cell sc = CELL_NEW(sx,sy);
-    // Early out: same tile
-    if (sx == tx && sy == ty)
-        return false;
-
-    depth = CLAMP(depth,20,80);
-    // Init nodes
-    for (int y = 0; y < m->height; y++)
-    for (int x = 0; x < m->width; x++) {
-      map_cell_t mc = m->tiles[x][y];
-      if(mc.status > TILE_REACHABLE)
-        continue;
-
-      if(cell_distance(mc.coords, sc)>depth)
-        continue;
-
-      nodes[x][y] = (path_node_t){
-            .x = x, .y = y,
-            .gCost = 999999,
-            .hCost = 0,
-            .fCost = 999999,
-            .open = false,
-            .closed = false,
-            .parentX = -1,
-            .parentY = -1
-        };
-    }
-
-    // Pointer to nodes
-    path_node_t *start = &nodes[sx][sy];
-    path_node_t *goal  = &nodes[tx][ty];
-
-    start->gCost = 0;
-    start->hCost = Heuristic(sx, sy, tx, ty);
-    start->fCost = start->hCost;
-    start->open = true;
-
-    int passes = 0;
-    while (depth > passes)
-    {
-        // Step 1: Find lowest fCost open node
-        path_node_t *current = NULL;
-
-        for (int y = 0; y < m->height; y++)
-        for (int x = 0; x < m->width; x++) {
-            path_node_t *n = &nodes[x][y];
-            if (n->open && !n->closed) {
-                if (!current || n->fCost < current->fCost)
-                    current = n;
-            }
-        }
-
-        if (!current) {
-            return false; // no path
-        }
-
-        // Reached target
-        if (current == goal)
-            break;
-
-        current->open = false;
-        current->closed = true;
-
-        // Step 2: Explore neighbors
-        const int dirs[4][2] = {
-            { 1, 0 }, {-1, 0},
-            { 0, 1 }, { 0,-1}
-        };
-
-        for (int i = 0; i < 4; i++)
-        {
-            int nx = current->x + dirs[i][0];
-            int ny = current->y + dirs[i][1];
-
-            map_cell_t* curr_cell = &m->tiles[current->x][current->y];
-            map_cell_t* next_cell = &m->tiles[nx][ny];
-            
-            if (!InBounds(m, nx, ny)) continue;
-            if (!(nx == tx && ny == ty) &&TileBlocksMovement(next_cell)) continue;
-
-            path_node_t *neighbor = &nodes[nx][ny];
-            if (neighbor->closed) continue;
-
-            int cost = current->gCost + 1;
-
-            if (!neighbor->open || cost < neighbor->gCost) {
-                neighbor->gCost = cost;
-                neighbor->hCost = Heuristic(nx, ny, tx, ty);
-                neighbor->fCost = neighbor->gCost + neighbor->hCost;
-
-                neighbor->parentX = current->x;
-                neighbor->parentY = current->y;
-
-                neighbor->open = true;
-            }
-        }
-
-        passes++;
-    }
-
-    // Step 3: Backtrack from goal to start to find next step
-    path_node_t *node = goal;
-
-    while (node->parentX != sx || node->parentY != sy) {
-        if (node->parentX < 0 || node->parentY < 0)
-            return false;
-        node = &nodes[node->parentX][node->parentY];
-    }
-
-    // Write next step
-    outNextStep->x = node->x;
-    outNextStep->y = node->y;
-
-    return true;
-}
-
-static bool HasLOS(map_grid_t* m, Cell c0, Cell c1){
-  int x0 = c0.x;
-  int y0 = c0.y;
-  int x1 = c1.x;
-  int y1 = c1.y;
-
-
-  int dx = abs(x1 - x0);
-  int dy = abs(y1 - y0);
-  int sx = (x0 < x1) ? 1 : -1;
-  int sy = (y0 < y1) ? 1 : -1;
-  int err = dx - dy;
-
-  int x = x0;
-  int y = y0;
-
-  while (!(x == x1 && y == y1))
-  {
-    if (TileBlocksSight(&m->tiles[x][y]))
-      return false;
-
-    int e2 = err * 2;
-
-    int nx = x;
-    int ny = y;
-
-    if (e2 > -dy) { err -= dy; nx += sx; }
-    if (e2 <  dx) { err += dx; ny += sy; }
-
-    /* Corner blocking */
-    if (nx != x && ny != y) {
-      if (TileBlocksSight(&m->tiles[nx][y]) &&
-          TileBlocksSight(&m->tiles[x][ny]))
-        return false;
-    }
-
-    x = nx;
-    y = ny;
-  }
-
   return true;
 }
 
@@ -1218,6 +865,193 @@ static SpeciesRelate GetSpecRelation(SpeciesType main, SpeciesType other){
   }
 
   return SPEC_RELATE_NONE;
+
+}
+
+static inline uint64_t GetNeedReq(Needs n, PhysQual pq, MentalQual mq){
+
+  int counts[8] = {0,0,0,0,0,0,0,0};
+
+  int largest = 0;
+  if(pq == PQ_NONE && mq == MQ_NONE)
+    return NEEDS_REQ[n][__builtin_ctzll(NREQ_AVG)].req;
+
+  while(pq && mq){
+    uint64_t mbit = -1;
+
+    if(mq){
+      mbit = mq & - mq;
+      mq &= mq - 1;
+    }
+
+    uint64_t pbit = -1;
+    if(pq){
+      pbit = pq & - pq;
+      pq &= pq - 1;
+    }
+    for(int i = 0; i < 8; i++){
+      define_need_req_t nreq = NEEDS_REQ[n][i];
+      uint64_t np = nreq.body;
+      uint64_t nm = nreq.mind;
+      if((pbit & np) > 0){
+        counts[i]++;
+        if(i > largest)
+          largest = i;
+      }
+
+      if((mbit & nm) > 0){
+        counts[i]++;
+        if(i > largest)
+          largest = i;
+      }
+
+    }
+  }
+
+  if(counts[largest] == 0)
+    return NEEDS_REQ[n][__builtin_ctzll(NREQ_AVG)].req;
+
+  uint64_t base = NEEDS_REQ[n][largest].req;
+  counts[largest]--;
+
+  for(int i = 0; i < 8; i++){
+    uint64_t inc  = (i-(NREQ_AVG >> 8)) * 0x0040;
+
+    base += inc * counts[i];
+  }
+
+
+  base = CLAMP((int)base,NREQ_NONE,NREQ_MAX);
+  return base;
+
+}
+
+static inline int NReqSteps(NeedRequirements r){
+  if (r == NREQ_NONE)
+    return 0;
+  return r / 5;
+}
+
+static inline int NeedThreshold(
+  NeedRequirements r,
+  NeedStatus s
+){
+  return NReqSteps(r) * (s+1);
+}
+
+static inline uint64_t GetMassByFlags(PhysQual pq, PhysBody pb){
+
+  uint64_t size = pq & PQ_SIZE_MASK;
+  uint64_t step = 0x000E;
+  uint64_t coeff = 0x0020;
+  switch (size){
+    case PQ_TINY:
+      step = 0x0001;
+      coeff = 0x0002;
+      break;
+    case PQ_SMALL:
+      step = 0x0005;
+      coeff = 0x0010;
+      break;
+    case PQ_LARGE:
+      step =  0x0020;
+      coeff = 0x0070;
+      break;
+    case PQ_HUGE:
+      coeff = 0x0F00;
+      step =  0x0040;
+      break;
+    case PQ_GIG:
+      coeff = 0x1000;
+      step = 0x0080;
+      break;
+  }
+
+  uint64_t weight = pq & PQ_WEIGHT_MASK;
+
+  uint64_t mass = 0x0400;
+  while(weight){
+    uint64_t wbit = weight & -weight;
+    weight &= weight -1;
+
+    switch(wbit){
+      case PQ_LIGHT:
+        mass = 0x0010;
+        break;
+      case PQ_HEAVY:
+        mass = 0x0A00;
+        break;
+      case PQ_ETHEREAL:
+        return 0;
+    }
+  }
+
+  uint64_t vol = pq & PQ_VOL_MASK;
+
+  while(vol){
+    uint64_t vbit = vol & -vol;
+    vol &= vol -1;
+
+    switch(vbit){
+      case PQ_NO_BONES:
+        mass*=.5f;
+        break;
+      case PQ_SHORT:
+        mass*=0.75f;
+        break;
+      case PQ_TALL:
+      case PQ_LONG:
+      case PQ_WIDE:
+      case PQ_DENSE_MUSCLE:
+        coeff+=step*2;
+        break;
+      case PQ_LARGE_FEET:
+      case PQ_LARGE_HANDS:
+        coeff+=step/4;
+        break;
+      case PQ_LONG_LIMB:
+      case PQ_LARGE_HEAD:
+        coeff+=step;
+        break;
+      case PQ_SHORT_LIMB:
+        coeff-=step;
+        break;
+      case PQ_SMALL_HEAD:
+      case PQ_TINY_HEAD:
+        coeff-=step;
+        break;
+      case PQ_TAIL:
+        coeff+=step;
+        break;
+    }
+  }
+
+  while(pb){
+    uint64_t cov = pb & -pb;
+    pb &= pb -1;
+
+    switch(cov){
+      case PQ_THICK_FUR:
+      case PQ_TOUGH_HIDE:
+      case PQ_THICK_HIDE:
+      case PQ_THICK_FAT:
+        coeff += step;
+        break;
+      case PQ_THICK_SCALES:
+      case PQ_TOUGH_SCALES:
+        mass*=1.25f;
+        break;
+      case PQ_STONE_SKIN:
+        mass *=2;
+        break;
+      case PQ_METALLIC:
+        mass *= 4;
+        break;
+    }
+  }
+
+  return coeff * mass;
+
 
 }
 #endif

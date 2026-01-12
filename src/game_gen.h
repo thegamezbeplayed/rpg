@@ -1,7 +1,12 @@
 #ifndef __GAME_GEN__ 
 #define __GAME_GEN__ 
+#include "game_tools.h"
+#include "game_enum.h"
 
-#include "game_utils.h"
+#define MAX_CACHED_PATHS 128
+#define MAX_PATH_LEN    128
+
+#define MAX_OPTIONS 256
 #define MAX_ROOMS  128
 #define HAS_ANY_IN_CATEGORY(value, mask) ((value) & (mask))
 #define IS_TRAIT(value, mask, trait) (((value) & (mask)) == (trait))
@@ -15,9 +20,24 @@
 #define MAX_ANCHOR_NODES 8
 #define MAX_ATTEMPTS 500
 
-typedef struct choice_pool_s choice_pool_t;
+#define GRID_WIDTH 128
+#define GRID_HEIGHT 128
 
+#define TILE_SIZE_MASK (\
+    TILEFLAG_SIZE_XS  |\
+    TILEFLAG_SIZE_SM  |\
+    TILEFLAG_SIZE_MED |\
+    TILEFLAG_SIZE_L   |\
+    TILEFLAG_SIZE_XL  |\
+    TILEFLAG_SIZE_MAX )
+
+
+typedef struct choice_pool_s choice_pool_t;
+typedef struct local_ctx_s local_ctx_t;
 typedef struct ent_s ent_t;
+typedef struct env_s env_t;
+
+//#include "game_utils.h"
 typedef enum{
   GEN_NONE,
   GEN_DONE,
@@ -56,46 +76,54 @@ typedef enum{
   TILEFLAG_ROAD        = 1 << 5,
   TILEFLAG_FOREST      = 1 << 6,
   TILEFLAG_DEBRIS      = 1 << 7,
-  TILEFLAG_DECOR       = 1 << 8,
-  TILEFLAG_OBSTRUCT    = 1 << 9,
-  TILEFLAG_SPAWN       = 1 << 10,
-  TILEFLAG_FLOOR       = 1 << 11,
-  TILEFLAG_WALL        = 1 << 12,
-  TILEFLAG_DOOR        = 1 << 13,
-  TILEFLAG_START       = 1 << 14,
-  TILEFLAG_INTERACT    = 1 << 15,
-  TILEFLAG_EXIT        = 1 << 16,
-  MAPFLAG_DUNGEON      = 1 << 17,
-  MAPFLAG_FOREST       = 1 << 18,
+  TILEFLAG_BONE        = 1 << 8,
+  TILEFLAG_STONE       = 1 << 9,
+  TILEFLAG_DECOR       = 1 << 10,
+  TILEFLAG_OBSTRUCT    = 1 << 11,
+  TILEFLAG_SPAWN       = 1 << 12,
+  TILEFLAG_FLOOR       = 1 << 13,
+  TILEFLAG_WALL        = 1 << 14,
+  TILEFLAG_DOOR        = 1 << 15,
+  TILEFLAG_START       = 1 << 16,
+  TILEFLAG_INTERACT    = 1 << 17,
+  TILEFLAG_EXIT        = 1 << 18,
+  TILEFLAG_SIZE_XS     = 1 << 19,
+  TILEFLAG_SIZE_SM     = 1 << 20,
+  TILEFLAG_SIZE_MED    = 1 << 21,
+  TILEFLAG_SIZE_L      = 1 << 22,
+  TILEFLAG_SIZE_XL     = 1 << 23,
+  TILEFLAG_SIZE_MAX    = 1 << 24,
+  MAPFLAG_DUNGEON      = 1 << 25,
+  MAPFLAG_FOREST       = 1 << 26,
 }TileFlags;
 
 static const uint32_t EnvTileFlags[ENV_DONE] = {
-  [ENV_BONES_BEAST]    = TILEFLAG_DEBRIS | TILEFLAG_DECOR | MAPFLAG_FOREST | MAPFLAG_DUNGEON,
-  [ENV_BOULDER]        = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_NATURAL,
+  [ENV_BONES_BEAST]    = TILEFLAG_SIZE_MED | TILEFLAG_BONE | TILEFLAG_DEBRIS | TILEFLAG_DECOR | MAPFLAG_FOREST | MAPFLAG_DUNGEON,
+  [ENV_BOULDER]        = TILEFLAG_SIZE_MED | TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_STONE,
   [ENV_COBBLE]         = TILEFLAG_ROAD,
   [ENV_COBBLE_WORN]    = TILEFLAG_ROAD,
-  [ENV_FLOWERS]        = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
-  [ENV_FLOWERS_THIN]   = TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
-  [ENV_FOREST_FIR]     = TILEFLAG_SOLID | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_GRASS]          = MAPFLAG_FOREST | TILEFLAG_FLOOR | TILEFLAG_NATURAL,
-  [ENV_GRASS_SPARSE]   = MAPFLAG_FOREST | TILEFLAG_FLOOR | TILEFLAG_NATURAL,
-  [ENV_GRASS_WILD]     = MAPFLAG_FOREST | TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
-  [ENV_LEAVES]         = MAPFLAG_FOREST | TILEFLAG_DECOR | TILEFLAG_NATURAL,
-  [ENV_TREE_MAPLE]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_MEADOW]         = TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
-  [ENV_TREE_OLDGROWTH] = MAPFLAG_FOREST |TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_TREE_PINE]      = MAPFLAG_FOREST | TILEFLAG_SOLID | TILEFLAG_WALL | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_FLOWERS]        = TILEFLAG_SIZE_SM | TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
+  [ENV_FLOWERS_THIN]   = TILEFLAG_SIZE_XS | TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
+  [ENV_FOREST_FIR]     = TILEFLAG_SIZE_XL | TILEFLAG_SOLID | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_GRASS]          = TILEFLAG_SIZE_SM |MAPFLAG_FOREST | TILEFLAG_FLOOR | TILEFLAG_NATURAL,
+  [ENV_GRASS_SPARSE]   = TILEFLAG_SIZE_XS | MAPFLAG_FOREST | TILEFLAG_FLOOR | TILEFLAG_NATURAL,
+  [ENV_GRASS_WILD]     = TILEFLAG_SIZE_MED | MAPFLAG_FOREST | TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
+  [ENV_LEAVES]         = TILEFLAG_SIZE_XS | MAPFLAG_FOREST | TILEFLAG_DECOR | TILEFLAG_NATURAL,
+  [ENV_TREE_MAPLE]     = TILEFLAG_SIZE_L | TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_MEADOW]         = TILEFLAG_SIZE_XL | TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
+  [ENV_TREE_OLDGROWTH] = TILEFLAG_SIZE_XL | MAPFLAG_FOREST |TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_TREE_PINE]      = TILEFLAG_SIZE_L | MAPFLAG_FOREST | TILEFLAG_SOLID | TILEFLAG_WALL | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
   [ENV_ROAD]           = MAPFLAG_FOREST | TILEFLAG_ROAD,
   [ENV_ROAD_CROSS]     = MAPFLAG_FOREST | TILEFLAG_ROAD,
   [ENV_ROAD_FORK]      = MAPFLAG_FOREST | TILEFLAG_ROAD,
   [ENV_ROAD_TURN]      = MAPFLAG_FOREST | TILEFLAG_ROAD,
-  [ENV_TREE_BIGLEAF]   = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_TREE_CEDAR]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_TREE_DEAD]      = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
-  [ENV_TREE_DYING]     = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
-  [ENV_TREE_FELLED]    = TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_FOREST | TILEFLAG_NATURAL,  // updated
-  [ENV_TREE_FIR]       = TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
-  [ENV_FOREST]         = MAPFLAG_FOREST | TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_TREE_BIGLEAF]   = TILEFLAG_SIZE_XL | TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_TREE_CEDAR]     = TILEFLAG_SIZE_L | TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_TREE_DEAD]      = TILEFLAG_SIZE_SM | TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
+  [ENV_TREE_DYING]     = TILEFLAG_SIZE_MED | TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST,
+  [ENV_TREE_FELLED]    = TILEFLAG_SIZE_MED | TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_FOREST | TILEFLAG_NATURAL,  // updated
+  [ENV_TREE_FIR]       = TILEFLAG_SIZE_L | TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_FOREST | TILEFLAG_NATURAL,
+  [ENV_FOREST]         = TILEFLAG_SIZE_MAX | MAPFLAG_FOREST | TILEFLAG_BORDER | TILEFLAG_SOLID| TILEFLAG_FOREST | TILEFLAG_NATURAL,
   [ENV_WEB]            = TILEFLAG_DECOR|MAPFLAG_FOREST|MAPFLAG_DUNGEON,
   [ENV_DIRT]            = TILEFLAG_FLOOR,
   [ENV_DIRT_PATCH]            = TILEFLAG_FLOOR,
@@ -567,4 +595,180 @@ void ConnectionSetIID(room_connection_t* conn);
 void ConnectionSetStatus(Cell pos, RoomStatus status);
 int ConnectionGetNeighbors(room_connection_t* conn, room_connection_t** pairs, int range, int cap);
 int GetNeighborFlags(map_context_t* ctx, Cell c, RoomFlags f, Cell *filter);
+
+typedef struct{
+  game_object_uid_i gouid;
+  int               index;
+  Cell              coords;
+  TileStatus        status;
+  TileFlags         flags;
+  env_t*            tile;
+  ent_t*            occupant;
+  Color             fow;
+  bool              explored;
+}map_cell_t;
+
+typedef struct{
+  int             id;
+  RoomFlags       purpose;
+  int             num_mobs, total_cr, avg_cr, best_cr;
+  ent_t           *mobs[MOB_ROOM_MAX];
+  ent_t           *strongest;
+}map_room_t;
+
+map_room_t* InitMapRoom(map_context_t* ctx, room_t* r);
+
+typedef struct{
+  MapID        id;
+  int          num_rooms;
+  map_room_t   *rooms[MAX_ROOMS];
+  map_cell_t   **tiles;
+  int          x,y,width,height;
+  int          step_size;
+  Color        floor;
+}map_grid_t;
+
+bool InitMap(void);
+void WorldMapLoaded(map_grid_t* m);
+map_grid_t* InitMapGrid(void);
+TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
+TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);
+ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status);
+map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
+TileStatus MapRemoveOccupant(map_grid_t* m, Cell c);
+TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c);
+void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);
+void MapSpawn(TileFlags flags, int x, int y);
+void MapSpawnMob(map_grid_t* m, int x, int y);
+void RoomSpawnMob(map_grid_t* m, room_t* r);
+Cell MapApplyContext(map_grid_t* m);
+
+static uint32_t g_navRevision = 1;
+
+static void NavMarkDirty(void) {
+    g_navRevision++;
+}
+
+typedef bool (*TileBlock)(map_cell_t *c);
+
+static const int mult[8][4] = {
+  { 1, 0, 0, 1 }, { 0, 1, 1, 0 },
+  { 0, -1, 1, 0 }, { -1, 0, 0, 1 },
+  { -1, 0, 0, -1 }, { 0, -1, -1, 0 },
+  { 0, 1, -1, 0 }, { 1, 0, 0, -1 }
+};
+
+
+typedef struct {
+    int x, y;
+
+    int gCost;          // cost from start
+    int hCost;          // heuristic
+    int fCost;          // g + h
+
+    int parentX;
+    int parentY;
+
+    bool open;
+    bool closed;
+} path_node_t;
+
+typedef uint64_t path_cache_uid_i;
+typedef struct {
+  path_cache_uid_i  guid;
+  bool              valid;
+  int               sx, sy, tx, ty, cost, length;
+  Cell              path[MAX_PATH_LEN];
+  uint32_t          navRevision;
+} path_cache_entry_t;
+
+typedef struct {
+  bool  found;
+  int   cost;
+  int   length;
+  Cell  path[MAX_PATH_LEN];
+} path_result_t;
+
+static inline bool InBounds(map_grid_t *m, int x, int y) {
+    return (x >= 0 && x < m->width && y >= 0 && y < m->height);
+}
+
+static inline int Heuristic(int x1, int y1, int x2, int y2) {
+    return abs(x1 - x2) + abs(y1 - y2);
+}
+
+static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
+static path_cache_entry_t pathCache[MAX_CACHED_PATHS];
+static path_cache_entry_t pathCacheTmp[MAX_CACHED_PATHS];
+path_cache_entry_t* PathCacheFind(int sx, int sy, int tx, int ty);
+
+path_cache_entry_t* PathCacheStore(path_result_t* res, Cell sc, Cell tc, game_object_uid_i start, game_object_uid_i end);
+path_cache_entry_t* PathCacheStoreTemp(path_result_t* res, int sx, int sy,int tx, int ty);
+path_result_t* FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep, int depth);
+static path_result_t* FindPathCell(map_grid_t *m, Cell sc, Cell tc, Cell *out, int depth){
+  return FindPath(m, sc.x, sc.y, tc.x, tc.y, out, depth);
+}
+
+path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* result);
+Cell RouteGetNext(ent_t* e, path_cache_entry_t* route);
+bool HasLOS(map_grid_t* m, Cell c0, Cell c1);
+void CastLight(map_grid_t *m, Cell pos, int row, float start, float end, int radius,int xx, int xy, int yx, int yy);
+int ScorePath(map_grid_t *m, int sx, int sy, int tx, int ty, int depth);
+bool room_has_access(map_context_t* ctx, cell_bounds_t room,Cell *access);
+bool IsDiagBlocked(map_grid_t* m, map_cell_t* cc, map_cell_t* nc, TileBlock fn);
+
+static int PathCost(int tx, int ty) {
+    return nodes[tx][ty].gCost;
+}
+
+static bool TileFlagHasAccess(TileFlags f) {
+
+  return (f & TILEFLAG_DOOR) || (f & TILEFLAG_FLOOR) || (f & TILEFLAG_EMPTY);
+}
+
+static bool TileFlagBlocksMovement(TileFlags f)
+{
+    // Treat ANY of these as blocking
+    return
+        (f & TILEFLAG_SOLID)   ||
+        (f & TILEFLAG_BORDER)  ||
+        (f & TILEFLAG_WALL);
+        // Add more if needed
+}
+
+static bool TileCellBlocksMovement(map_context_t* ctx, Cell c){
+  RoomFlags f = ctx->tiles[c.x][c.y];
+
+  return TileFlagBlocksMovement(f);
+}
+
+bool TileBlocksMovement(map_cell_t *c);
+
+bool TileBlocksSight(map_cell_t *c);
+    
+static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
+    return (EnvTileFlags[t] & flag) != 0;
+}
+
+static inline bool TileHasAllFlags(EnvTile t, uint32_t flags) {
+    return ( (EnvTileFlags[t] & flags) == flags );
+}
+
+static inline bool TileHasAnyFlags(EnvTile t, uint32_t flags) {
+    return (EnvTileFlags[t] & flags) != 0;
+}
+
+static inline EnvTile GetTileByFlags(uint32_t flags) {
+    for (int i = 0; i < ENV_DONE; i++) {
+        if (TileHasAllFlags(i, flags))
+            return (EnvTile)i;
+    }
+    return (EnvTile)-1; // NONE
+}
+static bool TileCellHasFlag(map_context_t* ctx, Cell c, RoomFlags f){
+  EnvTile t = ctx->tiles[c.x][c.y];
+
+  return TileHasFlag(t,f);
+}
+
 #endif

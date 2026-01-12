@@ -4,8 +4,99 @@
 #include "game_gen.h"
 #include <stdio.h>
 
+#include "game_helpers.h"
+ent_t* ParamReadEnt(const param_t* o) {
+    assert(o->type_id == DATA_ENTITY);
+    assert(o->size == sizeof(ent_t));
+    return (ent_t*)o->data;
+}
+env_t* ParamReadEnv(const param_t* o){
+    assert(o->type_id == DATA_ENV);
+    assert(o->size == sizeof(env_t));
+    return (env_t*)o->data;
+}
+
+map_cell_t* ParamReadMapCell(const param_t* o){
+    assert(o->type_id == DATA_MAP_CELL);
+    assert(o->size == sizeof(map_cell_t));
+    return (map_cell_t*)o->data;
+}
+
 faction_t* FACTIONS[MAX_FACTIONS];
 int NUM_FACTIONS = 0;
+
+define_need_req_t NEEDS_REQ[N_DONE][8]= {
+  [N_HUNGER] = {
+    {N_HUNGER,
+      PQ_ETHEREAL | PQ_NO_HEAD,
+      MQ_ABSENT,
+      NREQ_NONE
+    },
+    {N_HUNGER,
+      PQ_TINY | PQ_LIGHT,
+      MQ_HIVE_MIND,
+      NREQ_MIN,
+    },
+     {N_HUNGER,
+      PQ_SMALL,
+      MQ_SIMPLE,
+      NREQ_LOW,
+    },
+    {N_HUNGER,
+      PQ_GILLED | PQ_SHORT | PQ_SHORT_LIMB,
+      MQ_SENTIENT,
+      NREQ_AVG,
+    },
+     {N_HUNGER,
+      PQ_TALL | PQ_WIDE |  PQ_LONG_LIMB| PQ_LARGE | PQ_DENSE_MUSCLE | PQ_TWIN_HEADED,
+      MQ_AGGRESSIVE | MQ_PROTECTIVE,
+      NREQ_HIGH,
+    },
+     {N_HUNGER,
+      PQ_HUGE | PQ_HEAVY | PQ_SHAPELESS | PQ_TRI_HEADED,
+      MQ_TELEPATH,
+      NREQ_GREAT
+     },
+     {N_HUNGER,
+       PQ_MANY_HEADED,
+       MQ_NONE,
+       NREQ_SUPER,
+     },
+     {N_HUNGER,
+      PQ_GIG,
+      MQ_NONE,
+      NREQ_MAX,
+    },
+  },
+};
+
+
+define_resource_t DEF_RES[20] = {
+  {RES_BONE,
+    OBJ_ENV,
+    TILEFLAG_BONE, 2
+  },
+  {RES_WOOD,
+    OBJ_ENV,
+    TILEFLAG_TREE | TILEFLAG_FOREST,
+    3
+  },
+  {RES_VEG,
+    OBJ_ENV,
+    TILEFLAG_NATURAL,
+    2,
+  },
+  {RES_WATER,
+    OBJ_ENV,
+    TILEFLAG_NATURAL,
+    1
+  },
+  {RES_STONE,
+    OBJ_ENV,
+    TILEFLAG_STONE,
+    2
+  }
+};
 
 species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)] = {
   {SPEC_NONE},      
@@ -526,7 +617,7 @@ Faction RegisterFactionByType(ent_t* e){
 }
 
 Faction RegisterFaction(const char* name){
-  Faction f = hash_str(name);
+  Faction f = hash_str_32(name);
 
   for(int i = 0; i < NUM_FACTIONS; i++){
     if(FACTIONS[i]->id == f)
@@ -546,7 +637,7 @@ Faction RegisterFaction(const char* name){
 faction_t* InitFaction(const char* name){
   faction_t* f = calloc(1, sizeof(faction_t));
 
-  Faction id = hash_str(name);
+  Faction id = hash_str_32(name);
 
   f->id = id;
   f->name = strdup(name);
@@ -810,7 +901,8 @@ stat_t* InitStat(StatType attr,float min, float max, float amount){
       .die       = Die(amount,1),
       .start     = relate.init,
       .lvl       = relate.lvl,
-      .reverse   = relate.reverse
+      .reverse   = relate.reverse,
+      .need      = tandem.need
  }; 
  for(int i = 0; i < ATTR_DONE; i++)
    s->modified_by[i] = relate.modifier[i];
@@ -857,23 +949,26 @@ bool StatIncrementValue(stat_t* attr,bool increase){
   return true;
 }
 
-bool StatChangeValue(struct ent_s* owner, stat_t* attr, float val){
-  float old = attr->current;
-  attr->current+=val;
-  attr->current = CLAMPF(attr->current,attr->min, attr->max);
-  float cur = attr->current;
-  if(attr->current == old) 
+bool StatChangeValue(struct ent_s* owner, stat_t* s, float val){
+  float old = s->current;
+  s->current+=val;
+  s->current = CLAMPF(s->current,s->min, s->max);
+  float cur = s->current;
+  if(s->current == old) 
     return false;
 
-  if(attr->on_stat_change != NULL)
-    attr->on_stat_change(attr,old, cur);
+  if(s->need>N_NONE)
+    NeedIncrement(s->need, s->owner, val);
+
+  if(s->on_stat_change != NULL)
+    s->on_stat_change(s,old, cur);
   
-  if(attr->current == attr->min && attr->on_stat_empty!=NULL)
-    attr->on_stat_empty(attr,old,cur);
+  if(s->current == s->min && s->on_stat_empty!=NULL)
+    s->on_stat_empty(s,old,cur);
   
-  if(attr->current == attr->max && old != attr->max)
-    if(attr->on_stat_full)
-      attr->on_stat_full(attr,old,cur);
+  if(s->current == s->max && old != s->max)
+    if(s->on_stat_full)
+      s->on_stat_full(s,old,cur);
 
   return true;
 }
@@ -1274,5 +1369,64 @@ item_prop_mod_t* GetItemPropMods(ItemCategory cat, uint64_t prop){
   }
   
   return NULL;
+}
 
+need_t* InitNeed(Needs id, ent_t* owner){
+
+  uint64_t req = GetNeedReq(id, owner->props->body, owner->props->mind);
+  Resource res = EntGetResourceByNeed(owner, id);
+
+  need_t* n = calloc(1,sizeof(need_t));
+
+  *n = (need_t){
+    .id = id,
+      .resource = res,
+      .owner = owner,
+      .status = NEED_OK
+  };
+
+  if(req > 0){
+    for(int i = 0; i < NEED_DONE; i++){
+      int val = NeedThreshold(req, i);
+      n->vals[i] = val;
+      if(i == NEED_OK)
+        n->val = val;
+    }
+  }
+
+  return n;
+}
+
+void NeedSyncMeter(need_t* n, int amount){
+  n->meter+=amount;
+
+  if(n->meter < (int)NREQ_AVG)
+    return;
+
+  n->meter = 0;
+
+  n->val += (1+n->status)*(NREQ_MIN/4);
+
+  if(n->val < n->vals[n->status])
+    return;
+
+  n->status++;
+}
+
+void NeedIncrement(Needs id, ent_t* owner, int amount){
+  need_t* n = owner->control->needs[id];
+
+  NeedSyncMeter(n, amount);
+  
+}
+
+void NeedStep(need_t* n){
+
+  int r = RandRange(0, (int)NREQ_MIN);
+
+  if(r > (int)n->vals[NEED_LOW])
+    return;
+
+  r = CLAMP(r,4,64);
+  NeedSyncMeter(n, r);
 }

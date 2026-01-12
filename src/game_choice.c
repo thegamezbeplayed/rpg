@@ -150,6 +150,38 @@ bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn){
     return true;
 }
 
+choice_t* ChooseCheapest(choice_pool_t* pool){
+  if(pool->count == 0)
+    return NULL;
+
+  int cheapest   = 99999;
+  int best       = -1;
+  int best_index = -1;
+
+  for (int i = 0; i < pool->count; i++){
+    choice_t* c = pool->choices[i];
+    if(!ChoiceAllowed(pool, c))
+      continue;
+
+    if(c->cost > cheapest)
+      continue;
+
+    if(c->cost == cheapest && c->score < best)
+      continue;
+
+    cheapest =  c->cost;
+    best_index = i;
+    best = c->score;
+  }
+
+  choice_t* out = pool->choices[best_index];
+  if(pool->choices[best_index]->cb)
+    pool->choices[best_index]->cb(pool,pool->choices[best_index]);
+  return out;
+
+
+}
+
 choice_t* ChooseBest(choice_pool_t* pool){
   if(pool->count == 0)
     return NULL;

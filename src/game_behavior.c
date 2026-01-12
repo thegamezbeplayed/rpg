@@ -53,7 +53,7 @@ behavior_tree_node_t *BuildTreeNode(BehaviorID id,behavior_params_t* parent_para
 }
 
 behavior_tree_node_t* InitBehaviorTree( BehaviorID id){
-  if(id ==BEHAVIOR_NONE)
+  if(id ==BN_NONE)
     return NULL;
   behavior_tree_node_t* node = BehaviorGetTree(id);
 
@@ -139,18 +139,15 @@ BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
     return BEHAVIOR_SUCCESS;
 
   e->control->target = NULL;
-  if(!CheckEntAvailable(player))
+
+  if(e->aggro->count == 0)
     return BEHAVIOR_FAILURE;
 
-  ent_t* tar = player;
-  if(tar == NULL)
+  aggro_entry_t* aggro = AggroGetHighest(e->aggro);
+  if(!aggro || !aggro->enemy)
     return BEHAVIOR_FAILURE;
 
-  for(int i = 0; i < SEN_DONE; i++)
-    if(EntCanDetect(e, tar, i)){
-      e->control->target = tar;
-      return BEHAVIOR_FAILURE;
-    }
+  e->control->target = aggro->enemy;
 
   return BEHAVIOR_SUCCESS;
 }
@@ -216,13 +213,40 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
   
   if(cell_compare(e->control->destination,CELL_UNSET))
     return BEHAVIOR_FAILURE;
-  
-  if(!SetAction(e,ACTION_MOVE,&e->control->destination,DES_NONE)){
-    e->control->destination = CELL_UNSET;
-    return BEHAVIOR_FAILURE;
+ 
+  Cell dest = CELL_UNSET;
+
+  if(cell_compare(e->control->destination,  e->pos))
+    return BEHAVIOR_SUCCESS;
+  else{
+    if(e->control->goal==NULL)
+      return BEHAVIOR_FAILURE;
+
+    int depth = e->control->goal->dist;
+    bool found = false;
+    e->control->goal->path = StartRoute(e, e->control->goal, depth, &found);
+    if(!found)
+      return BEHAVIOR_FAILURE;
+
+    dest = RouteGetNext(e, e->control->goal->path);
   }
 
-  return BEHAVIOR_SUCCESS;
+  if(cell_compare(dest,CELL_UNSET))
+    return BEHAVIOR_FAILURE;
+
+  if(cell_compare(dest,e->pos))
+    return BEHAVIOR_SUCCESS;
+
+  e->control->destination = dest;
+  action_t* a = InitActionMove(e, ACT_MAIN, dest, 50);
+
+  ActionStatus a_status = QueueAction(e->control->actions, a);
+
+  if(a_status > ACT_STATUS_ERROR)
+    return BEHAVIOR_FAILURE;
+ 
+  e->control->destination = CELL_UNSET; 
+  return BEHAVIOR_RUNNING;
 }
 
 BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
@@ -293,29 +317,175 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
   return BEHAVIOR_FAILURE;
 }
 
-BehaviorStatus BehaviorBuildAllyTable(behavior_params_t *params){
+BehaviorStatus BehaviorCheckNeeds(behavior_params_t *params){
   ent_t* e = params->owner;
   if(!e)
     return BEHAVIOR_FAILURE;
 
-  ent_t* team[MOB_MAP_MAX];
+  for(int i = 1; i < N_DONE; i++){
+    int prio = 1 + e->control->needs[i]->status * i;
 
-  int count = WorldGetEnts(team, FilterEntByTeam, e);
-
-  AllyAdd(e->allies, e, 0);
-
-  for (int i = 0; i < count; i++){
-    int dist = cell_distance(e->pos, team[i]->pos);
-
-    if(!EntCanDetect(e, team[i], SEN_SEE))
-      continue;
-
-
-    AllyAdd(e->allies, team[i], dist);
-   
+    e->control->needs[i]->prio+=prio;
   }
 
   return BEHAVIOR_SUCCESS;
+}
+
+BehaviorStatus BehaviorCheckNeed(behavior_params_t *params){
+  ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->goal == NULL)
+    return BEHAVIOR_FAILURE;
+
+  switch(e->control->goal->cat){
+    case OBJ_ENT:
+      return BEHAVIOR_SUCCESS;
+    default:
+      return BEHAVIOR_FAILURE;
+  }
+}
+ 
+BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
+  ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->goal == NULL)
+    return BEHAVIOR_FAILURE;
+
+  switch(e->control->priority){
+    case N_HUNGER:
+      e->control->target = e->control->goal->other;
+      break;
+    default:
+      break;
+  }
+
+  return BEHAVIOR_SUCCESS;
+}
+
+BehaviorStatus BehaviorFindResource(behavior_params_t *params){
+  ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  need_t* need = e->control->needs[e->control->priority];
+  Resource res = need->resource;
+
+  if(res == RES_NONE)   
+    return BEHAVIOR_FAILURE;
+
+  define_resource_t r_def[RES_DONE] = {0};
+  bool found = false;
+  while(res){
+    Resource r = res & - res;
+    res &= res -1;
+
+    for(int i = 0; i < 20; i++){
+      if(DEF_RES[i].type != r)
+        continue;
+      found = true;
+      r_def[res] = DEF_RES[i];
+      break;
+    }
+  }
+
+  if(!found)
+    return BEHAVIOR_FAILURE;
+
+  for(int i = 0; i < RES_DONE; i++){
+    define_resource_t def = r_def[i];
+    if(def.type == RES_NONE)
+      continue;
+
+    local_ctx_t* ctx = EntLocateResource(e, def.type, def.cat);
+    
+    if(ctx == NULL)
+      return BEHAVIOR_FAILURE;
+
+    int cost = ctx->cost;
+    if(e->control->goal== NULL || e->control->goal->cost < cost)
+      e->control->goal = ctx;
+  }
+
+  return (e->control->goal==NULL)?BEHAVIOR_FAILURE:BEHAVIOR_SUCCESS;
+}
+
+BehaviorStatus BehaviorSeekResource(behavior_params_t *params){
+ ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->goal == NULL)
+    return BEHAVIOR_FAILURE;
+
+  Cell pos = CELL_UNSET;
+  switch(e->control->goal->cat){
+    case OBJ_ENT:
+      pos = e->control->goal->other->pos;
+      break;
+    case OBJ_ENV:
+      pos = e->control->goal->env->pos;
+      break;
+  }
+
+  if(cell_compare(pos, CELL_UNSET))
+    return BEHAVIOR_FAILURE;
+
+  if(cell_compare(pos, e->control->destination))
+    return BEHAVIOR_SUCCESS;
+
+
+  bool found;
+
+  e->control->goal->path = StartRoute(e, e->control->goal,e->control->goal->dist, &found);
+
+  if(!found)
+    return BEHAVIOR_FAILURE;
+
+  Cell next = RouteGetNext(e, e->control->goal->path);
+
+  if(cell_compare(next, CELL_UNSET))
+    return BEHAVIOR_FAILURE;
+  else{ 
+    e->control->destination = next; 
+    return BEHAVIOR_SUCCESS;
+  }
+
+  return BEHAVIOR_FAILURE;
+
+}
+
+BehaviorStatus BehaviorFillNeeds(behavior_params_t *params){
+  ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  int need = -1;
+  int highest = -1;
+  for(int i = 1; i < N_DONE; i++){
+    need_t* n = e->control->needs[i];
+    if(n->status <= NEED_OK)
+      continue;
+
+
+    int prio = n->status * n->prio;
+    if(prio < highest)
+      continue;
+
+    need = i;
+    highest = prio;
+
+  }
+
+  if(need > 0){
+    e->control->priority = need;
+    return BEHAVIOR_SUCCESS;
+  }
+
+  return BEHAVIOR_FAILURE;
 }
 
 BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params){

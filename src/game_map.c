@@ -463,6 +463,7 @@ Cell MapApplyContext(map_grid_t* m){
       m->tiles[x][y].fow = BLACK;  
       m->tiles[x][y].occupant = NULL;  
       MapSpawn(world_map.tiles[x][y],x,y);
+      RegisterMapCell(&m->tiles[x][y]);
     }
   }
   for(int r = 0; r < world_map.num_rooms; r++)
@@ -516,6 +517,7 @@ TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c){
   m->tiles[c.x][c.y].occupant =e;
   m->tiles[c.x][c.y].status = TILE_OCCUPIED;
 
+  WorldDebugCell(c, GREEN);
   e->map = m;
   return TILE_SUCCESS;
 }
@@ -539,6 +541,7 @@ TileStatus MapRemoveOccupant(map_grid_t* m, Cell c){
 
   m->tiles[c.x][c.y].status = TILE_EMPTY;
 
+  WorldDebugCell(c, YELLOW);
   return TILE_SUCCESS;
 }
 
@@ -721,7 +724,33 @@ void MapSpawn(TileFlags flags, int x, int y){
   if(flags & TILEFLAG_BORDER)
    return;
 
-  RegisterEnv(InitEnv(t,pos));
+  uint32_t tflags = EnvTileFlags[t];
+  uint32_t size = tflags&TILE_SIZE_MASK;
+  env_t* env = InitEnv(t,pos);
+  if(RegisterEnv(env)){
+    if(size==0)
+      return;
+    for (int i = 1; i < RES_DONE; i++){
+      define_resource_t* temp = GetResourceByCatFlags(i, OBJ_ENV, tflags);
+      if(!temp || temp->type!=i)
+        continue;
+
+
+      uint64_t amnt = size*temp->quantity;
+
+      resource_t *res = calloc(1,sizeof(resource_t));
+
+      *res = (resource_t){
+        .type = i,
+          .amount = amnt
+      };
+
+      if(!env->resources[i])
+        env->resources[i] = res;
+      else
+        env->resources[i]->amount+=amnt;
+    }
+  }
 
 }
 

@@ -20,24 +20,37 @@ extern Font font;
 static int fixedFPS = 60;
 
 typedef void (*UpdateFn)(void);
-typedef bool EntFilterFn(ent_t* e, ent_t* other); 
+typedef bool EntFilterFn(ent_t* e, param_t* ctx); 
 
-static bool FilterEntOtherTeam(ent_t* e, ent_t* other){
-  if(!other)
+static bool FilterEntOtherTeam(ent_t* e, param_t* ctx){
+  if(!ctx || ctx->type_id != DATA_INT)
     return false;
+
+  ent_t* other = ParamReadEnt(ctx);
 
   int team = other->team;
 
   return(e->team != team);
 }
 
-static bool FilterEntByTeam(ent_t* e, ent_t* other){
-  if(!other)
+static bool FilterEntByTeam(ent_t* e, param_t* ctx){
+  if(!ctx || ctx->type_id != DATA_INT)
     return false;
+
+  ent_t* other = ParamReadEnt(ctx);
 
   int team = other->team;
 
   return (e->team == team);
+}
+
+static bool FilterEntByState(ent_t* e,  param_t* ctx){
+  if(!ctx || ctx->type_id != DATA_INT)
+    return false;
+
+  EntityState state = ParamReadInt(ctx);
+
+  return (e->state != state);
 }
 
 //INTERACTIONS_T===>
@@ -160,7 +173,8 @@ typedef struct world_s{
   env_t*        envs[MAX_ENVS];
   render_text_t *texts[MAX_EVENTS];
   bool          floatytext_used[MAX_EVENTS];
-  events_t      *events[STEP_DONE]; 
+  events_t      *events[STEP_DONE];
+  debug_info_t  debug[DEBUG_ALL][MAX_DEBUG_ITEMS];
   world_data_t  *data;
   stat_t        *time;
 } world_t;
@@ -175,12 +189,13 @@ Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);
 map_cell_t* WorldGetTile(Cell pos);
 map_grid_t* WorldGetMap(void);
-int WorldGetEnts(ent_t** results,EntFilterFn fn, ent_t* e);
+int WorldGetEnts(ent_t** results,EntFilterFn fn, param_t* ctx);
 bool WorldGetTurnState(void);
 bool WorldAddEvent(event_uid_i eid, cooldown_t* cd, StepType when);
 bool RegisterBehaviorTree(BehaviorData data);
 bool RegisterEnt( ent_t *e);
 bool RegisterEnv( env_t *e);
+bool RegisterMapCell(map_cell_t* m);
 bool RegisterSprite(sprite_t *s);
 bool RegisterItem(ItemInstance g);
 void WorldInitOnce();
@@ -194,5 +209,8 @@ void WorldRender();
 Rectangle WorldRoomBounds();
 const char* GetWorldTime();
 int WorldGetTurn(void);
+void WorldDebugShape(Rectangle r); 
+void WorldDebugCell(Cell c, Color col);
+
 #endif
 

@@ -556,22 +556,49 @@ void AllySync(void* params){
   }
 }
 
-surroundings_t* InitSurroundings(ent_t* e){
-  surroundings_t* s = calloc(1,sizeof(surroundings_t));
+int LocalCompareAsc(const void* a, const void* b){
+  const local_ctx_t* A = (const local_ctx_t*)a;
+  const local_ctx_t* B = (const local_ctx_t*)b;
 
-  *s = (surroundings_t){
+  // Primary: dist
+  if (A->dist > B->dist) return  1;
+  if (A->dist < B->dist) return -1;
+
+  if (A->awareness > B->awareness) return -1;
+  if (A->awareness < B->awareness) return  1;
+
+  if (A->cr > B->cr) return -1;
+  if (A->cr < B->cr) return  1;
+
+  return 0;
+}
+
+local_table_t* InitLocals(ent_t* e){
+  local_table_t* s = calloc(1,sizeof(local_table_t));
+
+  *s = (local_table_t){
     .owner = e,
       .count = 0,
       .cap = 6,
-      .entries = calloc(6, sizeof(surrounding_ctx_t)),
+      .entries = calloc(6, sizeof(local_ctx_t)),
   };
 
   return s;
 }
 
-ent_t* RemoveEntryByRel(surroundings_t* t, SpeciesRelate rel){
+void LocalSortByDist(local_table_t* table){
+  if (!table || table->count <= 1)
+    return;
+
+  qsort(table->entries,
+      table->count,
+      sizeof(local_ctx_t),
+      LocalCompareAsc);
+}
+
+ent_t* RemoveEntryByRel(local_table_t* t, SpeciesRelate rel){
   for (int i = 0; i < t->count; i++){
-    surrounding_ctx_t *ctx = &t->entries[i];
+    local_ctx_t *ctx = &t->entries[i];
     if(ctx->prune || ctx->rel != rel)
       continue;
 
@@ -583,7 +610,7 @@ ent_t* RemoveEntryByRel(surroundings_t* t, SpeciesRelate rel){
   return NULL;
 }
 
-void SurroundPrune(surroundings_t* t){
+void LocalPrune(local_table_t* t){
   for (int i = 0; i < t->count; ) {
     if (!t->entries[i].other || t->entries[i].prune ||
         t->entries[i].other->state == STATE_DEAD)
@@ -596,21 +623,21 @@ void SurroundPrune(surroundings_t* t){
 
 }
 
-void SurroundEnsureCap(surroundings_t* t){
+void LocalEnsureCap(local_table_t* t){
   if (t->count < t->cap)
     return;
 
   t->cap *= 2;
   t->entries = realloc(t->entries,
-      t->cap * sizeof(surrounding_ctx_t));
+      t->cap * sizeof(local_ctx_t));
 
 }
 
-void AddSurroundings(surroundings_t* s, ent_t* e, SpeciesRelate rel){
-  SurroundEnsureCap(s);
+void AddLocals(local_table_t* s, ent_t* e, SpeciesRelate rel){
+  LocalEnsureCap(s);
 
   int dist = cell_distance(e->pos, s->owner->pos);
-  surrounding_ctx_t* ctx = &s->entries[s->count++];
+  local_ctx_t* ctx = &s->entries[s->count++];
 
   if(e->type == s->owner->type)
     rel = SPEC_KIN;
@@ -621,7 +648,64 @@ void AddSurroundings(surroundings_t* s, ent_t* e, SpeciesRelate rel){
   ctx->cr = EntGetChallengeRating(e);
   ctx->other = e;
   ctx->rel = rel;
+  ctx->cat = OBJ_ENT;
   ctx->dist = dist;
 
+  LocalSortByDist(s);
 }
 
+void LocalSync(local_table_t* s){
+  LocalPrune(s);
+  bool dist_change = false;
+  for(int i = 0; i < s->count; i++){
+    local_ctx_t* ctx = &s->entries[i];
+
+    ent_t* other = ctx->other;
+    int dist = cell_distance(s->owner->pos, other->pos);
+
+    if(dist==ctx->dist)
+      continue;
+
+    dist_change = true;
+    ctx->dist = dist;
+
+    if(dist > MAX_SEN_DIST){
+      if(ctx->awareness > 0)
+        ctx->awareness*=.25;
+
+      continue;
+    }
+
+    if((ctx->rel & SPEC_RELATE_NEGATIVE)==0)
+      continue;
+
+    bool detect = ctx->awareness > 1;
+    for(int j = 0; j<SEN_DONE; j++){
+      if(detect)
+        break;
+
+      if(EntCanDetect(s->owner, other, j))
+        detect = true;
+
+    }
+
+    for(int j = 0; j < TREAT_DONE; j++){
+      if(ctx->treatment[j] == 0)
+        continue;
+
+      if(!detect){
+        if(ctx->awareness > 0)
+          ctx->awareness*=0.5;
+
+        break;
+      }
+      float inc = ctx->treatment[j] / dist;
+      ctx->awareness += inc;
+      if(ctx->awareness > 1 && ((j & TREAT_AGGRO_MASK)>0))
+        ctx->engage = true;
+    }
+  }
+
+  if(dist_change)
+    LocalSortByDist(s);
+}

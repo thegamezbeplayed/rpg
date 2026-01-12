@@ -26,15 +26,14 @@ ent_t* InitEnt(EntityType id,Cell pos){
   ActionSlotAddAbility(e,InitAbility(e,ABILITY_MAGIC_MISSLE));
   e->stats[STAT_ACTIONS]->current = 1;
   e->pos = pos;
-  e->control = NULL;
   strcpy(e->name, "Michael");
   e->stats[STAT_ACTIONS]->on_stat_empty = EntActionsTaken;
   e->stats[STAT_ACTIONS]->current = 1;
   e->stats[STAT_ACTIONS]->max = 1;
  
-  e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE, DES_FACING, NULL,NULL);
-  e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
-  e->actions[ACTION_MAGIC] = InitAction(ACTION_MAGIC, DES_MULTI_TARGET, ActionMultiTarget,NULL);
+  e->actions[ACTION_MOVE] = InitActionTurn(ACTION_MOVE, DES_FACING, NULL,NULL);
+  e->actions[ACTION_ATTACK] = InitActionTurn(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
+  e->actions[ACTION_MAGIC] = InitActionTurn(ACTION_MAGIC, DES_MULTI_TARGET, ActionMultiTarget,NULL);
 
   e->aggro = calloc(1,sizeof(aggro_table_t));
   e->allies = calloc(1,sizeof(aggro_table_t));
@@ -107,20 +106,22 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   for (int i = 0; i< 4;i++)
     EntAddTraits(e->traits,res[i].mask, res[i].shift);
 
-  e->control->bt[STATE_SPAWN] = InitBehaviorTree(BEHAVIOR_SPAWN);
-  e->control->bt[STATE_IDLE] = InitBehaviorTree(BEHAVIOR_SEEK);
-  e->control->bt[STATE_WANDER] = InitBehaviorTree(BEHAVIOR_WANDER);
-  e->control->bt[STATE_AGGRO] = InitBehaviorTree(BEHAVIOR_MOB_AGGRO);
-  e->control->bt[STATE_ACTION] = InitBehaviorTree(BEHAVIOR_TAKE_ACTION);
-  e->control->bt[STATE_ATTACK] = InitBehaviorTree(BEHAVIOR_COMBAT);
+  e->control->bt[STATE_SPAWN] = InitBehaviorTree(BN_SPAWN);
+  e->control->bt[STATE_IDLE] = InitBehaviorTree(BN_SEEK);
+  e->control->bt[STATE_WANDER] = InitBehaviorTree(BN_WANDER);
+  e->control->bt[STATE_AGGRO] = InitBehaviorTree(BN_MOB_AGGRO);
+  e->control->bt[STATE_NEED] = InitBehaviorTree(BN_NEED);
+  e->control->bt[STATE_REQ] = InitBehaviorTree(BN_REQ);
+  e->control->bt[STATE_ACTION] = InitBehaviorTree(BN_TAKE_ACTION);
+  e->control->bt[STATE_ATTACK] = InitBehaviorTree(BN_COMBAT);
 
   e->control->ranges[RANGE_NEAR] = 2;
   e->control->ranges[RANGE_LOITER] = 3;
   e->control->ranges[RANGE_ROAM] = 4;
 
   InitActions(e->actions);
-  e->actions[ACTION_MOVE] = InitAction(ACTION_MOVE, DES_NONE, ActionTraverseGrid,NULL);
-  e->actions[ACTION_ATTACK] = InitAction(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
+  e->actions[ACTION_MOVE] = InitActionTurn(ACTION_MOVE, DES_NONE, ActionTraverseGrid,NULL);
+  e->actions[ACTION_ATTACK] = InitActionTurn(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
 
   for (int i = 0; i < ATTR_BLANK; i++){
     e->attribs[i] = InitAttribute(i,0);
@@ -239,7 +240,7 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   }
   e->team = RegisterFactionByType(e); 
   
-  e->surroundings = InitSurroundings(e);
+  e->local = InitLocals(e);
   return e;
 }
 
@@ -817,7 +818,12 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
 
       //class_choice->filtered = 0;
     }
-    
+
+   if(i == 0)
+    TraceLog(LOG_INFO,"== Ent %s built ===\nLevel %i Mass %i",e->name,
+        e->skills[SKILL_LVL]->val, (int)e->props->mass);
+
+
     EntPrepare(e);    
     pool[count++] = e;
 
@@ -858,6 +864,7 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
     }
   }
 
+  p->mass = GetMassByFlags(p->body, p->covering);
   p->traits |= racials.traits | mind.traits | body.traits;
   p->feats  = mind.feats | body.feats;
 
@@ -881,6 +888,13 @@ env_t* InitEnv(EnvTile t,Cell pos){
   //e->pos = pos;// = Vector2Add(Vector2Scale(e->sprite->slice->center,SPRITE_SCALE),pos);
 
   return e;
+}
+
+int EnvExtractResource(env_t* env, ent_t* ent, Resource res){
+  resource_t* r = env->resources[res];
+
+  if(r->amount == 0)
+    return 0;
 }
 
 void EntAddTraits(traits_t* t, uint64_t mask, uint64_t shift){
@@ -964,8 +978,9 @@ void EntPrepare(ent_t* e){
 void EntBuildAllyTable(ent_t* e){
   AllyAdd(e->allies, e, 0);
 
-  for (int i = 0; i < e->surroundings->count; i++){
-    ent_t* other = RemoveEntryByRel(e->surroundings, SPEC_KIN);
+  LocalSortByDist(e->local);
+  for (int i = 0; i < e->local->count; i++){
+    ent_t* other = RemoveEntryByRel(e->local, SPEC_KIN);
     if(other == NULL)
       break;
 
@@ -1126,6 +1141,37 @@ ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
   res->dmg_calc = a->dc->roll(a->dc, res->dmg_res);
 
   res->final_dmg = res->dmg_calc + res->d_bonus;
+  return res;
+}
+
+InteractResult EntConsume(ent_t* e, local_ctx_t* goal){
+  InteractResult res = IR_NONE;
+
+  int consumed = 0;
+  switch(goal->cat){
+    case OBJ_ENT:
+      break;
+    case OBJ_ENV:
+      consumed = EnvExtractResource(goal->env, e, goal->resource);
+      break;
+  }
+
+  return res;
+}
+
+InteractResult EntMeetNeed(ent_t* e, need_t* n){
+  InteractResult res = IR_NONE;
+  
+  switch(n->id){
+    case N_HUNGER:
+      EntConsume(e, n->goal);
+      break;
+
+    default:
+      break;
+
+  }
+
   return res;
 }
 
@@ -1325,9 +1371,12 @@ bool FreeEnt(ent_t* e){
 controller_t* InitController(ent_t* e){
   controller_t* ctrl = calloc(1,sizeof(controller_t));
 
+  ctrl->actions = InitActionPool(e);
   ctrl->destination = CELL_UNSET;
 
   ctrl->behave_traits = e->props->traits & TRAIT_CAP_MASK;
+  for(int i = 0; i < N_DONE; i++)
+    ctrl->needs[i] = InitNeed(i,e);
   return ctrl;
 }
 
@@ -1503,6 +1552,8 @@ void EntComputeFOV(ent_t* e){
 }
 
 void EntTurnSync(ent_t* e){
+  
+  LocalSync(e->local);
   for(int i = 0; i< STAT_ENT_DONE; i++){
     if(e->stats[i] ==NULL)
       continue;
@@ -1513,6 +1564,16 @@ void EntTurnSync(ent_t* e){
       e->stats[i]->on_turn(e->stats[i],0,0);
     }
   }
+
+  for(int i = 0; i < e->local->count; i++){
+    local_ctx_t* ctx = &e->local->entries[i];
+    if(!ctx->engage || ctx->aggro)
+      continue;
+    ent_t* other = ctx->other;
+    if(AggroAdd(e->aggro, e, other->props->offr, ctx->treatment[TREAT_KILL], false) > 0)
+      ctx->aggro = true;
+  }
+
 }
 
 void EntSync(ent_t* e){
@@ -1527,12 +1588,16 @@ void EntSync(ent_t* e){
 
 TileStatus EntGridStep(ent_t *e, Cell step){
   Cell newPos = CellInc(e->pos,step);
+  
   TileStatus status = MapSetOccupant(e->map,e,newPos);
 
   if(status < TILE_ISSUES){
-
+    Cell oldPos = e->pos;
+    //WorldDebugCell(e->pos, YELLOW);
     e->pos = newPos;
+
     e->facing = CellInc(e->pos,step);
+    //WorldDebugCell(e->pos, GREEN);
   }
   else
     e->facing = newPos;
@@ -1545,9 +1610,15 @@ void EntSetCell(ent_t *e, Cell pos){
 }
 
 void EntControlStep(ent_t *e){
-  if(!e->control || !e->control->bt || !e->control->bt[e->state])
+  if(!e->control) 
     return;
 
+  ActionPoolSync(e->control->actions);
+  for(int i = 0; i < N_DONE; i++)
+    NeedStep(e->control->needs[i]);
+
+  if(!e->control->bt || !e->control->bt[e->state])
+    return;
   behavior_tree_node_t* current = e->control->bt[e->state];
 
   current->tick(current, e);
@@ -1620,6 +1691,7 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s){
     case STATE_DIE:
       EntDestroy(e);
       break;
+    case STATE_REQ:
     default:
       break;
   }
@@ -1804,9 +1876,9 @@ bool EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
         return res > IR_CRITICAL_FAIL;
 }
 
-void EntAddSurroundings(ent_t* e, ent_t* other){
+void EntAddLocals(ent_t* e, ent_t* other){
   SpeciesRelate rel = GetSpecRelation(e->props->race, other->props->race);
-  AddSurroundings(e->surroundings, other, rel);
+  AddLocals(e->local, other, rel);
 
 }
 
@@ -1822,5 +1894,76 @@ bool EntCanDetect(ent_t* e, ent_t* tar, Senses s){
     return false;
 
   return EntSkillCheck(e, tar, SKILL_STEALTH);
+
+}
+
+Resource EntGetResourceByNeed(ent_t* e, Needs n){
+
+  switch(n){
+    case N_HUNGER:
+      mob_define_t def = MONSTER_MASH[e->type];
+      return def.eats;
+      break;
+    default:
+      return RES_NONE;
+      break;
+  }
+
+}
+
+uint64_t EntGetSize(ent_t* e){
+  return PQ_SMALL;
+}
+
+local_ctx_t* EntLocateResource(ent_t* e, Resource r, ObjectCategory cat){
+
+  bool picking = false;
+
+  local_table_t* local = e->local;
+  e->local->choice_pool = StartChoice(&local->choice_pool, local->count, ChooseCheapest, &picking);
+
+  if(!picking){
+    for(int i = 0; i < local->count; i++){
+      local_ctx_t *ctx = &local->entries[i];
+      if((ctx->rel & SPEC_DESIRE) == 0)
+        continue;
+      Cell pos = CELL_UNSET;
+      int score = -1;
+      switch(ctx->cat){
+        case OBJ_ENT:
+          pos = ctx->other->pos;
+          score = EntGetSize(ctx->other);
+          break;
+        case OBJ_ENV:
+          pos = ctx->env->pos;
+          score = ctx->env->resources[r]->amount;
+          break;
+      }
+
+      if(cell_compare(pos, CELL_UNSET))
+          continue;
+
+      if(score < 1)
+        continue;
+
+      int depth = ctx->awareness > 1? MAX_SEN_DIST*(ctx->awareness+0.5):MAX_SEN_DIST;
+
+      int cost = ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
+      if(cost < 0)
+        continue;
+
+      ctx->cost = cost;
+      AddPurchase(local->choice_pool, i, score, cost, ctx, ChoiceReduceScore);
+    }
+  }
+
+  choice_t* sel = local->choice_pool->choose(local->choice_pool);
+
+  if(sel == NULL || sel->context == NULL)
+    return NULL;
+
+
+  return sel->context;
+
 
 }

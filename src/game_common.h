@@ -12,8 +12,6 @@
 #define CELL_WIDTH 16
 #define CELL_HEIGHT 16
 
-#define GRID_WIDTH 128
-#define GRID_HEIGHT 128
 #define MAX_MAP_SIZE 128
 
 #define RATIO(s) ((s)->ratio((s)))
@@ -207,7 +205,6 @@ int RollDie(dice_roll_t* d, int* results);
 int RollDieAdvantage(dice_roll_t* d, int* results);
 dice_roll_t* Die(int side, int num);
 dice_roll_t* InitDie(int side, int num, int adv, DiceRollFunction fn);
-typedef struct env_s env_t;
 static inline bool LESS_THAN(int a, int b){
   return a<b;
 }
@@ -256,38 +253,6 @@ static AsiEvent GetAsiEventForLevel(int lvl) {
     return ASI_LVL_EVERY; // fallback
 }
 attribute_t* InitAttribute(AttributeType type, int val);
-
-typedef bool (*ActionKeyCallback)(struct ent_s* e, ActionType a, KeyboardKey k,ActionSlot slot);
-
-typedef struct{
-  ActionType        action;
-  int               num_keys;
-  KeyboardKey       keys[8];
-  ActionKeyCallback fn;
-  int               binding;
-}action_key_t;
-
-typedef bool (*OnActionCallback)(struct ent_s* e, ActionType a);
-typedef bool (*TakeActionCallback)(struct ent_s* e, ActionType a, OnActionCallback cb);
-
-typedef struct{
-  DesignationType   type;
-  union {
-    Cell* tile;
-    struct ent_s* mob;
-  } target;
-}action_target_t;
-
-typedef struct{
-  bool                on_deck;
-  ActionType          action;
-  DesignationType     targeting;
-  void*               context;
-  int                 num_targets;
-  action_target_t*    targets[5];
-  TakeActionCallback  fn;
-  OnActionCallback    cb;
-}action_turn_t;
 
 typedef struct sub_texture_s {
   int   tag;
@@ -390,6 +355,7 @@ typedef struct stat_s{
   struct ent_s  *owner;
   StatClassif   classif;
   StatGetter ratio;
+  Needs         need;
   StatCallback on_stat_change,on_stat_full, on_stat_empty,on_turn;
 } stat_t;
 
@@ -582,51 +548,6 @@ typedef struct{
   uint64_t     et_props;
 }ItemInstance;
 
-typedef struct{
-  Cell        coords;
-  TileStatus  status;
-  TileFlags   flags;
-  env_t*      tile;
-  ent_t*      occupant;
-  Color       fow;
-  bool        explored;
-}map_cell_t;
-
-typedef struct{
-  int             id;
-  RoomFlags       purpose;
-  int             num_mobs, total_cr, avg_cr, best_cr;
-  ent_t           *mobs[MOB_ROOM_MAX];
-  ent_t           *strongest; 
-}map_room_t;
-
-map_room_t* InitMapRoom(map_context_t* ctx, room_t* r);
-
-typedef struct{
-  MapID        id;
-  int          num_rooms;
-  map_room_t   *rooms[MAX_ROOMS];
-  map_cell_t   **tiles;
-  int          x,y,width,height;
-  int          step_size;
-  Color        floor;
-}map_grid_t;
-
-bool InitMap(void);
-void WorldMapLoaded(map_grid_t* m);
-map_grid_t* InitMapGrid(void);
-TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
-TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);
-ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status);
-map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
-TileStatus MapRemoveOccupant(map_grid_t* m, Cell c);
-TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c);
-void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);
-void MapSpawn(TileFlags flags, int x, int y);
-void MapSpawnMob(map_grid_t* m, int x, int y);
-void RoomSpawnMob(map_grid_t* m, room_t* r);
-
-Cell MapApplyContext(map_grid_t* m);
 
 EntityType MobGetByRules(MobRules rules);
 

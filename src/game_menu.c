@@ -99,7 +99,7 @@ ui_menu_t InitMenu(MenuId id,Vector2 pos, Vector2 size, UIAlignment align,UILayo
 }
 
 ui_element_t* GetElement(const char* name){
-  uint32_t hash = hash_str(name);
+  uint32_t hash = hash_str_32(name);
 
   for (int i = 0; i < MAX_ELEMENTS; i++){
     if(ui.elements[i]->hash != hash)
@@ -115,7 +115,7 @@ ui_element_t* InitElement(const char* name, ElementType type, Vector2 pos, Vecto
   ui_element_t* u = malloc(sizeof(ui_element_t));
   *u = (ui_element_t) {0};
 
-  u->hash = hash_str(name);
+  u->hash = hash_str_32(name);
   u->num_children = 0;
   u->type = type;
   u->state = ELEMENT_IDLE;
@@ -144,7 +144,7 @@ ui_element_t* InitGameElement(ent_t* e){
   Vector2 pos = VECTOR2_ZERO;
   Vector2 size = RectSize(RectScale(e->sprite->slice->bounds,ScreenSized(SIZE_SCALE)));
   const char* name = TextFormat("TILE%i%i",e->pos.x,e->pos.y);
-  u->hash = hash_str(name);
+  u->hash = hash_str_32(name);
   u->num_children = 0;
   u->type = UI_GAME;
   u->state = ELEMENT_NONE;

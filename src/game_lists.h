@@ -55,9 +55,9 @@ static stat_name_t STAT_STRING[STAT_ENT_DONE]={
 };
 
 static stat_relate_t STAT_RELATION[STAT_ENT_DONE] = {
-  [STAT_HEALTH] = {STAT_HEALTH, STAT_HEALTH_REGEN_RATE},
-  [STAT_STAMINA] = {STAT_STAMINA, STAT_STAMINA_REGEN_RATE},
-  [STAT_ENERGY] = {STAT_ENERGY, STAT_ENERGY_REGEN_RATE},
+  [STAT_HEALTH] = {STAT_HEALTH, STAT_HEALTH_REGEN_RATE, N_THIRST},
+  [STAT_STAMINA] = {STAT_STAMINA, STAT_STAMINA_REGEN_RATE, N_HUNGER},
+  [STAT_ENERGY] = {STAT_ENERGY, STAT_ENERGY_REGEN_RATE, N_THIRST},
   [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN, STAT_STAMINA},
   [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN, STAT_ENERGY},
   [STAT_HEALTH_REGEN] = {STAT_HEALTH_REGEN, STAT_HEALTH},
@@ -317,6 +317,7 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   {SPEC_ARTHROPOD, "Crawly", ENT_NONE,
     RACE_MOD_ALPHA | RACE_MOD_ENLARGE | RACE_TACTICS_CRUDE | RACE_DIFF_LVL | RACE_DIFF_ALPHA,
     TRAIT_POISON_RESIST,
+    PQ_NO_BONES | PQ_TINY | PQ_MANY_EYES | PQ_OCTPED | PQ_LIGHT,
     MQ_SIMPLE | MQ_CAUTIOUS | MQ_ALERT | MQ_HIVE_MIND,
     PB_NONE,
     0,
@@ -329,7 +330,7 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   {SPEC_CANIFORM, "Predator", ENT_NONE,
     RACE_MOD_ENLARGE | RACE_MOD_ALPHA | RACE_TACTICS_CRUDE | RACE_DIFF_LVL | RACE_DIFF_ALPHA,
     0,
-    PQ_LARGE_NOSE | PQ_LARGE_EARS | PQ_BIPED, MQ_AGGRESSIVE | MQ_TERRITORIAL,
+    PQ_TAIL | PQ_LARGE_NOSE | PQ_LARGE_EARS | PQ_BIPED, MQ_AGGRESSIVE | MQ_TERRITORIAL,
     PQ_CLAWS | PQ_TEETH,
     PQ_FUR,
     0,
@@ -348,7 +349,7 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   { SPEC_RUMINANT, "Grazer", ENT_NONE,
     RACE_MOD_ENLARGE | RACE_MOD_ALPHA | RACE_TACTICS_CRUDE | RACE_DIFF_ALPHA,
     0,
-    PQ_SMALL | PQ_QUADPED | PQ_LARGE_EARS,
+    PQ_QUADPED | PQ_LARGE_EARS,
     MQ_SIMPLE | MQ_CAUTIOUS | MQ_ALERT | MQ_PROTECTIVE,
     PQ_HORNED,
     PQ_FUR | PQ_HIDE,
@@ -358,7 +359,7 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   {SPEC_SULKING, "Kobold", ENT_NONE,
     RACE_MOD_CLASS | RACE_TACTICS_CRUDE | RACE_DIFF_LVL | RACE_DIFF_ALPHA,
     0,  
-    PQ_SENSITIVE_NOSE | PQ_LARGE_EARS | PQ_BIPED | PQ_TAIL,
+    PQ_SENSITIVE_NOSE | PQ_LARGE_EARS | PQ_BIPED,
     MQ_SIMPLE | MQ_CAUTIOUS | MQ_ALERT | MQ_TERRITORIAL,
     PQ_TOUGH_TEETH | PQ_TEETH,
     PQ_FUR,
@@ -1111,6 +1112,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {0,0}, 4,
       0.5,
       SOC_PRIMITIVE,
+      RES_MEAT,
       .flags = {
         PQ_SMALL | PQ_LIGHT
       } 
@@ -1126,7 +1128,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {0,0}, 9,
       1.15,
       SOC_MARTIAL,
-      .promotions = {[CLASS_BASE_FIGHTER] = 2, [CLASS_BASE_BERZ] = 2, [CLASS_BASE_SHAMAN] = 1}
+      RES_MEAT,
   },
   {ENT_OGRE},
   {ENT_HOBGOBLIN, "Hobgoblin",
@@ -1140,6 +1142,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {0,0}, 12,
       1.2f,
       SOC_MARTIAL,
+      RES_MEAT,
       .flags = {
         PQ_LONG_LIMB,
         MQ_STRATEGIC | MQ_DISCIPLINED | MQ_LEADER
@@ -1155,6 +1158,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {75,67}, 3,
     .65,
     SOC_INSTINCTIVE,
+    RES_BLOOD,
   },
   {ENT_SPIDER, "Spider",
       MOB_MOD_ENLARGE |
@@ -1166,6 +1170,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {80,69}, 2,
     0.25,
     SOC_INSTINCTIVE,
+    RES_BLOOD,
     .flags = {
       PQ_MANY_EYES,
       .weaps = PQ_FANGS | PQ_POISON_FANGS
@@ -1181,7 +1186,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       SPEC_GIANT,
       {6,5}, 5,
       2.25f,
-      SOC_INSTINCTIVE
+      SOC_INSTINCTIVE,
+      RES_MEAT|RES_BONE,
   },
   {ENT_TROLL_CAVE, "Cave Troll",
     MOB_SPAWN_LAIR |
@@ -1193,7 +1199,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     SPEC_GIANT,
     {1,5}, 6,
     2.75f,
-    SOC_INSTINCTIVE
+    SOC_INSTINCTIVE,
+    RES_MEAT|RES_BONE,
   },
   {ENT_BEAR, "Bear",
       MOB_SPAWN_LAIR |
@@ -1204,6 +1211,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {32,0}, 2,
       .975,
       SOC_FERAL,
+      RES_MEAT|RES_BONE,
       .flags = {
         PQ_LARGE | PQ_DENSE_MUSCLE | PQ_LARGE_HANDS,
       0, PQ_SHARP_CLAWS | PQ_SHARP_TEETH | PQ_TOUGH_CLAWS,
@@ -1219,6 +1227,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {64,0}, 1,
       0.65,
       SOC_FERAL,
+      RES_MEAT|RES_BONE,
       .flags = {
         PQ_SENSITIVE_NOSE
       }
@@ -1232,7 +1241,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       SPEC_RODENT,
       {24,69}, 1,
       .25,
-      SOC_HIVE
+      SOC_HIVE,
+      RES_BLOOD | RES_VEG,
   },
   {ENT_SKELETON,"Skeleton",
     MOB_THEME_MONSTER
@@ -1246,7 +1256,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     SPEC_RUMINANT,
     {60,0}, 2,
     0.375,
-    SOC_FAMILY
+    SOC_FAMILY,
+    RES_VEG,
   },
   {ENT_KOBOLD, "Kobold",
     MOB_MOD_WEAPON | MOB_LOC_FOREST | MOB_LOC_CAVE |
@@ -1257,7 +1268,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {69,24}, 1,
     0.375,
     SOC_INSTINCTIVE,
-    .flags = PQ_SMALL
+    RES_MEAT|RES_BONE,
+    .flags = PQ_TAIL | PQ_SMALL
   },
   {ENT_BUGBEAR, "Bugbear",
     MOB_SPAWN_CHALLENGE | MOB_SPAWN_LAIR | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
@@ -1269,13 +1281,13 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {54,8}, 3,
     1.25,
     SOC_PRIMITIVE,
+    RES_MEAT|RES_BONE,
     .flags = {
-      PQ_LARGE_NOSE | PQ_LARGE | PQ_DENSE_MUSCLE | PQ_LONG_LIMB,
+      PQ_LARGE_HANDS | PQ_LARGE_NOSE | PQ_TALL | PQ_DENSE_MUSCLE | PQ_LONG_LIMB,
       MQ_SENTIENT,
       PQ_SHARP_TEETH | PQ_SHARP_CLAWS,
       PQ_THICK_FUR
     },
-    .promotions = {[CLASS_BASE_FIGHTER] = 2, [CLASS_BASE_RANGER] =2, [CLASS_BASE_ROGUE] =2}
   }
 
 };

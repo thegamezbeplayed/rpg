@@ -1,11 +1,11 @@
 #ifndef __GAME_TYPES__
 #define __GAME_TYPES__
 
-#include "game_common.h"
 #include "game_assets.h"
 #include "game_utils.h"
 #include "raylib.h"
 #include "game_math.h"
+#include "game_control.h"
 
 #define MAX_ENTS 128  
 #define MAX_ENVS 4096  
@@ -77,25 +77,35 @@ static void AllyEnsureCapacity(ally_table_t* t);
 int AllyAdd(ally_table_t* t, ent_t* source, int dist);
 void AllySync(void* params);
 
-typedef struct{
-  ent_t*        other;
-  bool          prune;
-  SpeciesRelate rel;
-  int           cr;
-  float         treatment[TREAT_DONE];
-  int           dist;
-}surrounding_ctx_t;
+typedef struct local_ctx_s{
+  ent_t*              other;
+  env_t*              env;
+  path_cache_entry_t* path;
+  ObjectCategory      cat;
+  Resource            resource;
+  bool                prune, engage, aggro;
+  float               awareness;
+  SpeciesRelate       rel;
+  int                 cr;
+  float               treatment[TREAT_DONE];
+  int                 dist, cost;
+}local_ctx_t;
 
 typedef struct{
   ent_t*             owner;
-  surrounding_ctx_t* entries;
+  local_ctx_t*       entries;
   int                count,cap;
-}surroundings_t;
+  choice_pool_t*     choice_pool;
+}local_table_t;
 
-surroundings_t* InitSurroundings(ent_t* e);
-void AddSurroundings(surroundings_t*, ent_t* e, SpeciesRelate rel);
-void EntAddSurroundings(ent_t* e, ent_t* other);
-ent_t* RemoveEntryByRel(surroundings_t*, SpeciesRelate rel);
+local_table_t* InitLocals(ent_t* e);
+void LocalSync(local_table_t* s);
+void AddLocals(local_table_t*, ent_t* e, SpeciesRelate rel);
+void AddLocalEnv(local_table_t*, env_t* e, SpeciesRelate rel);
+void EntAddLocals(ent_t* e, ent_t* other);
+ent_t* RemoveEntryByRel(local_table_t*, SpeciesRelate rel);
+void LocalSortByDist(local_table_t* table);
+
 typedef struct{
   SpeciesType   race;
   int           rank;
@@ -104,6 +114,7 @@ typedef struct{
   char          race_name[MAX_NAME_LEN];
   char          role_name[MAX_NAME_LEN];
   float         base_diff;
+  uint64_t      mass, consume;
   PhysQual      body;
   MentalQual    mind;
   PhysBody      covering;
@@ -157,14 +168,6 @@ struct ability_sim_s{
 };
 
 ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target);
-typedef struct{
-  ActionSlot     id;
-  ActionType     allowed[ACTION_SLOTTED];
-  ent_t*         owner;
-  StatType       resource;
-  int            count, cap, size, space, rank, pref;
-  ability_t      **abilities;
-}action_slot_t;
 
 typedef struct{
   ItemSlot      id;
@@ -183,9 +186,6 @@ void InventoryPoll(ent_t*, ItemSlot id);
 void InventorySetPrefs(inventory_t* inv, uint64_t traits);
 bool InventoryAddItem(ent_t* e, item_t* i);
 item_t* InventoryGetEquipped(ent_t* e, ItemSlot id);
-void ActionSlotSortByPref(ent_t* owner, int *pool, int count);
-action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap);
-bool ActionSlotAddAbility(ent_t* owner, ability_t* a);
 extern ability_t ABILITIES[ABILITY_DONE];
 void AbilityApplyValues(ability_t* self, value_t* v);
 ability_t AbilityLookup(AbilityID id);
@@ -258,9 +258,13 @@ item_def_t* GetItemDefByID(GearID id);
 
 typedef struct{
   ent_t*                  target;
+  action_pool_t*          actions;
   Cell                    start,destination;
   int                     ranges[RANGE_EMPTY];
   behavior_tree_node_t*   bt[STATE_END];
+  need_t                  *needs[N_DONE];
+  Needs                   priority;
+  local_ctx_t*            goal;
   ability_t*              pref;
   uint64_t                behave_traits;
   choice_pool_t           *choices[ACTION_PASSIVE];
@@ -283,6 +287,7 @@ typedef struct {
 }trait_pool_t;
 //===ENT_T===>
 struct ent_s{
+  game_object_uid_i     gouid;
   int                   uid;
   char                  name[MAX_NAME_LEN];
   uint64_t              class_id;
@@ -306,7 +311,7 @@ struct ent_s{
   float                 challenge;
   aggro_table_t*        aggro;
   ally_table_t*         allies;
-  surroundings_t*       surroundings;
+  local_table_t*        local;
   struct ent_s*         last_hit_by;
   Faction               team;
 };
@@ -329,6 +334,7 @@ void EntToggleTooltip(ent_t* e);
 void EntInitOnce(ent_t* e);
 //attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
+InteractResult EntMeetNeed(ent_t* e, need_t* n);
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source);
 InteractResult EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
 bool EntSkillCheck(ent_t* owner, ent_t* target, SkillType s);
@@ -369,40 +375,22 @@ item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s);
 bool EntSyncSight(ent_t* e, ActionType a);
 void EntComputeFOV(ent_t* e);
 char* EntGetClassNamePretty(ent_t* e);
+uint64_t EntGetSize(ent_t* e);
+
+Resource EntGetResourceByNeed(ent_t* e, Needs n);
+local_ctx_t* EntLocateResource(ent_t* e, Resource r, ObjectCategory cat);
+
 void EntActionsTaken(stat_t* self, float old, float cur);
 bool EntCanTakeAction(ent_t* e);
-void InitActions(action_turn_t* actions[ACTION_DONE]);
-action_turn_t* InitAction(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb);
-bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k, ActionSlot slot);
-bool ActionMove(ent_t*, ActionType a, KeyboardKey k, ActionSlot slot);
-void ActionStandby(ent_t* e);
-void ActionSync(ent_t* e);
-bool ActionInput(void);
-bool SetAction(ent_t* e, ActionType a, void* context, DesignationType targeting);
-bool ActionTaken(ent_t* e, ActionType a);
-bool TakeAction(ent_t* e, action_turn_t* action);
-bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb);
-ActionType ActionGetEntNext(ent_t* e);
-bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb);
-bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb);
-void ActionSetTarget(ent_t* e, ActionType a, void* target);
-
-static action_key_t action_keys[ACTION_DONE] = {
-  {ACTION_NONE},
-  {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ActionMove,SLOT_NONE},
-  {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack,SLOT_ATTACK},
-  {ACTION_WEAPON,0},
-  {ACTION_ITEM,1,{KEY_V},ActionPlayerAttack,SLOT_ITEM},
-  {ACTION_MAGIC,1,{KEY_M},ActionPlayerAttack,SLOT_SPELL},
+struct env_s{
+  game_object_uid_i     gouid;
+  int         uid;
+  resource_t  *resources[RES_DONE];
+  EnvTile     type;
+  Vector2     vpos;
+  Cell        pos;
+  sprite_t    *sprite;
 };
-
-typedef struct env_s{
-  int       uid;
-  EnvTile   type;
-  Vector2   vpos;
-  Cell      pos;
-  sprite_t  *sprite;
-}env_t;
 
 env_t* InitEnv(EnvTile t,Cell pos);
 
