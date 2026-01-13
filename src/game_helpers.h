@@ -1051,7 +1051,65 @@ static inline uint64_t GetMassByFlags(PhysQual pq, PhysBody pb){
   }
 
   return coeff * mass;
+}
+
+static bool HasResource(Resource res, Resource des){
+
+  while(res){
+    Resource r = res & - res;
+    res &= res -1;
+
+    if(r == des)
+      return true;
 
 
+  }
+
+  return false;
+}
+
+static uint32_t GetEnvSize(TileFlags flags){
+  uint32_t f_size = flags & TILE_SIZE_MASK;
+
+  uint32_t size = 0x100;
+
+  switch(size){
+    case TILEFLAG_SIZE_XS:
+      size = 0x040;
+      break;
+    case TILEFLAG_SIZE_SM:
+      size = 0x080;
+      break;
+    case TILEFLAG_SIZE_L:
+      size = 0x400;
+      break;
+    case TILEFLAG_SIZE_XL:
+      size = 0x800;
+      break;
+    case TILEFLAG_SIZE_MAX:
+      size = 0xF00;
+      break;
+  }
+  flags &= size;
+  uint32_t coeff = 0x1;
+  while(flags){
+    uint32_t flag = flags & -flags;
+    flags &= flags - 1;
+
+    switch(flag){
+      case TILEFLAG_TREE:
+        coeff += 0x200;
+        break;
+      case TILEFLAG_FOREST:
+        coeff += 0x1000;
+        break;
+      case TILEFLAG_DECOR:
+      case TILEFLAG_DEBRIS:
+        size*=0.5;
+        break;
+    }
+  }
+
+  return coeff * size;
 }
 #endif

@@ -83,6 +83,7 @@ typedef struct local_ctx_s{
   path_cache_entry_t* path;
   ObjectCategory      cat;
   Resource            resource;
+  Interactive         method;
   bool                prune, engage, aggro;
   float               awareness;
   SpeciesRelate       rel;
@@ -103,6 +104,7 @@ void LocalSync(local_table_t* s);
 void AddLocals(local_table_t*, ent_t* e, SpeciesRelate rel);
 void AddLocalEnv(local_table_t*, env_t* e, SpeciesRelate rel);
 void EntAddLocals(ent_t* e, ent_t* other);
+void EntAddLocalEnv(ent_t* e, env_t* ev);
 ent_t* RemoveEntryByRel(local_table_t*, SpeciesRelate rel);
 void LocalSortByDist(local_table_t* table);
 
@@ -258,6 +260,8 @@ item_def_t* GetItemDefByID(GearID id);
 
 typedef struct{
   ent_t*                  target;
+  int                     turn;
+  TurnPhase               phase;
   action_pool_t*          actions;
   Cell                    start,destination;
   int                     ranges[RANGE_EMPTY];
@@ -316,7 +320,7 @@ struct ent_s{
   Faction               team;
 };
 
-ent_t* InitEntByRace(mob_define_t def, MobRules rules);
+ent_t* InitEntByRace(mob_define_t def);
 ent_t* InitEnt(EntityType id, Cell pos);
 ent_t* InitMob(EntityType mob, Cell pos);
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race);
@@ -352,7 +356,7 @@ void EntSetCell(ent_t *e, Cell pos);
 void EntAddExp(ent_t *e, int exp);
 void EntAddPos(ent_t *e, Vector2 pos);
 void EntSetPos(ent_t *e, Vector2 pos);
-void EntControlStep(ent_t *e);
+void EntControlStep(ent_t *e, int turn, TurnPhase phase);
 int EntGetChallengeRating(ent_t* e);
 int EntGetDefRating(ent_t* e);
 int EntGetOffRating(ent_t* e);
@@ -381,10 +385,10 @@ Resource EntGetResourceByNeed(ent_t* e, Needs n);
 local_ctx_t* EntLocateResource(ent_t* e, Resource r, ObjectCategory cat);
 
 void EntActionsTaken(stat_t* self, float old, float cur);
-bool EntCanTakeAction(ent_t* e);
 struct env_s{
   game_object_uid_i     gouid;
   int         uid;
+  Resource    has_resources;
   resource_t  *resources[RES_DONE];
   EnvTile     type;
   Vector2     vpos;

@@ -1398,6 +1398,9 @@ need_t* InitNeed(Needs id, ent_t* owner){
 }
 
 void NeedSyncMeter(need_t* n, int amount){
+  if(n->val < 0)
+    amount = 128;
+
   n->meter+=amount;
 
   if(n->meter < (int)NREQ_AVG)
@@ -1410,7 +1413,8 @@ void NeedSyncMeter(need_t* n, int amount){
   if(n->val < n->vals[n->status])
     return;
 
-  n->status++;
+  if(n->status < NEED_CRITICAL)
+    n->status++;
 }
 
 void NeedIncrement(Needs id, ent_t* owner, int amount){
@@ -1419,8 +1423,28 @@ void NeedIncrement(Needs id, ent_t* owner, int amount){
   NeedSyncMeter(n, amount);
   
 }
+void NeedReset(need_t* n){
+  n->activity = false;
+
+  for(int i = NEED_CRITICAL; i > -1; i--){
+    if (n->val > n->vals[i])
+      break;
+    n->prio*=0.5;
+    n->status = i;
+  }
+
+  if(n->status > NEED_MET)
+    return;
+
+  n->prio = 0;
+  n->goal = NULL;
+}
 
 void NeedStep(need_t* n){
+  if(n->activity){
+    NeedReset(n);
+    return;
+  }
 
   int r = RandRange(0, (int)NREQ_MIN);
 

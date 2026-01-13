@@ -612,13 +612,25 @@ ent_t* RemoveEntryByRel(local_table_t* t, SpeciesRelate rel){
 
 void LocalPrune(local_table_t* t){
   for (int i = 0; i < t->count; ) {
-    if (!t->entries[i].other || t->entries[i].prune ||
-        t->entries[i].other->state == STATE_DEAD)
-    {
-      t->entries[i] = t->entries[--t->count];
-    } else {
-      i++;
+    local_ctx_t* ctx = &t->entries[i];
+
+    bool prune = false;
+    switch(ctx->cat){
+      case OBJ_ENT:
+        if (!ctx->other || ctx->prune ||
+            ctx->other->state == STATE_DEAD)
+          prune = true;
+        break;
+      case OBJ_ENV:
+        if(ctx->env->has_resources == 0)
+          prune = true;
+        break;
     }
+
+    if(prune)
+      t->entries[i] = t->entries[--t->count];
+    else 
+      i++;
   }
 
 }
@@ -627,9 +639,36 @@ void LocalEnsureCap(local_table_t* t){
   if (t->count < t->cap)
     return;
 
-  t->cap *= 2;
+  t->cap += 6;
   t->entries = realloc(t->entries,
       t->cap * sizeof(local_ctx_t));
+
+}
+
+void AddLocalEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
+  LocalEnsureCap(s);
+
+  int dist = cell_distance(e->pos, s->owner->pos);
+  local_ctx_t* ctx = &s->entries[s->count++];
+
+  ctx->env = e;
+  ctx->rel = rel;
+  ctx->cat = OBJ_ENV;
+  ctx->dist = dist;
+
+  int count = 0;
+  int score = 0;
+  for(int i = 0; i < RES_DONE; i++){
+    if(!e->resources[i] || e->resources[i]->amount == 0)
+      continue;
+
+    ctx->resource |= i;
+    count++;
+    score += e->resources[i]->amount;
+  }
+
+  ctx->cr =  score/count;
+  LocalSortByDist(s);
 
 }
 
@@ -653,6 +692,55 @@ void AddLocals(local_table_t* s, ent_t* e, SpeciesRelate rel){
 
   LocalSortByDist(s);
 }
+bool LocalEntCheck(ent_t* e, local_ctx_t* ctx){
+  bool change = false;  
+  ent_t* other = ctx->other;
+  int dist = cell_distance(e->pos, other->pos);
+
+  if(dist==ctx->dist)
+    return change;
+
+  change = true;
+  ctx->dist = dist;
+
+  if(dist > MAX_SEN_DIST){
+    if(ctx->awareness > 0)
+      ctx->awareness*=.25;
+
+    return change;
+  }
+
+  if((ctx->rel & SPEC_RELATE_NEGATIVE)==0)
+    return change;
+
+  bool detect = ctx->awareness > 1;
+  for(int j = 0; j<SEN_DONE; j++){
+    if(detect)
+      break;
+
+    if(EntCanDetect(e, other, j))
+      detect = true;
+
+  }
+
+  for(int j = 0; j < TREAT_DONE; j++){
+    if(ctx->treatment[j] == 0)
+      continue;
+
+    if(!detect){
+      if(ctx->awareness > 0)
+        ctx->awareness*=0.5;
+
+      break;
+    }
+    float inc = ctx->treatment[j] / dist;
+    ctx->awareness += inc;
+    if(ctx->awareness > 1 && ((j & TREAT_AGGRO_MASK)>0))
+      ctx->engage = true;
+  }
+
+  return true;
+}
 
 void LocalSync(local_table_t* s){
   LocalPrune(s);
@@ -660,50 +748,10 @@ void LocalSync(local_table_t* s){
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
 
-    ent_t* other = ctx->other;
-    int dist = cell_distance(s->owner->pos, other->pos);
-
-    if(dist==ctx->dist)
+    if(ctx->cat != OBJ_ENT)
       continue;
-
-    dist_change = true;
-    ctx->dist = dist;
-
-    if(dist > MAX_SEN_DIST){
-      if(ctx->awareness > 0)
-        ctx->awareness*=.25;
-
-      continue;
-    }
-
-    if((ctx->rel & SPEC_RELATE_NEGATIVE)==0)
-      continue;
-
-    bool detect = ctx->awareness > 1;
-    for(int j = 0; j<SEN_DONE; j++){
-      if(detect)
-        break;
-
-      if(EntCanDetect(s->owner, other, j))
-        detect = true;
-
-    }
-
-    for(int j = 0; j < TREAT_DONE; j++){
-      if(ctx->treatment[j] == 0)
-        continue;
-
-      if(!detect){
-        if(ctx->awareness > 0)
-          ctx->awareness*=0.5;
-
-        break;
-      }
-      float inc = ctx->treatment[j] / dist;
-      ctx->awareness += inc;
-      if(ctx->awareness > 1 && ((j & TREAT_AGGRO_MASK)>0))
-        ctx->engage = true;
-    }
+  
+    dist_change = LocalEntCheck(s->owner, ctx);
   }
 
   if(dist_change)

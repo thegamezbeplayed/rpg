@@ -112,6 +112,28 @@ void ActionManagerBuildQueue(TurnPhase phase, ActionCategory cat){
     TraceLog(LOG_INFO,"==== PHASE %i built with %i actions ====", phase, ActionMan.round[phase].count);
 }
 
+ActionStatus ActionAttack(action_t* a){
+
+}
+
+ActionStatus ActionInteract(action_t* a){
+  InteractResult res = IR_NONE;
+
+  ActionStatus status = ACT_STATUS_ERROR;
+  switch(a->ctx.type_id){
+    case DATA_NEED:
+      need_t n = ParamReadNeed(&a->ctx);
+      res = EntMeetNeed(a->owner, &n);
+      status = ACT_STATUS_TAKEN;
+      break;
+  }
+
+  a->status = status;
+
+  return status;
+}
+
+
 ActionStatus ActionMove(action_t* a){
   if(a->ctx.type_id != DATA_CELL)
     return ACT_STATUS_BAD_DATA;
@@ -132,13 +154,7 @@ ActionStatus ActionRun(action_t* a){
 
   a->status = ACT_STATUS_RUNNING;
   ActionStatus res = ACT_STATUS_ERROR;
-  switch(a->type){
-    case ACTION_MOVE:
-      res = ActionMove(a);
-      break;
-    default:
-      break;
-  }
+  res = a->fn(a);
 
   if(a->owner->type == ENT_PERSON && a->status != ACT_STATUS_TAKEN)
     DO_NOTHING();
@@ -209,6 +225,7 @@ void ActionManagerEndRound(TurnPhase phase){
   ActionMan.round[phase].count = 0;
 
 }
+
 void ActionManagerReset(){
   for(int i = 0; i < TURN_ALL; i++)
     ActionManagerEndRound(i);
@@ -285,13 +302,46 @@ action_t* InitAction(ent_t* e, uint64_t id, ActionType type, ActionCategory cat,
   return a;
 }
 
+action_t* InitActionAttack(ent_t* e, ActionCategory cat, ent_t* tar, int weight){
+
+}
+
+action_t* InitActionFulfill(ent_t* e, ActionCategory cat, need_t* n, int weight){
+
+  uint64_t id = hash_combine_64(e->gouid, n->id);
+
+  param_t ctx = ParamMake(DATA_NEED, sizeof(need_t), n);
+  action_t* a = InitAction(e, id, ACTION_INTERACT, cat, ctx, weight);
+
+  a->fn = ActionInteract;
+
+  return a;
+}
+
+action_t* InitActionInteract(ent_t* e, ActionCategory cat, local_ctx_t* ctx, int weight){
+  
+  uint64_t other = ctx->cat== DATA_ENTITY? ctx->other->gouid: ctx->env->gouid;
+  param_t param = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), ctx);
+
+  uint64_t id = hash_combine_64(e->gouid, other);
+
+
+  action_t* a = InitAction(e, id, ACTION_MOVE, cat, param, weight);
+  
+  a->fn = ActionInteract;
+
+  return a;
+}
+
 action_t* InitActionMove(ent_t* e, ActionCategory cat, Cell dest, int weight){
 
   int id = IntGridIndex(dest.x, dest.y);
 
   param_t ctx = ParamMake(DATA_CELL, sizeof(Cell), &dest);
 
-  return InitAction(e, id, ACTION_MOVE, cat, ctx, weight);
+  action_t* a = InitAction(e, id, ACTION_MOVE, cat, ctx, weight);
+
+  a->fn = ActionMove;
 }
 
 action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap){
@@ -430,24 +480,7 @@ void ActionPoolSync(action_pool_t* p){
 
   p->valid = true;
 }
-
-
-void InitActions(action_turn_t* actions[ACTION_DONE]){
-  for (int i = 0; i < ACTION_DONE; i++)
-    actions[i] = InitActionTurn(ACTION_NONE,DES_NONE,NULL,NULL);
-}
-
-action_turn_t* InitActionTurn(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb){
-  action_turn_t* a = calloc(1,sizeof(action_turn_t));
-
-  a->targeting = targeting;
-  a->action = t;
-  a->fn = fn;
-  a->cb = cb;
-  return a;
-}
-
-
+/*
 bool ActionPlayerAttack(ent_t* e, ActionType type, KeyboardKey k,ActionSlot slot){
  if(!EntCanTakeAction(e))
     return false;
@@ -474,50 +507,7 @@ bool ActionPlayerAttack(ent_t* e, ActionType type, KeyboardKey k,ActionSlot slot
 
   return false;
 }
-
-bool ActionTurnMove(ent_t* e, ActionType a, KeyboardKey k, ActionSlot slot){
-  if(!EntCanTakeAction(e))
-    return false;
-
-  Cell dir;
-
-  switch(k){
-    case KEY_A:
-    case KEY_LEFT:
-      dir = CELL_LEFT;
-      break;
-    case KEY_D:
-    case KEY_RIGHT:
-      dir = CELL_RIGHT;
-      break;
-    case KEY_W:
-    case KEY_UP:
-      dir = CELL_UP;
-      break;
-    case KEY_S:
-    case KEY_DOWN:
-      dir = CELL_DOWN;
-      break;
-    default:
-      break;
-  } 
-
-  if(EntGridStep(e,dir)<TILE_ISSUES)
-    return true;
-
-  return false;
-}
-
-bool EntCanTakeAction(ent_t* e){
-  if(e->state == STATE_STANDBY)
-    return false;
-
-  if(e->stats[STAT_ACTIONS]->current < 1)
-    return false;
-
-  return WorldGetTurnState();
-}
-
+*/
 void ActionTurnSync(ent_t* e){
 
   StatMaxOut(e->stats[STAT_ACTIONS] );
@@ -539,7 +529,7 @@ void EntActionsTaken(stat_t* self, float old, float cur){
 bool ActionMakeSelection(Cell start, int num, bool occupied){
   ScreenActivateSelector(start,num,occupied, ActionSetTarget);
 }
-
+/*
 bool ActionInput(void){
   return false;
   if(player->state == STATE_SELECTION)
@@ -573,12 +563,10 @@ bool ActionInput(void){
               ent_t* pool[8];
               int dist = ability->reach;
               Rectangle r = Rect(player->pos.x - dist, player->pos.y - dist, dist*2,2* dist);
-              /*
                * int num_near = WorldGetEnts(pool, FilterEntInRect,&r);
               if(num_near < 2)
                 break;
               else{
-              */
                 SetState(player, STATE_SELECTION,NULL);
                 SetAction(player, a, ability, ability->targeting);
                 ActionMakeSelection(player->facing, ability->reach ,true);
@@ -601,7 +589,7 @@ bool ActionInput(void){
    return false;
     
 }
-
+*/
 bool TakeAction(ent_t* e, action_turn_t* action){
   if(!action->fn(e,action->action,action->cb)){
     if(e->state == STATE_SELECTION)
@@ -686,7 +674,7 @@ void ActionSetTarget(ent_t* e, ActionType a, void* target){
       
   action->targets[action->num_targets++] = at;
 }
-
+/*
 bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
   action_turn_t* inst = e->actions[a];
   if(!inst || !inst->context)
@@ -706,7 +694,8 @@ bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
   return false;
 
 }
-
+(
+*/
 bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb){
   action_turn_t* inst = e->actions[a];
   if(!inst || !inst->context)

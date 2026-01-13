@@ -374,6 +374,10 @@ bool RegisterItem(ItemInstance g){
 void WorldInitOnce(){
   InteractionStep();
   for(int i = 0; i< world.num_ent; i++){
+
+    for(int j = 0; j < world.num_env; j++)
+    EntAddLocalEnv(world.ents[i], world.envs[j]);
+
     for(int j = 0; j < world.num_ent; j++){
       if(i == j)
         continue;
@@ -395,21 +399,15 @@ void WorldPreUpdate(){
     SpriteSync(world.sprs[i]);
   }
 
-  if(ActionManagerPreSync() != TURN_STANDBY)
-    return;
+  TurnPhase p = ActionManagerPreSync();
+    
 
   for(int i = 0; i < world.num_ent; i++){
-    EntControlStep(world.ents[i]);
+    EntControlStep(world.ents[i], world.data->num_turn, p);
   }
 }
 
 void WorldFixedUpdate(){
-  bool control_step = false;
-  if(player){
-    control_step = ActionInput();
-    if(control_step)
-      EntComputeFOV(player);
-  }
   for(int i = 0; i < world.num_ent; i++){
     switch(world.ents[i]->state){
       case STATE_END:
@@ -419,9 +417,6 @@ void WorldFixedUpdate(){
         //EntDestroy(world.ents[i]);
         break;
       default:
-        if(control_step)
-          EntControlStep(world.ents[i]);
-
         EntSync(world.ents[i]);
         break;
     }

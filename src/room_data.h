@@ -188,7 +188,7 @@ static const BehaviorData room_behaviors[ BN_COUNT] = {
   {BN_FIND_RESOURCE, false, BT_LEAF, LeafFindResource},
   {BN_SEEK_RESOURCE, false, BT_LEAF, LeafSeekResource},
   {BN_FILL_NEED, false, BT_LEAF, LeafFillNeed},
-  {BN_NEED, true, BT_SELECTOR, NULL, true, STATE_ATTACK, 3, {BN_CHECK_NEED, BN_FILL_NEED, BN_CHANGE_STATE}},
+  {BN_NEED, true, BT_SEQUENCE, NULL, true, STATE_ACTION, 3, {BN_CHECK_NEED, BN_FILL_NEED, BN_CHANGE_STATE}},
   {BN_CHECK_NEED, false, BT_LEAF, LeafCheckNeed},
 
 };

@@ -47,7 +47,10 @@ typedef struct{
   ability_t      **abilities;
 }action_slot_t;
 
-typedef struct{
+typedef struct action_s action_t;
+
+typedef ActionStatus (*ActionFn)(action_t* a);
+struct action_s{
   uint64_t        id;
   ActionType      type;
   ActionCategory  cat;
@@ -57,7 +60,8 @@ typedef struct{
   param_t         ctx;
   int             initiative;
   int             turn, weight, score;
-}action_t;
+  ActionFn        fn;
+};
 
 typedef struct{
   ActionCategory  id;
@@ -88,6 +92,8 @@ typedef struct{
 void InitActionManager(void);
 void InitActions(action_turn_t* actions[ACTION_DONE]);
 
+action_t* InitActionFulfill(ent_t* e, ActionCategory cat, need_t* n, int weight);
+action_t* InitActionAttack(ent_t* e, ActionCategory cat, ent_t* tar, int weight);
 action_t* InitActionMove(ent_t* e, ActionCategory cat, Cell dest, int weight);
 action_t* InitAction(ent_t* e, uint64_t id, ActionType type, ActionCategory cat, param_t ctx, int weight);
 action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap);
@@ -100,8 +106,6 @@ action_pool_t* InitActionPool(ent_t* e);
 void ActionManagerSync(void);
 TurnPhase ActionManagerPreSync(void);
 action_turn_t* InitActionTurn(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb);
-bool ActionPlayerAttack(ent_t* e, ActionType a, KeyboardKey k, ActionSlot slot);
-bool ActionTurnMove(ent_t*, ActionType a, KeyboardKey k, ActionSlot slot);
 void ActionStandby(ent_t* e);
 void ActionTurnSync(ent_t* e);
 bool ActionInput(void);
@@ -110,18 +114,8 @@ bool ActionTaken(ent_t* e, ActionType a);
 bool TakeAction(ent_t* e, action_turn_t* action);
 bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb);
 ActionType ActionGetEntNext(ent_t* e);
-bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb);
 bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb);
 void ActionSetTarget(ent_t* e, ActionType a, void* target);
-
-static action_key_t action_keys[ACTION_DONE] = {
-  {ACTION_NONE},
-  {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ActionTurnMove,SLOT_NONE},
-  {ACTION_ATTACK,1,{KEY_F},ActionPlayerAttack,SLOT_ATTACK},
-  {ACTION_WEAPON,0},
-  {ACTION_ITEM,1,{KEY_V},ActionPlayerAttack,SLOT_ITEM},
-  {ACTION_MAGIC,1,{KEY_M},ActionPlayerAttack,SLOT_SPELL},
-};
 
 
 action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap);

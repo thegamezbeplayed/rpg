@@ -216,6 +216,19 @@ static inline faction_t* GetFactionByID(Faction id){
   return NULL;
 }
 
+typedef enum{
+  RES_NONE = 0,
+  RES_VEG  = BIT64(0),
+  RES_MEAT = BIT64(1),
+  RES_BONE = BIT64(2),
+  RES_STONE = BIT64(3),
+  RES_METAL = BIT64(4),
+  RES_WOOD  = BIT64(5),
+  RES_WATER = BIT64(6),
+  RES_BLOOD = BIT64(7),
+  RES_DONE = 7
+}Resource;
+
 typedef struct{
   Resource    type;
   uint64_t    amount;
@@ -262,6 +275,7 @@ typedef struct{
   local_ctx_t*  goal;
   StatType      stat_rel;
   NeedStatus    status;
+  bool          activity;
   int           vals[NEED_DONE];
   int           prio, val, meter;
 }need_t;

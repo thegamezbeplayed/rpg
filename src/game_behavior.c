@@ -216,7 +216,7 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
  
   Cell dest = CELL_UNSET;
 
-  if(cell_compare(e->control->destination,  e->pos))
+  if(cell_distance(e->control->destination,  e->pos) < 2)
     return BEHAVIOR_SUCCESS;
   else{
     if(e->control->goal==NULL)
@@ -278,13 +278,13 @@ BehaviorStatus BehaviorCheckTurn(behavior_params_t *params){
     return BEHAVIOR_FAILURE;
 
 
-  if(EntCanTakeAction(e))
-    return BEHAVIOR_SUCCESS;
+  return BEHAVIOR_SUCCESS;
 
-  return BEHAVIOR_FAILURE;
 }
 
 BehaviorStatus BehaviorTakeTurn(behavior_params_t *params){
+  return BEHAVIOR_SUCCESS;
+
   struct ent_s* e = params->owner;
 
   if(!e || !e->control)
@@ -339,12 +339,7 @@ BehaviorStatus BehaviorCheckNeed(behavior_params_t *params){
   if(e->control->goal == NULL)
     return BEHAVIOR_FAILURE;
 
-  switch(e->control->goal->cat){
-    case OBJ_ENT:
-      return BEHAVIOR_SUCCESS;
-    default:
-      return BEHAVIOR_FAILURE;
-  }
+  return BEHAVIOR_SUCCESS;
 }
  
 BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
@@ -355,13 +350,39 @@ BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
   if(e->control->goal == NULL)
     return BEHAVIOR_FAILURE;
 
+  need_t* n = e->control->needs[e->control->priority];
+
+  if(n == NULL)
+    return BEHAVIOR_FAILURE;
+
+  n->goal = e->control->goal;
+
+  TraceLog(LOG_INFO,"Fulfill need for %s",e->name);
+
+  action_t* a;
   switch(e->control->priority){
     case N_HUNGER:
-      e->control->target = e->control->goal->other;
+      switch(e->control->goal->cat){
+        case OBJ_ENT:
+          a = InitActionAttack(e, ACT_MAIN, e->control->goal->other, 100);
+          break;
+        case OBJ_ENV:
+          a = InitActionFulfill(e, ACT_MAIN, n, 75); 
+          break;
+      }
       break;
     default:
       break;
   }
+
+  if(a == NULL)
+    return BEHAVIOR_FAILURE;
+
+  ActionStatus a_status = QueueAction(e->control->actions, a);
+
+  if(a_status > ACT_STATUS_ERROR)
+    return BEHAVIOR_FAILURE;
+
 
   return BEHAVIOR_SUCCESS;
 }
@@ -370,6 +391,9 @@ BehaviorStatus BehaviorFindResource(behavior_params_t *params){
   ent_t* e = params->owner;
   if(!e)
     return BEHAVIOR_FAILURE;
+
+  if(e->control->goal)
+    return BEHAVIOR_SUCCESS;
 
   need_t* need = e->control->needs[e->control->priority];
   Resource res = need->resource;
@@ -405,6 +429,7 @@ BehaviorStatus BehaviorFindResource(behavior_params_t *params){
     if(ctx == NULL)
       return BEHAVIOR_FAILURE;
 
+    ctx->resource = def.type;
     int cost = ctx->cost;
     if(e->control->goal== NULL || e->control->goal->cost < cost)
       e->control->goal = ctx;
@@ -434,10 +459,6 @@ BehaviorStatus BehaviorSeekResource(behavior_params_t *params){
   if(cell_compare(pos, CELL_UNSET))
     return BEHAVIOR_FAILURE;
 
-  if(cell_compare(pos, e->control->destination))
-    return BEHAVIOR_SUCCESS;
-
-
   bool found;
 
   e->control->goal->path = StartRoute(e, e->control->goal,e->control->goal->dist, &found);
@@ -445,17 +466,8 @@ BehaviorStatus BehaviorSeekResource(behavior_params_t *params){
   if(!found)
     return BEHAVIOR_FAILURE;
 
-  Cell next = RouteGetNext(e, e->control->goal->path);
-
-  if(cell_compare(next, CELL_UNSET))
-    return BEHAVIOR_FAILURE;
-  else{ 
-    e->control->destination = next; 
-    return BEHAVIOR_SUCCESS;
-  }
-
-  return BEHAVIOR_FAILURE;
-
+  e->control->destination = pos; 
+  return BEHAVIOR_SUCCESS;
 }
 
 BehaviorStatus BehaviorFillNeeds(behavior_params_t *params){

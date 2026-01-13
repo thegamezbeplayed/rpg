@@ -42,6 +42,12 @@ static inline const char* ParamReadString(param_t* o){
 
   return (const char*)o->data;
 }
+static inline need_t ParamReadNeed(const param_t* o) {
+    assert(o->type_id == DATA_NEED);
+    assert(o->size == sizeof(need_t));
+    return *(need_t*)o->data;
+}
+  
 static inline int ParamReadInt(const param_t* o) {
     assert(o->type_id == DATA_INT);
     assert(o->size == sizeof(int));

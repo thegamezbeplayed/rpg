@@ -42,7 +42,9 @@ typedef enum {
   DATA_ENTITY,
   DATA_ENV,
   DATA_MAP_CELL,
+  DATA_NEED,
   DATA_CELL,
+  DATA_LOCAL_CTX,
   DATA_STRING
 } DataType;
 
@@ -453,6 +455,7 @@ typedef enum{
   ACTION_SAVE,
   ACTION_SLOTTED,
   ACTION_SELECT,
+  ACTION_INTERACT,
   ACTION_DONE
 }ActionType;
 
@@ -487,6 +490,13 @@ typedef enum{
   ACT_STATUS_FULL,
   ACT_STATUS_DONE
 }ActionStatus;
+
+typedef enum{
+  I_NONE,
+  I_CONSUME,
+  I_OPEN,
+  I_CLOSE,
+}Interactive;
 
 typedef enum{
   SLOT_NONE = -1,
@@ -853,18 +863,4 @@ typedef enum{
   SOC_HIGH,
   SOC_DONE
 }SocietyType;
-
-typedef enum{
-  RES_NONE,
-  RES_VEG,
-  RES_MEAT,
-  RES_BONE,
-  RES_STONE,
-  RES_METAL,
-  RES_WOOD,
-  RES_WATER,
-  RES_BLOOD,
-  RES_DONE
-}Resource;
-
 #endif

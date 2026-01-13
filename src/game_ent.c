@@ -10,7 +10,7 @@ static choice_pool_t* race_classes[ENT_DONE];
 MAKE_ADAPTER(StepState, ent_t*);
 
 ent_t* InitEnt(EntityType id,Cell pos){
-  ent_t* e = InitEntByRace(MONSTER_MASH[id] ,0);
+  ent_t* e = InitEntByRace(MONSTER_MASH[id]);
   e->type = id;
 
   e->props->base_diff = 5;
@@ -31,14 +31,6 @@ ent_t* InitEnt(EntityType id,Cell pos){
   e->stats[STAT_ACTIONS]->current = 1;
   e->stats[STAT_ACTIONS]->max = 1;
  
-  e->actions[ACTION_MOVE] = InitActionTurn(ACTION_MOVE, DES_FACING, NULL,NULL);
-  e->actions[ACTION_ATTACK] = InitActionTurn(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
-  e->actions[ACTION_MAGIC] = InitActionTurn(ACTION_MAGIC, DES_MULTI_TARGET, ActionMultiTarget,NULL);
-
-  e->aggro = calloc(1,sizeof(aggro_table_t));
-  e->allies = calloc(1,sizeof(aggro_table_t));
-  InitAggroTable(e->aggro, 10, e);
-  InitAllyTable(e->allies, 1, e);
   TraceLog(LOG_INFO,"%s has ====>\n<====STATS=====>",e->name);
   for(int i = 1; i < STAT_ENT_DONE; i++){
     if(e->stats[i] == NULL)
@@ -69,7 +61,7 @@ ent_t* InitMob(EntityType mob, Cell pos){
   return e;
 }
 
-ent_t* InitEntByRace(mob_define_t def, MobRules rules){
+ent_t* InitEntByRace(mob_define_t def){
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
   ent_t* e = malloc(sizeof(ent_t));
@@ -118,10 +110,6 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   e->control->ranges[RANGE_NEAR] = 2;
   e->control->ranges[RANGE_LOITER] = 3;
   e->control->ranges[RANGE_ROAM] = 4;
-
-  InitActions(e->actions);
-  e->actions[ACTION_MOVE] = InitActionTurn(ACTION_MOVE, DES_NONE, ActionTraverseGrid,NULL);
-  e->actions[ACTION_ATTACK] = InitActionTurn(ACTION_ATTACK, DES_FACING, ActionAttack,NULL);
 
   for (int i = 0; i < ATTR_BLANK; i++){
     e->attribs[i] = InitAttribute(i,0);
@@ -241,6 +229,12 @@ ent_t* InitEntByRace(mob_define_t def, MobRules rules){
   e->team = RegisterFactionByType(e); 
   
   e->local = InitLocals(e);
+  e->aggro = calloc(1,sizeof(aggro_table_t));
+  e->allies = calloc(1,sizeof(aggro_table_t));
+  InitAggroTable(e->aggro, 4, e);
+  InitAllyTable(e->allies, 8, e);
+
+
   return e;
 }
 
@@ -248,16 +242,11 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
     
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
-  ent_t* e = InitEntByRace(def,rules);
+  ent_t* e = InitEntByRace(def);
   TraceLog(LOG_INFO,"Make Commoner %s profession %i",e->name, sel->id);
   strcpy(e->props->role_name, sel->soc[def.civ].name);
   strcpy(e->name, TextFormat("%s %s", e->props->race_name, e->props->role_name));
   e->props->prof = sel->id;
-  e->aggro = calloc(1,sizeof(aggro_table_t));
-  e->allies = calloc(1,sizeof(aggro_table_t));
-  InitAggroTable(e->aggro, 4, e);
-  InitAllyTable(e->allies, 8, e);
-
 
   for(int i = 0; i < SKILL_DONE; i++){
     for(int j = 0; j < sel->skills[i]; j++){
@@ -894,7 +883,20 @@ int EnvExtractResource(env_t* env, ent_t* ent, Resource res){
   resource_t* r = env->resources[res];
 
   if(r->amount == 0)
+    env->has_resources &= res;
     return 0;
+
+  int take = ent->props->mass/16;
+
+  if (take > r->amount){
+    take = r->amount;
+    env->has_resources &= res;
+  }
+
+  r->amount-=take;
+
+  return take;
+
 }
 
 void EntAddTraits(traits_t* t, uint64_t mask, uint64_t shift){
@@ -1144,8 +1146,7 @@ ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
   return res;
 }
 
-InteractResult EntConsume(ent_t* e, local_ctx_t* goal){
-  InteractResult res = IR_NONE;
+int EntConsume(ent_t* e, local_ctx_t* goal){
 
   int consumed = 0;
   switch(goal->cat){
@@ -1156,21 +1157,24 @@ InteractResult EntConsume(ent_t* e, local_ctx_t* goal){
       break;
   }
 
-  return res;
+  
+  return consumed;
 }
 
 InteractResult EntMeetNeed(ent_t* e, need_t* n){
   InteractResult res = IR_NONE;
-  
+  int amount = 0;
   switch(n->id){
     case N_HUNGER:
-      EntConsume(e, n->goal);
+      amount = EntConsume(e, n->goal);
       break;
-
     default:
       break;
-
   }
+ 
+  e->control->needs[n->id]->val-=amount; 
+  e->control->needs[n->id]->meter = 0; 
+  e->control->needs[n->id]->activity = true; 
 
   return res;
 }
@@ -1374,6 +1378,8 @@ controller_t* InitController(ent_t* e){
   ctrl->actions = InitActionPool(e);
   ctrl->destination = CELL_UNSET;
 
+  ctrl->turn = -1;
+  ctrl->phase = TURN_NONE;
   ctrl->behave_traits = e->props->traits & TRAIT_CAP_MASK;
   for(int i = 0; i < N_DONE; i++)
     ctrl->needs[i] = InitNeed(i,e);
@@ -1609,13 +1615,22 @@ void EntSetCell(ent_t *e, Cell pos){
   e->pos = pos;
 }
 
-void EntControlStep(ent_t *e){
+void EntControlStep(ent_t *e, int turn, TurnPhase phase){
   if(!e->control) 
     return;
 
+  if(turn != e->control->turn){
+    for(int i = 1; i < N_DONE; i++)
+      NeedStep(e->control->needs[i]);
+  }
+  
+  if(turn == e->control->turn && e->control->phase == phase)
+   return;
+
   ActionPoolSync(e->control->actions);
-  for(int i = 0; i < N_DONE; i++)
-    NeedStep(e->control->needs[i]);
+  
+  e->control->phase = phase;
+  e->control->turn = turn;
 
   if(!e->control->bt || !e->control->bt[e->state])
     return;
@@ -1876,8 +1891,19 @@ bool EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
         return res > IR_CRITICAL_FAIL;
 }
 
+void EntAddLocalEnv(ent_t* e, env_t* ev){
+  if(ev->has_resources == 0)
+    return;
+
+  if(cell_distance(e->pos, ev->pos) > 8)
+    return;
+
+  AddLocalEnv(e->local, ev, SPEC_RELATE_NONE);
+}
+
 void EntAddLocals(ent_t* e, ent_t* other){
   SpeciesRelate rel = GetSpecRelation(e->props->race, other->props->race);
+  
   AddLocals(e->local, other, rel);
 
 }
@@ -1922,16 +1948,23 @@ local_ctx_t* EntLocateResource(ent_t* e, Resource r, ObjectCategory cat){
   local_table_t* local = e->local;
   e->local->choice_pool = StartChoice(&local->choice_pool, local->count, ChooseCheapest, &picking);
 
+  if(e->type == ENT_WOLF || e->type == ENT_BEAR || e->type == ENT_BUGBEAR)
+    DO_NOTHING();
+
   if(!picking){
     for(int i = 0; i < local->count; i++){
       local_ctx_t *ctx = &local->entries[i];
-      if((ctx->rel & SPEC_DESIRE) == 0)
+      
+      if(!HasResource(ctx->resource, r))
         continue;
+
       Cell pos = CELL_UNSET;
       int score = -1;
+      int cost = 0;
       switch(ctx->cat){
         case OBJ_ENT:
           pos = ctx->other->pos;
+          cost += ctx->cr;
           score = EntGetSize(ctx->other);
           break;
         case OBJ_ENV:
@@ -1948,7 +1981,7 @@ local_ctx_t* EntLocateResource(ent_t* e, Resource r, ObjectCategory cat){
 
       int depth = ctx->awareness > 1? MAX_SEN_DIST*(ctx->awareness+0.5):MAX_SEN_DIST;
 
-      int cost = ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
+      cost += ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
       if(cost < 0)
         continue;
 
