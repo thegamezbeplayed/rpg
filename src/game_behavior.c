@@ -105,7 +105,7 @@ struct ent_s* e = params->owner;
     return BEHAVIOR_FAILURE;
 
   if(e->control->pref == NULL)
-    e->control->pref = EntChoosePreferredAbility(e, e->stats[STAT_ENERGY]->current);
+    e->control->pref = EntChoosePreferredAbility(e);
 
   return BEHAVIOR_SUCCESS;
 }
@@ -115,11 +115,12 @@ BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
-  ent_t* enemy = NULL;
-  aggro_entry_t* highest = AggroGetHighest(e->aggro);  
+  local_ctx_t* ctx = LocalGetThreat(e->local);  
 
-  if(highest)
-    enemy = highest->enemy;
+  if(ctx == NULL)
+    return BEHAVIOR_FAILURE;
+
+  ent_t* enemy = ParamReadEnt(&ctx->other);
 
   if(enemy == NULL && e->control->target == NULL)
     return BEHAVIOR_FAILURE;
@@ -140,14 +141,19 @@ BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
 
   e->control->target = NULL;
 
-  if(e->aggro->count == 0)
+  if(e->local->count == 0)
+    return BEHAVIOR_FAILURE;
+  local_ctx_t* ctx = LocalGetThreat(e->local);
+
+  if(ctx == NULL)
     return BEHAVIOR_FAILURE;
 
-  aggro_entry_t* aggro = AggroGetHighest(e->aggro);
-  if(!aggro || !aggro->enemy)
+  ent_t* aggro = ParamReadEnt(&ctx->other);
+
+  if(!aggro)
     return BEHAVIOR_FAILURE;
 
-  e->control->target = aggro->enemy;
+  e->control->target = aggro;
 
   return BEHAVIOR_SUCCESS;
 }
@@ -161,13 +167,14 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
     return BEHAVIOR_FAILURE;
 
   ent_t* tar = e->control->target;
-  Cell next;
-  if (!FindPath(e->map, e->pos.x, e->pos.y, tar->pos.x, tar->pos.y, &next,70))
+
+  int depth = cell_distance(e->pos, tar->pos);
+  bool found = false;
+  e->control->goal->path = StartRoute(e, e->control->goal, tar->pos, depth, &found);
+  if(!found)
     return BEHAVIOR_FAILURE;
 
-  e->control->destination = cell_dir(e->pos,next);
-  if(!SetAction(e,ACTION_MOVE,&e->control->destination,DES_NONE))
-    return BEHAVIOR_FAILURE;
+  //dest = RouteGetNext(e, e->control->goal->path);
 
   return BEHAVIOR_SUCCESS;
 }
@@ -224,7 +231,7 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
 
     int depth = e->control->goal->dist;
     bool found = false;
-    e->control->goal->path = StartRoute(e, e->control->goal, depth, &found);
+    e->control->goal->path = StartRoute(e, e->control->goal, e->control->destination, depth, &found);
     if(!found)
       return BEHAVIOR_FAILURE;
 
@@ -258,7 +265,7 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
     return BEHAVIOR_FAILURE;
 
   if(e->control->pref == NULL)
-    e->control->pref = EntChoosePreferredAbility(e, e->stats[STAT_ENERGY]->current);
+    e->control->pref = EntChoosePreferredAbility(e);
 
   if(!e->control->pref)
     return BEHAVIOR_FAILURE;
@@ -307,7 +314,7 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
   if(!e)
     return BEHAVIOR_FAILURE;
 
-  ability_t* a = EntChoosePreferredAbility(e,e->stats[STAT_STAMINA]->current);
+  ability_t* a = EntChoosePreferredAbility(e);
   if(!a)
     return BEHAVIOR_FAILURE;
 
@@ -357,16 +364,17 @@ BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
 
   n->goal = e->control->goal;
 
-  TraceLog(LOG_INFO,"Fulfill need for %s",e->name);
-
-  action_t* a;
+  action_t* a = NULL;
   switch(e->control->priority){
     case N_HUNGER:
-      switch(e->control->goal->cat){
-        case OBJ_ENT:
-          a = InitActionAttack(e, ACT_MAIN, e->control->goal->other, 100);
+      switch(e->control->goal->other.type_id){
+        case DATA_ENTITY:
+          ent_t* tar = ParamReadEnt(&e->control->goal->other);
+          a = InitActionAttack(e, ACT_MAIN, tar, 100);
+          if(a)
+            e->control->target = tar;
           break;
-        case OBJ_ENV:
+        case DATA_ENV:
           a = InitActionFulfill(e, ACT_MAIN, n, 75); 
           break;
       }
@@ -396,44 +404,19 @@ BehaviorStatus BehaviorFindResource(behavior_params_t *params){
     return BEHAVIOR_SUCCESS;
 
   need_t* need = e->control->needs[e->control->priority];
-  Resource res = need->resource;
 
-  if(res == RES_NONE)   
+  if(need->resource == 0)   
     return BEHAVIOR_FAILURE;
 
-  define_resource_t r_def[RES_DONE] = {0};
-  bool found = false;
-  while(res){
-    Resource r = res & - res;
-    res &= res -1;
 
-    for(int i = 0; i < 20; i++){
-      if(DEF_RES[i].type != r)
-        continue;
-      found = true;
-      r_def[res] = DEF_RES[i];
-      break;
-    }
-  }
+  local_ctx_t* ctx = EntLocateResource(e, need->resource);
 
-  if(!found)
+  if(ctx == NULL)
     return BEHAVIOR_FAILURE;
 
-  for(int i = 0; i < RES_DONE; i++){
-    define_resource_t def = r_def[i];
-    if(def.type == RES_NONE)
-      continue;
-
-    local_ctx_t* ctx = EntLocateResource(e, def.type, def.cat);
-    
-    if(ctx == NULL)
-      return BEHAVIOR_FAILURE;
-
-    ctx->resource = def.type;
-    int cost = ctx->cost;
-    if(e->control->goal== NULL || e->control->goal->cost < cost)
-      e->control->goal = ctx;
-  }
+  int cost = ctx->cost;
+  if(e->control->goal== NULL || e->control->goal->cost < cost)
+    e->control->goal = ctx;
 
   return (e->control->goal==NULL)?BEHAVIOR_FAILURE:BEHAVIOR_SUCCESS;
 }
@@ -447,12 +430,14 @@ BehaviorStatus BehaviorSeekResource(behavior_params_t *params){
     return BEHAVIOR_FAILURE;
 
   Cell pos = CELL_UNSET;
-  switch(e->control->goal->cat){
-    case OBJ_ENT:
-      pos = e->control->goal->other->pos;
+  switch(e->control->goal->other.type_id){
+    case DATA_ENTITY:
+      ent_t* tar = ParamReadEnt(&e->control->goal->other);
+      pos = tar->pos;
       break;
-    case OBJ_ENV:
-      pos = e->control->goal->env->pos;
+    case DATA_ENV:
+      env_t* env = ParamReadEnv(&e->control->goal->other);
+      pos = env->pos;
       break;
   }
 
@@ -461,7 +446,7 @@ BehaviorStatus BehaviorSeekResource(behavior_params_t *params){
 
   bool found;
 
-  e->control->goal->path = StartRoute(e, e->control->goal,e->control->goal->dist, &found);
+  e->control->goal->path = StartRoute(e, e->control->goal, pos, e->control->goal->dist, &found);
 
   if(!found)
     return BEHAVIOR_FAILURE;

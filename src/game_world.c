@@ -308,6 +308,7 @@ bool RegisterEnv( env_t *e){
 
  e->gouid = guid;
 
+ world.map->updates = true;
  return true;
 }
 
@@ -403,8 +404,10 @@ void WorldPreUpdate(){
     
 
   for(int i = 0; i < world.num_ent; i++){
-    EntControlStep(world.ents[i], world.data->num_turn, p);
+    EntControlStep(world.ents[i], world.data->num_turn, p, world.map->updates);
   }
+  
+  MapSync(world.map);
 }
 
 void WorldFixedUpdate(){

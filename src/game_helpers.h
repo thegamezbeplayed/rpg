@@ -939,6 +939,93 @@ static inline int NeedThreshold(
   return NReqSteps(r) * (s+1);
 }
 
+static inline uint64_t GetSizeByFlags(PhysQual pq, PhysBody pb){
+
+  uint64_t size = pq & PQ_SIZE_MASK;
+  uint64_t step = 0x000E;
+  uint64_t coeff = 0x0020;
+  switch (size){
+    case PQ_TINY:
+      step = 0x0001;
+      coeff = 0x0002;
+      break;
+    case PQ_SMALL:
+      step = 0x0005;
+      coeff = 0x0010;
+      break;
+    case PQ_LARGE:
+      step =  0x0020;
+      coeff = 0x0070;
+      break;
+    case PQ_HUGE:
+      coeff = 0x0F00;
+      step =  0x0040;
+      break;
+    case PQ_GIG:
+      coeff = 0x1000;
+      step = 0x0080;
+      break;
+  }
+
+  uint64_t vol = pq & PQ_VOL_MASK;
+
+  while(vol){
+    uint64_t vbit = vol & -vol;
+    vol &= vol -1;
+
+    switch(vbit){
+      case PQ_SHORT:
+        coeff -=step*2;
+        break;
+      case PQ_TALL:
+      case PQ_LONG:
+      case PQ_WIDE:
+      case PQ_DENSE_MUSCLE:
+        coeff+=step*2;
+        break;
+      case PQ_LARGE_FEET:
+      case PQ_LARGE_HANDS:
+        coeff+=step/4;
+        break;
+      case PQ_LONG_LIMB:
+      case PQ_LARGE_HEAD:
+        coeff+=step;
+        break;
+      case PQ_SHORT_LIMB:
+        coeff-=step;
+        break;
+      case PQ_SMALL_HEAD:
+      case PQ_TINY_HEAD:
+        coeff-=step;
+        break;
+      case PQ_TAIL:
+        coeff+=step;
+        break;
+    }
+  }
+
+  while(pb){
+    uint64_t cov = pb & -pb;
+    pb &= pb -1;
+
+    switch(cov){
+      case PQ_THICK_FUR:
+      case PQ_TOUGH_HIDE:
+      case PQ_THICK_HIDE:
+      case PQ_THICK_FAT:
+        coeff += step;
+        break;
+      case PQ_THICK_SCALES:
+      case PQ_TOUGH_SCALES:
+        coeff +=step/4;
+        break;
+    }
+  }
+
+  return coeff;
+}
+
+
 static inline uint64_t GetMassByFlags(PhysQual pq, PhysBody pb){
 
   uint64_t size = pq & PQ_SIZE_MASK;
@@ -1055,17 +1142,7 @@ static inline uint64_t GetMassByFlags(PhysQual pq, PhysBody pb){
 
 static bool HasResource(Resource res, Resource des){
 
-  while(res){
-    Resource r = res & - res;
-    res &= res -1;
-
-    if(r == des)
-      return true;
-
-
-  }
-
-  return false;
+  return (res&des)>0;
 }
 
 static uint32_t GetEnvSize(TileFlags flags){

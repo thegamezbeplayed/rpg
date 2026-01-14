@@ -33,6 +33,34 @@ static Color col[MAX_ANCHOR_NODES]={
   BROWN
 };
 
+map_grid_t* InitMapGrid(void){
+  map_grid_t* m = malloc(sizeof(map_grid_t));
+
+  *m = (map_grid_t){0};
+
+  m->step_size = CELL_WIDTH;
+
+  m->x = 0;
+  m->y = 0;
+  m->width = world_map.width;
+  m->height = world_map.height;
+  m->floor = DARKBROWN;
+  GEN_SCALE = 4;
+  //MapApplyContext(m);
+  return m;
+}
+
+void MapSync(map_grid_t* m){
+  if(!m || !m->updates)
+    return;
+
+  for(int i = 0; i < m->num_changes; i++){
+    m->changes[i]->updates = false;
+  }
+
+  m->num_changes = 0;
+}
+
 bool MapContextSetTile(Cell c, RoomFlags f){
   world_map.tiles[c.x][c.y] = f;
 
@@ -395,23 +423,6 @@ void MapRender(void){
 
 }
 
-map_grid_t* InitMapGrid(void){
-  map_grid_t* m = malloc(sizeof(map_grid_t));
-
-  *m = (map_grid_t){0};
-
-  m->step_size = CELL_WIDTH;
-
-  m->x = 0;
-  m->y = 0;
-  m->width = world_map.width;
-  m->height = world_map.height;
-  m->floor = DARKBROWN;
-  GEN_SCALE = 4;
-  //MapApplyContext(m);
-  return m;
-}
-
 map_node_t* MapBuildNodeRules(MapNodeType id){
   if(room_nodes[id].id !=id)
     return NULL;
@@ -502,6 +513,9 @@ TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c){
   else
     m->tiles[c.x][c.y].status = TILE_EMPTY;
 
+  m->tiles[c.x][c.y].updates = true;
+  if(m->num_changes < 128)
+    m->changes[m->num_changes++] = &m->tiles[c.x][c.y];
   return TILE_SUCCESS;
 }
 
@@ -730,8 +744,8 @@ void MapSpawn(TileFlags flags, int x, int y){
   if(RegisterEnv(env)){
     if(size==0)
       return;
-    for (int i = 1; i < RES_DONE; i++){
-      define_resource_t* temp = GetResourceByCatFlags(i, OBJ_ENV, tflags);
+    for (int i = 0; i < RES_DONE; i++){
+      define_resource_t* temp = GetResourceByCatFlags(BIT64(i), OBJ_ENV, tflags);
       if(!temp)
         continue;
 
@@ -741,10 +755,11 @@ void MapSpawn(TileFlags flags, int x, int y){
       resource_t *res = calloc(1,sizeof(resource_t));
 
       *res = (resource_t){
-        .type = i,
+        .type = temp->type,
           .amount = amnt
       };
 
+      env->smell += temp->smell;
       if(!env->resources[i])
         env->resources[i] = res;
       else

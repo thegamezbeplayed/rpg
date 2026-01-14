@@ -74,28 +74,38 @@ define_need_req_t NEEDS_REQ[N_DONE][8]= {
 define_resource_t DEF_RES[20] = {
   {RES_BONE,
     OBJ_ENV,
-    TILEFLAG_BONE, 2
+    TILEFLAG_BONE, 2, 1
   },
   {RES_WOOD,
     OBJ_ENV,
     TILEFLAG_TREE | TILEFLAG_FOREST,
-    3
+    3, 3
   },
   {RES_VEG,
     OBJ_ENV,
     TILEFLAG_NATURAL,
-    2,
+    2, 5,
   },
   {RES_WATER,
     OBJ_ENV,
     TILEFLAG_NATURAL,
-    1
+    1, 2
   },
   {RES_STONE,
     OBJ_ENV,
     TILEFLAG_STONE,
-    2
-  }
+    2, 1
+  },
+  {RES_MEAT,
+    OBJ_ENT,
+    TILEFLAG_NONE,
+    .smell = 5
+  },
+  {RES_BLOOD,
+    OBJ_ENT,
+    TILEFLAG_NONE,
+    .smell = 5
+  },
 };
 
 species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)] = {
@@ -1374,7 +1384,7 @@ item_prop_mod_t* GetItemPropMods(ItemCategory cat, uint64_t prop){
 need_t* InitNeed(Needs id, ent_t* owner){
 
   uint64_t req = GetNeedReq(id, owner->props->body, owner->props->mind);
-  Resource res = EntGetResourceByNeed(owner, id);
+  uint64_t res = EntGetResourceByNeed(owner, id);
 
   need_t* n = calloc(1,sizeof(need_t));
 

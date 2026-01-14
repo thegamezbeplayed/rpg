@@ -23,29 +23,12 @@ typedef struct ability_sim_s ability_sim_t;
 typedef struct item_s item_t;
 
 typedef struct{
-  ent_t*    enemy;
-  bool      initiated;
-  int       challenge;
-  int       offensive_rating, defensive_rating;
-  float     threat_mul, threat;
-  int       last_turn;
-}aggro_entry_t;
-
-typedef struct{
-  ent_t*         owner;
-  aggro_entry_t  *entries;
-  int            count,cap;
-  event_uid_i    event_id;
-}aggro_table_t;
-
-void InitAggroTable(aggro_table_t* t, int cap, ent_t* owner);
-static void AggroEnsureCapacity(aggro_table_t* t);
-int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul, bool init);
-void AggroDecayCallback(void* params);
-void AggroPrune(aggro_table_t* t);
-aggro_entry_t* AggroGetEntry(aggro_table_t* table, ent_t* source);
-int AggroGetEntries(aggro_table_t* table, int count, aggro_entry_t  *entries);
-aggro_entry_t* AggroGetHighest(aggro_table_t* t);
+  bool                initiated;
+  int                 challenge;
+  int                 offensive_rating, defensive_rating;
+  float               threat_mul, threat;
+  int                 last_turn;
+}aggro_t;
 
 typedef struct{
   ent_t* ally;          
@@ -78,13 +61,13 @@ int AllyAdd(ally_table_t* t, ent_t* source, int dist);
 void AllySync(void* params);
 
 typedef struct local_ctx_s{
-  ent_t*              other;
-  env_t*              env;
+  param_t             other;
   path_cache_entry_t* path;
-  ObjectCategory      cat;
-  Resource            resource;
+  game_object_uid_i   gouid;
+  aggro_t*            aggro;             
+  uint64_t            resource;
   Interactive         method;
-  bool                prune, engage, aggro;
+  bool                prune;
   float               awareness;
   SpeciesRelate       rel;
   int                 cr;
@@ -105,8 +88,11 @@ void AddLocals(local_table_t*, ent_t* e, SpeciesRelate rel);
 void AddLocalEnv(local_table_t*, env_t* e, SpeciesRelate rel);
 void EntAddLocals(ent_t* e, ent_t* other);
 void EntAddLocalEnv(ent_t* e, env_t* ev);
-ent_t* RemoveEntryByRel(local_table_t*, SpeciesRelate rel);
+local_ctx_t* RemoveEntryByRel(local_table_t*, SpeciesRelate rel);
 void LocalSortByDist(local_table_t* table);
+int LocalAddAggro(local_table_t* t, ent_t* e, int threat, float mul, bool init);
+aggro_t* LocalGetAggro(local_table_t* table, game_object_uid_i other);
+local_ctx_t* LocalGetThreat(local_table_t* t);
 
 typedef struct{
   SpeciesType   race;
@@ -116,13 +102,14 @@ typedef struct{
   char          race_name[MAX_NAME_LEN];
   char          role_name[MAX_NAME_LEN];
   float         base_diff;
-  uint64_t      mass, consume;
+  uint64_t      mass, consume, size;
   PhysQual      body;
   MentalQual    mind;
   PhysBody      covering;
   PhysWeapon    natural_weaps;
   Feats         feats;
   Traits        traits;
+  resource_t    *resources[RES_DONE];
   int           cr, offr, defr;
 }properties_t;
 
@@ -196,7 +183,7 @@ ability_t* InitAbility(ent_t* owner, AbilityID);
 bool AbilityRankup(ent_t* owner, ability_t* a);
 ability_t* InitAbilityDummy(ent_t* owner, ability_t copy);
 bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other);
-ability_t* EntChoosePreferredAbility(ent_t* e, int budget);
+ability_t* EntChoosePreferredAbility(ent_t* e);
 ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot);
 InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_sim_t* source);
 InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source);
@@ -313,7 +300,6 @@ struct ent_s{
   inventory_t           *inventory[INV_DONE];
   sprite_t              *sprite;
   float                 challenge;
-  aggro_table_t*        aggro;
   ally_table_t*         allies;
   local_table_t*        local;
   struct ent_s*         last_hit_by;
@@ -336,6 +322,7 @@ item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
 bool EntAddItem(ent_t* e, item_t* item, bool equip);
 void EntToggleTooltip(ent_t* e);
 void EntInitOnce(ent_t* e);
+bool EntPrepareAttack(ent_t* e, ent_t* t, ability_t** a);
 //attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
 InteractResult EntMeetNeed(ent_t* e, need_t* n);
@@ -356,7 +343,7 @@ void EntSetCell(ent_t *e, Cell pos);
 void EntAddExp(ent_t *e, int exp);
 void EntAddPos(ent_t *e, Vector2 pos);
 void EntSetPos(ent_t *e, Vector2 pos);
-void EntControlStep(ent_t *e, int turn, TurnPhase phase);
+void EntControlStep(ent_t *e, int turn, TurnPhase phase, bool check_env);
 int EntGetChallengeRating(ent_t* e);
 int EntGetDefRating(ent_t* e);
 int EntGetOffRating(ent_t* e);
@@ -381,8 +368,8 @@ void EntComputeFOV(ent_t* e);
 char* EntGetClassNamePretty(ent_t* e);
 uint64_t EntGetSize(ent_t* e);
 
-Resource EntGetResourceByNeed(ent_t* e, Needs n);
-local_ctx_t* EntLocateResource(ent_t* e, Resource r, ObjectCategory cat);
+uint64_t EntGetResourceByNeed(ent_t* e, Needs n);
+local_ctx_t* EntLocateResource(ent_t* e, uint64_t r);
 
 void EntActionsTaken(stat_t* self, float old, float cur);
 struct env_s{
@@ -390,6 +377,7 @@ struct env_s{
   int         uid;
   Resource    has_resources;
   resource_t  *resources[RES_DONE];
+  int         smell;
   EnvTile     type;
   Vector2     vpos;
   Cell        pos;

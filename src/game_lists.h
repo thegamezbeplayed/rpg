@@ -1112,6 +1112,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {0,0}, 4,
       0.5,
       SOC_PRIMITIVE,
+      RES_MEAT | RES_BONE | RES_BLOOD,
       RES_MEAT,
       .flags = {
         PQ_SMALL | PQ_LIGHT
@@ -1128,6 +1129,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {0,0}, 9,
       1.15,
       SOC_MARTIAL,
+      RES_MEAT | RES_BONE | RES_BLOOD,
       RES_MEAT,
   },
   {ENT_OGRE},
@@ -1142,6 +1144,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {0,0}, 12,
       1.2f,
       SOC_MARTIAL,
+      
+      RES_MEAT | RES_BONE | RES_BLOOD,
       RES_MEAT,
       .flags = {
         PQ_LONG_LIMB,
@@ -1159,6 +1163,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     .65,
     SOC_INSTINCTIVE,
     RES_BLOOD,
+    RES_BLOOD,
   },
   {ENT_SPIDER, "Spider",
       MOB_MOD_ENLARGE |
@@ -1170,6 +1175,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {80,69}, 2,
     0.25,
     SOC_INSTINCTIVE,
+    RES_BLOOD,
     RES_BLOOD,
     .flags = {
       PQ_MANY_EYES,
@@ -1187,20 +1193,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {6,5}, 5,
       2.25f,
       SOC_INSTINCTIVE,
+      RES_MEAT | RES_BONE | RES_BLOOD,
       RES_MEAT|RES_BONE,
-  },
-  {ENT_TROLL_CAVE, "Cave Troll",
-    MOB_SPAWN_LAIR |
-      MOB_MOD_ENLARGE |
-      MOB_LOC_DUNGEON | MOB_LOC_CAVE |
-      MOB_THEME_MONSTER |
-      MOB_FREQ_RARE|
-      MOB_GROUPING_SOLO,
-    SPEC_GIANT,
-    {1,5}, 6,
-    2.75f,
-    SOC_INSTINCTIVE,
-    RES_MEAT|RES_BONE,
   },
   {ENT_BEAR, "Bear",
       MOB_SPAWN_LAIR |
@@ -1211,6 +1205,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {32,0}, 2,
       .975,
       SOC_FERAL,
+      RES_MEAT | RES_BONE | RES_BLOOD,
       RES_MEAT|RES_BONE,
       .flags = {
         PQ_LARGE | PQ_DENSE_MUSCLE | PQ_LARGE_HANDS,
@@ -1227,6 +1222,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {64,0}, 1,
       0.65,
       SOC_FERAL,
+      RES_MEAT | RES_BONE | RES_BLOOD,
       RES_MEAT|RES_BONE,
       .flags = {
         PQ_SENSITIVE_NOSE
@@ -1242,6 +1238,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {24,69}, 1,
       .25,
       SOC_HIVE,
+      RES_MEAT | RES_BONE | RES_BLOOD,
       RES_BLOOD | RES_VEG,
   },
   {ENT_SKELETON,"Skeleton",
@@ -1257,6 +1254,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {60,0}, 2,
     0.375,
     SOC_FAMILY,
+    RES_MEAT | RES_BONE | RES_BLOOD,
     RES_VEG,
   },
   {ENT_KOBOLD, "Kobold",
@@ -1268,6 +1266,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {69,24}, 1,
     0.375,
     SOC_INSTINCTIVE,
+    RES_MEAT | RES_BONE | RES_BLOOD,
     RES_MEAT|RES_BONE,
     .flags = PQ_TAIL | PQ_SMALL
   },
@@ -1281,6 +1280,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {54,8}, 3,
     1.25,
     SOC_PRIMITIVE,
+    RES_MEAT | RES_BONE | RES_BLOOD,
     RES_MEAT|RES_BONE,
     .flags = {
       PQ_LARGE_HANDS | PQ_LARGE_NOSE | PQ_TALL | PQ_DENSE_MUSCLE | PQ_LONG_LIMB,
@@ -1313,7 +1313,6 @@ static mob_variants_t MOB_MODS[ENT_DONE] = {
     }
   },
   {ENT_TROLL},
-  {ENT_TROLL_CAVE},
   {ENT_BEAR,
     {
       [MM_ALPHA] = {

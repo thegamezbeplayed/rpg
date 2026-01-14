@@ -605,7 +605,7 @@ typedef struct{
   env_t*            tile;
   ent_t*            occupant;
   Color             fow;
-  bool              explored;
+  bool              updates, explored;
 }map_cell_t;
 
 typedef struct{
@@ -623,14 +623,18 @@ typedef struct{
   int          num_rooms;
   map_room_t   *rooms[MAX_ROOMS];
   map_cell_t   **tiles;
+  int          num_changes;
+  map_cell_t   *changes[128];
   int          x,y,width,height;
   int          step_size;
   Color        floor;
+  bool         updates;
 }map_grid_t;
 
 bool InitMap(void);
 void WorldMapLoaded(map_grid_t* m);
 map_grid_t* InitMapGrid(void);
+void MapSync(map_grid_t* m);
 TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
 TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);
 ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status);
@@ -709,7 +713,7 @@ static path_result_t* FindPathCell(map_grid_t *m, Cell sc, Cell tc, Cell *out, i
   return FindPath(m, sc.x, sc.y, tc.x, tc.y, out, depth);
 }
 
-path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* result);
+path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, Cell goal, int depth, bool* result);
 Cell RouteGetNext(ent_t* e, path_cache_entry_t* route);
 bool HasLOS(map_grid_t* m, Cell c0, Cell c1);
 void CastLight(map_grid_t *m, Cell pos, int row, float start, float end, int radius,int xx, int xy, int yx, int yy);

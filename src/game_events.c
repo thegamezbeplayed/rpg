@@ -346,155 +346,6 @@ void StepEvents(events_t* pool){
   }
 }
 
-void InitAggroTable(aggro_table_t* t, int cap, ent_t* owner){
-  t->owner = owner;
-  t->count = 0;
-  t->cap = cap;
-  t->entries = calloc(t->cap, sizeof(aggro_entry_t));
-
-  // Create decay event
-  cooldown_t* cd = InitCooldown(
-      1,                     // ticks before decay
-      EVENT_DECAY,
-      AggroDecayCallback,
-      t 
-      );
-
-  t->event_id = RegisterEvent(EVENT_DECAY, cd, owner->uid, STEP_TURN);
-}
-
-void AggroEnsureCapacity(aggro_table_t* t){
-  if (t->count < t->cap)
-    return;
-
-  t->cap *= 2;
-  t->entries = realloc(t->entries,
-      t->cap * sizeof(aggro_entry_t));
-}
-
-int AggroAdd(aggro_table_t* table, ent_t* source, int threat_gain, float mul, bool init){
-  // Check if already present
-  
-  float threat = mul * threat_gain;
-  if(source->type == ENT_PERSON)
-    mul = 1;
-
-  aggro_entry_t* e = AggroGetEntry(table,source);
-  if (e && e->enemy == source) {
-    if(init)
-      e->initiated = true;
-    e->threat += threat;
-    e->last_turn = TURN;
-    //            ResetEvent(events, e->decay_event);
-    return e->challenge;
-  }
-
-  // New entry
-  AggroEnsureCapacity(table);
-
-  
-  int off = EntGetOffRating(source);
-  int def = EntGetDefRating(source);
-
-  float cr = (off*def) /10;
-   
-  e = &table->entries[table->count++];
-  e->initiated = init;
-  e->enemy = source;
-  e->last_turn = TURN;
-  e->offensive_rating = off;
-  e->defensive_rating = def;
-  e->challenge = cr*mul;
-  e->threat = e->challenge>threat_gain?e->challenge:threat;
-
-  return cr;
-}
-
-aggro_entry_t* AggroGetEntry(aggro_table_t* table, ent_t* source){
-  for (int i = 0; i < table->count; i++) {
-    aggro_entry_t* e = &table->entries[i];
-    if (e->enemy == source)
-      return e;
-  }
-
-  return NULL;
-}
-
-int AggroCompareDesc(const void* a, const void* b){
-  const aggro_entry_t* A = (const aggro_entry_t*)a;
-  const aggro_entry_t* B = (const aggro_entry_t*)b;
-
-  // Primary: threat
-  if (A->threat > B->threat) return -1;
-  if (A->threat < B->threat) return  1;
-
-  // Secondary: threat multiplier
-  if (A->threat_mul > B->threat_mul) return -1;
-  if (A->threat_mul < B->threat_mul) return  1;
-
-  // Tertiary: most recent turn wins
-  if (A->last_turn > B->last_turn) return -1;
-  if (A->last_turn < B->last_turn) return  1;
-
-  return 0;
-}
-
-void AggroSortByThreat(aggro_table_t* table){
-  if (!table || table->count <= 1)
-    return;
-
-  qsort(table->entries,
-      table->count,
-      sizeof(aggro_entry_t),
-      AggroCompareDesc);
-}
-
-int AggroGetEntries(aggro_table_t* t, int count, aggro_entry_t  *entries){
-  int out = 0;
-  if(t->count < 1)
-    return out;
-
-  int check = count < t->count? count: t->count;
-  if(check < t->count)
-    AggroSortByThreat(t);
-
-  for(int i = 0; i < check; i++)
-    entries[out++] = t->entries[i];
-
-  return out;
-
-}
-
-aggro_entry_t* AggroGetHighest(aggro_table_t* t){
-  if(t->count < 1)
-    return NULL;
-
-  if(t->count == 1)
-    return &t->entries[0];
-
-  AggroSortByThreat(t);
-
-  return &t->entries[0];
-}
- 
-void AggroDecayCallback(void* params){
-
-}
-
-void AggroPrune(aggro_table_t* t) {
-  for (int i = 0; i < t->count; ) {
-    if (!t->entries[i].enemy ||
-        t->entries[i].enemy->state == STATE_DEAD ||
-        t->entries[i].threat <= 0)
-    {
-      t->entries[i] = t->entries[--t->count];
-    } else {
-      i++;
-    }
-  }
-}
-
-
 void InitAllyTable(ally_table_t* t, int cap, ent_t* owner){
   t->owner = owner;
   t->count = 0;
@@ -548,12 +399,6 @@ int AllyAdd(ally_table_t* t, ent_t* source, int dist){
 
 void AllySync(void* params){
   ally_table_t* t = params;
-  if(t->owner->aggro->count == 0)
-    return;
-
-  for(int i = 0; i < t->count; i++){
-
-  }
 }
 
 int LocalCompareAsc(const void* a, const void* b){
@@ -596,7 +441,7 @@ void LocalSortByDist(local_table_t* table){
       LocalCompareAsc);
 }
 
-ent_t* RemoveEntryByRel(local_table_t* t, SpeciesRelate rel){
+local_ctx_t* RemoveEntryByRel(local_table_t* t, SpeciesRelate rel){
   for (int i = 0; i < t->count; i++){
     local_ctx_t *ctx = &t->entries[i];
     if(ctx->prune || ctx->rel != rel)
@@ -604,7 +449,18 @@ ent_t* RemoveEntryByRel(local_table_t* t, SpeciesRelate rel){
 
     ctx->prune = true;
 
-    return ctx->other;
+    return ctx;
+  }
+
+  return NULL;
+}
+
+local_ctx_t* LocalGetEntry(local_table_t* table, game_object_uid_i other){
+  
+  for (int i = 0; i < table->count; i++) {
+    local_ctx_t* ctx = &table->entries[i];
+    if (ctx->gouid == other)
+      return ctx;
   }
 
   return NULL;
@@ -614,20 +470,7 @@ void LocalPrune(local_table_t* t){
   for (int i = 0; i < t->count; ) {
     local_ctx_t* ctx = &t->entries[i];
 
-    bool prune = false;
-    switch(ctx->cat){
-      case OBJ_ENT:
-        if (!ctx->other || ctx->prune ||
-            ctx->other->state == STATE_DEAD)
-          prune = true;
-        break;
-      case OBJ_ENV:
-        if(ctx->env->has_resources == 0)
-          prune = true;
-        break;
-    }
-
-    if(prune)
+    if (!ctx || ctx->prune)
       t->entries[i] = t->entries[--t->count];
     else 
       i++;
@@ -646,14 +489,17 @@ void LocalEnsureCap(local_table_t* t){
 }
 
 void AddLocalEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
+  if(LocalGetEntry(s, e->gouid))
+    return;
+
   LocalEnsureCap(s);
 
   int dist = cell_distance(e->pos, s->owner->pos);
   local_ctx_t* ctx = &s->entries[s->count++];
+  param_t env = ParamMake(DATA_ENV, sizeof(env_t), e);
 
-  ctx->env = e;
+  ctx->other = env;
   ctx->rel = rel;
-  ctx->cat = OBJ_ENV;
   ctx->dist = dist;
 
   int count = 0;
@@ -662,17 +508,21 @@ void AddLocalEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
     if(!e->resources[i] || e->resources[i]->amount == 0)
       continue;
 
-    ctx->resource |= i;
+    ctx->resource |= e->resources[i]->type;
     count++;
     score += e->resources[i]->amount;
   }
 
+  ctx->aggro = NULL;
   ctx->cr =  score/count;
   LocalSortByDist(s);
 
 }
 
 void AddLocals(local_table_t* s, ent_t* e, SpeciesRelate rel){
+   if(LocalGetEntry(s, e->gouid))
+    return;
+
   LocalEnsureCap(s);
 
   int dist = cell_distance(e->pos, s->owner->pos);
@@ -684,17 +534,25 @@ void AddLocals(local_table_t* s, ent_t* e, SpeciesRelate rel){
   for (int i = 0; i < TREAT_DONE; i++)
     ctx->treatment[i] = TREATMENT[rel][i];
 
+  param_t ent = ParamMake(DATA_ENTITY, sizeof(ent_t), e);
+  ctx->other = ent;
   ctx->cr = EntGetChallengeRating(e);
-  ctx->other = e;
   ctx->rel = rel;
-  ctx->cat = OBJ_ENT;
   ctx->dist = dist;
+  ctx->aggro = NULL;
+  for(int i = 0; i < RES_DONE; i++){
+    if(!e->props->resources[i])
+      continue;
+    if(e->props->resources[i]->amount == 0)
+      continue;
 
+    ctx->resource|=e->props->resources[i]->type;
+  }
   LocalSortByDist(s);
 }
 bool LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   bool change = false;  
-  ent_t* other = ctx->other;
+  ent_t* other = ParamReadEnt(&ctx->other);
   int dist = cell_distance(e->pos, other->pos);
 
   if(dist==ctx->dist)
@@ -735,8 +593,7 @@ bool LocalEntCheck(ent_t* e, local_ctx_t* ctx){
     }
     float inc = ctx->treatment[j] / dist;
     ctx->awareness += inc;
-    if(ctx->awareness > 1 && ((j & TREAT_AGGRO_MASK)>0))
-      ctx->engage = true;
+    //if(ctx->awareness > 1 && ((j & TREAT_AGGRO_MASK)>0))
   }
 
   return true;
@@ -748,7 +605,7 @@ void LocalSync(local_table_t* s){
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
 
-    if(ctx->cat != OBJ_ENT)
+    if(ctx->other.type_id != DATA_ENTITY)
       continue;
   
     dist_change = LocalEntCheck(s->owner, ctx);
@@ -756,4 +613,74 @@ void LocalSync(local_table_t* s){
 
   if(dist_change)
     LocalSortByDist(s);
+}
+
+
+local_ctx_t* LocalGetThreat(local_table_t* t){
+  local_ctx_t* out = NULL;
+  float highest = -1;
+
+  for(int i = 0; i < t->count; i++){
+    local_ctx_t* ctx = &t->entries[i];
+    if(!ctx || !ctx->aggro)
+      continue;
+
+    if(ctx->aggro->threat < highest)
+      continue;
+
+    if(ctx->aggro->challenge < out->aggro->challenge)
+      continue;
+
+    highest = ctx->aggro->threat;
+    out = &t->entries[i];
+  }
+
+  return out;
+  
+}
+
+aggro_t* LocalGetAggro(local_table_t* table, game_object_uid_i other){
+  local_ctx_t* ctx = LocalGetEntry(table, other);
+
+  if(ctx == NULL || ctx->aggro == NULL)
+    return NULL;
+
+  return ctx->aggro;
+}
+
+int LocalAddAggro(local_table_t* table, ent_t* source, int threat_gain, float mul, bool init){
+  // Check if already present
+
+  float threat = mul * threat_gain;
+  if(source->type == ENT_PERSON)
+    mul = 1;
+
+  local_ctx_t* ctx = LocalGetEntry(table,source->gouid);
+
+  if(!ctx || ctx->other.type_id != DATA_ENTITY)
+    return 0;
+
+  if (ctx->aggro && ctx->gouid == source->gouid) {
+    if(init)
+      ctx->aggro->initiated = true;
+    ctx->aggro->threat += threat;
+    ctx->aggro->last_turn = TURN;
+    return ctx->aggro->challenge;
+  }
+
+  int off = EntGetOffRating(source);
+  int def = EntGetDefRating(source);
+
+  float cr = (off*def) /10;
+
+  ctx->aggro = calloc(1,sizeof(aggro_t));
+
+  ctx->aggro->initiated = init;
+  ctx->aggro->last_turn = TURN;
+  ctx->aggro->offensive_rating = off;
+  ctx->aggro->defensive_rating = def;
+  ctx->aggro->challenge = cr*mul;
+  ctx->aggro->threat = ctx->aggro->challenge>threat_gain?ctx->aggro->challenge:threat;
+
+  return cr;
 }

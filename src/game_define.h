@@ -217,7 +217,7 @@ static inline faction_t* GetFactionByID(Faction id){
 }
 
 typedef enum{
-  RES_NONE = 0,
+  RES_NONE = -1,
   RES_VEG  = BIT64(0),
   RES_MEAT = BIT64(1),
   RES_BONE = BIT64(2),
@@ -231,6 +231,7 @@ typedef enum{
 
 typedef struct{
   Resource    type;
+  int         smell;
   uint64_t    amount;
 }resource_t;
 
@@ -238,9 +239,20 @@ typedef struct{
   Resource        type;
   ObjectCategory  cat;
   uint64_t        cat_flags;
-  int             quantity;      
+  int             quantity, smell;      
 }define_resource_t;
 extern define_resource_t DEF_RES[20];
+static inline define_resource_t* GetResourceDef(Resource type){
+  for(int i = 0; i < NUM_RES_DEF; i++){
+    define_resource_t *res = &DEF_RES[i];
+    if(res->type != type)
+      continue;
+
+    return res;
+  }
+
+  return NULL;
+}
 static inline define_resource_t* GetResourceByCatFlags(Resource type, ObjectCategory cat, uint64_t flags){
   for(int i = 0; i < NUM_RES_DEF; i++){
     define_resource_t *res = &DEF_RES[i];
@@ -271,7 +283,7 @@ typedef enum{
 typedef struct{
   Needs         id;
   ent_t*        owner;
-  Resource      resource;
+  uint64_t      resource;
   local_ctx_t*  goal;
   StatType      stat_rel;
   NeedStatus    status;
@@ -309,7 +321,8 @@ typedef struct{
   int         cost;
   float       diff;
   SocietyType civ;
-  Resource    eats;
+  uint64_t    has;
+  uint64_t    eats;
   mob_flags_t flags;
 }mob_define_t;
 

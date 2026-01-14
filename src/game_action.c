@@ -113,7 +113,24 @@ void ActionManagerBuildQueue(TurnPhase phase, ActionCategory cat){
 }
 
 ActionStatus ActionAttack(action_t* a){
+  if(a->ctx.type_id != DATA_ENTITY)
+    return ACT_STATUS_BAD_DATA;
 
+  ent_t* tar = ParamReadEnt(&a->ctx);
+
+  ability_t* ab;
+
+  bool prepared = EntPrepareAttack(a->owner, tar, &ab);
+
+  if(!prepared){
+    a->status = ACT_STATUS_BAD_ATTACK;
+  }
+  else{
+    AbilityUse(a->owner, ab, tar, NULL);
+    a->status = ACT_STATUS_TAKEN;
+  }
+
+  return a->status;
 }
 
 ActionStatus ActionInteract(action_t* a){
@@ -304,6 +321,14 @@ action_t* InitAction(ent_t* e, uint64_t id, ActionType type, ActionCategory cat,
 
 action_t* InitActionAttack(ent_t* e, ActionCategory cat, ent_t* tar, int weight){
 
+    uint64_t id = hash_combine_64(e->gouid, tar->gouid);
+
+    param_t ctx = ParamMake(DATA_ENTITY, sizeof(ent_t), tar);
+      
+    action_t* a = InitAction(e, id, ACTION_ATTACK, cat, ctx, weight);
+
+    a->fn = ActionAttack;
+
 }
 
 action_t* InitActionFulfill(ent_t* e, ActionCategory cat, need_t* n, int weight){
@@ -320,7 +345,7 @@ action_t* InitActionFulfill(ent_t* e, ActionCategory cat, need_t* n, int weight)
 
 action_t* InitActionInteract(ent_t* e, ActionCategory cat, local_ctx_t* ctx, int weight){
   
-  uint64_t other = ctx->cat== DATA_ENTITY? ctx->other->gouid: ctx->env->gouid;
+  uint64_t other = ctx->gouid;
   param_t param = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), ctx);
 
   uint64_t id = hash_combine_64(e->gouid, other);

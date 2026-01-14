@@ -50,21 +50,10 @@ path_cache_entry_t* PathCacheFind(int sx, int sy, int tx, int ty){
     return NULL;
 }
 
-path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* result){
+path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, Cell goal, int depth, bool* result){
   game_object_uid_i start = e->gouid;
-  game_object_uid_i end = 0;
-  Cell goal = CELL_UNSET;
-  switch(dest->cat){
-    case OBJ_ENV:
-      end = dest->env->gouid;
-      goal = dest->env->pos;
-      break;
-    case OBJ_ENT:
-      end = dest->other->gouid;
-      goal = dest->other->pos;
-      break;
-  }
-  
+  game_object_uid_i end = dest->gouid;
+ 
   path_cache_entry_t* p = PathCacheFindByUID(start, end);
 
   if(p)
