@@ -125,7 +125,7 @@ BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   if(enemy == NULL && e->control->target == NULL)
     return BEHAVIOR_FAILURE;
 
-  e->control->target = enemy;
+  e->control->target = ctx;
 
   return BEHAVIOR_SUCCESS;
 }
@@ -136,7 +136,11 @@ BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
-  if(e->control->target && CheckEntAvailable(e->control->target))
+  ent_t* target = NULL;
+  if(e->control->target)
+    target = ParamReadEnt(&e->control->target->other);
+
+  if(target && CheckEntAvailable(target))
     return BEHAVIOR_SUCCESS;
 
   e->control->target = NULL;
@@ -153,7 +157,7 @@ BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
   if(!aggro)
     return BEHAVIOR_FAILURE;
 
-  e->control->target = aggro;
+  e->control->target = ctx;
 
   return BEHAVIOR_SUCCESS;
 }
@@ -163,12 +167,12 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
-  if(!e->control->target || e->control->target->state == STATE_DIE)
+  if(!e->control->target)
     return BEHAVIOR_FAILURE;
 
-  ent_t* tar = e->control->target;
+  ent_t* tar = ParamReadEnt(&e->control->target->other);
 
-  int depth = cell_distance(e->pos, tar->pos);
+  int depth = EntGetTrackDist(e, e->control->target) + cell_distance(e->pos, tar->pos);
   bool found = false;
   e->control->goal->path = StartRoute(e, e->control->goal, tar->pos, depth, &found);
   if(!found)
@@ -223,17 +227,21 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
  
   Cell dest = CELL_UNSET;
 
+  if(e->control->goal->other.type_id == DATA_ENTITY)
+    DO_NOTHING();
+
   if(cell_distance(e->control->destination,  e->pos) < 2)
     return BEHAVIOR_SUCCESS;
   else{
     if(e->control->goal==NULL)
       return BEHAVIOR_FAILURE;
-
-    int depth = e->control->goal->dist;
+    
+    int depth = EntGetTrackDist(e, e->control->goal) + e->control->goal->dist;
     bool found = false;
     e->control->goal->path = StartRoute(e, e->control->goal, e->control->destination, depth, &found);
     if(!found)
       return BEHAVIOR_FAILURE;
+
 
     dest = RouteGetNext(e, e->control->goal->path);
   }
@@ -270,12 +278,11 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
   if(!e->control->pref)
     return BEHAVIOR_FAILURE;
 
-  if(cell_distance(e->pos,e->control->target->pos) >  e->control->pref->stats[STAT_REACH]->current)
+  ent_t* tar = ParamReadEnt(&e->control->target->other);
+
+  if(cell_distance(e->pos,tar->pos) >  e->control->pref->stats[STAT_REACH]->current)
     return BEHAVIOR_FAILURE;
 
-  if(EntCanDetect(e, e->control->target, e->control->pref->stats[STAT_REACH]->current), SEN_SEE)
-      return BEHAVIOR_SUCCESS;
-  
   return BEHAVIOR_FAILURE;
 }
    
@@ -372,7 +379,7 @@ BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
           ent_t* tar = ParamReadEnt(&e->control->goal->other);
           a = InitActionAttack(e, ACT_MAIN, tar, 100);
           if(a)
-            e->control->target = tar;
+            e->control->target = e->control->goal;
           break;
         case DATA_ENV:
           a = InitActionFulfill(e, ACT_MAIN, n, 75); 
@@ -421,6 +428,13 @@ BehaviorStatus BehaviorFindResource(behavior_params_t *params){
   return (e->control->goal==NULL)?BEHAVIOR_FAILURE:BEHAVIOR_SUCCESS;
 }
 
+BehaviorStatus BehaviorTrackResource(behavior_params_t *params){
+ ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+}
+
 BehaviorStatus BehaviorSeekResource(behavior_params_t *params){
  ent_t* e = params->owner;
   if(!e)
@@ -439,14 +453,20 @@ BehaviorStatus BehaviorSeekResource(behavior_params_t *params){
       env_t* env = ParamReadEnv(&e->control->goal->other);
       pos = env->pos;
       break;
+    case DATA_MAP_CELL:
+      map_cell_t* mc = ParamReadMapCell(&e->control->goal->other);
+      pos = mc->coords;
+      break;
+
   }
 
   if(cell_compare(pos, CELL_UNSET))
     return BEHAVIOR_FAILURE;
 
   bool found;
-
-  e->control->goal->path = StartRoute(e, e->control->goal, pos, e->control->goal->dist, &found);
+   
+  int depth = EntGetTrackDist(e, e->control->goal) + e->control->goal->dist;
+  e->control->goal->path = StartRoute(e, e->control->goal, pos, depth, &found);
 
   if(!found)
     return BEHAVIOR_FAILURE;
@@ -488,9 +508,6 @@ BehaviorStatus BehaviorFillNeeds(behavior_params_t *params){
 BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || e->control->target == NULL )
-    return BEHAVIOR_FAILURE;
-
-  if(!EntCanDetect(e, e->control->target,SEN_SEE))
     return BEHAVIOR_FAILURE;
 
   return BEHAVIOR_SUCCESS;

@@ -72,6 +72,9 @@
     PQ_DENSE_MUSCLE)
   
 #define MAX_FACTIONS 20
+//__builtin_ctzll
+#define BCTZL(uint) (int){__builtin_ctzll(uint)}  
+
 extern int NUM_FACTIONS;
 
 typedef enum{
@@ -226,11 +229,12 @@ typedef enum{
   RES_WOOD  = BIT64(5),
   RES_WATER = BIT64(6),
   RES_BLOOD = BIT64(7),
-  RES_DONE = 7
+  RES_DONE = 8
 }Resource;
 
 typedef struct{
   Resource    type;
+  Resource    attached;
   int         smell;
   uint64_t    amount;
 }resource_t;
@@ -240,6 +244,7 @@ typedef struct{
   ObjectCategory  cat;
   uint64_t        cat_flags;
   int             quantity, smell;      
+  Resource        attached;
 }define_resource_t;
 extern define_resource_t DEF_RES[20];
 static inline define_resource_t* GetResourceDef(Resource type){

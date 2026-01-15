@@ -85,6 +85,7 @@ define_resource_t DEF_RES[20] = {
     OBJ_ENV,
     TILEFLAG_NATURAL,
     2, 5,
+    RES_WATER
   },
   {RES_WATER,
     OBJ_ENV,
@@ -111,7 +112,9 @@ define_resource_t DEF_RES[20] = {
 species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)] = {
   {SPEC_NONE},      
   {SPEC_HUMAN,
-
+    {
+      [SPEC_HOSTILE] = SPEC_SULKING | SPEC_ORC | SPEC_GOBLINOID | SPEC_CANIFORM
+    }
   },    
   {SPEC_ELF,
 
@@ -1263,18 +1266,38 @@ skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
 
 }
 
+int SkillCheckGetVal(skill_t* s, ValueCategory val){
+  if(s->ovrd)
+    return s->ovrd->vals[val];
+
+  return s->checks->vals[val];
+}
+
 InteractResult SkillCheck(skill_t* s, skill_t* against){
-  if(s->checks == NULL)
+  skill_check_t* checks = s->checks;
+  if(s->ovrd)
+    checks = s->ovrd;
+
+  if(checks == NULL)
     return IR_CRITICAL_FAIL;
 
   if(against->checks == NULL)
     return IR_TOTAL_SUCC;
 
   int hits[1];
-  int hit = s->checks->die->roll(s->checks->die, hits);
+
+  dice_roll_t* dr = checks->die;
+  if(checks->vals[VAL_ADV_HIT]!=0){
+    dr->cb = GREATER_THAN;
+    dr->roll = RollDieAdvantage;
+    dr->advantage = checks->vals[VAL_ADV_HIT];
+  }
+  int hit = dr->roll(dr, hits);
 
   int saves[1];
   int save = against->checks->die->roll(s->checks->die, saves);
+
+  s->ovrd = NULL;
 
   return (hit > save)?IR_SUCCESS:IR_FAIL;
 }

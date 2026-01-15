@@ -8,7 +8,7 @@
 #include "screens.h"
 #include "room_data.h"
 
-#define MAX_INTERACTIONS 256
+#define MAX_INTERACTIONS 1024
 #define DEBUG false
 #define TURN WorldGetTurn()
 
@@ -195,7 +195,7 @@ bool WorldAddEvent(event_uid_i eid, cooldown_t* cd, StepType when);
 bool RegisterBehaviorTree(BehaviorData data);
 bool RegisterEnt( ent_t *e);
 bool RegisterEnv( env_t *e);
-bool RegisterMapCell(map_cell_t* m);
+map_cell_t* RegisterMapCell(int x, int y);
 bool RegisterSprite(sprite_t *s);
 bool RegisterItem(ItemInstance g);
 void WorldInitOnce();

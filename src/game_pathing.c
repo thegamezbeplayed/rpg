@@ -234,15 +234,11 @@ int ScorePath(map_grid_t *m, int sx, int sy, int tx, int ty, int depth){
     if (sx == tx && sy == ty)
         return score;
 
-    depth = CLAMP(depth,1,80);
     // Init nodes
     for (int y = 0; y < m->height; y++)
     for (int x = 0; x < m->width; x++) {
       map_cell_t mc = m->tiles[x][y];
       if(mc.status > TILE_REACHABLE)
-        continue;
-
-      if(cell_distance(mc.coords, sc)>depth)
         continue;
 
       nodes[x][y] = (path_node_t){
@@ -267,7 +263,8 @@ int ScorePath(map_grid_t *m, int sx, int sy, int tx, int ty, int depth){
     start->open = true;
 
     int passes = 0;
-    while (depth > passes)
+    int len = 0;
+    while (depth > len)
     {
         // Step 1: Find lowest fCost open node
         path_node_t *current = NULL;
@@ -315,6 +312,7 @@ int ScorePath(map_grid_t *m, int sx, int sy, int tx, int ty, int depth){
             int cost = current->gCost + 1;
 
             if (!neighbor->open || cost < neighbor->gCost) {
+              len++;
               neighbor->gCost = cost;
               neighbor->hCost = Heuristic(nx, ny, tx, ty);
               neighbor->fCost = neighbor->gCost + neighbor->hCost;

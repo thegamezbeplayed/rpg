@@ -50,6 +50,64 @@ map_grid_t* InitMapGrid(void){
   return m;
 }
 
+void MapCellTurnStep(map_cell_t* m){
+  ent_t* occ = m->occupant;
+  env_t* env = m->tile;
+ 
+  if(m->tile && m->tile->has_resources == 0)
+    m->tile->sprite = NULL;
+
+  uint64_t occid = occ?occ->gouid:0;
+  uint64_t envid = env?env->gouid:0;
+
+  uint64_t swap = 0;
+  uint64_t present = occid | envid;
+
+  uint64_t next[SATUR_MAX];
+  for(int i = 0; i < SATUR_MAX; i++){
+    uint64_t bits = m->props->scents[i];
+
+    uint64_t still_present = bits & present;
+    uint64_t missing       = bits & ~present;
+
+    if (still_present) {
+      int up = (i + 1 < SATUR_MAX) ? i + 1 : i;
+      next[up] |= still_present;
+    }
+
+    // Decay: move down
+    if (missing && i > 0)
+      next[i - 1] |= missing;
+
+  }
+
+   uint64_t new_bits = present;
+  for (int i = 0; i < SATUR_MAX; i++)
+    new_bits &= ~m->props->scents[i];
+
+  if (new_bits)
+    next[0] |= new_bits;
+
+  // Commit
+  memcpy(m->props->scents, next, sizeof(next));
+
+}
+
+void MapTurnStep(map_grid_t* m){
+  if(!m)
+    return;
+
+  for(int x = 0; x < m->width; x++)
+    for(int y = 0; y < m->height; y++){
+      map_cell_t* mc = &m->tiles[x][y];
+      if(!mc)
+        continue;
+      if(mc->status == TILE_EMPTY && mc->flags == TILEFLAG_NONE)
+        continue;     
+      MapCellTurnStep(mc);
+    }
+}
+
 void MapSync(map_grid_t* m){
   if(!m || !m->updates)
     return;
@@ -470,11 +528,10 @@ Cell MapApplyContext(map_grid_t* m){
   for(int x = 0; x < world_map.width; x++){
     m->tiles[x] = calloc(m->height, sizeof(map_cell_t));
     for(int y = 0; y < world_map.height; y++){
-      m->tiles[x][y].coords = CELL_NEW(x,y); 
-      m->tiles[x][y].fow = BLACK;  
-      m->tiles[x][y].occupant = NULL;  
+      map_cell_t* mc = RegisterMapCell(x,y);
+
+      m->tiles[x][y] = *mc;
       MapSpawn(world_map.tiles[x][y],x,y);
-      RegisterMapCell(&m->tiles[x][y]);
     }
   }
   for(int r = 0; r < world_map.num_rooms; r++)
@@ -505,17 +562,23 @@ TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c){
   if(!cell_in_bounds(c,bounds))
     return TILE_OUT_OF_BOUNDS;
 
-  m->tiles[c.x][c.y].tile = e;
-  if(TileHasFlag(e->type, TILEFLAG_SOLID))
-    m->tiles[c.x][c.y].status = TILE_COLLISION;
-  else if(TileHasFlag(e->type, TILEFLAG_BORDER))
-    m->tiles[c.x][c.y].status = TILE_BORDER;
-  else
-    m->tiles[c.x][c.y].status = TILE_EMPTY;
+  map_cell_t* mc = &m->tiles[c.x][c.y];
 
-  m->tiles[c.x][c.y].updates = true;
+  mc->tile = e;
+  if(TileHasFlag(e->type, TILEFLAG_SOLID))
+    mc->status = TILE_COLLISION;
+  else if(TileHasFlag(e->type, TILEFLAG_BORDER))
+    mc->status = TILE_BORDER;
+  else
+    mc->status = TILE_EMPTY;
+
+  mc->updates = true;
+  mc->props->resources |= e->has_resources;
+  mc->props->scents[0]|=e->gouid;
   if(m->num_changes < 128)
     m->changes[m->num_changes++] = &m->tiles[c.x][c.y];
+  if(mc->status < TILE_REACHABLE)
+    m->reachable++;
   return TILE_SUCCESS;
 }
 
@@ -524,12 +587,16 @@ TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c){
   if(!cell_in_bounds(c,bounds))
     return TILE_OUT_OF_BOUNDS;
 
-  if(m->tiles[c.x][c.y].status > TILE_ISSUES)
+  map_cell_t* mc = &m->tiles[c.x][c.y];
+  if(mc->status > TILE_ISSUES)
     return TILE_OCCUPIED;
 
   MapRemoveOccupant(m,e->pos);
-  m->tiles[c.x][c.y].occupant =e;
-  m->tiles[c.x][c.y].status = TILE_OCCUPIED;
+  mc->occupant =e;
+  mc->status = TILE_OCCUPIED;
+
+  mc->props->resources |= EntGetScents(e);
+  mc->props->scents[0]|=e->gouid;
 
   WorldDebugCell(c, GREEN);
   e->map = m;
@@ -746,24 +813,24 @@ void MapSpawn(TileFlags flags, int x, int y){
       return;
     for (int i = 0; i < RES_DONE; i++){
       define_resource_t* temp = GetResourceByCatFlags(BIT64(i), OBJ_ENV, tflags);
+      resource_t *res = calloc(1,sizeof(resource_t));
+      env->resources[i] = res;
       if(!temp)
         continue;
 
+      res->type = temp->type;
       env->has_resources |= temp->type;
       uint64_t amnt = size*temp->quantity;
 
-      resource_t *res = calloc(1,sizeof(resource_t));
 
       *res = (resource_t){
         .type = temp->type,
-          .amount = amnt
+          .amount = amnt,
+          .attached = temp->attached
       };
 
       env->smell += temp->smell;
-      if(!env->resources[i])
-        env->resources[i] = res;
-      else
-        env->resources[i]->amount+=amnt;
+      env->resources[i]->amount+=amnt;
     }
   }
 
@@ -1879,7 +1946,7 @@ void RoomCarveTiles(map_context_t* ctx, room_t* r){
           x == r->bounds.max.x ||
           y == r->bounds.min.y ||
           y == r->bounds.max.y);
-      TileFlags floor = RandRange(0,100)<ctx->decor_density?TILEFLAG_FLOOR:TILEFLAG_EMPTY;
+      TileFlags floor = RandRange(0,100)<ctx->decor_density?TILEFLAG_FLOOR:TILEFLAG_FLOOR|TILEFLAG_SIZE_XS;
       if(ctx->tiles[x][y])
       ctx->tiles[x][y] = border ? TILEFLAG_WALL : floor;
     }

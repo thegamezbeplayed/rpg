@@ -859,12 +859,13 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
   Resource res = m.has;
 
   while(res){
-    uint32_t r = res & -res;
+    Resource r = res & -res;
     res &= res -1;
 
     resource_t* resource = calloc(1,sizeof(resource_t));
     resource->type = r;
-
+    define_resource_t* def = GetResourceDef(r);
+    resource->smell = def->smell;
     uint64_t amnt = 0;
     switch(r){
       case RES_VEG:
@@ -886,11 +887,16 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
 
     }
 
+    if((p->race&SPEC_ARTHROPOD)>0)
+      DO_NOTHING();
+
     if(amnt == 0)
       continue;
 
+
+    p->smell+=def->smell;
     resource->amount = amnt;
-    p->resources[__builtin_ctzll(r)] = resource;
+    p->resources[BCTZL(r)] = resource;
   }
   return p;
 }
@@ -903,17 +909,17 @@ env_t* InitEnvFromEnt(ent_t* e){
     if(!tmp || tmp->amount == 0)
       continue;
 
-    define_resource_t* def = GetResourceDef(tmp->type);
     empty = false;
 
-    env->smell+=def->smell;
     resource_t *res = calloc(1,sizeof(resource_t));
 
     *res = (resource_t){
       .type = tmp->type,
-        .amount = tmp->amount
+        .amount = tmp->amount,
+        .smell = tmp->smell
     };
 
+    env->resources[i] = res;
     env->has_resources |= tmp->type;
   }
 
@@ -947,7 +953,7 @@ int EnvExtractResource(env_t* env, ent_t* ent, Resource res){
   resource_t* r = env->resources[__builtin_ctzll(res)];
 
   if(r->amount == 0){
-    env->has_resources &= res;
+    env->has_resources &= ~res;
     return 0;
   }
 
@@ -955,9 +961,38 @@ int EnvExtractResource(env_t* env, ent_t* ent, Resource res){
 
   if (take > r->amount){
     take = r->amount;
-    env->has_resources &= res;
+    env->has_resources &= ~res;
   }
 
+  int extra = 0;
+  if(r->attached > 0 && (env->has_resources&r->attached)>0){
+    resource_t* attached = env->resources[BCTZL(r->attached)];
+    if(attached->amount > take){
+      attached->amount-=take;
+      extra = take;
+    }
+    else if(take > attached->amount){
+      extra = attached->amount;
+      attached->amount = 0;
+      env->has_resources &= ~r->attached;
+    }
+  }
+  
+  if(extra > 0){
+
+    for(int i = 0; i < N_DONE; i++){
+      if(ent->control->needs[i]->resource == N_NONE)
+        continue;
+
+      if((ent->control->needs[i]->resource&r->attached)==0)
+        continue;
+
+      ent->control->needs[i]->val-=extra;
+      ent->control->needs[i]->activity = true;
+      ent->control->needs[i]->meter = 0;
+    }
+  }
+  
   r->amount-=take;
 
   return take;
@@ -1241,8 +1276,9 @@ InteractResult EntMeetNeed(ent_t* e, need_t* n){
       break;
   }
  
-  e->control->needs[n->id]->val-=amount; 
-  e->control->needs[n->id]->meter = 0; 
+  
+  e->control->needs[n->id]->meter -= amount; 
+  if(amount > 0)
   e->control->needs[n->id]->activity = true; 
 
   return res;
@@ -1633,6 +1669,17 @@ void EntComputeFOV(ent_t* e){
 }
 
 void EntTurnSync(ent_t* e){
+
+  for(int i = 0; i < e->map->num_changes; i++){
+    map_cell_t* update = e->map->changes[i];
+
+    if(!update->updates || update->tile == NULL)
+      continue;
+
+
+    EntAddLocalEnv(e, update->tile);
+
+  }
   
   LocalSync(e->local);
   for(int i = 0; i< STAT_ENT_DONE; i++){
@@ -1661,6 +1708,12 @@ TileStatus EntGridStep(ent_t *e, Cell step){
   TileStatus status = MapSetOccupant(e->map,e,newPos);
 
   if(status < TILE_ISSUES){
+    map_cell_t* mc = &e->map->tiles[newPos.x][newPos.y];
+    if(mc){
+      local_ctx_t* ctx = LocalGetEntry(e->local, mc->gouid);
+      if(ctx)
+        ctx->awareness*=1.1;
+    }
     Cell oldPos = e->pos;
     //WorldDebugCell(e->pos, YELLOW);
     e->pos = newPos;
@@ -1678,23 +1731,9 @@ void EntSetCell(ent_t *e, Cell pos){
   e->pos = pos;
 }
 
-void EntControlStep(ent_t *e, int turn, TurnPhase phase, bool check_env){
+void EntControlStep(ent_t *e, int turn, TurnPhase phase){
   if(!e->control) 
     return;
-
-  if(check_env){
-    for(int i = 0; i < e->map->num_changes; i++){
-      map_cell_t* update = e->map->changes[i];
-
-      if(!update->updates || update->tile == NULL)
-        continue;
-
-
-      EntAddLocalEnv(e, update->tile);
-
-    }
-
-  }
 
   if(turn != e->control->turn){
     for(int i = 1; i < N_DONE; i++)
@@ -1937,7 +1976,7 @@ int EntGetChallengeRating(ent_t* e){
   return  e->props->defr*10 + e->props->offr;
 
 }
-bool EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
+InteractResult EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
   InteractResult res = IR_CRITICAL_FAIL;
 
   SkillType counter = tar->skills[s]->checks->counter;
@@ -1969,7 +2008,7 @@ bool EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
     SkillUse(tar->skills[s], tar->uid, owner->uid, gain, tarres);
   }
 
-        return res > IR_CRITICAL_FAIL;
+  return res;
 }
 
 void EntAddLocalEnv(ent_t* e, env_t* ev){
@@ -1989,9 +2028,12 @@ void EntAddLocals(ent_t* e, ent_t* other){
 
 }
 
-bool EntCanDetect(ent_t* e, ent_t* tar, Senses s){
+InteractResult EntCanDetect(ent_t* e, ent_t* tar, Senses s){
   int depth = e->senses[s]->range;
-  if(cell_distance(e->pos, tar->pos) > depth)
+  SkillType counter = tar->skills[s]->checks->counter;
+  depth += SkillCheckGetVal(e->skills[counter],VAL_REACH);
+  int dist = cell_distance(e->pos, tar->pos);
+  if( dist > depth)
     return false;
 
 
@@ -2000,8 +2042,14 @@ bool EntCanDetect(ent_t* e, ent_t* tar, Senses s){
   if(!los)
     return false;
 
-  return EntSkillCheck(e, tar, SKILL_STEALTH);
+  SkillUse(e->skills[counter], e->uid, tar->uid, dist, IR_SUCCESS);
 
+  InteractResult res =  EntSkillCheck(e, tar, SKILL_STEALTH);
+
+  if(res > IR_ALMOST)
+    return res;
+
+  return IR_ALMOST;
 }
 
 uint64_t EntGetResourceByNeed(ent_t* e, Needs n){
@@ -2032,10 +2080,25 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
   if(e->type == ENT_WOLF || e->type == ENT_BEAR || e->type == ENT_BUGBEAR)
     DO_NOTHING();
 
+  int max_dist = imin(e->map->width, e->map->height);
+  int cap = 20;
+  
   if(!picking){
     for(int i = 0; i < local->count; i++){
       local_ctx_t *ctx = &local->entries[i];
+      if(ctx->dist > max_dist)
+        break;
+
+      if(local->choice_pool->count > cap)
+        break;
+
       uint64_t res = locate;
+
+      int depth = ctx->awareness > 1? MAX_SEN_DIST*(ctx->awareness+0.5):MAX_SEN_DIST;
+      depth+=EntGetTrackDist(e, ctx);
+      Cell pos = CELL_UNSET;
+      int score = -1;
+      int cost = 0;
       while(res){ 
         Resource r = res & -res;
         res &= res -1;
@@ -2043,17 +2106,15 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
         if(!HasResource(ctx->resource, r))
           continue;
 
-        Cell pos = CELL_UNSET;
-        int score = -1;
-        int cost = 0;
+
         switch(ctx->other.type_id){
           case DATA_ENTITY:
             if((ctx->rel&SPEC_HUNTS)==0)
               continue;
             ent_t* tar = ParamReadEnt(&ctx->other);
-
+            depth += tar->props->resources[BCTZL(r)]->smell * 2;
             pos = tar->pos;
-            cost += ctx->cr;
+            cost = ctx->cr;
             score = tar->props->resources[__builtin_ctzll(r)]->amount;
             break;
           case DATA_ENV:
@@ -2061,23 +2122,28 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
             pos = env->pos;
             score = env->resources[__builtin_ctzll(r)]->amount;
             break;
+          case DATA_MAP_CELL:
+            map_cell_t* mc = ParamReadMapCell(&ctx->other);
+            pos = mc->coords;
+            score = i;
+            break;
+
         }
-
-        if(cell_compare(pos, CELL_UNSET))
-          continue;
-
-        if(score < 1)
-          continue;
-
-        int depth = ctx->awareness > 1? MAX_SEN_DIST*(ctx->awareness+0.5):MAX_SEN_DIST;
-
-        cost += ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
-        if(cost < 1)
-          continue;
-
-        ctx->cost = cost;
-        AddPurchase(local->choice_pool, i, score, cost, ctx, ChoiceReduceScore);
       }
+
+      if(cell_compare(pos, CELL_UNSET))
+        continue;
+
+      if(score < 1)
+        continue;
+
+
+      cost += ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
+      if(cost < 1)
+        continue;
+
+      ctx->cost = cost;
+      AddPurchase(local->choice_pool, i, score, cost, ctx, ChoiceReduceScore);
     }
   }
 
@@ -2090,4 +2156,90 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
   return sel->context;
 
 
+}
+
+uint64_t EntGetScents(ent_t* e){
+
+  return MONSTER_MASH[e->type].has;
+}
+
+uint64_t EntGetTrackable(ent_t* e){
+
+  return MONSTER_MASH[e->type].eats;
+}
+
+int EntGetTrackDist(ent_t* e, local_ctx_t* tar){
+
+  uint64_t resources = EntGetTrackable(e);
+  uint64_t scents = 0;
+  map_cell_t* loc = NULL;
+  switch(tar->other.type_id){
+    case DATA_ENTITY:
+      ent_t* other = ParamReadEnt(&tar->other);
+      loc = MapGetTile(other->map, other->pos);
+      scents = EntGetScents(other);
+      break;
+    case DATA_ENV:
+      env_t* env = ParamReadEnv(&tar->other);
+      loc = MapGetTile(e->map, env->pos);
+      scents = env->has_resources;
+      break;
+    case DATA_MAP_CELL:
+      loc = ParamReadMapCell(&tar->other);
+      scents = loc->props->resources;
+      break;
+  }
+
+  uint64_t matches = resources & scents;
+  int count = __builtin_popcountll(matches);
+
+  int strength = 1;
+  for(int i = 0; i < SATUR_MAX; i++){
+    if((loc->props->scents[i]&tar->gouid)==0)
+      continue;
+
+    strength+=i;
+  }
+
+  int potency = 0;
+  while(matches){
+
+    Resource r = matches & -matches;
+    matches &= matches -1;
+
+    potency+=DEF_RES[BCTZL(r)].smell; 
+  }
+
+  int radius = (1 + tar->awareness) * strength * (potency + count);
+
+  return radius;
+}
+
+skill_check_t* EntGetSkillPB(SkillType s, ent_t* e, local_ctx_t* ctx, Senses sen){
+  ent_t* other = ParamReadEnt(&ctx->other);
+
+  skill_check_t* sc = calloc(1,sizeof(skill_check_t));
+
+  memcpy(sc, e->skills[s]->checks, sizeof(skill_check_t));
+
+  switch(sen){
+    case SEN_SMELL:
+      uint64_t resources = EntGetTrackable(e);
+      uint64_t scents = EntGetScents(other);
+      uint64_t matches = resources & scents;
+
+      while(matches){
+        Resource r = matches & -matches;
+        matches &= matches -1;
+
+        sc->vals[VAL_ADV_HIT]++;
+        sc->vals[VAL_REACH]+=e->props->resources[BCTZL(r)]->smell;
+      }
+      break;
+    default:
+      break;
+
+  }
+
+  return sc;
 }

@@ -488,6 +488,25 @@ void LocalEnsureCap(local_table_t* t){
 
 }
 
+void AddLocalMap(local_table_t* s, map_cell_t* m){
+  LocalEnsureCap(s);
+
+  int dist = cell_distance(s->owner->pos, m->coords);
+  local_ctx_t* ctx = &s->entries[s->count++];
+  param_t mc = ParamMake(DATA_MAP_CELL, sizeof(map_cell_t), m);
+
+  ctx->gouid = m->gouid;
+  ctx->resource = m->props->resources;
+
+  float longest_possible = s->owner->map->width + s->owner->map->height;
+  int count = __builtin_popcountll(ctx->resource);
+
+  ctx->awareness = (float)(1.f+count) - (float)(dist / longest_possible);
+
+  ctx->aggro = NULL;
+  ctx->other = mc;
+}
+
 void AddLocalEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
   if(LocalGetEntry(s, e->gouid))
     return;
@@ -508,6 +527,9 @@ void AddLocalEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
     if(!e->resources[i] || e->resources[i]->amount == 0)
       continue;
 
+    if(e->resources[i]->type == RES_MEAT)
+      DO_NOTHING();
+
     ctx->resource |= e->resources[i]->type;
     count++;
     score += e->resources[i]->amount;
@@ -525,7 +547,6 @@ void AddLocals(local_table_t* s, ent_t* e, SpeciesRelate rel){
 
   LocalEnsureCap(s);
 
-  int dist = cell_distance(e->pos, s->owner->pos);
   local_ctx_t* ctx = &s->entries[s->count++];
 
   if(e->type == s->owner->type)
@@ -538,7 +559,6 @@ void AddLocals(local_table_t* s, ent_t* e, SpeciesRelate rel){
   ctx->other = ent;
   ctx->cr = EntGetChallengeRating(e);
   ctx->rel = rel;
-  ctx->dist = dist;
   ctx->aggro = NULL;
   for(int i = 0; i < RES_DONE; i++){
     if(!e->props->resources[i])
@@ -561,41 +581,36 @@ bool LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   change = true;
   ctx->dist = dist;
 
-  if(dist > MAX_SEN_DIST){
-    if(ctx->awareness > 0)
-      ctx->awareness*=.25;
-
-    return change;
-  }
-
-  if((ctx->rel & SPEC_RELATE_NEGATIVE)==0)
-    return change;
-
+  float base = -0.5f;
   bool detect = ctx->awareness > 1;
   for(int j = 0; j<SEN_DONE; j++){
     if(detect)
       break;
 
-    if(EntCanDetect(e, other, j))
-      detect = true;
+    e->skills[SKILL_PERCEPT]->ovrd = EntGetSkillPB(SKILL_PERCEPT, e, ctx, j);
+    InteractResult res = EntCanDetect(e, other, j);
+    if(res < IR_ALMOST)
+      continue;
 
+    base+=0.25f * (res-3);
   }
+
+  if(base <= 0 && ctx->awareness <=0)
+    return change;
 
   for(int j = 0; j < TREAT_DONE; j++){
     if(ctx->treatment[j] == 0)
       continue;
 
-    if(!detect){
-      if(ctx->awareness > 0)
-        ctx->awareness*=0.5;
-
-      break;
-    }
-    float inc = ctx->treatment[j] / dist;
+    float inc = ctx->treatment[j] * base;
     ctx->awareness += inc;
     //if(ctx->awareness > 1 && ((j & TREAT_AGGRO_MASK)>0))
   }
 
+  if(e->type != ENT_PERSON)
+    DO_NOTHING();
+
+  ctx->awareness = fmax(0,ctx->awareness);
   return true;
 }
 
@@ -605,10 +620,24 @@ void LocalSync(local_table_t* s){
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
 
-    if(ctx->other.type_id != DATA_ENTITY)
-      continue;
-  
-    dist_change = LocalEntCheck(s->owner, ctx);
+    switch(ctx->other.type_id){
+      case DATA_ENTITY:
+        dist_change = LocalEntCheck(s->owner, ctx);
+        ent_t* other = ParamReadEnt(&ctx->other);
+        break;
+      case DATA_MAP_CELL:
+        map_cell_t* mc = ParamReadMapCell(&ctx->other);
+        int dist = cell_distance(s->owner->pos, mc->coords);
+        if(dist != ctx->dist){
+          dist_change = true;
+          ctx->dist = dist;
+        }
+        if(!mc->updates)
+          continue;
+
+        ctx->resource = mc->props->resources;
+        break;
+    }
   }
 
   if(dist_change)

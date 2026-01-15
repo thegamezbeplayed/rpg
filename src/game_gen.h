@@ -106,7 +106,7 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
   [ENV_FLOWERS_THIN]   = TILEFLAG_SIZE_XS | TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
   [ENV_FOREST_FIR]     = TILEFLAG_SIZE_XL | TILEFLAG_SOLID | TILEFLAG_FOREST | TILEFLAG_NATURAL,
   [ENV_GRASS]          = TILEFLAG_SIZE_SM |MAPFLAG_FOREST | TILEFLAG_FLOOR | TILEFLAG_NATURAL,
-  [ENV_GRASS_SPARSE]   = TILEFLAG_SIZE_XS | MAPFLAG_FOREST | TILEFLAG_FLOOR | TILEFLAG_NATURAL,
+  [ENV_GRASS_SPARSE]   = TILEFLAG_SIZE_XS | MAPFLAG_FOREST | TILEFLAG_EMPTY | TILEFLAG_FLOOR | TILEFLAG_NATURAL,
   [ENV_GRASS_WILD]     = TILEFLAG_SIZE_MED | MAPFLAG_FOREST | TILEFLAG_OBSTRUCT | TILEFLAG_NATURAL,
   [ENV_LEAVES]         = TILEFLAG_SIZE_XS | MAPFLAG_FOREST | TILEFLAG_DECOR | TILEFLAG_NATURAL,
   [ENV_TREE_MAPLE]     = TILEFLAG_SIZE_XL | TILEFLAG_SOLID | TILEFLAG_TREE | TILEFLAG_NATURAL,
@@ -597,15 +597,21 @@ int ConnectionGetNeighbors(room_connection_t* conn, room_connection_t** pairs, i
 int GetNeighborFlags(map_context_t* ctx, Cell c, RoomFlags f, Cell *filter);
 
 typedef struct{
-  game_object_uid_i gouid;
-  int               index;
-  Cell              coords;
-  TileStatus        status;
-  TileFlags         flags;
-  env_t*            tile;
-  ent_t*            occupant;
-  Color             fow;
-  bool              updates, explored;
+  uint64_t  resources;
+  uint64_t  scents[SATUR_MAX];
+}site_properties_t;
+
+typedef struct{
+  game_object_uid_i   gouid;
+  int                 index;
+  Cell                coords;
+  TileStatus          status;
+  TileFlags           flags;
+  env_t*              tile;
+  ent_t*              occupant;
+  Color               fow;
+  site_properties_t*  props;
+  bool                updates, explored;
 }map_cell_t;
 
 typedef struct{
@@ -623,7 +629,7 @@ typedef struct{
   int          num_rooms;
   map_room_t   *rooms[MAX_ROOMS];
   map_cell_t   **tiles;
-  int          num_changes;
+  int          num_changes, reachable;
   map_cell_t   *changes[128];
   int          x,y,width,height;
   int          step_size;
@@ -635,6 +641,7 @@ bool InitMap(void);
 void WorldMapLoaded(map_grid_t* m);
 map_grid_t* InitMapGrid(void);
 void MapSync(map_grid_t* m);
+void MapTurnStep(map_grid_t* m);
 TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
 TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);
 ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status);

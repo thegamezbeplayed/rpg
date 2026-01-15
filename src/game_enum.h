@@ -14,6 +14,16 @@ typedef enum{
   OBJ_ALL
 }ObjectCategory;
 
+typedef enum{
+  SATUR_FAINT,
+  SATUR_LOW,
+  SATUR_SOFT,
+  SATUR_MED,
+  SATUR_RICH,
+  SATUR_STRONG,
+  SATUR_MAX
+}Saturation;
+
 typedef enum {
   MAG_NONE = -1,
   MAG_MINOR,
@@ -143,11 +153,11 @@ typedef enum{
   VAL_PENN,
   VAL_SAVE,
   VAL_ADV_SAVE,
+  VAL_REACH,
   VAL_WORTH,
   VAL_WEIGHT,
   VAL_SIZE,
   VAL_DURI,
-  VAL_REACH,
   VAL_EXP,
   VAL_QUANT,
   VAL_STORAGE,
@@ -678,6 +688,9 @@ typedef enum{
   BN_FILL_NEED,
   BN_NEED,
   BN_CHECK_NEED,
+  BN_SEEK_CTX,
+  BN_TRACK,
+  BN_TRACK_RESOURCE,
   BN_COUNT
 }BehaviorID;
 
@@ -685,6 +698,7 @@ typedef enum{
   IR_NONE,
   IR_FAIL,
   IR_CRITICAL_FAIL,
+  IR_ALMOST,
   IR_SUCCESS,
   IR_TOTAL_SUCC,
   IR_MAX

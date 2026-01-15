@@ -422,6 +422,7 @@ typedef struct{
   skill_t*          skill;
   int               base;
   SkillType         id,counter;
+  int               vals[VAL_WORTH];
   ModifierType      bonus[ATTR_BLANK];
   ProficiencyCheck  type;
   dice_roll_t*      die;
@@ -429,7 +430,7 @@ typedef struct{
 
 skill_check_t* InitSkillCheck(skill_t* skill);
 InteractResult SkillCheck(skill_t* s, skill_t* against);
-
+int SkillCheckGetVal(skill_t* s, ValueCategory val);
 typedef struct{
   SkillType   skill;
   SkillRate   rate;
@@ -451,7 +452,7 @@ struct skill_s{
  SkillCallback            on_skill_up;
  SkillOnEvent             on_success,on_use,on_fail;
  SkillProficiencyFormula  get_bonus;
- skill_check_t            *checks;
+ skill_check_t            *checks, *ovrd;
  struct ent_s             *owner;
  SkillRate                rate;
 };

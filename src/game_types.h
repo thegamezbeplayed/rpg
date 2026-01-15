@@ -86,6 +86,8 @@ local_table_t* InitLocals(ent_t* e);
 void LocalSync(local_table_t* s);
 void AddLocals(local_table_t*, ent_t* e, SpeciesRelate rel);
 void AddLocalEnv(local_table_t*, env_t* e, SpeciesRelate rel);
+void AddLocalMap(local_table_t* s, map_cell_t* m);
+
 void EntAddLocals(ent_t* e, ent_t* other);
 void EntAddLocalEnv(ent_t* e, env_t* ev);
 local_ctx_t* RemoveEntryByRel(local_table_t*, SpeciesRelate rel);
@@ -93,6 +95,7 @@ void LocalSortByDist(local_table_t* table);
 int LocalAddAggro(local_table_t* t, ent_t* e, int threat, float mul, bool init);
 aggro_t* LocalGetAggro(local_table_t* table, game_object_uid_i other);
 local_ctx_t* LocalGetThreat(local_table_t* t);
+local_ctx_t* LocalGetEntry(local_table_t* table, game_object_uid_i other);
 
 typedef struct{
   SpeciesType   race;
@@ -110,7 +113,7 @@ typedef struct{
   Feats         feats;
   Traits        traits;
   resource_t    *resources[RES_DONE];
-  int           cr, offr, defr;
+  int           cr, offr, defr, smell;
 }properties_t;
 
 properties_t* InitProperties(race_define_t racials, mob_define_t m);
@@ -246,7 +249,7 @@ item_t* InitItem(item_def_t* def);
 item_def_t* GetItemDefByID(GearID id);
 
 typedef struct{
-  ent_t*                  target;
+  local_ctx_t*                  target;
   int                     turn;
   TurnPhase               phase;
   action_pool_t*          actions;
@@ -328,7 +331,7 @@ int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
 InteractResult EntMeetNeed(ent_t* e, need_t* n);
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source);
 InteractResult EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
-bool EntSkillCheck(ent_t* owner, ent_t* target, SkillType s);
+InteractResult EntSkillCheck(ent_t* owner, ent_t* target, SkillType s);
 void EntSync(ent_t* e);
 void EntTurnSync(ent_t* e);
 void EntResetRegen(stat_t* self, float old, float cur);
@@ -343,15 +346,17 @@ void EntSetCell(ent_t *e, Cell pos);
 void EntAddExp(ent_t *e, int exp);
 void EntAddPos(ent_t *e, Vector2 pos);
 void EntSetPos(ent_t *e, Vector2 pos);
-void EntControlStep(ent_t *e, int turn, TurnPhase phase, bool check_env);
+void EntControlStep(ent_t *e, int turn, TurnPhase phase);
 int EntGetChallengeRating(ent_t* e);
 int EntGetDefRating(ent_t* e);
 int EntGetOffRating(ent_t* e);
 int EntAddAggro(ent_t* e, ent_t* source, int threat, float mul, bool init);
-bool EntCanDetect(ent_t* owner, ent_t* e, Senses s);
+InteractResult EntCanDetect(ent_t* owner, ent_t* e, Senses s);
 
 typedef void (*StateChangeCallback)(ent_t *e, EntityState old, EntityState s);
 void SetViableTile(ent_t*, EntityState old, EntityState s);
+skill_check_t* EntGetSkillPB(SkillType, ent_t*, local_ctx_t*, Senses);
+
 bool CheckEntAvailable(ent_t* e);
 bool CheckEntPosition(ent_t* e, Vector2 pos);
 bool SetState(ent_t *e, EntityState s,StateChangeCallback callback);
@@ -367,15 +372,16 @@ bool EntSyncSight(ent_t* e, ActionType a);
 void EntComputeFOV(ent_t* e);
 char* EntGetClassNamePretty(ent_t* e);
 uint64_t EntGetSize(ent_t* e);
-
+int EntGetTrackDist(ent_t* e, local_ctx_t* tar);
 uint64_t EntGetResourceByNeed(ent_t* e, Needs n);
 local_ctx_t* EntLocateResource(ent_t* e, uint64_t r);
-
+uint64_t EntGetScents(ent_t* e);
 void EntActionsTaken(stat_t* self, float old, float cur);
+
 struct env_s{
   game_object_uid_i     gouid;
   int         uid;
-  Resource    has_resources;
+  uint64_t    has_resources;
   resource_t  *resources[RES_DONE];
   int         smell;
   EnvTile     type;

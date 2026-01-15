@@ -342,21 +342,22 @@ bool RegisterEnt( ent_t *e){
 
 }
 
-bool RegisterMapCell(map_cell_t* m){
-  int index = IntGridIndex(m->coords.x, m->coords.y);
-  m->index = index;
+map_cell_t* RegisterMapCell(int x, int y){
+  map_cell_t* out = calloc(1,sizeof(map_cell_t));
+  int index = IntGridIndex(x, y);
+  out->index = index;
+  out->props = calloc(1,sizeof(site_properties_t));
+
   const char *cat = "OBJ_MAP_CELL";
 
-  if(m->index < 0)
-    return false;
 
   game_object_uid_i guid = GameObjectMakeUID(cat, index, world.time->current, world.data->num_turn);
 
   assert(guid != UID_INVALID);
 
-  m->gouid = guid;
-
-  return true;
+  out->gouid = guid;
+  out->coords = CELL_NEW(x,y);
+  return out;
 
 }
 
@@ -374,10 +375,33 @@ bool RegisterItem(ItemInstance g){
 
 void WorldInitOnce(){
   InteractionStep();
+  int count = 0;
+  map_cell_t* reachable[world.map->reachable];
+  for(int x = 0; x < world.map->width; x++){
+      for(int y = 0; y < world.map->height; y++){
+        map_cell_t* mc = &world.map->tiles[x][y];
+
+        if(!mc)
+          continue;
+        if(mc->status >TILE_REACHABLE)
+          continue;
+        
+        if(mc->tile == NULL)
+          continue;
+
+        if(count > world.map->reachable)
+          DO_NOTHING();
+
+        reachable[count++] = mc;
+      }
+  }
+
   for(int i = 0; i< world.num_ent; i++){
+    for(int k = 0; k < count; k++)
+      AddLocalMap(world.ents[i]->local,reachable[k]);
 
     for(int j = 0; j < world.num_env; j++)
-    EntAddLocalEnv(world.ents[i], world.envs[j]);
+      EntAddLocalEnv(world.ents[i], world.envs[j]);
 
     for(int j = 0; j < world.num_ent; j++){
       if(i == j)
@@ -404,10 +428,9 @@ void WorldPreUpdate(){
     
 
   for(int i = 0; i < world.num_ent; i++){
-    EntControlStep(world.ents[i], world.data->num_turn, p, world.map->updates);
+    EntControlStep(world.ents[i], world.data->num_turn, p);
   }
   
-  MapSync(world.map);
 }
 
 void WorldFixedUpdate(){
@@ -447,6 +470,7 @@ void WorldEndTurn(void){
 }
 
 void WorldTurnUpdate(void* context){
+  MapTurnStep(world.map);
   StepEvents(world.events[STEP_TURN]);
 
   StatIncrementValue(world.time,true);
@@ -454,6 +478,8 @@ void WorldTurnUpdate(void* context){
     EntTurnSync(world.ents[i]);
     ActionTurnSync(world.ents[i]);
   }
+  
+  MapSync(world.map);
 }
 void PrepareWorldRegistry(void){
   world = (world_t){0};
