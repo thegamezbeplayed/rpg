@@ -12,6 +12,15 @@ int tree_cache_count = 0;
 ent_t* player = {0};
 static world_t world;
 
+void WorldEvent(EventType event, void* data){
+  if(world.bus->count)
+    EventEmit(world.bus, event, data);
+}
+
+void WorldSubscribe(EventType event, EventCallback cb, void* data){
+  EventSubscribe(world.bus, event, cb, data);
+}
+
 ent_t* WorldPlayer(void){
   return player;
 }
@@ -250,47 +259,8 @@ int AddSprite(sprite_t *s){
   return -1;
 }
 
-game_object_uid_i RegisterGameObject(param_t* obj){
-
-  int index = BAD_INDEX;
-  const char* cat;
-  switch(obj->type_id){
-    case DATA_ENTITY:
-      ent_t* e = ParamReadEnt(obj);
-      if(!RegisterEnt(e))
-        return 0;
-
-      index = e->uid;
-      cat = "OBJ_ENTITY";
-      break;
-    case DATA_ENV:
-      env_t* v = ParamReadEnv(obj);
-      if(!RegisterEnv(v))
-        return 0;
-
-      index = v->uid;
-      cat = "OBJ_ENVIRO";
-      break;
-    case DATA_MAP_CELL:
-      map_cell_t* m = ParamReadMapCell(obj);
-      index = IntGridIndex(m->coords.x, m->coords.y);
-      m->index = index;
-      cat = "OBJ_MAP_CELL";
-      break;
-  }
-
-  if(index == BAD_INDEX)
-    return 0;
-
-  game_object_uid_i guid = GameObjectMakeUID(cat, index, world.time->current, world.data->num_turn);
-
-  assert(guid != UID_INVALID);
-
-  return guid;
-}
-
 bool RegisterEnv( env_t *e){
- AddEnv(e);
+ int index = AddEnv(e);
  e->uid = e->type;
  TileStatus status = MapSetTile(world.map,e,e->pos);
   if(status > TILE_ISSUES)
@@ -298,15 +268,29 @@ bool RegisterEnv( env_t *e){
 
   if(e->sprite)
     e->sprite->is_visible = true;
- 
+
+ e->status = ENV_STATUS_NORMAL; 
  if(e->uid < 0)
   return false;
 
- game_object_uid_i guid = GameObjectMakeUID("OBJ_ENVIRO", e->uid, world.time->current, world.data->num_turn);
+ game_object_uid_i guid = GameObjectMakeUID("OBJ_ENVIRO", index, world.ctx->time->current);
 
  assert(guid != UID_INVALID); 
 
  e->gouid = guid;
+
+ param_t p = ParamMake(DATA_ENV, 0, e);
+ p.gouid = e->gouid;
+ Cell c = CELL_NEW(world.map->width/2, world.map->height/2);
+ MakeLocalContext(world.ctx->tables[OBJ_ENV], &p, c);
+ local_ctx_t* owner = LocalGetEntry(world.ctx->tables[OBJ_MAP_CELL], e->map_cell->gouid);
+
+ param_t m = ParamMake(DATA_MAP_CELL, 0, e->map_cell);
+ m.gouid = e->map_cell->gouid;
+ local_ctx_t* res = MakeLocalContext(world.ctx->tables[OBJ_MAP_CELL], &m, c);
+
+ if(res)
+   e->map_cell->in_ctx = true;
 
  world.map->updates = true;
  return true;
@@ -332,12 +316,16 @@ bool RegisterEnt( ent_t *e){
   if(e->uid < 0)
   return false;
 
-  game_object_uid_i guid = GameObjectMakeUID("OBJ_ENTITY", e->uid, world.time->current, world.data->num_turn);
+  game_object_uid_i guid = GameObjectMakeUID("OBJ_ENTITY", e->uid, world.ctx->time->current);
 
   assert(guid != UID_INVALID);
 
   e->gouid = guid;
 
+  param_t p = ParamMake(DATA_ENTITY, 0, e);
+  p.gouid = e->gouid;
+  Cell c = CELL_NEW(world.map->width/2, world.map->height/2);
+  MakeLocalContext(world.ctx->tables[OBJ_ENT], &p, c);
   return true;
 
 }
@@ -351,7 +339,7 @@ map_cell_t* RegisterMapCell(int x, int y){
   const char *cat = "OBJ_MAP_CELL";
 
 
-  game_object_uid_i guid = GameObjectMakeUID(cat, index, world.time->current, world.data->num_turn);
+  game_object_uid_i guid = GameObjectMakeUID(cat, index, world.ctx->time->current);
 
   assert(guid != UID_INVALID);
 
@@ -373,46 +361,70 @@ bool RegisterItem(ItemInstance g){
   world.items->pool[world.items->size++] = item;
 }
 
+void OnWorldCtx(EventType event, void* data, void* user){
+  local_table_t* table = user;
+  local_ctx_t* ctx = data;
+  switch(event){
+    case EVENT_ADD_LOCAL_CTX:
+      AddLocalFromCtx(table, ctx);
+      break;
+    case EVENT_DEL_LOCAL_CTX:
+    case EVENT_ENT_DEATH:
+      LocalPruneCtx(table, ctx);
+      break;
+  }
+
+}
+
+void WorldValidateContext(){
+world_context_t* wctx = world.ctx;
+
+  if(wctx==NULL)
+    return;
+
+  for (int i = 0; i < OBJ_ALL; i++){
+    wctx->tables[i]->count = 0;
+
+    wctx->tables[i]->valid = true;
+  }
+}
+
+//void WorldContext
+void WorldApplyLocalContext(ent_t* e){
+  world_context_t* wctx = world.ctx;
+
+  if(wctx==NULL)
+    return;
+
+  for (int i = 0; i < OBJ_ALL; i++){
+    local_table_t* t = wctx->tables[i];
+    if(!t || t->count == 0)
+      continue;
+
+    for (int j = 0; j < t->count; j++)
+      AddLocalFromCtx(e->local, &t->entries[j]);
+  }
+}
+
+void WorldContextInitOnce(void){
+  for(int i = 0; i < OBJ_ALL; i++)
+    LocalSortByDist(world.ctx->tables[i]);
+}
+
 void WorldInitOnce(){
-  InteractionStep();
-  int count = 0;
-  map_cell_t* reachable[world.map->reachable];
-  for(int x = 0; x < world.map->width; x++){
-      for(int y = 0; y < world.map->height; y++){
-        map_cell_t* mc = &world.map->tiles[x][y];
-
-        if(!mc)
-          continue;
-        if(mc->status >TILE_REACHABLE)
-          continue;
-        
-        if(mc->tile == NULL)
-          continue;
-
-        if(count > world.map->reachable)
-          DO_NOTHING();
-
-        reachable[count++] = mc;
-      }
-  }
-
-  for(int i = 0; i< world.num_ent; i++){
-    for(int k = 0; k < count; k++)
-      AddLocalMap(world.ents[i]->local,reachable[k]);
-
-    for(int j = 0; j < world.num_env; j++)
-      EntAddLocalEnv(world.ents[i], world.envs[j]);
-
-    for(int j = 0; j < world.num_ent; j++){
-      if(i == j)
-        continue;
-
-      EntAddLocals(world.ents[i], world.ents[j]);
-    }
-     
-    EntInitOnce(world.ents[i]);
-  }
   WorldMapLoaded(world.map);
+  MapRoomSpawn(world.map, ENT_DEER, 5);
+  MapRoomSpawn(world.map, ENT_BEAR, 3);
+  MapRoomSpawn(world.map, ENT_RAT, 3);
+
+  WorldContextInitOnce();
+  
+  InteractionStep();
+  
+  for(int i = 0; i< world.num_ent; i++)
+    EntInitOnce(world.ents[i]);
+
+  WorldValidateContext();
 }
 
 void WorldPreUpdate(){
@@ -428,7 +440,7 @@ void WorldPreUpdate(){
     
 
   for(int i = 0; i < world.num_ent; i++){
-    EntControlStep(world.ents[i], world.data->num_turn, p);
+    EntControlStep(world.ents[i], world.ctx->turn, p);
   }
   
 }
@@ -464,7 +476,7 @@ void WorldPostUpdate(){
 }
 
 void WorldEndTurn(void){
-  world.data->num_turn++;
+  world.ctx->turn++;
   ActionManagerSync();
   ResetEvent(game_process.events,EVENT_TURN);
 }
@@ -473,25 +485,44 @@ void WorldTurnUpdate(void* context){
   MapTurnStep(world.map);
   StepEvents(world.events[STEP_TURN]);
 
-  StatIncrementValue(world.time,true);
+  StatIncrementValue(world.ctx->time,true);
   for(int i = 0; i < world.num_ent; i++){
-    EntTurnSync(world.ents[i]);
-    ActionTurnSync(world.ents[i]);
+    ent_t* e = world.ents[i];
+    if(e->status != ENT_STATUS_ALIVE)
+      continue;
+
+    EntTurnSync(e);
   }
   
   MapSync(world.map);
 }
+
+world_context_t* InitWorldContext(void){
+  world_context_t *ctx = calloc(1,sizeof(world_context_t));
+
+  ctx->time = InitStatOnMin(STAT_TIME,0,180);
+  ctx->time->on_stat_full = StatReverse; 
+  ctx->time->on_stat_full = StatReverse; 
+
+  ctx->tables[OBJ_ENT] = InitLocals(player, MAX_ENTS);
+  ctx->tables[OBJ_ENV] = InitLocals(player, MAX_ENVS);
+  ctx->tables[OBJ_MAP_CELL] = InitLocals(player, MAX_ENVS);
+  
+  return ctx;
+
+}
+
 void PrepareWorldRegistry(void){
   world = (world_t){0};
 
+  world.bus = InitEventBus(256);
   for(int i = 0; i < STEP_DONE; i++){
     world.events[i] = InitEvents();
   }
-  world.time = InitStatOnMin(STAT_TIME,0,180);
-  world.time->on_stat_full = StatReverse; 
-  world.time->on_stat_full = StatReverse; 
 
   InitActionManager();
+
+  world.ctx = InitWorldContext();
 
   world.items = InitItemPool(); 
 
@@ -506,31 +537,30 @@ void PrepareWorldRegistry(void){
   for(int i = 0; i < f_count; i++){
     RegisterFaction(FACTION_DEFS[i].name);
     FACTIONS[i]->species = FACTION_DEFS[i].species;
+    FACTIONS[i]->rules = FACTION_DEFS[i].rules;
     for(int j = 0; j < ENT_DONE; j++)
       FACTIONS[i]->member_ratio[j] = FACTION_DEFS[i].member_ratio[j];
 
+    for(int j = 0; j < BIO_DONE; j++){
+      if(FACTION_DEFS[i].bio_pref[j] == 0)
+        continue; 
+      FACTIONS[i]->bio_pref[j] = FACTION_DEFS[i].bio_pref[j]; 
+    }
   }
 }
 
 void InitWorld(void){
-  world.data = InitWorldData();
-
   if(MapGetStatus()==GEN_DONE){
     world.map =  InitMapGrid();
     Cell player_pos = MapApplyContext(world.map);
-
+    
     if(!cell_compare(player_pos,CELL_UNSET))
       RegisterEnt(InitEnt(ENT_PERSON,player_pos));
     GameReady(); 
     ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
 
+    world.level = InitLevel(world.map);
   }
-}
-
-world_data_t* InitWorldData(void){
-  world_data_t* wd = calloc(1,sizeof(world_data_t));
-
-  return wd;
 }
 
 void FreeWorld(){
@@ -548,57 +578,18 @@ void FreeWorld(){
 void WorldRender(){
   ClearBackground(world.map->floor);
 
-  for(int i = 0; i < world.num_env; i++){
-    DrawSpriteAtPos(world.envs[i]->sprite,world.envs[i]->vpos);
-  }
+  for(int i = 0; i < world.num_env; i++)
+    EnvRender(world.envs[i]);
+
 
   for(int i = 0; i < world.num_spr;i++)
     if(world.sprs[i]->state < ANIM_KILL)
       if(world.sprs[i]->owner)
         DrawSprite(world.sprs[i]);
-    else
-      i-=RemoveSprite(i);
+      else
+        i-=RemoveSprite(i);
 
-  /*
-  for (int i = 0; i < MAX_DEBUG_ITEMS; i++){
-    debug_info_t d = world.debug[DEBUG_CELL][i];
-
-    if(d.type != DEBUG_CELL)
-      break;
-
-    Cell c = ParamReadCell(d.info);
-    Rectangle rec = RectWorldToScreen(RECT_CELL(c, CELL_NEW(1,1)),16);
-    DrawRectangleLinesEx(rec, 1, d.color);
-  }
-*/
-  Rectangle in_view= ScreenGetCameraView();
-
-  float darkness = world.time->current * world.time->ratio(world.time);
-  Color night = (Color){ 0, 0, 30, (unsigned char)darkness };
-
-  DrawScreenOverlay(night, in_view);
-  
-  for(int x = 0; x< in_view.width; x++){
-    for(int y = 0; y < in_view.height; y++){
-      Cell coords = CELL_NEW(x+in_view.x,y+in_view.y);
-      Rectangle r = Rect(coords.x,coords.y,CELL_WIDTH,CELL_HEIGHT);
-      map_cell_t* tile = MapGetTile(world.map,coords);
-
-      Cell s_pos = CellScale(coords,CELL_WIDTH);
-      Rectangle screen_r = RectScale(Rect(s_pos.x,s_pos.y,1,1),CELL_WIDTH);
-      DrawScreenOverlay(tile->fow,r);
-
-    }
-  }
- ScreenRender(); 
-  /*
-  for(int i = 0; i < MAX_EVENTS; i++){
-    if(!world.floatytext_used[i])
-      continue;
-    render_text_t rt = *world.texts[i];
-    DrawTextEx(ui.font,rt.text, rt.pos,rt.size,1,rt.color);
-  }
-*/
+  ScreenRender(); 
 }
 
 void InitGameProcess(){
@@ -729,8 +720,8 @@ void GameProcessEnd(){
 }
 
 const char* GetWorldTime(){
-  int max = world.time->max;
-  int cur = world.time->current;
+  int max = world.ctx->time->max;
+  int cur = world.ctx->time->current;
 
   int time_world_speed = max + cur;
 
@@ -745,7 +736,7 @@ const char* GetGameTime(){
 }
 
 int WorldGetTurn(void){
-  return world.data->num_turn;
+  return world.ctx->turn;
 }
 
 bool WorldDebugInsert(debug_info_t d){
@@ -758,6 +749,7 @@ bool WorldDebugInsert(debug_info_t d){
 }
 
 void WorldDebugCell(Cell c, Color col){
+  return;
   param_t* info = calloc(1, sizeof(param_t));
   *info = ParamMake(DATA_CELL, sizeof(Cell), &c);
 

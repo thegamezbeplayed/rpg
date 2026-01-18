@@ -50,7 +50,27 @@ path_cache_entry_t* PathCacheFind(int sx, int sy, int tx, int ty){
     return NULL;
 }
 
-path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, Cell goal, int depth, bool* result){
+Cell PathGetLocal(local_ctx_t* dest){
+  Cell goal = CELL_UNSET;
+  switch(dest->other.type_id){
+    case DATA_ENV:
+      env_t* t = ParamReadEnv(&dest->other);
+      goal = t->pos;
+      break;
+    case DATA_ENTITY:
+      ent_t* e = ParamReadEnt(&dest->other);
+      goal = e->pos;
+      break;
+    case DATA_MAP_CELL:
+      map_cell_t* mc = ParamReadMapCell(&dest->other);
+      goal = mc->coords;
+      break;
+  }
+
+  return goal;
+}
+
+path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* result){
   game_object_uid_i start = e->gouid;
   game_object_uid_i end = dest->gouid;
  
@@ -59,6 +79,7 @@ path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, Cell goal, int depth
   if(p)
     *result = true;
   else{
+    Cell goal = PathGetLocal(dest);
     Cell next;
     path_result_t* pres = FindPathCell(e->map, e->pos, goal, &next, depth); 
     if(pres){
@@ -90,9 +111,9 @@ Cell* PathCachedNext(path_cache_entry_t* entry, int sx, int sy){
 Cell RouteGetNext(ent_t* e, path_cache_entry_t* route){
 
   Cell c = e->pos;  
-  Cell* out = PathCachedNext(route, c.x,c.y);
+  Cell *out = PathCachedNext(route, c.x,c.y);
 
-  return (out)?*out:CELL_UNSET;
+  return out?*out:CELL_UNSET;
 }
 
 path_cache_entry_t* PathCacheStore(path_result_t* res, Cell sc, Cell tc, game_object_uid_i start, game_object_uid_i end){

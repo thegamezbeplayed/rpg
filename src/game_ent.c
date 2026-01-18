@@ -24,12 +24,8 @@ ent_t* InitEnt(EntityType id,Cell pos){
   item_def_t* a = GetItemDefByID(GEAR_LEATHER_ARMOR);
   EntAddItem(e, InitItem(a), true);
   ActionSlotAddAbility(e,InitAbility(e,ABILITY_MAGIC_MISSLE));
-  e->stats[STAT_ACTIONS]->current = 1;
   e->pos = pos;
   strcpy(e->name, "Michael");
-  e->stats[STAT_ACTIONS]->on_stat_empty = EntActionsTaken;
-  e->stats[STAT_ACTIONS]->current = 1;
-  e->stats[STAT_ACTIONS]->max = 1;
  
   TraceLog(LOG_INFO,"%s has ====>\n<====STATS=====>",e->name);
   for(int i = 1; i < STAT_ENT_DONE; i++){
@@ -99,13 +95,11 @@ ent_t* InitEntByRace(mob_define_t def){
     EntAddTraits(e->traits,res[i].mask, res[i].shift);
 
   e->control->bt[STATE_SPAWN] = InitBehaviorTree(BN_SPAWN);
-  e->control->bt[STATE_IDLE] = InitBehaviorTree(BN_SEEK);
-  e->control->bt[STATE_WANDER] = InitBehaviorTree(BN_WANDER);
-  e->control->bt[STATE_AGGRO] = InitBehaviorTree(BN_MOB_AGGRO);
+  e->control->bt[STATE_IDLE] = InitBehaviorTree(BN_IDLE);
   e->control->bt[STATE_NEED] = InitBehaviorTree(BN_NEED);
-  e->control->bt[STATE_REQ] = InitBehaviorTree(BN_REQ);
-  e->control->bt[STATE_ACTION] = InitBehaviorTree(BN_TAKE_ACTION);
+  e->control->bt[STATE_AGGRO] = InitBehaviorTree(BN_AGGRO);
   e->control->bt[STATE_ATTACK] = InitBehaviorTree(BN_COMBAT);
+  e->control->bt[STATE_REQ] = InitBehaviorTree(BN_REQ);
 
   e->control->ranges[RANGE_NEAR] = 2;
   e->control->ranges[RANGE_LOITER] = 3;
@@ -228,7 +222,9 @@ ent_t* InitEntByRace(mob_define_t def){
   }
   e->team = RegisterFactionByType(e); 
   
-  e->local = InitLocals(e);
+  e->local = InitLocals(e, MAX_ENTS + MAX_ENVS*2);
+  WorldSubscribe(EVENT_ADD_LOCAL_CTX, OnWorldCtx, e->local);
+  WorldSubscribe(EVENT_DEL_LOCAL_CTX, OnWorldCtx, e->local);
   e->allies = calloc(1,sizeof(ally_table_t));
   InitAllyTable(e->allies, 8, e);
 
@@ -865,6 +861,7 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
     resource_t* resource = calloc(1,sizeof(resource_t));
     resource->type = r;
     define_resource_t* def = GetResourceDef(r);
+    resource->name = def->name;
     resource->smell = def->smell;
     uint64_t amnt = 0;
     switch(r){
@@ -893,6 +890,7 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
     if(amnt == 0)
       continue;
 
+    amnt *= def->quantity;
 
     p->smell+=def->smell;
     resource->amount = amnt;
@@ -947,6 +945,17 @@ env_t* InitEnv(EnvTile t,Cell pos){
   //e->pos = pos;// = Vector2Add(Vector2Scale(e->sprite->slice->center,SPRITE_SCALE),pos);
 
   return e;
+}
+
+void EnvRender(env_t* e){
+  switch(e->status){
+    case ENV_STATUS_NORMAL:
+      DrawSpriteAtPos(e->sprite,e->vpos);
+      break;
+    case ENV_STATUS_DEAD:
+      DO_NOTHING();
+      break;
+  }
 }
 
 int EnvExtractResource(env_t* env, ent_t* ent, Resource res){
@@ -1080,7 +1089,6 @@ void EntPrepare(ent_t* e){
 void EntBuildAllyTable(ent_t* e){
   AllyAdd(e->allies, e, 0);
 
-  LocalSortByDist(e->local);
   for (int i = 0; i < e->local->count; i++){
     local_ctx_t* ctx = RemoveEntryByRel(e->local, SPEC_KIN);
     if(ctx == NULL || ctx->other.type_id != DATA_ENTITY)
@@ -1096,22 +1104,22 @@ void EntBuildAllyTable(ent_t* e){
 
 void EntInitOnce(ent_t* e){
   EntSync(e);
-
-  if(e->type == ENT_PERSON)
-    DO_NOTHING();
-
-
-  //if(e->items[0]
-  /*
-   * if(e->attack==NULL)
-   e->attack = InitBasicAttack(e);
-   */
+  
+  WorldApplyLocalContext(e);
+  
+  for(int i = 0; i < ACTION_PASSIVE; i++)
+    e->control->speed[i] = InitInit(i, e);
 
   for(int i = 0; i < STAT_ENT_DONE; i++){
     if(!e->stats[i])
       continue;
 
     StatMaxOut(e->stats[i]);
+  }
+
+  if(e->this_world_ctx){
+    e->this_world_ctx->pos = e->pos;
+    e->this_world_ctx->ctx_revision++;
   }
 
   EntBuildAllyTable(e);
@@ -1162,7 +1170,7 @@ void EntAddExp(ent_t *e, int exp){
 }
 
 void EntDestroy(ent_t* e){
-  if(!e || !SetState(e, STATE_END,NULL))
+  if(!e || !SetState(e, STATE_DEAD,NULL))
     return;
 
   MapRemoveOccupant(e->map,e->pos);
@@ -1254,8 +1262,9 @@ int EntConsume(ent_t* e, local_ctx_t* goal, Resource res){
     case DATA_ENTITY:
       break;
     case DATA_ENV:
-       env_t* env = ParamReadEnv(&goal->other);
+      env_t* env = ParamReadEnv(&goal->other);
       consumed = EnvExtractResource(env, e, res);
+      goal->resource = env->has_resources;
       if(consumed >0)
         TraceLog(LOG_INFO,"%s eats %i grams of food", e->name, consumed);
       break;
@@ -1275,7 +1284,6 @@ InteractResult EntMeetNeed(ent_t* e, need_t* n){
     default:
       break;
   }
- 
   
   e->control->needs[n->id]->meter -= amount; 
   if(amount > 0)
@@ -1487,13 +1495,17 @@ controller_t* InitController(ent_t* e){
   controller_t* ctrl = calloc(1,sizeof(controller_t));
 
   ctrl->actions = InitActionPool(e);
-  ctrl->destination = CELL_UNSET;
 
+  ctrl->priorities = InitPriorities(e, N_DONE + 20);
   ctrl->turn = -1;
   ctrl->phase = TURN_NONE;
   ctrl->behave_traits = e->props->traits & TRAIT_CAP_MASK;
-  for(int i = 0; i < N_DONE; i++)
+  for(int i = 0; i < N_DONE; i++){
     ctrl->needs[i] = InitNeed(i,e);
+    param_t np = ParamMake(DATA_NEED, 0, ctrl->needs[i]);
+    np.gouid = hash_combine_64(e->gouid, hash_string_64(NEED_STRINGS[i]));
+    PriorityAdd(ctrl->priorities, PRIO_NEEDS, np);
+  }
   return ctrl;
 }
 
@@ -1669,7 +1681,6 @@ void EntComputeFOV(ent_t* e){
 }
 
 void EntTurnSync(ent_t* e){
-
   for(int i = 0; i < e->map->num_changes; i++){
     map_cell_t* update = e->map->changes[i];
 
@@ -1677,11 +1688,10 @@ void EntTurnSync(ent_t* e){
       continue;
 
 
-    EntAddLocalEnv(e, update->tile);
+    //EntAddLocalEnv(e, update->tile);
 
   }
   
-  LocalSync(e->local);
   for(int i = 0; i< STAT_ENT_DONE; i++){
     if(e->stats[i] ==NULL)
       continue;
@@ -1717,7 +1727,12 @@ TileStatus EntGridStep(ent_t *e, Cell step){
     Cell oldPos = e->pos;
     //WorldDebugCell(e->pos, YELLOW);
     e->pos = newPos;
+    e->old_pos = oldPos;
 
+    if(e->this_world_ctx){
+      e->this_world_ctx->pos = e->pos;
+      e->this_world_ctx->ctx_revision++;
+    }
     e->facing = CellInc(e->pos,step);
     //WorldDebugCell(e->pos, GREEN);
   }
@@ -1748,9 +1763,22 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
   e->control->phase = phase;
   e->control->turn = turn;
 
+  if(ActionHasStatus(e->control->actions, ACT_STATUS_QUEUED))
+    return;
+
+  if(e->type == ENT_PERSON)
+    return;
+
   if(!e->control->bt || !e->control->bt[e->state])
     return;
+
+  LocalSync(e->local, false);
+
+  PrioritiesSync(e->control->priorities);
   behavior_tree_node_t* current = e->control->bt[e->state];
+
+  if(e->type == ENT_BEAR)
+    DO_NOTHING();
 
   current->tick(current, e);
 }
@@ -1783,7 +1811,12 @@ bool CanChangeState(EntityState old, EntityState s){
 
   switch(old){
     case STATE_END:
-      return false;
+      if(s==STATE_STANDBY)
+        return false;
+      break;
+    case STATE_DIE:
+      if(s!=STATE_DEAD)
+        return false;
       break;
     default:
       return true;
@@ -1808,6 +1841,7 @@ bool CanChangeState(EntityState old, EntityState s){
 void OnStateChange(ent_t *e, EntityState old, EntityState s){
   switch(old){
     case STATE_SPAWN:
+      e->status = ENT_STATUS_ALIVE;
       item_t* item = InventoryGetEquipped(e, INV_HELD);
       if(item) 
         TraceLog(LOG_INFO,"%s ready with %s",e->name, item->def->name);
@@ -1819,14 +1853,27 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s){
   }
 
   switch(s){
+    case STATE_SPAWN:
+      e->status = ENT_STATUS_SPAWN;
+      break;
     case STATE_DIE:
       env_t* corpse = InitEnvFromEnt(e);
       if(corpse)
         RegisterEnv(corpse);
 
+      e->status = ENT_STATUS_DEAD;
+      WorldEvent(EVENT_ENT_DEATH, e->this_world_ctx);
       EntDestroy(e);
       break;
-    case STATE_REQ:
+    case STATE_STANDBY:
+      e->previous = old;
+      break;
+    case STATE_RETURN:
+      if(e->previous < STATE_STANDBY && e->previous!=STATE_NONE){
+        SetState(e, e->previous, NULL);
+        e->previous = STATE_NONE;
+      }
+      break;
     default:
       break;
   }
@@ -1844,8 +1891,6 @@ void EntOnLevelUp(struct skill_s* self, float old, float cur){
 
   for(int i = 1; i < STAT_ENT_DONE; i++)
     if(e->stats[i] && e->stats[i]->lvl){
-      if(i==STAT_ACTIONS)
-        continue;
       e->stats[i]->lvl(e->stats[i]);
       StatMaxOut(e->stats[i]);
     }
@@ -1865,7 +1910,14 @@ bool CheckEntAvailable(ent_t* e){
   if(!e)
     return false;
 
-  return (e->state < STATE_DIE);
+  return (e->status == ENT_STATUS_ALIVE);
+}
+
+bool CheckEnvAvailable(env_t* e){
+  if(!e)
+    return false;
+
+  return (e->status < ENV_STATUS_DEAD);
 }
 
 ability_t* EntFindAbility(ent_t* e, AbilityID id){
@@ -1897,7 +1949,7 @@ float EntGetDPR(ent_t* e){
   int num_atk = 0;
 
   int damage = 0;
-  int num_acts = e->stats[STAT_ACTIONS]->max;
+  int num_acts = 1;//e->stats[STAT_ACTIONS]->max;
 
   for(int i = 0; i < SLOT_ALL; i++){
     if(e->slots[i]->count == 0)
@@ -2011,23 +2063,6 @@ InteractResult EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
   return res;
 }
 
-void EntAddLocalEnv(ent_t* e, env_t* ev){
-  if(ev->has_resources == 0)
-    return;
-
-  if(cell_distance(e->pos, ev->pos) > ev->smell + 8)
-    return;
-
-  AddLocalEnv(e->local, ev, SPEC_RELATE_NONE);
-}
-
-void EntAddLocals(ent_t* e, ent_t* other){
-  SpeciesRelate rel = GetSpecRelation(e->props->race, other->props->race);
-  
-  AddLocals(e->local, other, rel);
-
-}
-
 InteractResult EntCanDetect(ent_t* e, ent_t* tar, Senses s){
   int depth = e->senses[s]->range;
   SkillType counter = tar->skills[s]->checks->counter;
@@ -2081,8 +2116,14 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
     DO_NOTHING();
 
   int max_dist = imin(e->map->width, e->map->height);
-  int cap = 20;
+  int cap = 32;
   
+  if(!local->valid){
+    picking = false;
+    local->choice_pool->count = 0;
+    local->valid = true;
+  }
+
   if(!picking){
     for(int i = 0; i < local->count; i++){
       local_ctx_t *ctx = &local->entries[i];
@@ -2091,6 +2132,13 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
 
       if(local->choice_pool->count > cap)
         break;
+       
+      if(ctx->other.type_id == DATA_ENTITY)
+       DO_NOTHING();
+
+      if(!HasResource(ctx->resource, locate))
+          continue;
+
 
       uint64_t res = locate;
 
@@ -2106,26 +2154,34 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
         if(!HasResource(ctx->resource, r))
           continue;
 
-
         switch(ctx->other.type_id){
           case DATA_ENTITY:
             if((ctx->rel&SPEC_HUNTS)==0)
               continue;
+            ctx->how_to = ACTION_ATTACK;
+            ctx->method = I_KILL;
             ent_t* tar = ParamReadEnt(&ctx->other);
             depth += tar->props->resources[BCTZL(r)]->smell * 2;
             pos = tar->pos;
-            cost = ctx->cr;
+            if(ctx->cr > e->props->cr)
+              cost =  ctx->cr - e->props->cr;
             score = tar->props->resources[__builtin_ctzll(r)]->amount;
             break;
           case DATA_ENV:
+            ctx->method = I_CONSUME;
+            ctx->how_to = ACTION_INTERACT;
             env_t* env = ParamReadEnv(&ctx->other);
             pos = env->pos;
             score = env->resources[__builtin_ctzll(r)]->amount;
             break;
           case DATA_MAP_CELL:
+            ctx->method = I_NONE;
+            ctx->how_to = ACTION_MOVE;
             map_cell_t* mc = ParamReadMapCell(&ctx->other);
+            if(mc->occupant == e)
+              continue;
             pos = mc->coords;
-            score = i;
+            score = 1;
             break;
 
         }
@@ -2138,24 +2194,31 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
         continue;
 
 
-      cost += ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
-      if(cost < 1)
+      int p_score = ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
+
+      if(p_score == -1)
         continue;
 
-      ctx->cost = cost;
-      AddPurchase(local->choice_pool, i, score, cost, ctx, ChoiceReduceScore);
+      ctx->cost = cost+p_score;
+      AddPurchase(local->choice_pool, i, score, ctx->cost, ctx, ChoiceReduceScore);
     }
   }
 
   choice_t* sel = local->choice_pool->choose(local->choice_pool);
 
-  if(sel == NULL || sel->context == NULL)
+  if(sel == NULL)
     return NULL;
+    
+  local_ctx_t* best = sel->context;
+  
+  if(!best || (best->resource&locate) == 0)
+    DiscardChoice(local->choice_pool, sel);
+
+  if(best)
+    return sel->context;
 
 
-  return sel->context;
-
-
+  return EntLocateResource(e, locate);
 }
 
 uint64_t EntGetScents(ent_t* e){

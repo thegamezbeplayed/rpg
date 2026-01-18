@@ -8,7 +8,10 @@ static faction_t FACTION_DEFS[3] = {
     {[BIO_FOREST] = 10, [BIO_CAVE] = 40, [BIO_DUNGEON] = 50},
     {[ENT_GOBLIN] = 35, [ENT_ORC] = 24, [ENT_HOBGOBLIN] = 16,
       [ENT_OGRE] = 4, [ENT_BUGBEAR] = 15
-    }
+    },
+    .rules = MOB_GROUPING_TROOP | MOB_GROUPING_PARTY | MOB_GROUPING_CREW |
+      MOB_GROUPING_SQUAD | MOB_GROUPING_WARBAND | MOB_SPAWN_PATROL |
+      MOB_SPAWN_CAMP | MOB_MOD_WEAPON | MOB_MOD_ARMOR
   },
   {"Forest Tribe Oak",
     SPEC_SULKING,
@@ -45,7 +48,6 @@ static stat_name_t STAT_STRING[STAT_ENT_DONE]={
   {STAT_DAMAGE,"Damage"},
   {STAT_HEALTH,"Health"},
   {STAT_ARMOR, "Armor"},
-  {STAT_ACTIONS, "Actions"},
   {STAT_ENERGY,"Spell Energy"},
   {STAT_STAMINA, "Stamina"},
   {STAT_STAMINA_REGEN,"Stamina Regen"},
@@ -99,13 +101,6 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
     [SC_GREATER] = 4,
     [SC_SUPER]   = 4,
     [SC_MAX]     = 6,
-  },
-  [STAT_ACTIONS] = {
-    [SC_MIN]     = 1,
-    [SC_AVERAGE] = 1,
-    [SC_ABOVE]   = 2,
-    [SC_SUPER]   = 3,
-    [SC_MAX]     = 4
   },
   [STAT_ENERGY] = {
     [SC_MIN]     = 1,
@@ -1576,7 +1571,7 @@ static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {
       [ACTION_PASSIVE] = true,  
     }
   },
-  {SLOT_ITEM, {[ACTION_ITEM]=true}, STAT_ACTIONS},
+  {SLOT_ITEM, {[ACTION_ITEM]=true}},
   {SLOT_SPELL, {[ACTION_MAGIC]=true}, STAT_ENERGY},
   {SLOT_SAVE, {[ACTION_SAVE]=true}},
 };
@@ -1645,6 +1640,13 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
   },
   {INV_POUCH},
   {INV_SCROLL_CASE},
+};
+
+static const char* NEED_STRINGS[N_DONE] = {
+  [N_SOC]     = "Socialize",
+  [N_HUNGER]  = "Hungry",
+  [N_SLEEP]   = "Tired",
+  [N_THIRST]  = "Thirsty"
 };
 
 static const char* SKILL_NAMES[SKILL_DONE] = {

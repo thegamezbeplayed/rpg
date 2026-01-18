@@ -49,6 +49,7 @@ typedef struct{
 
 typedef struct action_s action_t;
 
+typedef void (*ActionCb)(void*);
 typedef ActionStatus (*ActionFn)(action_t* a);
 struct action_s{
   uint64_t        id;
@@ -61,12 +62,13 @@ struct action_s{
   int             initiative;
   int             turn, weight, score;
   ActionFn        fn;
+  ActionCb        cb;
 };
 
 typedef struct{
   ActionCategory  id;
+  ActionStatus    status;
   int             count, cap, charges, allowed;
-  int             inititive_mod;
   action_t*       entries;
   ent_t*          owner;
 }action_queue_t;
@@ -91,11 +93,11 @@ typedef struct{
 
 void InitActionManager(void);
 void InitActions(action_turn_t* actions[ACTION_DONE]);
-
+bool ActionHasStatus(action_pool_t* p, ActionStatus s);
 action_t* InitActionFulfill(ent_t* e, ActionCategory cat, need_t* n, int weight);
-action_t* InitActionAttack(ent_t* e, ActionCategory cat, ent_t* tar, int weight);
+action_t* InitActionAttack(ent_t* e, ActionCategory cat, param_t tar, int weight);
 action_t* InitActionMove(ent_t* e, ActionCategory cat, Cell dest, int weight);
-action_t* InitAction(ent_t* e, uint64_t id, ActionType type, ActionCategory cat, param_t ctx, int weight);
+action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, param_t ctx, int weight);
 action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap);
 
 ActionStatus QueueAction(action_pool_t *p, action_t* t);
@@ -109,10 +111,9 @@ action_turn_t* InitActionTurn(ActionType t, DesignationType targeting, TakeActio
 void ActionStandby(ent_t* e);
 void ActionTurnSync(ent_t* e);
 bool ActionInput(void);
-bool SetAction(ent_t* e, ActionType a, void* context, DesignationType targeting);
-bool ActionTaken(ent_t* e, ActionType a);
-bool TakeAction(ent_t* e, action_turn_t* action);
-bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb);
+//bool SetAction(ent_t* e, ActionType a, void* context, DesignationType targeting);
+//bool ActionTaken(ent_t* e, ActionType a);
+//bool TakeAction(ent_t* e, action_turn_t* action);
 ActionType ActionGetEntNext(ent_t* e);
 bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb);
 void ActionSetTarget(ent_t* e, ActionType a, void* target);
@@ -133,4 +134,6 @@ typedef struct{
 void InitInput(ent_t* player);
 void InputSync(TurnPhase phase, int turn);
 bool InputCheck(TurnPhase phase, int turn);
+
+
 #endif

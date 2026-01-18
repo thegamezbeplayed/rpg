@@ -1,6 +1,7 @@
 #include "game_process.h"
 #include "game_helpers.h"
 
+static int PRUNES = 0;
 static interaction_t *interactions[MAX_INTERACTIONS];
 static bool interaction_used[MAX_INTERACTIONS]; 
 
@@ -165,6 +166,41 @@ void InteractionStep(){
     }
 
     interactions[i]->timer->elapsed++;
+  }
+}
+event_bus_t* InitEventBus(int cap){
+  event_bus_t* bus = calloc(1,sizeof(event_bus_t));
+  *bus = (event_bus_t){
+    .cap = cap,
+      .subs = calloc(cap, sizeof(event_sub_t))
+  };
+
+  return bus;
+}
+
+void EventBusEnsureCap(event_bus_t* bus){
+  if (bus->count < bus->cap)
+    return;
+
+  int new_cap = bus->cap + 64;
+  bus->subs = realloc(bus->subs, new_cap * sizeof(event_sub_t));
+  bus->cap = new_cap;
+}
+
+void EventSubscribe(event_bus_t* bus, EventType event, EventCallback cb, void* u_data){
+  EventBusEnsureCap(bus);
+
+  bus->subs[bus->count++] = (event_sub_t){
+    .event = event,
+      .cb = cb,
+      .user_data = u_data
+  };
+}
+
+void EventEmit(event_bus_t* bus, EventType event,  void* e_data){
+  for (int i = 0; i < bus->count; i++) {
+    if (bus->subs[i].event == event)
+      bus->subs[i].cb(event, e_data, bus->subs[i].user_data);
   }
 }
 
@@ -418,17 +454,74 @@ int LocalCompareAsc(const void* a, const void* b){
   return 0;
 }
 
-local_table_t* InitLocals(ent_t* e){
+local_table_t* InitLocals(ent_t* e, int cap){
   local_table_t* s = calloc(1,sizeof(local_table_t));
 
   *s = (local_table_t){
     .owner = e,
       .count = 0,
-      .cap = 6,
-      .entries = calloc(6, sizeof(local_ctx_t)),
+      .cap = cap,
+      .entries = calloc(cap, sizeof(local_ctx_t)),
   };
 
   return s;
+}
+
+void LocalEnsureCap(local_table_t* t){
+  if (t->count < t->cap)
+    return;
+
+  size_t new_cap = t->cap + 64;
+
+  local_ctx_t* new_entries =
+    realloc(t->entries, new_cap * sizeof(local_ctx_t));
+
+  if (!new_entries) {
+    // Handle failure explicitly
+    TraceLog(LOG_WARNING,"==== LOCAL CONTEXT ERROR ===\n REALLOC FAILED");
+  }
+
+  t->valid = false;
+  t->entries = new_entries;
+  t->cap = new_cap;
+}
+
+
+local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
+  if(LocalGetEntry(s, entry->gouid))
+    return NULL;
+
+  LocalEnsureCap(s);
+  local_ctx_t* e = &s->entries[s->count++];
+
+  e->other = *entry; 
+  switch(entry->type_id){
+    case DATA_ENTITY:
+      ent_t* mob = ParamReadEnt(entry);
+      e->gouid = mob->gouid;
+      e->resource = MONSTER_MASH[mob->type].has;
+      e->dist = cell_distance(pos, mob->pos);
+      mob->this_world_ctx = e;
+      WorldSubscribe(EVENT_ENT_DEATH, OnWorldCtx, s);
+      break;
+    case  DATA_ENV:
+      PRUNES--;
+      env_t* tile = ParamReadEnv(entry);
+      e->gouid = tile->gouid;
+      e->resource = tile->has_resources;
+      e->dist = cell_distance(pos, tile->pos);
+      break;
+    case DATA_MAP_CELL:
+      PRUNES++;
+      map_cell_t* mc = ParamReadMapCell(entry);
+      e->gouid = mc->gouid;
+      e->resource = mc->props->resources;
+      e->dist = cell_distance(pos, mc->coords);
+      break;
+  }
+
+  WorldEvent(EVENT_ADD_LOCAL_CTX, e);
+  return e;
 }
 
 void LocalSortByDist(local_table_t* table){
@@ -466,6 +559,22 @@ local_ctx_t* LocalGetEntry(local_table_t* table, game_object_uid_i other){
   return NULL;
 }
 
+void LocalPruneCtx(local_table_t* t, local_ctx_t* other){
+  for( int i = 0; i < t->count; ){
+    local_ctx_t* ctx =  &t->entries[i]; 
+
+    if(ctx && ctx->gouid == other->gouid)
+      ctx->prune = true;
+
+    if(!ctx || ctx->prune)
+      t->entries[i] = t->entries[--t->count];
+    else
+      i++;
+
+  }
+  t->valid = false;
+}
+
 void LocalPrune(local_table_t* t){
   for (int i = 0; i < t->count; ) {
     local_ctx_t* ctx = &t->entries[i];
@@ -478,17 +587,7 @@ void LocalPrune(local_table_t* t){
 
 }
 
-void LocalEnsureCap(local_table_t* t){
-  if (t->count < t->cap)
-    return;
-
-  t->cap += 6;
-  t->entries = realloc(t->entries,
-      t->cap * sizeof(local_ctx_t));
-
-}
-
-void AddLocalMap(local_table_t* s, map_cell_t* m){
+local_ctx_t* LocalAddMap(local_table_t* s, map_cell_t* m){
   LocalEnsureCap(s);
 
   int dist = cell_distance(s->owner->pos, m->coords);
@@ -505,16 +604,20 @@ void AddLocalMap(local_table_t* s, map_cell_t* m){
 
   ctx->aggro = NULL;
   ctx->other = mc;
+
+  return ctx;
 }
 
-void AddLocalEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
+local_ctx_t* LocalAddEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
   if(LocalGetEntry(s, e->gouid))
-    return;
+    return NULL;
 
   LocalEnsureCap(s);
 
+
   int dist = cell_distance(e->pos, s->owner->pos);
   local_ctx_t* ctx = &s->entries[s->count++];
+  ctx->gouid = e->gouid;
   param_t env = ParamMake(DATA_ENV, sizeof(env_t), e);
 
   ctx->other = env;
@@ -537,25 +640,46 @@ void AddLocalEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
 
   ctx->aggro = NULL;
   ctx->cr =  score/count;
-  LocalSortByDist(s);
 
+  return ctx;
 }
 
-void AddLocals(local_table_t* s, ent_t* e, SpeciesRelate rel){
+local_ctx_t* LocalAddEnt(local_table_t* s, ent_t* e, SpeciesRelate rel){
    if(LocalGetEntry(s, e->gouid))
-    return;
+    return NULL;
 
   LocalEnsureCap(s);
 
   local_ctx_t* ctx = &s->entries[s->count++];
 
+  ctx->gouid = e->gouid;
   if(e->type == s->owner->type)
     rel = SPEC_KIN;
 
-  for (int i = 0; i < TREAT_DONE; i++)
-    ctx->treatment[i] = TREATMENT[rel][i];
-
   param_t ent = ParamMake(DATA_ENTITY, sizeof(ent_t), e);
+  
+  for (int i = 0; i < TREAT_DONE; i++){
+    float t = TREATMENT[rel][i];
+
+    ctx->treatment[i] = t;
+    if (t>0){
+      Priorities pt = PRIO_NONE;
+      switch(i){
+        case TREAT_KILL:
+        case TREAT_EAT:
+          pt = PRIO_ENGAGE;
+          break;
+        case TREAT_FLEE:
+          PRIO_FLEE;
+          break;
+      }
+      if(pt==PRIO_NONE)
+        continue;
+      param_t l = ParamMake(DATA_LOCAL_CTX, 0, ctx);      
+      l.gouid = ctx->gouid;
+      PriorityAdd(s->owner->control->priorities, pt, l);
+    }
+  }
   ctx->other = ent;
   ctx->cr = EntGetChallengeRating(e);
   ctx->rel = rel;
@@ -568,19 +692,47 @@ void AddLocals(local_table_t* s, ent_t* e, SpeciesRelate rel){
 
     ctx->resource|=e->props->resources[i]->type;
   }
-  LocalSortByDist(s);
+
+  return ctx;
 }
-bool LocalEntCheck(ent_t* e, local_ctx_t* ctx){
-  bool change = false;  
+
+void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
+  if(LocalGetEntry(s, ctx->gouid))
+    return;
+
+  if(ctx->gouid == s->owner->gouid)
+    return;
+
+  LocalEnsureCap(s);
+
+  local_ctx_t* lctx = NULL;
+
+  ent_t* e = s->owner;
+  switch(ctx->other.type_id){
+    case DATA_ENTITY:
+      ent_t* ent = ParamReadEnt(&ctx->other);
+      SpeciesRelate rel = GetSpecRelation(e->props->race, ent->props->race);
+      
+      lctx = LocalAddEnt(s, ent, rel);
+      break;
+    case DATA_ENV:
+      env_t* env = ParamReadEnv(&ctx->other);
+      lctx = LocalAddEnv(s, env, SPEC_RELATE_NONE);
+      break;
+    case DATA_MAP_CELL:
+      map_cell_t* mc = ParamReadMapCell(&ctx->other);
+      lctx = LocalAddMap(s, mc);
+      break;
+  }
+
+  if(lctx)
+    lctx->world_ctx_ref = ctx;
+  LocalSync(s, false);
+}
+
+void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   ent_t* other = ParamReadEnt(&ctx->other);
-  int dist = cell_distance(e->pos, other->pos);
-
-  if(dist==ctx->dist)
-    return change;
-
-  change = true;
-  ctx->dist = dist;
-
+  
   float base = -0.5f;
   bool detect = ctx->awareness > 1;
   for(int j = 0; j<SEN_DONE; j++){
@@ -596,7 +748,7 @@ bool LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   }
 
   if(base <= 0 && ctx->awareness <=0)
-    return change;
+    return;
 
   for(int j = 0; j < TREAT_DONE; j++){
     if(ctx->treatment[j] == 0)
@@ -607,43 +759,88 @@ bool LocalEntCheck(ent_t* e, local_ctx_t* ctx){
     //if(ctx->awareness > 1 && ((j & TREAT_AGGRO_MASK)>0))
   }
 
-  if(e->type != ENT_PERSON)
-    DO_NOTHING();
-
   ctx->awareness = fmax(0,ctx->awareness);
-  return true;
 }
 
-void LocalSync(local_table_t* s){
+void LocalEnvCheck(ent_t* e, local_ctx_t* ctx){
+  env_t* other = ParamReadEnv(&ctx->other);
+
+
+
+}
+
+bool LocalCheck(local_ctx_t* ctx){
+  if(!ctx || ctx->prune)
+    return false;
+
+  bool status = true;
+
+  switch(ctx->other.type_id){
+    case DATA_ENTITY:
+      ent_t* e = ParamReadEnt(&ctx->other);
+      status = CheckEntAvailable(e);
+      break;
+    case DATA_ENV:
+      env_t* other = ParamReadEnv(&ctx->other);
+      status = CheckEnvAvailable(other);
+      break;
+    case DATA_MAP_CELL:
+      map_cell_t* mc = ParamReadMapCell(&ctx->other);
+      status = mc->status < TILE_REACHABLE; 
+      break;
+  }
+
+  if(!status)
+    ctx->prune = true;
+
+  return status;
+
+}
+
+void LocalSync(local_table_t* s, bool sort){
   LocalPrune(s);
   bool dist_change = false;
+
+  bool this_changed = !cell_compare(s->owner->pos ,s->owner->old_pos);
+
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
 
-    switch(ctx->other.type_id){
-      case DATA_ENTITY:
-        dist_change = LocalEntCheck(s->owner, ctx);
-        ent_t* other = ParamReadEnt(&ctx->other);
-        break;
-      case DATA_MAP_CELL:
-        map_cell_t* mc = ParamReadMapCell(&ctx->other);
-        int dist = cell_distance(s->owner->pos, mc->coords);
-        if(dist != ctx->dist){
-          dist_change = true;
-          ctx->dist = dist;
-        }
-        if(!mc->updates)
-          continue;
+    local_ctx_t* wctx = ctx->world_ctx_ref;
 
-        ctx->resource = mc->props->resources;
-        break;
+    if(!this_changed && wctx->ctx_revision == ctx->ctx_revision)
+      continue;
+
+    ctx->ctx_revision = wctx->ctx_revision;
+    ctx->pos = wctx->pos;
+    int dist = cell_distance(s->owner->pos, ctx->pos);
+    if(dist != ctx->dist){
+      dist_change = true;
+      ctx->dist = dist;
+
+      switch(ctx->other.type_id){
+        case DATA_ENTITY:
+          LocalEntCheck(s->owner, ctx);
+          break;
+        case DATA_ENV:
+          //dist_change = LocalEnvCheck(s->owner, ctx);
+          break;
+        case DATA_MAP_CELL:
+          map_cell_t* mc = ParamReadMapCell(&ctx->other);
+          if(!mc->updates)
+            continue;
+
+          ctx->resource = mc->props->resources;
+          break;
+      }
     }
-  }
 
-  if(dist_change)
+    if(!dist_change)
+      return;
+
     LocalSortByDist(s);
+  }
 }
-
 
 local_ctx_t* LocalGetThreat(local_table_t* t){
   local_ctx_t* out = NULL;
@@ -657,7 +854,7 @@ local_ctx_t* LocalGetThreat(local_table_t* t){
     if(ctx->aggro->threat < highest)
       continue;
 
-    if(ctx->aggro->challenge < out->aggro->challenge)
+    if(out && ctx->aggro->challenge < out->aggro->challenge)
       continue;
 
     highest = ctx->aggro->threat;
@@ -713,3 +910,5 @@ int LocalAddAggro(local_table_t* table, ent_t* source, int threat_gain, float mu
 
   return cr;
 }
+
+

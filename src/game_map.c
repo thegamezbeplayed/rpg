@@ -3,6 +3,7 @@
 #include "game_helpers.h"
 #include <limits.h>
 
+
 static int APPLIED = 0;
 static int ATTEMPTS = 0;
 static int FIX_ATTEMPTS = 0;
@@ -33,6 +34,10 @@ static Color col[MAX_ANCHOR_NODES]={
   BROWN
 };
 
+Cell PLAYER_SPAWN(void){
+  return world_map.player_start;
+}
+
 map_grid_t* InitMapGrid(void){
   map_grid_t* m = malloc(sizeof(map_grid_t));
 
@@ -55,7 +60,7 @@ void MapCellTurnStep(map_cell_t* m){
   env_t* env = m->tile;
  
   if(m->tile && m->tile->has_resources == 0)
-    m->tile->sprite = NULL;
+    m->tile->status = ENV_STATUS_DEAD;
 
   uint64_t occid = occ?occ->gouid:0;
   uint64_t envid = env?env->gouid:0;
@@ -102,8 +107,9 @@ void MapTurnStep(map_grid_t* m){
       map_cell_t* mc = &m->tiles[x][y];
       if(!mc)
         continue;
-      if(mc->status == TILE_EMPTY && mc->flags == TILEFLAG_NONE)
-        continue;     
+      if(!mc->in_ctx)
+        continue;
+
       MapCellTurnStep(mc);
     }
 }
@@ -153,14 +159,49 @@ bool InitMap(void){
        SaveCharGrid( ctx->width, ctx->height, grid, "map.txt");
        */
   }
-
-
+  
   return gen;
+}
+
+void MapRoomSpawn(map_grid_t* m, EntityType data, int room){
+  map_room_t* r = m->rooms[room];
+  if(!r)
+    return;
+
+  Rectangle bounds = RecFromBounds(&r->bounds);
+  int area = bounds.width * bounds.height;
+  choice_pool_t* picker = InitChoicePool(area,ChooseByWeight);
+
+  for (int x = r->bounds.min.x; x < r->bounds.max.x; x++){
+    for (int y = r->bounds.min.y; y < r->bounds.max.y; y++){
+      map_cell_t* c = &m->tiles[x][y];
+      if(c->status!= TILE_EMPTY)
+        continue;
+
+      int dist = 1 + cell_distance(r->center, c->coords);
+
+      AddChoice(picker, x*1000+y, area/dist, c, DiscardChoice);
+    }
+  }
+
+  ent_t* e = InitEntByRace(MONSTER_MASH[data]);
+  
+  choice_t* sel = picker->choose(picker);
+  map_cell_t* c = sel->context;
+  e->pos = c->coords;
+  if(RegisterEnt(e)){
+    e->map = m;
+    EntPrepare(e);
+    SetState(e,STATE_SPAWN,NULL);
+  }
+
 }
 
 map_room_t* InitMapRoom(map_context_t* ctx, room_t* r){
   map_room_t *mr = calloc(1,sizeof(map_room_t));  
- 
+
+  mr->center = r->center;
+  mr->bounds = r->bounds; 
   mr->purpose = r->flags & ROOM_PURPOSE_MASK; 
   if(r->num_mobs > 0){
     qsort(r->mobs, r->num_mobs, sizeof(ent_t*), CompareEntByCR);
@@ -565,6 +606,7 @@ TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c){
   map_cell_t* mc = &m->tiles[c.x][c.y];
 
   mc->tile = e;
+  e->map_cell = mc;
   if(TileHasFlag(e->type, TILEFLAG_SOLID))
     mc->status = TILE_COLLISION;
   else if(TileHasFlag(e->type, TILEFLAG_BORDER))
@@ -793,24 +835,24 @@ void RoomSpawnMob(map_grid_t* m, room_t* r){
 }
 
 
-void MapSpawn(TileFlags flags, int x, int y){
+env_t* MapSpawn(TileFlags flags, int x, int y){
 
   if(flags == TILEFLAG_EMPTY)
-    return;
+    return NULL;
 
   EnvTile t = GetTileByFlags(flags|world_map.map_rules->map_flag);
 
   Cell pos = {x,y};
  
   if(flags & TILEFLAG_BORDER)
-   return;
+   return NULL;
 
   uint32_t tflags = EnvTileFlags[t];
   uint32_t size = GetEnvSize(tflags);
   env_t* env = InitEnv(t,pos);
   if(RegisterEnv(env)){
     if(size==0)
-      return;
+      return env;
     for (int i = 0; i < RES_DONE; i++){
       define_resource_t* temp = GetResourceByCatFlags(BIT64(i), OBJ_ENV, tflags);
       resource_t *res = calloc(1,sizeof(resource_t));
@@ -818,6 +860,7 @@ void MapSpawn(TileFlags flags, int x, int y){
       if(!temp)
         continue;
 
+      res->name = temp->name;
       res->type = temp->type;
       env->has_resources |= temp->type;
       uint64_t amnt = size*temp->quantity;
@@ -834,6 +877,7 @@ void MapSpawn(TileFlags flags, int x, int y){
     }
   }
 
+  return env;
 }
 
 MapNodeResult MapNodeRunSequence(map_context_t *ctx, map_node_t *node){
@@ -2170,6 +2214,8 @@ MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node) {
 }
 
 MapNodeResult MapEnhance(map_context_t *ctx, map_node_t *node) {
+  return MAP_NODE_SUCCESS;
+
   int count = 0;
   room_t *enhance[ctx->num_rooms-2];
   for(int i = 0; i < ctx->num_rooms; i++){

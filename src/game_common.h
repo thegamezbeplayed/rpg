@@ -381,7 +381,6 @@ static stat_attribute_relation_t stat_modifiers[STAT_ENT_DONE]={
   [STAT_DAMAGE]={STAT_DAMAGE,{[ATTR_STR]=MOD_SQRT},FormulaAddAttr,FormulaAddAttr },
   [STAT_HEALTH]={STAT_HEALTH,{[ATTR_CON]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_ARMOR]={STAT_ARMOR,{[ATTR_DEX]=MOD_SQRT},FormulaAddAttr,FormulaAddAttr},
-  [STAT_ACTIONS]={STAT_ACTIONS,{},FormulaNothing,FormulaNothing},
   [STAT_ENERGY] = {STAT_ENERGY,{[ATTR_INT]=MOD_ADD,[ATTR_WIS]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_STAMINA]= {STAT_STAMINA,{[ATTR_CON]=MOD_ADD,MOD_ADD,[ATTR_STR]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN,{[ATTR_CON]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
@@ -521,6 +520,18 @@ typedef struct{
 
 sense_t* InitSense(ent_t* e, Senses type, int val);
 
+typedef struct{
+  ent_t*        owner;
+  ActionType    action;
+  ModifierType  modified_by[ATTR_DONE];
+  value_affix_t affix[VAL_DMG];
+  int           base;
+  dice_roll_t*  die;
+}initiative_t;
+
+initiative_t* InitInit(ActionType action, ent_t* e);
+
+int RollInitiative(initiative_t* i);
 typedef bool (*StateComparator)(int a, int b);
 
 typedef struct{

@@ -228,7 +228,7 @@ bool FreeSprite(sprite_t* s){
   return true;
 }
 void DrawSpriteAtPos(sprite_t*s , Vector2 pos){
-  if(s->is_visible)
+  if(s && s->is_visible)
     DrawSlice(s, pos,1);
 
 }

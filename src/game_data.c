@@ -7,19 +7,21 @@
 #include "game_helpers.h"
 ent_t* ParamReadEnt(const param_t* o) {
     assert(o->type_id == DATA_ENTITY);
-    assert(o->size == sizeof(ent_t));
     return (ent_t*)o->data;
 }
 env_t* ParamReadEnv(const param_t* o){
     assert(o->type_id == DATA_ENV);
-    assert(o->size == sizeof(env_t));
     return (env_t*)o->data;
 }
 
 map_cell_t* ParamReadMapCell(const param_t* o){
     assert(o->type_id == DATA_MAP_CELL);
-    assert(o->size == sizeof(map_cell_t));
     return (map_cell_t*)o->data;
+}
+
+local_ctx_t* ParamReadCtx(const param_t* o){
+    assert(o->type_id == DATA_LOCAL_CTX);
+    return (local_ctx_t*)o->data;
 }
 
 faction_t* FACTIONS[MAX_FACTIONS];
@@ -72,37 +74,37 @@ define_need_req_t NEEDS_REQ[N_DONE][8]= {
 
 
 define_resource_t DEF_RES[20] = {
-  {RES_BONE,
+  {"Bone", RES_BONE,
     OBJ_ENV,
     TILEFLAG_BONE, 2, 1
   },
-  {RES_WOOD,
+  {"Wood", RES_WOOD,
     OBJ_ENV,
     TILEFLAG_TREE | TILEFLAG_FOREST,
     3, 3
   },
-  {RES_VEG,
+  {"Vegetation", RES_VEG,
     OBJ_ENV,
     TILEFLAG_NATURAL,
     2, 5,
     RES_WATER
   },
-  {RES_WATER,
+  {"Water", RES_WATER,
     OBJ_ENV,
     TILEFLAG_NATURAL,
     1, 2
   },
-  {RES_STONE,
+  {"Stone", RES_STONE,
     OBJ_ENV,
     TILEFLAG_STONE,
     2, 1
   },
-  {RES_MEAT,
+  {"Flesh", RES_MEAT,
     OBJ_ENT,
     TILEFLAG_NONE,
     .smell = 5
   },
-  {RES_BLOOD,
+  {"Blood", RES_BLOOD,
     OBJ_ENT,
     TILEFLAG_NONE,
     .smell = 5
@@ -1474,6 +1476,8 @@ void NeedReset(need_t* n){
 }
 
 void NeedStep(need_t* n){
+  n->prio += n->id + n->status;
+
   if(n->activity){
     NeedReset(n);
     return;
@@ -1486,4 +1490,26 @@ void NeedStep(need_t* n){
 
   r = CLAMP(r,4,64);
   NeedSyncMeter(n, r);
+}
+
+initiative_t* InitInit(ActionType action, ent_t* e){
+  initiative_t* i  = calloc(1, sizeof(initiative_t));
+
+  *i = (initiative_t){
+    .owner = e,
+      .action = action,
+      .base   = 10,
+  };
+
+  i->modified_by[ATTR_DEX] = MOD_ADD;
+
+  i->die = Die(i->base + e->attribs[ATTR_DEX]->max, 1);
+
+  return i;
+}
+
+int RollInitiative(initiative_t* i){
+
+  int res[1];
+  return i->die->roll(i->die, res);
 }

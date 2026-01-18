@@ -59,37 +59,41 @@ void InitAllyTable(ally_table_t* t, int cap, ent_t* owner);
 static void AllyEnsureCapacity(ally_table_t* t);
 int AllyAdd(ally_table_t* t, ent_t* source, int dist);
 void AllySync(void* params);
-
-typedef struct local_ctx_s{
-  param_t             other;
+typedef struct local_ctx_s local_ctx_t;
+struct local_ctx_s{
+  param_t             other, need;
   path_cache_entry_t* path;
   game_object_uid_i   gouid;
   aggro_t*            aggro;             
   uint64_t            resource;
+  Cell                pos;
+  ActionType          how_to;
   Interactive         method;
   bool                prune;
   float               awareness;
   SpeciesRelate       rel;
   int                 cr;
   float               treatment[TREAT_DONE];
-  int                 dist, cost;
-}local_ctx_t;
+  int                 dist, cost, index;
+  local_ctx_t*        world_ctx_ref;
+  uint32_t            ctx_revision;
+};
 
 typedef struct{
   ent_t*             owner;
+  bool               valid;
   local_ctx_t*       entries;
   int                count,cap;
   choice_pool_t*     choice_pool;
 }local_table_t;
 
-local_table_t* InitLocals(ent_t* e);
-void LocalSync(local_table_t* s);
-void AddLocals(local_table_t*, ent_t* e, SpeciesRelate rel);
-void AddLocalEnv(local_table_t*, env_t* e, SpeciesRelate rel);
-void AddLocalMap(local_table_t* s, map_cell_t* m);
+local_table_t* InitLocals(ent_t* e, int cap);
+local_ctx_t* MakeLocalContext(local_table_t* s, param_t* e, Cell p);
+void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx);
+void LocalSync(local_table_t* s, bool sort);
+bool LocalCheck(local_ctx_t* ctx);
+void LocalPruneCtx(local_table_t* t, local_ctx_t* other);
 
-void EntAddLocals(ent_t* e, ent_t* other);
-void EntAddLocalEnv(ent_t* e, env_t* ev);
 local_ctx_t* RemoveEntryByRel(local_table_t*, SpeciesRelate rel);
 void LocalSortByDist(local_table_t* table);
 int LocalAddAggro(local_table_t* t, ent_t* e, int threat, float mul, bool init);
@@ -121,6 +125,7 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m);
 typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, struct ent_s* target, InteractResult result);
 typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, ent_t* target);
 typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a, ent_t* target);
+bool AbilityCanTarget(ability_t* a, local_ctx_t* target);
 InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target);
 typedef InteractResult (*AbilitySave)(ent_t* owner,  ability_t* a, ability_sim_t* source);
 bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result);
@@ -249,18 +254,37 @@ item_t* InitItem(item_def_t* def);
 item_def_t* GetItemDefByID(GearID id);
 
 typedef struct{
-  local_ctx_t*                  target;
+  game_object_uid_i gouid;
+  Priorities        type;
+  param_t           ctx, goal;
+  int               score;
+  bool              prune;
+}priority_t;
+
+typedef struct{
+  ent_t*     owner;
+  int        cap, count;
+  priority_t *entries;
+}priorities_t;
+
+priorities_t* InitPriorities(ent_t* e, int cap);
+priority_t*  PriorityAdd(priorities_t* table, Priorities type, param_t entry);
+void PrioritiesSync(priorities_t* t);
+typedef struct{
+  local_ctx_t*            target, *goal, *destination;
   int                     turn;
   TurnPhase               phase;
   action_pool_t*          actions;
-  Cell                    start,destination;
+  Cell                    start;
   int                     ranges[RANGE_EMPTY];
   behavior_tree_node_t*   bt[STATE_END];
+  BehaviorID              current, failure;
   need_t                  *needs[N_DONE];
-  Needs                   priority;
-  local_ctx_t*            goal;
+  priorities_t            *priorities;
+  priority_t              *priority;
   ability_t*              pref;
   uint64_t                behave_traits;
+  initiative_t*           speed[ACTION_PASSIVE];
   choice_pool_t           *choices[ACTION_PASSIVE];
 }controller_t;
 
@@ -295,8 +319,9 @@ struct ent_s{
   action_slot_t         *slots[SLOT_ALL];
   EntityType            type;
   map_grid_t*           map;
-  Cell                  pos,facing;
+  Cell                  old_pos, pos,facing;
   EntityState           state,previous;
+  EntityStatus          status;
   action_turn_t         *actions[ACTION_DONE];
   controller_t          *control;
   events_t              *events;
@@ -307,6 +332,7 @@ struct ent_s{
   local_table_t*        local;
   struct ent_s*         last_hit_by;
   Faction               team;
+  local_ctx_t*          this_world_ctx;
 };
 
 ent_t* InitEntByRace(mob_define_t def);
@@ -357,7 +383,11 @@ typedef void (*StateChangeCallback)(ent_t *e, EntityState old, EntityState s);
 void SetViableTile(ent_t*, EntityState old, EntityState s);
 skill_check_t* EntGetSkillPB(SkillType, ent_t*, local_ctx_t*, Senses);
 
+static bool CheckEntAlive(ent_t* e){
+  return (e->status != ENT_STATUS_DEAD);
+}
 bool CheckEntAvailable(ent_t* e);
+bool CheckEnvAvailable(env_t* e);
 bool CheckEntPosition(ent_t* e, Vector2 pos);
 bool SetState(ent_t *e, EntityState s,StateChangeCallback callback);
 void StepState(ent_t *e);
@@ -387,11 +417,13 @@ struct env_s{
   EnvTile     type;
   Vector2     vpos;
   Cell        pos;
+  map_cell_t* map_cell;
+  EnvStatus   status;
   sprite_t    *sprite;
 };
 
 env_t* InitEnv(EnvTile t,Cell pos);
-
+void EnvRender(env_t* e);
 
 static int CompareEntByCR(const void *a, const void *b)
 {

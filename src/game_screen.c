@@ -248,7 +248,7 @@ void ScreenSyncKey(void){
       keyctrl.active = false;
       ActionType next = ActionGetEntNext(player);
       action_turn_t* action = player->actions[next];
-      TakeAction(player,action);
+      //TakeAction(player,action);
     }
 }
 

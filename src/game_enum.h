@@ -145,10 +145,10 @@ typedef enum{
 typedef enum{
   VAL_NONE = -1,
   VAL_HIT,
+  VAL_ADV_HIT,
   VAL_DMG,
   VAL_DMG_BONUS,
   VAL_DMG_DIE,
-  VAL_ADV_HIT,
   VAL_ADV_DMG,
   VAL_PENN,
   VAL_SAVE,
@@ -170,7 +170,6 @@ typedef enum{
   STAT_DAMAGE,
   STAT_HEALTH,
   STAT_ARMOR,
-  STAT_ACTIONS,
   STAT_ENERGY,
   STAT_STAMINA,
   STAT_STAMINA_REGEN,
@@ -195,11 +194,11 @@ typedef enum{
 }Senses;
 
 typedef enum{
-  N_NONE,
+  N_NONE = -1,
   N_SOC,
-  N_HUNGER,
   N_SLEEP,
   N_THIRST,
+  N_HUNGER,
   N_DONE,
 }Needs;
 
@@ -246,23 +245,34 @@ typedef enum{
 
   DMG_DONE
 }DamageType;
+typedef enum{
+  ENV_STATUS_SPAWN,
+  ENV_STATUS_NORMAL,
+  ENV_STATUS_DEAD
+}EnvStatus;
 
 typedef enum{
   STATE_NONE,//if ent_t is properly initalized to {0} this is already set
   STATE_SPAWN,//Should only be set after NONE
   STATE_IDLE, //should be able to move freely between these ==>
-  STATE_WANDER,
-  STATE_ACTION,
   STATE_AGGRO,
   STATE_ATTACK,
   STATE_REQ,
   STATE_NEED,
-  STATE_STANDBY,
   STATE_SELECTION,
   STATE_DIE,//<===== In MOST cases. Should not be able to go down from DIE
   STATE_DEAD,
+  STATE_STANDBY,
+  STATE_RETURN,
   STATE_END//sentinel entity state should never be this or greater
 }EntityState;
+
+typedef enum{
+  ENT_STATUS_NONE,
+  ENT_STATUS_SPAWN,
+  ENT_STATUS_ALIVE,
+  ENT_STATUS_DEAD
+}EntityStatus;
 
 typedef enum{
   ENT_NONE = -1,
@@ -460,11 +470,11 @@ typedef enum{
   ACTION_ITEM,
   ACTION_MAGIC,
   ACTION_CANTRIP,
+  ACTION_INTERACT,
   ACTION_PASSIVE,
   ACTION_SAVE,
   ACTION_SLOTTED,
   ACTION_SELECT,
-  ACTION_INTERACT,
   ACTION_DONE
 }ActionType;
 
@@ -498,14 +508,23 @@ typedef enum{
   ACT_STATUS_MISQUEUE,
   ACT_STATUS_FULL,
   ACT_STATUS_BAD_ATTACK,
+  ACT_STATUS_INVALID,
   ACT_STATUS_DONE
 }ActionStatus;
+typedef enum{
+  PRIO_NONE = -1,
+  PRIO_NEEDS,
+  PRIO_ENGAGE,
+  PRIO_FLEE,
+  PRIO_DONE
+}Priorities;
 
 typedef enum{
   I_NONE,
   I_CONSUME,
   I_OPEN,
   I_CLOSE,
+  I_KILL,
 }Interactive;
 
 typedef enum{
@@ -654,28 +673,13 @@ typedef enum{
   BN_GET_DEST,          //3
   BN_MOVE_TO_TARGET,    //4
   BN_MOVE_TO_DEST,      //4
-  BN_CAN_ATTACK,        //5
   BN_ATTACK,            //6
-  BN_SEE,               //8
-  BN_CHECK_TURN_STATE,  //9
-  BN_TAKE_TURN,         //10
   BN_MOVE,              //11
-  BN_CHECK_AGGRO,       //12
   BN_ACQUIRE,           //13
-  BN_TRY_ATTACK,        //14
-  BN_APPROACH,          //15
-  BN_WANDER,            //16
+  BN_CLEAR_CTRL,
+  BN_IDLE,
   BN_SEEK,              //17
-  BN_TAKE_ACTION,       //18
-  BN_ACTION,            //19
-  BN_NO_ACTION,         //20
-  BN_COMBAT,            //21
-  BN_MOB_AGGRO,         //22
-  BN_AGGRO_TABLE,
   BN_CHECK_SENSE,
-  BN_CHECK_ENEMIES,
-  BN_GET_AGGRO,
-  BN_FIND_ENEMY,
   BN_SPAWN,
   BN_CHECK_NEEDS,
   BN_FILL_NEEDS,
@@ -683,14 +687,28 @@ typedef enum{
   BN_PREPARE_GEAR,
   BN_PREPARE_ABILITIES,
   BN_REQ,
-  BN_FIND_RESOURCE,
   BN_SEEK_RESOURCE,
   BN_FILL_NEED,
   BN_NEED,
   BN_CHECK_NEED,
-  BN_SEEK_CTX,
   BN_TRACK,
   BN_TRACK_RESOURCE,
+  BN_RES_REQ,
+  BN_CHECK_RES,
+  BN_GET_RES,
+  BN_HUNT,
+  BN_TARGET_GOAL,
+  BN_CAN_ATTACK,
+  BN_AGGRO,
+  BN_GET_AGGRO,
+  BN_CHECK_AGGRO,
+  BN_TRY_ATTACK,
+  BN_COMBAT,
+  BN_PRIO,
+  BN_GET_PRIO,
+  BN_CHECK_PRIO,
+  BN_QUEUE_ATTACK,
+  BN_CHECK_COMBAT,
   BN_COUNT
 }BehaviorID;
 
@@ -718,6 +736,9 @@ typedef enum{
   EVENT_DECAY,
   EVENT_FINISH,
   EVENT_SKILL,
+  EVENT_ADD_LOCAL_CTX,
+  EVENT_DEL_LOCAL_CTX,
+  EVENT_ENT_DEATH,
   EVENT_NONE,
   MAX_EVENTS
 } EventType;

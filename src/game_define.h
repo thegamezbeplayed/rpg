@@ -193,7 +193,9 @@ typedef struct{
   int         bio_pref[BIO_DONE];
   int         member_ratio[ENT_DONE];
   Faction     id;
+  MobRules    rules;
 }faction_t;
+
 extern faction_t* FACTIONS[MAX_FACTIONS];
 
 faction_t* InitFaction(const char* name);
@@ -218,7 +220,20 @@ static inline faction_t* GetFactionByID(Faction id){
 
   return NULL;
 }
+typedef struct{
+  MobRule     party;
+  SpeciesType species;
+  int         prof_ratio[PROF_END];
+}mob_group_t;
 
+typedef struct{
+  Faction        faction;
+  mob_group_t    groups[8];
+  choice_pool_t* choices;
+}faction_groups_t;
+faction_groups_t* InitFactionGroups(Faction id, int desired);
+
+void InitMobGroup(faction_groups_t** f, MobRule size, int index);
 typedef enum{
   RES_NONE = -1,
   RES_VEG  = BIT64(0),
@@ -233,6 +248,7 @@ typedef enum{
 }Resource;
 
 typedef struct{
+  const char* name;
   Resource    type;
   Resource    attached;
   int         smell;
@@ -240,6 +256,7 @@ typedef struct{
 }resource_t;
 
 typedef struct{
+  const char*     name;
   Resource        type;
   ObjectCategory  cat;
   uint64_t        cat_flags;
@@ -300,6 +317,7 @@ typedef struct{
 need_t* InitNeed(Needs id, ent_t* owner);
 void NeedStep(need_t* n);
 void NeedIncrement(Needs id, ent_t* owner, int amount);
+Needs NeedGetGreatest(need_t* list[N_DONE]);
 
 typedef struct{
   Needs             type;
@@ -1152,14 +1170,6 @@ static const stat_quality_t STAT_QUAL[STAT_ENT_DONE] = {
       [SC_LESSER]  = PQ_SMALL,
       [SC_BELOW]   = PQ_LIGHT,
       [SC_ABOVE]   = PQ_DENSE_MUSCLE,
-    }
-  },
-  [STAT_ACTIONS] = {
-    .stat = STAT_ACTIONS,
-    .stature = {
-      [SC_ABOVE] = PQ_TWIN_HEADED,
-      [SC_SUPER] = PQ_TRI_HEADED,
-      [SC_MAX]   = PQ_MANY_HEADED
     }
   },
   [STAT_ENERGY] = {
@@ -2089,4 +2099,10 @@ typedef struct{
   uint64_t  size;
   int       str_mul;
 }define_burden_t;
+
+typedef struct{
+  ActionType    action;
+  ModifierType  modified_by[ATTR_DONE];
+
+}define_initiative_relate_t;
 #endif

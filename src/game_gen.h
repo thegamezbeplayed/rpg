@@ -17,7 +17,7 @@
 #define ROOM_LAYOUT_SHIFT 8
 #define ROOM_PURPOSE_SHIFT 4
 #define MAX_NODE_DEPTH 5
-#define MAX_ANCHOR_NODES 8
+#define MAX_ANCHOR_NODES 10
 #define MAX_ATTEMPTS 500
 
 #define GRID_WIDTH 128
@@ -174,8 +174,9 @@ typedef enum {
     ROOM_PURPOSE_CAMP      = 0x0080,
     ROOM_PURPOSE_START     = 0x0090,
     ROOM_PURPOSE_STAIRS    = 0x00A0,
-    ROOM_PURPOSE_EXIT      = 0x00B0,
-    ROOM_PURPOSE_MAX       = 0x00C0,
+    ROOM_PURPOSE_SPAWN     = 0x00B0,
+    ROOM_PURPOSE_EXIT      = 0x00C0,
+    ROOM_PURPOSE_MAX       = 0x00D0,
     ROOM_PURPOSE_MASK      = 0x00F0,
 
     // ----- Shape (bits 0–3) -----
@@ -191,7 +192,7 @@ typedef enum {
     // --- Orientation (bits 16-19) ---
     ROOM_ORIENT_HOR   = 0x00010000,
     ROOM_ORIENT_VER   = 0x00020000,
-    ROOM_ORIENT_MASK   = 0x00030000,
+    ROOM_ORIENT_MASK  = 0x00030000,
 
     ROOM_PLACING_C = 0x00000000,
     ROOM_PLACING_N = 0x00100000,
@@ -455,6 +456,8 @@ typedef struct {
   choice_pool_t* mob_pool;
 } map_context_t;
 
+Cell PLAYER_SPAWN(void);
+
 typedef enum {
   OPT_CONN,
   OPT_ROOM,
@@ -611,11 +614,13 @@ typedef struct{
   ent_t*              occupant;
   Color               fow;
   site_properties_t*  props;
-  bool                updates, explored;
+  bool                in_ctx, updates, explored;
 }map_cell_t;
 
 typedef struct{
   int             id;
+  Cell            center;
+  cell_bounds_t   bounds;
   RoomFlags       purpose;
   int             num_mobs, total_cr, avg_cr, best_cr;
   ent_t           *mobs[MOB_ROOM_MAX];
@@ -640,6 +645,7 @@ typedef struct{
 bool InitMap(void);
 void WorldMapLoaded(map_grid_t* m);
 map_grid_t* InitMapGrid(void);
+void MapRoomSpawn(map_grid_t* m, EntityType data, int room);
 void MapSync(map_grid_t* m);
 void MapTurnStep(map_grid_t* m);
 TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
@@ -649,7 +655,7 @@ map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
 TileStatus MapRemoveOccupant(map_grid_t* m, Cell c);
 TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c);
 void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);
-void MapSpawn(TileFlags flags, int x, int y);
+env_t* MapSpawn(TileFlags flags, int x, int y);
 void MapSpawnMob(map_grid_t* m, int x, int y);
 void RoomSpawnMob(map_grid_t* m, room_t* r);
 Cell MapApplyContext(map_grid_t* m);
@@ -720,7 +726,7 @@ static path_result_t* FindPathCell(map_grid_t *m, Cell sc, Cell tc, Cell *out, i
   return FindPath(m, sc.x, sc.y, tc.x, tc.y, out, depth);
 }
 
-path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, Cell goal, int depth, bool* result);
+path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* result);
 Cell RouteGetNext(ent_t* e, path_cache_entry_t* route);
 bool HasLOS(map_grid_t* m, Cell c0, Cell c1);
 void CastLight(map_grid_t *m, Cell pos, int row, float start, float end, int radius,int xx, int xy, int yx, int yy);

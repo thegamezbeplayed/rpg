@@ -8,6 +8,7 @@
 #include "screens.h"
 #include "room_data.h"
 
+#define MAX_SUBS 1024
 #define MAX_INTERACTIONS 1024
 #define DEBUG false
 #define TURN WorldGetTurn()
@@ -42,6 +43,15 @@ static bool FilterEntByTeam(ent_t* e, param_t* ctx){
   int team = other->team;
 
   return (e->team == team);
+}
+
+static bool FilterEntByStatus(ent_t* e,  param_t* ctx){
+  if(!ctx || ctx->type_id != DATA_INT)
+    return false;
+
+  EntityStatus status = ParamReadInt(ctx);
+
+  return (e->status == status);
 }
 
 static bool FilterEntByState(ent_t* e,  param_t* ctx){
@@ -94,7 +104,28 @@ void InteractionStep();
 interaction_uid_i RegisterSkillEvent(interaction_t* self, void* ctx, param_t payload);
 interaction_uid_i UpdateSkillEvent(interaction_t* self, void* ctx, param_t payload);
 
+typedef void (*EventCallback)(
+    EventType  event,
+    void*      event_data,
+    void*      user_data
+);
 
+typedef struct {
+    EventType     event;
+    EventCallback cb;
+    void*         user_data;
+} event_sub_t;
+
+typedef struct {
+    event_sub_t* subs;
+    int count, cap;
+} event_bus_t;
+
+event_bus_t* InitEventBus(int cap);
+void EventSubscribe(event_bus_t* bus, EventType event, EventCallback cb, void* u_data);
+void EventEmit(event_bus_t* bus, EventType event,  void* e_data);
+
+void OnWorldCtx(EventType, void*, void*);
 //EVENTS==>
 
 typedef enum{
@@ -133,7 +164,14 @@ typedef struct{
 }child_process_t;
 
 typedef struct{
+  int              num_factions;
+  faction_groups_t *factions[MAX_FACTIONS];
+}level_t;
+level_t* InitLevel(map_grid_t*);
+
+typedef struct{
   GameScreen     screen;
+  level_t*       level;
   int            game_frames;
   child_process_t children[SCREEN_DONE];
   GameScreen     next[SCREEN_DONE];
@@ -157,13 +195,16 @@ void AddPoints(float mul,float points,Vector2 pos);
 //===WORLD_T===>
 
 typedef struct{
-  int     num_turn;
-}world_data_t;
-
-world_data_t* InitWorldData(void);
+  int             turn;
+  stat_t          *time;
+  bool            updates;
+  local_table_t*  tables[OBJ_ALL];
+}world_context_t;
+void WorldApplyLocalContext(ent_t* e);
 
 typedef struct world_s{
   map_grid_t    *map;
+  level_t*      level;
   ent_t*        ents[MAX_ENTS];
   unsigned int  num_ent;
   sprite_t*     sprs[MAX_ENTS];
@@ -173,10 +214,10 @@ typedef struct world_s{
   env_t*        envs[MAX_ENVS];
   render_text_t *texts[MAX_EVENTS];
   bool          floatytext_used[MAX_EVENTS];
+  event_bus_t*  bus;
   events_t      *events[STEP_DONE];
   debug_info_t  debug[DEBUG_ALL][MAX_DEBUG_ITEMS];
-  world_data_t  *data;
-  stat_t        *time;
+  world_context_t  *ctx;
 } world_t;
 
 void PrepareWorldRegistry(void);
@@ -184,6 +225,8 @@ ent_t* WorldGetEnt(const char* name);
 ent_t* WorldGetEntById(unsigned int uid);
 ent_t* WorldPlayer(void);
 env_t* WorldGetEnvById(unsigned int uid);
+void WorldSubscribe(EventType, EventCallback, void*);
+void WorldEvent(EventType, void*);
 int WorldGetEntSprites(sprite_t** pool);
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);
@@ -211,6 +254,5 @@ const char* GetWorldTime();
 int WorldGetTurn(void);
 void WorldDebugShape(Rectangle r); 
 void WorldDebugCell(Cell c, Color col);
-
 #endif
 

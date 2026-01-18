@@ -7,7 +7,7 @@ choice_pool_t* StartChoice(choice_pool_t** pool, int size, ChoiceFn fn, bool* re
   }
   else{
     (*pool)->choose = fn;
-    *result = true;
+    *result = (*pool)->count > 0;
   }
   return *pool;
 }

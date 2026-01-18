@@ -1146,11 +1146,11 @@ static bool HasResource(Resource res, Resource des){
 }
 
 static uint32_t GetEnvSize(TileFlags flags){
-  uint32_t f_size = flags & TILE_SIZE_MASK;
+  TileFlags f_size = flags & TILE_SIZE_MASK;
 
   uint32_t size = 0x100;
 
-  switch(size){
+  switch(f_size){
     case TILEFLAG_SIZE_XS:
       size = 0x040;
       break;
@@ -1167,10 +1167,10 @@ static uint32_t GetEnvSize(TileFlags flags){
       size = 0xF00;
       break;
   }
-  flags &= size;
+  flags &= f_size;
   uint32_t coeff = 0x1;
   while(flags){
-    uint32_t flag = flags & -flags;
+    TileFlags flag = flags & -flags;
     flags &= flags - 1;
 
     switch(flag){

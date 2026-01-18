@@ -25,31 +25,37 @@ behavior_tree_node_t *BuildTreeNode(BehaviorID id,behavior_params_t* parent_para
         .state = data.state,
     };
   }
+
+  behavior_tree_node_t *out = NULL;
   if(data.bt_type == BT_LEAF)
-    return room_behaviors[id].func(parent_params);
+    out = room_behaviors[id].func(parent_params);
   else{
-    behavior_tree_node_t **kids = malloc(sizeof(*kids) * data.num_children);
+    behavior_tree_node_t **kids = calloc(1,sizeof(*kids) * data.num_children);
     for (int j = 0; j < data.num_children; ++j)
       kids[j] = BuildTreeNode(data.children[j],parent_params);
 
     switch(data.bt_type){
       case BT_SEQUENCE:
-        return BehaviorCreateSequence(kids, data.num_children);
+        out = BehaviorCreateSequence(kids, data.num_children);
         break;
       case BT_SELECTOR:
-        return BehaviorCreateSelector(kids, data.num_children);
+        out = BehaviorCreateSelector(kids, data.num_children);
         break;
       case BT_CONCURRENT:
-        return BehaviorCreateConcurrent(kids, data.num_children);
+        out = BehaviorCreateConcurrent(kids, data.num_children);
         break;
       default:
         TraceLog(LOG_WARNING,"Behavior Node Type %d NOT FOUND!",data.bt_type);
+        return NULL;
         break;
     }
 
   }
 
-  return NULL;
+  out->id = id;
+
+  return out;
+
 }
 
 behavior_tree_node_t* InitBehaviorTree( BehaviorID id){
@@ -62,6 +68,23 @@ behavior_tree_node_t* InitBehaviorTree( BehaviorID id){
 
   TraceLog(LOG_WARNING,"<=====Behavior Tree %i not found=====>",id);
   return NULL;
+}
+
+BehaviorStatus BehaviorClearState(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
+  if(!LocalCheck(e->control->goal))
+    e->control->goal = NULL;
+
+  if(!LocalCheck(e->control->target))
+    e->control->target = NULL;
+
+  if(!LocalCheck(e->control->destination))
+    e->control->destination = NULL;
+
+  return BEHAVIOR_SUCCESS;
 }
 
 BehaviorStatus BehaviorChangeState(behavior_params_t *params){
@@ -84,7 +107,7 @@ BehaviorStatus BehaviorCheckSenses(behavior_params_t *params){
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
-  return BEHAVIOR_SUCCESS;
+  return BEHAVIOR_FAILURE;
 }
 
 BehaviorStatus BehaviorCheckInventory(behavior_params_t *params){
@@ -115,6 +138,9 @@ BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
+  if(e->control->target != NULL)
+    return BEHAVIOR_SUCCESS;
+
   local_ctx_t* ctx = LocalGetThreat(e->local);  
 
   if(ctx == NULL)
@@ -125,11 +151,31 @@ BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   if(enemy == NULL && e->control->target == NULL)
     return BEHAVIOR_FAILURE;
 
-  e->control->target = ctx;
+  if(e->control->target == NULL)
+    e->control->target = ctx;
 
   return BEHAVIOR_SUCCESS;
 }
 
+BehaviorStatus BehaviorTargetGoal(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->goal == NULL)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->target == e->control->goal)
+    return BEHAVIOR_SUCCESS;
+
+  if(e->control->goal->other.type_id != DATA_ENTITY
+      || e->control->goal->method != I_KILL)
+    return BEHAVIOR_FAILURE;
+
+  e->control->target = e->control->goal;
+
+  return BEHAVIOR_SUCCESS;
+}
 
 BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
   struct ent_s* e = params->owner;
@@ -137,8 +183,11 @@ BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params){
     return BEHAVIOR_FAILURE;
 
   ent_t* target = NULL;
-  if(e->control->target)
+  
+  if(e->control->target && e->control->target->other.type_id == DATA_ENTITY)
     target = ParamReadEnt(&e->control->target->other);
+  else
+    DO_NOTHING();
 
   if(target && CheckEntAvailable(target))
     return BEHAVIOR_SUCCESS;
@@ -170,49 +219,33 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
   if(!e->control->target)
     return BEHAVIOR_FAILURE;
 
-  ent_t* tar = ParamReadEnt(&e->control->target->other);
+   if(cell_distance(e->control->target->pos, e->pos)<2)
+    return BEHAVIOR_SUCCESS;
 
-  int depth = EntGetTrackDist(e, e->control->target) + cell_distance(e->pos, tar->pos);
+
+  int depth = EntGetTrackDist(e, e->control->target);
   bool found = false;
-  e->control->goal->path = StartRoute(e, e->control->goal, tar->pos, depth, &found);
+  e->control->target->path = StartRoute(e, e->control->target, depth, &found);
   if(!found)
     return BEHAVIOR_FAILURE;
 
-  //dest = RouteGetNext(e, e->control->goal->path);
+  Cell dest = RouteGetNext(e, e->control->target->path);
+  Cell next = cell_dir(e->pos, dest);
 
-  return BEHAVIOR_SUCCESS;
+  action_t* a = InitActionMove(e, ACT_MAIN, next, 75);
+
+  ActionStatus a_status = QueueAction(e->control->actions, a);
+
+  if(a_status > ACT_STATUS_ERROR)
+    return BEHAVIOR_FAILURE;
+
+  return BEHAVIOR_RUNNING;
 }
 
 BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
-
-  if(cell_compare(e->control->destination,CELL_UNSET))
-    e->control->destination = random_direction();
-
-  if(CellDistGrid(e->pos,e->control->start) > e->control->ranges[RANGE_ROAM])
-    e->control->destination = cell_dir(e->pos, e->control->start);
-  else{
-    switch(rand()%4){
-      case 0:
-        e->control->destination = random_direction();
-        break;
-      case 1:
-        e->control->destination = CELL_EMPTY;
-        return BEHAVIOR_SUCCESS;
-        break;
-      default:
-        break;
-    }
-  }  
-
-  Cell tar = CellInc(e->pos,e->control->destination);
-  Cell next;
-  if(!FindPath(e->map, e->pos.x, e->pos.y, tar.x, tar.y, &next,35)){
-    e->control->destination = CELL_UNSET;
-    return BEHAVIOR_FAILURE;
-  }
 
   return BEHAVIOR_SUCCESS;
 }
@@ -222,45 +255,32 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
   
-  if(cell_compare(e->control->destination,CELL_UNSET))
+  if(!e->control->destination)
     return BEHAVIOR_FAILURE;
  
-  Cell dest = CELL_UNSET;
-
-  if(e->control->goal->other.type_id == DATA_ENTITY)
-    DO_NOTHING();
-
-  if(cell_distance(e->control->destination,  e->pos) < 2)
+  if(cell_distance(e->control->destination->pos, e->pos)<2)
     return BEHAVIOR_SUCCESS;
-  else{
-    if(e->control->goal==NULL)
-      return BEHAVIOR_FAILURE;
-    
-    int depth = EntGetTrackDist(e, e->control->goal) + e->control->goal->dist;
-    bool found = false;
-    e->control->goal->path = StartRoute(e, e->control->goal, e->control->destination, depth, &found);
-    if(!found)
-      return BEHAVIOR_FAILURE;
-
-
-    dest = RouteGetNext(e, e->control->goal->path);
-  }
-
-  if(cell_compare(dest,CELL_UNSET))
+ 
+  int depth = MAX_PATH_LEN;
+  bool found = false;
+  e->control->destination->path = StartRoute(e, e->control->destination, depth, &found);
+ 
+  if(!found)
     return BEHAVIOR_FAILURE;
 
-  if(cell_compare(dest,e->pos))
-    return BEHAVIOR_SUCCESS;
+  Cell dest = RouteGetNext(e, e->control->destination->path);
+  if(cell_compare(dest, CELL_UNSET))
+    return BEHAVIOR_FAILURE;
 
-  e->control->destination = dest;
-  action_t* a = InitActionMove(e, ACT_MAIN, dest, 50);
+  Cell next = cell_dir(e->pos, dest);
+  action_t* a = InitActionMove(e, ACT_MAIN, next, 50);
 
   ActionStatus a_status = QueueAction(e->control->actions, a);
 
   if(a_status > ACT_STATUS_ERROR)
     return BEHAVIOR_FAILURE;
  
-  e->control->destination = CELL_UNSET; 
+  //e->control->destination = CELL_UNSET; 
   return BEHAVIOR_RUNNING;
 }
 
@@ -283,37 +303,32 @@ BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params){
   if(cell_distance(e->pos,tar->pos) >  e->control->pref->stats[STAT_REACH]->current)
     return BEHAVIOR_FAILURE;
 
-  return BEHAVIOR_FAILURE;
+  return BEHAVIOR_SUCCESS;
 }
    
-BehaviorStatus BehaviorCheckTurn(behavior_params_t *params){
+BehaviorStatus BehaviorCombatCheck(behavior_params_t *params){
   struct ent_s* e = params->owner;
-  if(!e || !e->control)
+  if(!e)
     return BEHAVIOR_FAILURE;
 
+  if(!e->control->target ||
+      !LocalCheck(e->control->target)){
+    params->state = STATE_IDLE;
+    return BEHAVIOR_FAILURE;
+  }
+
+  if(e->control->pref == NULL)
+    e->control->pref = EntChoosePreferredAbility(e);
+
+  if(!e->control->pref || 
+      !AbilityCanTarget(e->control->pref, e->control->target)){
+    params->state = STATE_AGGRO;
+    return BEHAVIOR_FAILURE;
+  }
+
+  params->state = STATE_STANDBY;
 
   return BEHAVIOR_SUCCESS;
-
-}
-
-BehaviorStatus BehaviorTakeTurn(behavior_params_t *params){
-  return BEHAVIOR_SUCCESS;
-
-  struct ent_s* e = params->owner;
-
-  if(!e || !e->control)
-    return BEHAVIOR_FAILURE;
-
-  ActionType next = ActionGetEntNext(e);
-
-  if(next == ACTION_NONE)
-    return BEHAVIOR_FAILURE;
-
-  action_turn_t* action = e->actions[next];
-  if(TakeAction(e,action))
-    return BEHAVIOR_SUCCESS;
-
-  return BEHAVIOR_FAILURE;
 }
 
 BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
@@ -321,26 +336,25 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
   if(!e)
     return BEHAVIOR_FAILURE;
 
-  ability_t* a = EntChoosePreferredAbility(e);
+  ability_t* a = e->control->pref;
+
   if(!a)
     return BEHAVIOR_FAILURE;
 
-  if(SetAction(e,ACTION_ATTACK,a, a->targeting)) 
-    return BEHAVIOR_SUCCESS;
+  action_t* act = InitActionAttack(e, ACT_MAIN, e->control->target->other, 100);
 
-  return BEHAVIOR_FAILURE;
+  ActionStatus a_status = QueueAction(e->control->actions, act);
+
+  if(a_status > ACT_STATUS_ERROR)
+    return BEHAVIOR_FAILURE;
+
+  return BEHAVIOR_SUCCESS;
 }
 
 BehaviorStatus BehaviorCheckNeeds(behavior_params_t *params){
   ent_t* e = params->owner;
   if(!e)
     return BEHAVIOR_FAILURE;
-
-  for(int i = 1; i < N_DONE; i++){
-    int prio = 1 + e->control->needs[i]->status * i;
-
-    e->control->needs[i]->prio+=prio;
-  }
 
   return BEHAVIOR_SUCCESS;
 }
@@ -353,40 +367,90 @@ BehaviorStatus BehaviorCheckNeed(behavior_params_t *params){
   if(e->control->goal == NULL)
     return BEHAVIOR_FAILURE;
 
+  if(e->control->priority->type == PRIO_NEEDS)
+    return BEHAVIOR_FAILURE;
+
+  /*if(!HasResource(e->control->goal->resource, prio->resource))
+    return BEHAVIOR_FAILURE;
+*/
   return BEHAVIOR_SUCCESS;
 }
  
-BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
-  ent_t* e = params->owner;
+BehaviorStatus BehaviorTrackResource(behavior_params_t *params){
+ ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  return BEHAVIOR_FAILURE;
+}
+
+BehaviorStatus BehaviorSeekResource(behavior_params_t *params){
+ ent_t* e = params->owner;
   if(!e)
     return BEHAVIOR_FAILURE;
 
   if(e->control->goal == NULL)
     return BEHAVIOR_FAILURE;
 
-  need_t* n = e->control->needs[e->control->priority];
+  if(e->control->goal == e->control->destination)
+    return BEHAVIOR_SUCCESS;
 
-  if(n == NULL)
+  bool found;
+   
+  int depth = EntGetTrackDist(e, e->control->goal) + e->control->goal->dist;
+  e->control->goal->path = StartRoute(e, e->control->goal, depth, &found);
+
+  if(!found)
     return BEHAVIOR_FAILURE;
 
-  n->goal = e->control->goal;
+  e->control->destination = e->control->goal; 
+  return BEHAVIOR_SUCCESS;
+}
+
+BehaviorStatus BehaviorCheckResource(behavior_params_t *params){
+ ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->goal == NULL)
+    return BEHAVIOR_FAILURE;
+
+  /*if(e->control->goal->how_to != ACTION_INTERACT)
+    return BEHAVIOR_FAILURE;
+*/
+  if(e->control->goal->dist < 2)
+    return BEHAVIOR_SUCCESS;
+
+  return BEHAVIOR_FAILURE;
+}
+
+BehaviorStatus BehaviorAcquireResource(behavior_params_t *params){
+ ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->goal == NULL)
+    return BEHAVIOR_FAILURE;
 
   action_t* a = NULL;
-  switch(e->control->priority){
-    case N_HUNGER:
-      switch(e->control->goal->other.type_id){
-        case DATA_ENTITY:
-          ent_t* tar = ParamReadEnt(&e->control->goal->other);
-          a = InitActionAttack(e, ACT_MAIN, tar, 100);
-          if(a)
-            e->control->target = e->control->goal;
-          break;
-        case DATA_ENV:
-          a = InitActionFulfill(e, ACT_MAIN, n, 75); 
-          break;
-      }
+  switch(e->control->goal->method){
+    case I_CONSUME:
+      local_ctx_t* goal = e->control->goal;
+      need_t* n = ParamReadNeed(&goal->need);
+
+      if(n == NULL)
+        return BEHAVIOR_FAILURE;
+
+      n->goal = goal;
+      a = InitActionFulfill(e, ACT_MAIN, n, 75);
+      break;
+    case I_KILL:
+      e->control->target = e->control->goal;
+      params->state = STATE_AGGRO;
+      return BEHAVIOR_SUCCESS;
       break;
     default:
+      TraceLog(LOG_WARNING,"=== BEHAVIOR ACQUIRE RES ===\n unknown method for %s", e->name);
       break;
   }
 
@@ -398,81 +462,86 @@ BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
   if(a_status > ACT_STATUS_ERROR)
     return BEHAVIOR_FAILURE;
 
-
   return BEHAVIOR_SUCCESS;
+
 }
 
-BehaviorStatus BehaviorFindResource(behavior_params_t *params){
+BehaviorStatus BehaviorGetPriority(behavior_params_t *params){
   ent_t* e = params->owner;
   if(!e)
     return BEHAVIOR_FAILURE;
 
-  if(e->control->goal)
-    return BEHAVIOR_SUCCESS;
+  if(!e->control->priority)
+    return BEHAVIOR_FAILURE;
 
-  need_t* need = e->control->needs[e->control->priority];
+  priority_t* prio = e->control->priority; 
 
-  if(need->resource == 0)   
+  local_ctx_t* ctx = NULL;
+  switch(prio->ctx.type_id){
+    case DATA_NEED:
+      need_t* n = ParamReadNeed(&prio->ctx);
+      if(e->control->goal){
+        if(HasResource(e->control->goal->resource, n->resource)){
+          e->control->goal->need = prio->ctx;
+          return BEHAVIOR_SUCCESS;
+        }
+      }
+
+      ctx = EntLocateResource(e, n->resource);
+      if(!ctx)
+        return BEHAVIOR_FAILURE;
+
+      ctx->need = prio->ctx;
+      if(ctx->method == I_KILL){
+        params->state = STATE_AGGRO;
+        e->control->target = ctx;
+      }
+      else
+        e->control->goal = ctx;
+      break;
+    case DATA_LOCAL_CTX:
+      ctx = ParamReadCtx(&prio->ctx);
+      e->control->target = ctx;
+      params->state = STATE_AGGRO;
+      break;
+  }
+
+  if(!ctx)
     return BEHAVIOR_FAILURE;
 
 
-  local_ctx_t* ctx = EntLocateResource(e, need->resource);
+  return BEHAVIOR_SUCCESS;
 
-  if(ctx == NULL)
-    return BEHAVIOR_FAILURE;
-
-  int cost = ctx->cost;
-  if(e->control->goal== NULL || e->control->goal->cost < cost)
-    e->control->goal = ctx;
-
-  return (e->control->goal==NULL)?BEHAVIOR_FAILURE:BEHAVIOR_SUCCESS;
 }
 
-BehaviorStatus BehaviorTrackResource(behavior_params_t *params){
- ent_t* e = params->owner;
+BehaviorStatus BehaviorCheckPriority(behavior_params_t *params){
+  ent_t* e = params->owner;
   if(!e)
     return BEHAVIOR_FAILURE;
 
-}
+  params->state = STATE_IDLE;
 
-BehaviorStatus BehaviorSeekResource(behavior_params_t *params){
- ent_t* e = params->owner;
-  if(!e)
+  priority_t* prio = &e->control->priorities->entries[0];
+  if(prio->score == 0)
     return BEHAVIOR_FAILURE;
 
-  if(e->control->goal == NULL)
-    return BEHAVIOR_FAILURE;
-
-  Cell pos = CELL_UNSET;
-  switch(e->control->goal->other.type_id){
-    case DATA_ENTITY:
-      ent_t* tar = ParamReadEnt(&e->control->goal->other);
-      pos = tar->pos;
+  switch(prio->type){
+    case PRIO_NEEDS:
+      params->state = STATE_REQ;
       break;
-    case DATA_ENV:
-      env_t* env = ParamReadEnv(&e->control->goal->other);
-      pos = env->pos;
+    case PRIO_ENGAGE:
+    case PRIO_FLEE:
+      params->state = STATE_AGGRO;
       break;
-    case DATA_MAP_CELL:
-      map_cell_t* mc = ParamReadMapCell(&e->control->goal->other);
-      pos = mc->coords;
+    default:
+      return BEHAVIOR_FAILURE;
       break;
 
   }
 
-  if(cell_compare(pos, CELL_UNSET))
-    return BEHAVIOR_FAILURE;
-
-  bool found;
-   
-  int depth = EntGetTrackDist(e, e->control->goal) + e->control->goal->dist;
-  e->control->goal->path = StartRoute(e, e->control->goal, pos, depth, &found);
-
-  if(!found)
-    return BEHAVIOR_FAILURE;
-
-  e->control->destination = pos; 
+  e->control->priority = prio;
   return BEHAVIOR_SUCCESS;
+
 }
 
 BehaviorStatus BehaviorFillNeeds(behavior_params_t *params){
@@ -480,53 +549,31 @@ BehaviorStatus BehaviorFillNeeds(behavior_params_t *params){
   if(!e)
     return BEHAVIOR_FAILURE;
 
-  int need = -1;
-  int highest = -1;
-  for(int i = 1; i < N_DONE; i++){
-    need_t* n = e->control->needs[i];
-    if(n->status <= NEED_OK)
-      continue;
-
-
-    int prio = n->status * n->prio;
-    if(prio < highest)
-      continue;
-
-    need = i;
-    highest = prio;
-
-  }
-
-  if(need > 0){
-    e->control->priority = need;
-    return BEHAVIOR_SUCCESS;
-  }
 
   return BEHAVIOR_FAILURE;
 }
 
-BehaviorStatus BehaviorCanSeeTarget(behavior_params_t *params){
-  struct ent_s* e = params->owner;
-  if(!e || e->control->target == NULL )
-    return BEHAVIOR_FAILURE;
-
-  return BEHAVIOR_SUCCESS;
-}
-
 BehaviorStatus BehaviorTickLeaf(behavior_tree_node_t *self, void *context) {
-    behavior_tree_leaf_t *leaf = (behavior_tree_leaf_t *)self->data;
-    if (!leaf || !leaf->action) return BEHAVIOR_FAILURE;
+    
+  behavior_tree_leaf_t *leaf = (behavior_tree_leaf_t *)self->data;
+    if (!leaf || !leaf->action)
+      return BEHAVIOR_FAILURE;
     leaf->params->owner = context;
-    return leaf->action(leaf->params);
+    leaf->params->owner->control->current = self->id;
+    BehaviorStatus status = leaf->action(leaf->params);
+    if(status == BEHAVIOR_FAILURE)
+      leaf->params->owner->control->failure = self->id;
+
+    return status;
 }
 
 behavior_tree_node_t* BehaviorCreateLeaf(BehaviorTreeLeafFunc fn, behavior_params_t* params){
-  behavior_tree_leaf_t *data = malloc(sizeof(behavior_tree_leaf_t));
+  behavior_tree_leaf_t *data = calloc(1, sizeof(behavior_tree_leaf_t));
 
   data->action = fn;
   data->params = params;
   
-  behavior_tree_node_t* node = malloc(sizeof(behavior_tree_node_t));
+  behavior_tree_node_t* node = calloc(1, sizeof(behavior_tree_node_t));
   node->bt_type = BT_LEAF;
   node->tick = BehaviorTickLeaf;
   node->data = data;
@@ -540,7 +587,7 @@ behavior_tree_node_t* BehaviorCreateSequence(behavior_tree_node_t **children, in
     data->num_children = count;
     data->current = 0;
 
-    behavior_tree_node_t *node = malloc(sizeof(behavior_tree_node_t));
+    behavior_tree_node_t *node = calloc(1, sizeof(behavior_tree_node_t));
     node->bt_type = BT_SEQUENCE;
     node->tick = BehaviorTickSequence;
     node->data = data;
@@ -548,12 +595,12 @@ behavior_tree_node_t* BehaviorCreateSequence(behavior_tree_node_t **children, in
 }
 
 behavior_tree_node_t* BehaviorCreateSelector(behavior_tree_node_t **children, int count) {
-    behavior_tree_selector_t *data = malloc(sizeof(behavior_tree_selector_t));
+    behavior_tree_selector_t *data = calloc(1, sizeof(behavior_tree_selector_t));
     data->children = children;
     data->num_children = count;
     data->current = 0;
 
-    behavior_tree_node_t *node = malloc(sizeof(behavior_tree_node_t));
+    behavior_tree_node_t *node = calloc(1, sizeof(behavior_tree_node_t));
     node->bt_type = BT_SELECTOR;
     node->tick = BehaviorTickSelector;
     node->data = data;
@@ -561,12 +608,12 @@ behavior_tree_node_t* BehaviorCreateSelector(behavior_tree_node_t **children, in
 }
 
 behavior_tree_node_t* BehaviorCreateConcurrent(behavior_tree_node_t **children, int count) {
-    behavior_tree_selector_t *data = malloc(sizeof(behavior_tree_selector_t));
+    behavior_tree_selector_t *data = calloc(1, sizeof(behavior_tree_selector_t));
     data->children = children;
     data->num_children = count;
     data->current = 0;
 
-    behavior_tree_node_t *node = malloc(sizeof(behavior_tree_node_t));
+    behavior_tree_node_t *node = calloc(1, sizeof(behavior_tree_node_t));
     node->bt_type = BT_CONCURRENT;
     node->tick = BehaviorTickConcurrent;
     node->data = data;
@@ -624,6 +671,5 @@ BehaviorStatus BehaviorTickConcurrent(behavior_tree_node_t *self, void *context)
   if (!anyRunning && !anyFailure) return BEHAVIOR_SUCCESS;
   if (anyRunning) return BEHAVIOR_RUNNING;
   return BEHAVIOR_FAILURE;
-
 }
 

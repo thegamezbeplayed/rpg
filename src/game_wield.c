@@ -607,3 +607,12 @@ bool AbilityRankup(ent_t* owner, ability_t* a){
   }
 }
 
+bool AbilityCanTarget(ability_t* a, local_ctx_t* target){
+  ent_t* e = a->stats[STAT_REACH]->owner;
+
+  int reach = a->stats[STAT_REACH]->current;
+  if( target->dist <= reach)
+    return true;
+
+  return false;
+}

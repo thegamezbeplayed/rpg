@@ -81,12 +81,11 @@ static inline uint64_t hash_string_64(const char* s) {
 }
 
 typedef uint64_t game_object_uid_i;
-static game_object_uid_i GameObjectMakeUID(const char* cat, int index, int time, int turn){
+static game_object_uid_i GameObjectMakeUID(const char* cat, int index, int time){
   uint64_t h = hash_string_64(cat);
 
   h = hash_combine_64(h, (uint32_t)index);
   h = hash_combine_64(h, (uint32_t)time);
-  h = hash_combine_64(h, (uint32_t)turn);
 
   return (game_object_uid_i)h;
 }

@@ -1,6 +1,8 @@
 #include "game_types.h"
 #include "game_process.h"
 
+MAKE_ADAPTER(StepState, ent_t*);
+
 static turn_action_manager_t ActionMan;
 
 int ActionCompareImpDsc(const void* a, const void* b){
@@ -86,21 +88,31 @@ bool ActionManagerInsert(action_t* a, TurnPhase phase){
   return true;
 }
 
+void ActionPrune(action_queue_t* q, int i) {
+  if(q->count > 1)
+    q->entries[i] = q->entries[--q->count];
+  else
+    q->count--;
+}
+
 void ActionManagerBuildQueue(TurnPhase phase, ActionCategory cat){
-  int state = STATE_DEAD;
-  param_t ctx = ParamMake(DATA_INT, sizeof(int), &state);
+  int status = ENT_STATUS_ALIVE;
+  param_t ctx = ParamMake(DATA_INT, sizeof(int), &status);
 
   ent_t* ents[MAX_ENTS] = {0};
 
-  int alive = WorldGetEnts(ents, FilterEntByState, &ctx);
+  int alive = WorldGetEnts(ents, FilterEntByStatus, &ctx);
   for (int i = 0; i < alive; i++){
     ent_t* e = ents[i];
     if(!e->control->actions->valid)
       ActionPoolSync(e->control->actions);
 
-    action_t* a = ActionForPhase(e->control->actions->queues[cat], phase);
+    action_queue_t* q = e->control->actions->queues[cat]; 
+    action_t* a = ActionForPhase(q, phase);
     if(a == NULL)
       continue;
+
+    q->status = ACT_STATUS_QUEUED;
 
     a->status = ACT_STATUS_NEXT;
 
@@ -112,16 +124,28 @@ void ActionManagerBuildQueue(TurnPhase phase, ActionCategory cat){
     TraceLog(LOG_INFO,"==== PHASE %i built with %i actions ====", phase, ActionMan.round[phase].count);
 }
 
+bool ActionHasStatus(action_pool_t* p, ActionStatus s){
+  for(int i = 0; i < ACT_DONE; i++){
+    if(p->queues[i]->status == s)
+      return true;
+  }
+
+  return false;
+}
+
 ActionStatus ActionAttack(action_t* a){
   if(a->ctx.type_id != DATA_ENTITY)
-    return ACT_STATUS_BAD_DATA;
+    a->status = ACT_STATUS_BAD_DATA;
 
-  ent_t* tar = ParamReadEnt(&a->ctx);
-
+  bool prepared = false;
   ability_t* ab;
+  ent_t* tar = NULL;
+  if(a->status == ACT_STATUS_RUNNING){
+    tar = ParamReadEnt(&a->ctx);
 
-  bool prepared = EntPrepareAttack(a->owner, tar, &ab);
-
+    if(tar)
+      prepared = EntPrepareAttack(a->owner, tar, &ab);
+  }
   if(!prepared){
     a->status = ACT_STATUS_BAD_ATTACK;
   }
@@ -139,8 +163,8 @@ ActionStatus ActionInteract(action_t* a){
   ActionStatus status = ACT_STATUS_ERROR;
   switch(a->ctx.type_id){
     case DATA_NEED:
-      need_t n = ParamReadNeed(&a->ctx);
-      res = EntMeetNeed(a->owner, &n);
+      need_t* n = ParamReadNeed(&a->ctx);
+      res = EntMeetNeed(a->owner, n);
       status = ACT_STATUS_TAKEN;
       break;
   }
@@ -156,7 +180,7 @@ ActionStatus ActionMove(action_t* a){
     return ACT_STATUS_BAD_DATA;
 
   Cell dest = ParamReadCell(&a->ctx);
-  TileStatus tstat = EntGridStep(a->owner,CellSub(dest, a->owner->pos));
+  TileStatus tstat = EntGridStep(a->owner,dest);
   if(tstat >= TILE_ISSUES)
     a->status = ACT_STATUS_BLOCK;
   else
@@ -166,6 +190,10 @@ ActionStatus ActionMove(action_t* a){
 }
 
 ActionStatus ActionRun(action_t* a){
+  if(!CheckEntAvailable(a->owner))
+    a->status = ACT_STATUS_INVALID;
+
+
   if(a->status != ACT_STATUS_NEXT)
     return ACT_STATUS_MISQUEUE;
 
@@ -173,8 +201,8 @@ ActionStatus ActionRun(action_t* a){
   ActionStatus res = ACT_STATUS_ERROR;
   res = a->fn(a);
 
-  if(a->owner->type == ENT_PERSON && a->status != ACT_STATUS_TAKEN)
-    DO_NOTHING();
+  if(a->cb)
+    a->cb(a->owner);
 
   a->owner->control->actions->valid = false;
   return res;
@@ -196,8 +224,15 @@ void ActionManagerRunQueue(TurnPhase phase){
 
   ActionRoundSort(phase,count);
 
-  for (int i = 0; i < count; i++)
-    ActionRun(ActionMan.round[phase].entries[i]);
+  for (int i = 0; i < count; i++){
+    ActionStatus res = ActionRun(ActionMan.round[phase].entries[i]);
+    switch(res){
+      case ACT_STATUS_INVALID:
+      case ACT_STATUS_MISQUEUE:
+      case ACT_STATUS_BAD_DATA:
+        
+    }
+  }
 }
 
 bool ActionTurnStep(TurnPhase phase){
@@ -229,16 +264,21 @@ bool ActionTurnStep(TurnPhase phase){
 
 void ActionPoolRestart(action_pool_t* p){
   p->valid = false;
-  for (int i = 0; i < ACT_DONE; i++)
+  for (int i = 0; i < ACT_DONE; i++){
     p->queues[i]->charges = p->queues[i]->allowed;
+    p->queues[i]->status = ACT_STATUS_DONE;
+  }
 
 }
 
 void ActionManagerEndRound(TurnPhase phase){
   int count = ActionMan.round[phase].count;
-  for(int i = 0; i < count; i++)
-    ActionPoolRestart(ActionMan.round[phase].entries[i]->owner->control->actions);
+  for(int i = 0; i < count; i++){
+    action_t* a =ActionMan.round[phase].entries[i];
+    if(CheckEntAvailable(a->owner))
+      ActionPoolRestart(a->owner->control->actions);
 
+  }
   ActionMan.round[phase].count = 0;
 
 }
@@ -301,8 +341,10 @@ void ActionManagerSync(void){
   InputSync(ActionMan.phase, ActionMan.turn);
 }
 
-action_t* InitAction(ent_t* e, uint64_t id, ActionType type, ActionCategory cat, param_t ctx, int weight){
+action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, param_t ctx, int weight){
   action_t* a = calloc(1, sizeof(action_t));
+
+  uint64_t id = hash_combine_64(e->gouid, ctx.gouid);
 
   *a = (action_t) {
     .owner = e,
@@ -319,42 +361,38 @@ action_t* InitAction(ent_t* e, uint64_t id, ActionType type, ActionCategory cat,
   return a;
 }
 
-action_t* InitActionAttack(ent_t* e, ActionCategory cat, ent_t* tar, int weight){
-
-    uint64_t id = hash_combine_64(e->gouid, tar->gouid);
-
-    param_t ctx = ParamMake(DATA_ENTITY, sizeof(ent_t), tar);
-      
-    action_t* a = InitAction(e, id, ACTION_ATTACK, cat, ctx, weight);
+action_t* InitActionAttack(ent_t* e, ActionCategory cat, param_t tar, int weight){
+    action_t* a = InitAction(e, ACTION_ATTACK, cat, tar, weight);
 
     a->fn = ActionAttack;
 
+    a->cb = StepState_Adapter;
+    return a;
 }
 
 action_t* InitActionFulfill(ent_t* e, ActionCategory cat, need_t* n, int weight){
 
-  uint64_t id = hash_combine_64(e->gouid, n->id);
 
   param_t ctx = ParamMake(DATA_NEED, sizeof(need_t), n);
-  action_t* a = InitAction(e, id, ACTION_INTERACT, cat, ctx, weight);
+  action_t* a = InitAction(e, ACTION_INTERACT, cat, ctx, weight);
 
   a->fn = ActionInteract;
+  a->cb = StepState_Adapter;
 
   return a;
 }
 
 action_t* InitActionInteract(ent_t* e, ActionCategory cat, local_ctx_t* ctx, int weight){
   
-  uint64_t other = ctx->gouid;
-  param_t param = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), ctx);
 
-  uint64_t id = hash_combine_64(e->gouid, other);
+  uint64_t id = hash_combine_64(e->gouid, ctx->gouid);
 
 
-  action_t* a = InitAction(e, id, ACTION_MOVE, cat, param, weight);
+  action_t* a = InitAction(e,  ACTION_MOVE, cat, ctx->other, weight);
   
   a->fn = ActionInteract;
 
+  a->cb = StepState_Adapter;
   return a;
 }
 
@@ -364,7 +402,8 @@ action_t* InitActionMove(ent_t* e, ActionCategory cat, Cell dest, int weight){
 
   param_t ctx = ParamMake(DATA_CELL, sizeof(Cell), &dest);
 
-  action_t* a = InitAction(e, id, ACTION_MOVE, cat, ctx, weight);
+  ctx.gouid = id;
+  action_t* a = InitAction(e, ACTION_MOVE, cat, ctx, weight);
 
   a->fn = ActionMove;
 }
@@ -395,9 +434,12 @@ action_t* ActionForPhase(action_queue_t* q, TurnPhase phase){
     DO_NOTHING();
 
   for(int i = 0; i < q->count; i++){
-    if(q->entries[i].status > ACT_STATUS_QUEUED)
+    action_t* a = &q->entries[i];
+    if(a->status > ACT_STATUS_QUEUED)
       continue;
     q->charges--;
+    initiative_t* init = a->owner->control->speed[a->type];
+    a->initiative = RollInitiative(init);
     return &q->entries[i];
   }
 
@@ -465,12 +507,6 @@ ActionStatus QueueAction(action_pool_t *p, action_t* t){
   return AddAction(q, t);
 }
 
-void ActionPrune(action_queue_t* q, int i) {
-  if(q->count > 1)
-    q->entries[i] = q->entries[--q->count];
-  else
-    q->count--;
-}
 
 bool ActionSync(action_t* a){
   if(!a || a->status >= ACT_STATUS_TAKEN)
@@ -533,23 +569,7 @@ bool ActionPlayerAttack(ent_t* e, ActionType type, KeyboardKey k,ActionSlot slot
   return false;
 }
 */
-void ActionTurnSync(ent_t* e){
 
-  StatMaxOut(e->stats[STAT_ACTIONS] );
-
-  if(e->state == STATE_STANDBY){
-    //if(!SetState(e, e->previous,NULL))
-      SetState(e,STATE_IDLE,NULL);
-  }
-}
-
-void EntActionsTaken(stat_t* self, float old, float cur){
-  if(self->owner == NULL)
-    return;
-
-  if(self->owner->type == ENT_PERSON)
-    WorldEndTurn();
-}
 
 bool ActionMakeSelection(Cell start, int num, bool occupied){
   ScreenActivateSelector(start,num,occupied, ActionSetTarget);
@@ -625,7 +645,7 @@ bool TakeAction(ent_t* e, action_turn_t* action){
   if(action->cb)
     action->cb(e,action->action);
 
-  return ActionTaken(e, action->action);
+//  return ActionTaken(e, action->action);
 }
 
 ActionType ActionGetEntNext(ent_t* e){
@@ -640,13 +660,6 @@ ActionType ActionGetEntNext(ent_t* e){
   }
 
   return next;
-}
-
-bool ActionTaken(ent_t* e, ActionType a){
-  e->actions[a]->on_deck = false;
-  StatIncrementValue(e->stats[STAT_ACTIONS],false);
-
-  return SetState(e, STATE_STANDBY,NULL);
 }
 
 bool SetAction(ent_t* e, ActionType a, void *context, DesignationType targeting){
@@ -665,17 +678,6 @@ bool SetAction(ent_t* e, ActionType a, void *context, DesignationType targeting)
   e->actions[a]->context = context;
   e->actions[a]->on_deck = true;
   
-  return true;
-}
-
-bool ActionTraverseGrid(ent_t* e,  ActionType a, OnActionCallback cb){
-  action_turn_t* inst = e->actions[a];
-  if(!inst || !inst->context)
-    return false;
-  Cell* dest = (Cell*)inst->context;
-
-  EntGridStep(e,*dest);
-  e->actions[a]->context = NULL;
   return true;
 }
 
@@ -699,28 +701,7 @@ void ActionSetTarget(ent_t* e, ActionType a, void* target){
       
   action->targets[action->num_targets++] = at;
 }
-/*
-bool ActionAttack(ent_t* e, ActionType a, OnActionCallback cb){
-  action_turn_t* inst = e->actions[a];
-  if(!inst || !inst->context)
-    return false;
 
-  ability_t* ab = (ability_t*)inst->context;
-
-  if(!e->control || !e->control->target)
-    return false;
- 
-  ent_t* target = e->control->target;
-
-  if(target){
-    AbilityUse(e, ab, target, NULL);
-    return true;
-  }
-  return false;
-
-}
-(
-*/
 bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb){
   action_turn_t* inst = e->actions[a];
   if(!inst || !inst->context)
@@ -831,4 +812,182 @@ void ActionSlotSortByPref(ent_t* owner, int *pool, int count){
     pool[i] = owner->slots[i]->pref;
 
   qsort(pool, count, sizeof(int),ActionSlotCompareDesc);
+}
+
+priorities_t* InitPriorities(ent_t* e, int cap){
+  priorities_t* p = calloc(1,sizeof(priorities_t));
+
+  *p = (priorities_t){
+    .owner = e,
+      .cap = cap,
+      .entries = calloc(cap, sizeof(priority_t))
+  };
+
+  return p;
+}
+
+
+void PrioritiesEnsureCap(priorities_t* t){
+ if (t->count < t->cap)
+    return;
+
+  size_t new_cap = t->cap + 2;
+
+  priority_t* new_entries =
+    realloc(t->entries, new_cap * sizeof(priority_t));
+
+  if (!new_entries) {
+    // Handle failure explicitly
+    //TraceLog(LOG_WARNING,"==== LOCAL CONTEXT ERROR ===\n REALLOC FAILED");
+  }
+
+  t->entries = new_entries;
+  t->cap = new_cap;
+
+}
+
+priority_t* PrioritiesGetEntry(priorities_t* table, game_object_uid_i other){
+  for (int i = 0; i < table->count; i++) {
+    priority_t* ctx = &table->entries[i];
+    if (ctx->gouid == other)
+      return ctx;
+  }
+
+  return NULL;
+}
+
+priority_t* PriorityAdd(priorities_t* t, Priorities type, param_t entry){
+
+  game_object_uid_i gouid = hash_combine_64(t->owner->gouid,
+      hash_combine_64(type, entry.gouid));
+  
+  if(PrioritiesGetEntry(t, gouid))
+    return NULL;
+
+  PrioritiesEnsureCap(t);
+  priority_t* p = &t->entries[t->count++];
+
+  *p = (priority_t){
+    .gouid = gouid,
+    .type = type,
+      .ctx = entry
+  };
+
+  return p;
+
+}
+void PriorityPrune(priorities_t* t, int i){
+  if(t->count > 1)
+    t->entries[i] = t->entries[--t->count];
+  else
+    t->count--;
+}
+
+bool PriorityScoreCtx(priority_t* p, ent_t* e){
+  local_ctx_t* l = ParamReadCtx(&p->ctx);
+
+  int score = p->score;
+  if(l->awareness == 0)
+    return p->score == 0;
+
+  float flee = 0;
+  float engage = 0;
+
+  for (int i = 0; i < TREAT_DONE; i++){
+    switch(i){
+      case TREAT_KILL:
+      case TREAT_EAT:
+        engage += l->treatment[i];
+        if(l->aggro && l->aggro->initiated)
+          engage += l->treatment[i];
+        break;
+      case TREAT_DEFEND:
+        if(!l->aggro || !l->aggro->initiated)
+          continue;
+        engage+= l->treatment[i];
+        break;
+      case TREAT_FLEE:
+        if(!l->aggro || !l->aggro->initiated)
+          flee += l->treatment[i];
+        else
+          engage += l->treatment[TREAT_DEFEND];
+        break;
+    }
+  }
+
+  flee *= (l->cr - e->props->cr);
+  engage *= (e->props->cr - l->cr);
+
+  switch(p->type){
+    case PRIO_FLEE:
+      p->score = flee;
+      if(engage > 0){
+        priority_t* eng = PriorityAdd(e->control->priorities, PRIO_ENGAGE, p->ctx);
+        if(eng){
+          eng->score = engage;
+          return true;
+        }
+      }
+      break;
+    case PRIO_ENGAGE:
+      p->score = flee;
+      if(flee > 0){
+        priority_t* f = PriorityAdd(e->control->priorities, PRIO_FLEE, p->ctx);
+        if(f){
+          f->score = flee;
+          return true;
+        }
+      }
+      break;
+  }
+
+  return p->score == score;
+}
+
+int PrioritiesCompareDesc(const void* a, const void* b){
+  const priority_t* A = (const priority_t*)a;
+  const priority_t* B = (const priority_t*)b;
+
+  if(A->score > B->score) return -1;
+  if(A->score < B->score) return  1;
+
+  return 0;
+}
+
+void PrioritizePriorities(priorities_t* t){
+  if(!t || t->count < 2)
+    return;
+
+  qsort(t->entries, t->count,
+      sizeof(priority_t),
+      PrioritiesCompareDesc);
+}
+
+void PrioritiesSync(priorities_t* t){
+  bool changes = false;
+  for (int i = 0; i < t->count; i++){
+    priority_t* p = &t->entries[i];
+    if(!p || p->prune){
+      PriorityPrune(t, i);
+
+      continue;
+    }
+
+    switch(p->ctx.type_id){
+      case DATA_NEED:
+        need_t* n = ParamReadNeed(&p->ctx);
+        if(p->score == n->prio)
+          continue;
+
+        p->score = n->prio;
+        changes = true;
+        break;
+      case DATA_LOCAL_CTX:
+        changes = PriorityScoreCtx(p, t->owner);
+        break;
+    }
+  }
+
+  if(changes)
+    PrioritizePriorities(t);
 }

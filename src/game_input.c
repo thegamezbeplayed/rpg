@@ -42,9 +42,8 @@ action_t* InputActionMove(action_key_t akey, KeyboardKey k){
   if(cell_compare(dir, CELL_UNSET))
     return NULL;
 
-  Cell dest = CellInc(player_input.owner->pos, dir);
 
-  return InitActionMove(player_input.owner, ACT_MAIN, dest, 50); 
+  return InitActionMove(player_input.owner, ACT_MAIN, dir, 50); 
 }
 
 action_t* InputActionAttack(action_key_t akey){
