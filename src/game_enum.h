@@ -55,6 +55,7 @@ typedef enum {
   DATA_NEED,
   DATA_CELL,
   DATA_LOCAL_CTX,
+  DATA_GOUID,
   DATA_STRING
 } DataType;
 

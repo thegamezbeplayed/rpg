@@ -500,6 +500,7 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       ent_t* mob = ParamReadEnt(entry);
       e->gouid = mob->gouid;
       e->resource = MONSTER_MASH[mob->type].has;
+      e->pos = mob->pos;
       e->dist = cell_distance(pos, mob->pos);
       mob->this_world_ctx = e;
       WorldSubscribe(EVENT_ENT_DEATH, OnWorldCtx, s);
@@ -508,6 +509,7 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       PRUNES--;
       env_t* tile = ParamReadEnv(entry);
       e->gouid = tile->gouid;
+      e->pos = tile->pos;
       e->resource = tile->has_resources;
       e->dist = cell_distance(pos, tile->pos);
       break;
@@ -515,6 +517,7 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       PRUNES++;
       map_cell_t* mc = ParamReadMapCell(entry);
       e->gouid = mc->gouid;
+      e->pos = mc->coords;
       e->resource = mc->props->resources;
       e->dist = cell_distance(pos, mc->coords);
       break;
@@ -658,28 +661,7 @@ local_ctx_t* LocalAddEnt(local_table_t* s, ent_t* e, SpeciesRelate rel){
 
   param_t ent = ParamMake(DATA_ENTITY, sizeof(ent_t), e);
   
-  for (int i = 0; i < TREAT_DONE; i++){
-    float t = TREATMENT[rel][i];
 
-    ctx->treatment[i] = t;
-    if (t>0){
-      Priorities pt = PRIO_NONE;
-      switch(i){
-        case TREAT_KILL:
-        case TREAT_EAT:
-          pt = PRIO_ENGAGE;
-          break;
-        case TREAT_FLEE:
-          PRIO_FLEE;
-          break;
-      }
-      if(pt==PRIO_NONE)
-        continue;
-      param_t l = ParamMake(DATA_LOCAL_CTX, 0, ctx);      
-      l.gouid = ctx->gouid;
-      PriorityAdd(s->owner->control->priorities, pt, l);
-    }
-  }
   ctx->other = ent;
   ctx->cr = EntGetChallengeRating(e);
   ctx->rel = rel;
@@ -692,7 +674,28 @@ local_ctx_t* LocalAddEnt(local_table_t* s, ent_t* e, SpeciesRelate rel){
 
     ctx->resource|=e->props->resources[i]->type;
   }
+  for (int i = 0; i < TREAT_DONE; i++){
+    float t = TREATMENT[rel][i];
 
+    ctx->treatment[i] = t;
+    if (t>0){
+      Priorities pt = PRIO_NONE;
+      switch(i){
+        case TREAT_KILL:
+        case TREAT_EAT:
+          pt = PRIO_ENGAGE;
+          break;
+        case TREAT_FLEE:
+          pt = PRIO_FLEE;
+          break;
+      }
+      if(pt==PRIO_NONE)
+        continue;
+      param_t l = ParamMake(DATA_GOUID, sizeof(game_object_uid_i), &ctx->gouid);      
+      l.gouid = ctx->gouid;
+      PriorityAdd(s->owner->control->priorities, pt, l);
+    }
+  }
   return ctx;
 }
 
@@ -725,9 +728,11 @@ void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
       break;
   }
 
-  if(lctx)
+  if(lctx){
+    lctx->ctx_revision = -1;
+    lctx->pos = ctx->pos;
     lctx->world_ctx_ref = ctx;
-  LocalSync(s, false);
+  }
 }
 
 void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
@@ -744,7 +749,7 @@ void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
     if(res < IR_ALMOST)
       continue;
 
-    base+=0.25f * (res-3);
+    base+=0.25f * (res-2);
   }
 
   if(base <= 0 && ctx->awareness <=0)
@@ -799,7 +804,7 @@ bool LocalCheck(local_ctx_t* ctx){
 
 void LocalSync(local_table_t* s, bool sort){
   LocalPrune(s);
-  bool dist_change = false;
+  int dist_change = 0;
 
   bool this_changed = !cell_compare(s->owner->pos ,s->owner->old_pos);
 
@@ -811,12 +816,15 @@ void LocalSync(local_table_t* s, bool sort){
     if(!this_changed && wctx->ctx_revision == ctx->ctx_revision)
       continue;
 
+    s->valid = false;
     ctx->ctx_revision = wctx->ctx_revision;
     ctx->pos = wctx->pos;
     int dist = cell_distance(s->owner->pos, ctx->pos);
     if(dist != ctx->dist){
-      dist_change = true;
+      dist_change += abs(dist - ctx->dist);
       ctx->dist = dist;
+      if(this_changed)
+        ctx->valid = false;
 
       switch(ctx->other.type_id){
         case DATA_ENTITY:
@@ -834,12 +842,12 @@ void LocalSync(local_table_t* s, bool sort){
           break;
       }
     }
-
-    if(!dist_change)
-      return;
-
-    LocalSortByDist(s);
   }
+
+  if(dist_change < 32)
+    return;
+
+  LocalSortByDist(s);
 }
 
 local_ctx_t* LocalGetThreat(local_table_t* t){

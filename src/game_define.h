@@ -318,6 +318,7 @@ need_t* InitNeed(Needs id, ent_t* owner);
 void NeedStep(need_t* n);
 void NeedIncrement(Needs id, ent_t* owner, int amount);
 Needs NeedGetGreatest(need_t* list[N_DONE]);
+void NeedFulfill(need_t* n, int amount);
 
 typedef struct{
   Needs             type;

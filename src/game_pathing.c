@@ -253,7 +253,7 @@ int ScorePath(map_grid_t *m, int sx, int sy, int tx, int ty, int depth){
   Cell sc = CELL_NEW(sx,sy);
     // Early out: same tile
     if (sx == tx && sy == ty)
-        return score;
+        return 0;
 
     // Init nodes
     for (int y = 0; y < m->height; y++)

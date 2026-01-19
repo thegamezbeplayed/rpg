@@ -884,14 +884,18 @@ void PriorityPrune(priorities_t* t, int i){
 }
 
 bool PriorityScoreCtx(priority_t* p, ent_t* e){
-  local_ctx_t* l = ParamReadCtx(&p->ctx);
+  game_object_uid_i gouid = ParamReadGOUID(&p->ctx);
+
+  local_ctx_t *l = LocalGetEntry(e->local, gouid);
+  if(l->other.type_id != DATA_ENTITY)
+    return false;
 
   int score = p->score;
   if(l->awareness == 0)
     return p->score == 0;
 
-  float flee = 0;
-  float engage = 0;
+  float flee = l->awareness;
+  float engage = l->awareness;
 
   for (int i = 0; i < TREAT_DONE; i++){
     switch(i){
@@ -916,7 +920,7 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
   }
 
   flee *= (l->cr - e->props->cr);
-  engage *= (e->props->cr - l->cr);
+  engage *= l->awareness * (e->props->cr - l->cr);
 
   switch(p->type){
     case PRIO_FLEE:
@@ -964,7 +968,7 @@ void PrioritizePriorities(priorities_t* t){
 }
 
 void PrioritiesSync(priorities_t* t){
-  bool changes = false;
+  bool changes = !t->valid;
   for (int i = 0; i < t->count; i++){
     priority_t* p = &t->entries[i];
     if(!p || p->prune){
@@ -982,12 +986,16 @@ void PrioritiesSync(priorities_t* t){
         p->score = n->prio;
         changes = true;
         break;
-      case DATA_LOCAL_CTX:
-        changes = PriorityScoreCtx(p, t->owner);
+      case DATA_GOUID:
+        if(PriorityScoreCtx(p, t->owner))
+          changes = true;
         break;
     }
   }
 
-  if(changes)
-    PrioritizePriorities(t);
+  if(!changes)
+    return;
+
+  PrioritizePriorities(t);
+  t->valid = true;
 }

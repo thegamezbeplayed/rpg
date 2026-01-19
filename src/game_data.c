@@ -1452,6 +1452,15 @@ void NeedSyncMeter(need_t* n, int amount){
     n->status++;
 }
 
+void NeedFulfill(need_t* n, int amount){
+  if(amount == 0)
+    return;
+
+  n->val-= amount;
+  n->meter = 0;
+  n->activity = true;
+}
+
 void NeedIncrement(Needs id, ent_t* owner, int amount){
   need_t* n = owner->control->needs[id];
 
@@ -1462,21 +1471,21 @@ void NeedReset(need_t* n){
   n->activity = false;
 
   for(int i = NEED_CRITICAL; i > -1; i--){
-    if (n->val > n->vals[i])
+    int diff = n->vals[i] - n->val;
+    if (diff < 0)
       break;
-    n->prio*=0.5;
+    n->prio -= diff/(NEED_CRITICAL+i);
     n->status = i;
   }
 
   if(n->status > NEED_MET)
     return;
 
-  n->prio = 0;
   n->goal = NULL;
 }
 
 void NeedStep(need_t* n){
-  n->prio += n->id + n->status;
+  n->prio += imax(0, n->id + n->status - 2);
 
   if(n->activity){
     NeedReset(n);

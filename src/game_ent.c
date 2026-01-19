@@ -884,13 +884,8 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
 
     }
 
-    if((p->race&SPEC_ARTHROPOD)>0)
-      DO_NOTHING();
-
     if(amnt == 0)
       continue;
-
-    amnt *= def->quantity;
 
     p->smell+=def->smell;
     resource->amount = amnt;
@@ -1285,10 +1280,7 @@ InteractResult EntMeetNeed(ent_t* e, need_t* n){
       break;
   }
   
-  e->control->needs[n->id]->meter -= amount; 
-  if(amount > 0)
-  e->control->needs[n->id]->activity = true; 
-
+  NeedFulfill(e->control->needs[n->id], amount); 
   return res;
 }
 
@@ -2194,12 +2186,14 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
         continue;
 
 
-      int p_score = ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
+      if(!ctx->valid){
+        int p_score = ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
 
-      if(p_score == -1)
-        continue;
-
-      ctx->cost = cost+p_score;
+        if(p_score == -1)
+          continue;
+        ctx->cost = cost+p_score;
+        ctx->valid = true;
+      }
       AddPurchase(local->choice_pool, i, score, ctx->cost, ctx, ChoiceReduceScore);
     }
   }

@@ -414,8 +414,8 @@ void WorldContextInitOnce(void){
 void WorldInitOnce(){
   WorldMapLoaded(world.map);
   MapRoomSpawn(world.map, ENT_DEER, 5);
-  MapRoomSpawn(world.map, ENT_BEAR, 3);
-  MapRoomSpawn(world.map, ENT_RAT, 3);
+  //MapRoomSpawn(world.map, ENT_BEAR, 3);
+  //MapRoomSpawn(world.map, ENT_RAT, 3);
 
   WorldContextInitOnce();
   

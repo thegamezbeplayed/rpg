@@ -69,7 +69,7 @@ struct local_ctx_s{
   Cell                pos;
   ActionType          how_to;
   Interactive         method;
-  bool                prune;
+  bool                valid, prune;
   float               awareness;
   SpeciesRelate       rel;
   int                 cr;
@@ -263,6 +263,7 @@ typedef struct{
 
 typedef struct{
   ent_t*     owner;
+  bool       valid;
   int        cap, count;
   priority_t *entries;
 }priorities_t;

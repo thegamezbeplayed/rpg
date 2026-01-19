@@ -36,6 +36,7 @@ static param_t ParamMake(DataType type, size_t size, void* src) {
       case DATA_BOOL:
       case DATA_STRING:
       case DATA_CELL:
+      case DATA_GOUID:
         o.size = size;
         o.data = malloc(size);
         memcpy(o.data, src, size);
@@ -77,6 +78,13 @@ static inline int ParamReadInt(const param_t* o) {
 static inline Cell ParamReadCell(const param_t* o){
   assert(o->type_id == DATA_CELL);
   return *(Cell*)o->data;
+
+}
+
+static inline game_object_uid_i ParamReadGOUID(const param_t* o){
+  assert(o->type_id == DATA_GOUID);
+  assert(o->size == sizeof(game_object_uid_i));
+  return *(game_object_uid_i*)o->data;
 
 }
 
