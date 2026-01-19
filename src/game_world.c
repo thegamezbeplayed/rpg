@@ -12,12 +12,25 @@ int tree_cache_count = 0;
 ent_t* player = {0};
 static world_t world;
 
-void WorldEvent(EventType event, void* data){
+void WorldEvent(EventType type, void* data, uint64_t uid){
+  event_t event = {
+    .type = type,
+    .data = data,
+    .iuid = uid
+  };
+
   if(world.bus->count)
-    EventEmit(world.bus, event, data);
+    EventEmit(world.bus, &event);
 }
 
+void WorldTargetSubscribe(EventType event, EventCallback cb, void* data, uint64_t iid){
+
+  event_sub_t* sub = EventSubscribe(world.bus, event, cb, data);
+  sub->uid = iid;
+
+}
 void WorldSubscribe(EventType event, EventCallback cb, void* data){
+
   EventSubscribe(world.bus, event, cb, data);
 }
 
@@ -368,11 +381,19 @@ void OnWorldCtx(EventType event, void* data, void* user){
     case EVENT_ADD_LOCAL_CTX:
       AddLocalFromCtx(table, ctx);
       break;
-    case EVENT_DEL_LOCAL_CTX:
     case EVENT_ENT_DEATH:
-      LocalPruneCtx(table, ctx);
+    case EVENT_ENV_DEATH:
+      LocalPruneCtx(table, ctx->gouid);
       break;
   }
+
+}
+
+void OnWorldByGOUID(EventType event, void* data, void* user){
+  local_table_t* table = user;
+  game_object_uid_i* gouid = data;
+
+  LocalPruneCtx(table, *gouid);
 
 }
 
@@ -383,8 +404,6 @@ world_context_t* wctx = world.ctx;
     return;
 
   for (int i = 0; i < OBJ_ALL; i++){
-    wctx->tables[i]->count = 0;
-
     wctx->tables[i]->valid = true;
   }
 }

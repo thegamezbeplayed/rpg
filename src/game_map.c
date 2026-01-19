@@ -60,7 +60,7 @@ void MapCellTurnStep(map_cell_t* m){
   env_t* env = m->tile;
  
   if(m->tile && m->tile->has_resources == 0)
-    m->tile->status = ENV_STATUS_DEAD;
+    EnvSetStatus(m->tile, ENV_STATUS_DEAD);
 
   uint64_t occid = occ?occ->gouid:0;
   uint64_t envid = env?env->gouid:0;

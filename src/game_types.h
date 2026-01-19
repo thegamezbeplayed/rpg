@@ -92,7 +92,7 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* e, Cell p);
 void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx);
 void LocalSync(local_table_t* s, bool sort);
 bool LocalCheck(local_ctx_t* ctx);
-void LocalPruneCtx(local_table_t* t, local_ctx_t* other);
+void LocalPruneCtx(local_table_t* t, game_object_uid_i other);
 
 local_ctx_t* RemoveEntryByRel(local_table_t*, SpeciesRelate rel);
 void LocalSortByDist(local_table_t* table);
@@ -388,6 +388,7 @@ static bool CheckEntAlive(ent_t* e){
   return (e->status != ENT_STATUS_DEAD);
 }
 bool CheckEntAvailable(ent_t* e);
+bool EnvSetStatus(env_t* e, EnvStatus s);
 bool CheckEnvAvailable(env_t* e);
 bool CheckEntPosition(ent_t* e, Vector2 pos);
 bool SetState(ent_t *e, EntityState s,StateChangeCallback callback);
@@ -421,6 +422,7 @@ struct env_s{
   map_cell_t* map_cell;
   EnvStatus   status;
   sprite_t    *sprite;
+  local_ctx_t *world_ref;
 };
 
 env_t* InitEnv(EnvTile t,Cell pos);

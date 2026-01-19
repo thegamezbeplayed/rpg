@@ -309,9 +309,6 @@ void StepEvents(events_t* pool);
 void StartEvent(events_t* pool, EventType type);
 void ResetEvent(events_t* pool, EventType type);
 bool CheckEvent(events_t* pool, EventType type);
-static inline event_uid_i EventMakeUID(EventType type, uint64_t tick, int iid){
-    return ((uint64_t)type << 48) | ((uint64_t)iid << 32) | (tick & 0x0000FFFFFFFFFFFFULL);
-}
 typedef struct value_s value_t;
 
 typedef bool (*ValueOnChange)(value_t* self, void* ctx);

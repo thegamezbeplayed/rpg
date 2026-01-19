@@ -187,20 +187,29 @@ void EventBusEnsureCap(event_bus_t* bus){
   bus->cap = new_cap;
 }
 
-void EventSubscribe(event_bus_t* bus, EventType event, EventCallback cb, void* u_data){
+event_sub_t* EventSubscribe(event_bus_t* bus, EventType event, EventCallback cb, void* u_data){
   EventBusEnsureCap(bus);
 
-  bus->subs[bus->count++] = (event_sub_t){
+  event_sub_t* sub =  &bus->subs[bus->count++];
+  *sub = (event_sub_t){
     .event = event,
       .cb = cb,
       .user_data = u_data
   };
+  
+  return sub;
 }
 
-void EventEmit(event_bus_t* bus, EventType event,  void* e_data){
+void EventEmit(event_bus_t* bus, event_t* e){
   for (int i = 0; i < bus->count; i++) {
-    if (bus->subs[i].event == event)
-      bus->subs[i].cb(event, e_data, bus->subs[i].user_data);
+    if (bus->subs[i].event != e->type)
+      continue;
+
+    if (bus->subs[i].uid != 0 
+       && bus->subs[i].uid != e->iuid)
+      continue;
+
+    bus->subs[i].cb(e->type, e->data, bus->subs[i].user_data);
   }
 }
 
@@ -273,7 +282,7 @@ events_t* InitEvents(){
 }
 
 event_uid_i RegisterEvent(EventType type, cooldown_t* cd, int ent_id, StepType when){
-  event_uid_i uid = EventMakeUID(type, WORLD_TICK, ent_id);
+  event_uid_i uid = EventMakeUID(type, ent_id);
   cd->eid = uid;
 
   if(WorldAddEvent(uid, cd, when))
@@ -503,7 +512,7 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->pos = mob->pos;
       e->dist = cell_distance(pos, mob->pos);
       mob->this_world_ctx = e;
-      WorldSubscribe(EVENT_ENT_DEATH, OnWorldCtx, s);
+      WorldTargetSubscribe(EVENT_ENT_DEATH, OnWorldCtx, s, mob->gouid);
       break;
     case  DATA_ENV:
       PRUNES--;
@@ -512,6 +521,8 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->pos = tile->pos;
       e->resource = tile->has_resources;
       e->dist = cell_distance(pos, tile->pos);
+      tile->world_ref = e;
+      WorldTargetSubscribe(EVENT_ENV_DEATH, OnWorldCtx, s, tile->gouid);
       break;
     case DATA_MAP_CELL:
       PRUNES++;
@@ -523,7 +534,7 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       break;
   }
 
-  WorldEvent(EVENT_ADD_LOCAL_CTX, e);
+  WorldEvent(EVENT_ADD_LOCAL_CTX, e, 0);
   return e;
 }
 
@@ -562,15 +573,26 @@ local_ctx_t* LocalGetEntry(local_table_t* table, game_object_uid_i other){
   return NULL;
 }
 
-void LocalPruneCtx(local_table_t* t, local_ctx_t* other){
+void LocalPruneCtx(local_table_t* t, game_object_uid_i other){
   for( int i = 0; i < t->count; ){
-    local_ctx_t* ctx =  &t->entries[i]; 
-
-    if(ctx && ctx->gouid == other->gouid)
-      ctx->prune = true;
-
-    if(!ctx || ctx->prune)
+    if(t->entries[i].gouid == other
+        || t->entries[i].prune){
+      
       t->entries[i] = t->entries[--t->count];
+
+      if(!t->owner)
+        WorldEvent(EVENT_DEL_LOCAL_CTX, &other, other);
+      else{
+        if(t->owner->control->goal && t->owner->control->goal->gouid == other)
+          t->owner->control->goal = NULL;
+        
+        if(t->owner->control->target && t->owner->control->target->gouid == other)
+          t->owner->control->target = NULL;
+        
+        if(t->owner->control->destination && t->owner->control->destination->gouid == other)
+          t->owner->control->destination = NULL;
+      }
+    }
     else
       i++;
 

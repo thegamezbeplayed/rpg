@@ -103,6 +103,7 @@ void InteractionStep();
 //==INTERACTIONS_T==>
 interaction_uid_i RegisterSkillEvent(interaction_t* self, void* ctx, param_t payload);
 interaction_uid_i UpdateSkillEvent(interaction_t* self, void* ctx, param_t payload);
+typedef uint64_t event_uid_i;
 
 typedef void (*EventCallback)(
     EventType  event,
@@ -111,9 +112,10 @@ typedef void (*EventCallback)(
 );
 
 typedef struct {
-    EventType     event;
-    EventCallback cb;
-    void*         user_data;
+    EventType      event;
+    EventCallback  cb;
+    uint64_t       uid;
+    void*          user_data;
 } event_sub_t;
 
 typedef struct {
@@ -121,10 +123,22 @@ typedef struct {
     int count, cap;
 } event_bus_t;
 
-event_bus_t* InitEventBus(int cap);
-void EventSubscribe(event_bus_t* bus, EventType event, EventCallback cb, void* u_data);
-void EventEmit(event_bus_t* bus, EventType event,  void* e_data);
+typedef struct{
+  EventType type;
+  void*     data;
+  uint64_t  iuid;
+}event_t;
 
+event_bus_t* InitEventBus(int cap);
+event_sub_t* EventSubscribe(event_bus_t* bus, EventType event, EventCallback cb, void* u_data);
+void EventEmit(event_bus_t* bus, event_t*);
+
+static inline event_uid_i EventMakeUID(EventType type, uint64_t data_id){
+  event_uid_i euid = hash_combine_64(type, data_id);
+
+  return euid;
+}
+void OnWorldByGOUID(EventType event, void* data, void* user);
 void OnWorldCtx(EventType, void*, void*);
 //EVENTS==>
 
@@ -226,7 +240,8 @@ ent_t* WorldGetEntById(unsigned int uid);
 ent_t* WorldPlayer(void);
 env_t* WorldGetEnvById(unsigned int uid);
 void WorldSubscribe(EventType, EventCallback, void*);
-void WorldEvent(EventType, void*);
+void WorldTargetSubscribe(EventType event, EventCallback cb, void* data, uint64_t iid);
+void WorldEvent(EventType, void*, uint64_t);
 int WorldGetEntSprites(sprite_t** pool);
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);

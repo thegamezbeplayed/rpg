@@ -224,7 +224,7 @@ ent_t* InitEntByRace(mob_define_t def){
   
   e->local = InitLocals(e, MAX_ENTS + MAX_ENVS*2);
   WorldSubscribe(EVENT_ADD_LOCAL_CTX, OnWorldCtx, e->local);
-  WorldSubscribe(EVENT_DEL_LOCAL_CTX, OnWorldCtx, e->local);
+  WorldSubscribe(EVENT_DEL_LOCAL_CTX, OnWorldByGOUID, e->local);
   e->allies = calloc(1,sizeof(ally_table_t));
   InitAllyTable(e->allies, 8, e);
 
@@ -951,6 +951,23 @@ void EnvRender(env_t* e){
       DO_NOTHING();
       break;
   }
+}
+
+void OnEnvStatus(env_t* e, EnvStatus s, EnvStatus old){
+  switch(s){
+    case ENV_STATUS_DEAD:
+      WorldEvent(EVENT_ENV_DEATH, e->world_ref, e->gouid);
+      break;
+  }
+}
+
+bool EnvSetStatus(env_t* e, EnvStatus s){
+  if(e->status == s)
+    return false;
+
+  EnvStatus old = e->status;
+  e->status = s;
+  OnEnvStatus(e, s, old);
 }
 
 int EnvExtractResource(env_t* env, ent_t* ent, Resource res){
@@ -1854,7 +1871,7 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s){
         RegisterEnv(corpse);
 
       e->status = ENT_STATUS_DEAD;
-      WorldEvent(EVENT_ENT_DEATH, e->this_world_ctx);
+      WorldEvent(EVENT_ENT_DEATH, e->this_world_ctx, e->gouid);
       EntDestroy(e);
       break;
     case STATE_STANDBY:
