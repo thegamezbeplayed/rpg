@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <assert.h>
 #define UID_INVALID ((game_object_uid_i)0)
 #define BAD_INDEX   -1337
 
@@ -52,6 +53,34 @@
 #define CellFlip(c) (Cell){(c.y),(c.x)}
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
+
+typedef uint64_t hash_key_t;
+
+typedef struct {
+    hash_key_t key;
+    void* value;
+    uint8_t state; // 0 = empty, 1 = used, 2 = tombstone
+} hash_slot_t;
+
+typedef struct {
+    hash_slot_t* slots;
+    uint32_t cap;
+    uint32_t count;
+} hash_map_t;
+void HashInit(hash_map_t* m, uint32_t cap);
+void HashFree(hash_map_t* m);
+void* HashGet(hash_map_t* m, hash_key_t key);
+void HashPut(hash_map_t* m, hash_key_t key, void* value);
+void HashRemove(hash_map_t* m, hash_key_t key);
+
+static inline uint64_t Hash64(uint64_t x) {
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    x *= 0xc4ceb9fe1a85ec53ULL;
+    x ^= x >> 33;
+    return x;
+}
 
 static inline uint64_t hash_combine_64(uint64_t h, uint64_t v) {
     h ^= v + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);

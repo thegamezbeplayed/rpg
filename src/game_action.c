@@ -918,20 +918,22 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
           engage += l->treatment[i];
         break;
       case TREAT_DEFEND:
-        if(l->awareness > 1)
-          engage+= l->treatment[i] / l->dist;
+        if(l->aggro)
+          engage+= l->aggro->threat * l->treatment[i];
         break;
       case TREAT_FLEE:
-        if(!l->aggro || !l->aggro->initiated)
+        if(!l->aggro)
           flee += l->treatment[i];
+        else if(l->aggro->initiated)
+          engage += (l->aggro->threat * l->treatment[TREAT_DEFEND]);
         else
-          engage += l->treatment[TREAT_DEFEND];
+          engage += (l->aggro->threat * l->treatment[TREAT_DEFEND])/l->dist;
         break;
     }
   }
 
   flee *= (l->cr - e->props->cr);
-  engage *= l->awareness * (e->props->cr - l->cr);
+  engage -= l->awareness * (e->props->cr - l->cr);
 
   switch(p->type){
     case PRIO_FLEE:

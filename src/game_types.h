@@ -74,7 +74,7 @@ struct local_ctx_s{
   SpeciesRelate       rel;
   int                 cr;
   float               treatment[TREAT_DONE];
-  int                 score, dist, cost, index;
+  int                 prio, score, dist, cost, index;
   uint32_t            ctx_revision;
 };
 
@@ -84,6 +84,8 @@ typedef struct{
   local_ctx_t*       entries;
   int                count,cap;
   choice_pool_t*     choice_pool;
+  int                sorted_indices[MAX_ENTS + MAX_ENVS*2];
+  hash_map_t         ctx_by_gouid;
 }local_table_t;
 
 local_table_t* InitLocals(ent_t* e, int cap);

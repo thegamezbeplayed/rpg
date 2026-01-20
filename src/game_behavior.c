@@ -144,6 +144,9 @@ BehaviorStatus BehaviorCheckTarget(behavior_params_t *params){
   if(e->control->target->method == I_KILL)
     return BEHAVIOR_SUCCESS;
 
+  if(e->control->priorities->entries[0].type == PRIO_ENGAGE)
+    return BEHAVIOR_SUCCESS;
+
   return BEHAVIOR_FAILURE;
 }
 
@@ -288,7 +291,7 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
     return BEHAVIOR_FAILURE;
 
   Cell next = cell_dir(e->pos, dest);
-  action_t* a = InitActionMove(e, ACT_MAIN, next, 50);
+  action_t* a = InitActionMove(e, ACT_MAIN, next, e->control->destination->prio);
 
   ActionStatus a_status = QueueAction(e->control->actions, a);
 
@@ -356,7 +359,12 @@ BehaviorStatus BehaviorAttackTarget(behavior_params_t *params){
   if(!a)
     return BEHAVIOR_FAILURE;
 
-  action_t* act = InitActionAttack(e, ACT_MAIN, e->control->target->other, 100);
+  int threat = e->control->target->prio;
+  aggro_t* aggro = e->control->target->aggro;
+  if(aggro)
+    threat = (int)aggro->threat;
+
+  action_t* act = InitActionAttack(e, ACT_MAIN, e->control->target->other,threat);
 
   ActionStatus a_status = QueueAction(e->control->actions, act);
 
@@ -489,7 +497,7 @@ BehaviorStatus BehaviorAcquireResource(behavior_params_t *params){
       return BEHAVIOR_SUCCESS;
       break;
     default:
-      TraceLog(LOG_WARNING,"=== BEHAVIOR ACQUIRE RES ===\n unknown method for %s", e->name);
+      //TraceLog(LOG_WARNING,"=== BEHAVIOR ACQUIRE RES ===\n unknown method for %s", e->name);
       break;
   }
 
@@ -556,6 +564,7 @@ BehaviorStatus BehaviorGetPriority(behavior_params_t *params){
   if(!ctx)
     return BEHAVIOR_FAILURE;
 
+  ctx->prio = prio->score;
 
   return BEHAVIOR_SUCCESS;
 

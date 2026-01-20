@@ -2112,7 +2112,7 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
   local_table_t* local = e->local;
   e->local->choice_pool = StartChoice(&local->choice_pool, local->count, ChooseCheapest, &picking);
 
-  if(e->type == ENT_WOLF || e->type == ENT_BEAR || e->type == ENT_BUGBEAR)
+  if(e->type == ENT_DEER)
     DO_NOTHING();
 
   int max_dist = imin(e->map->width, e->map->height);
@@ -2126,19 +2126,16 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
 
   if(!picking){
     for(int i = 0; i < local->count; i++){
-      local_ctx_t *ctx = &local->entries[i];
+      int k = local->sorted_indices[i];
+      local_ctx_t *ctx = &local->entries[k];
       if(ctx->dist > max_dist)
         break;
 
       if(local->choice_pool->count > cap)
         break;
        
-      if(ctx->other.type_id == DATA_ENTITY)
-       DO_NOTHING();
-
       if(!HasResource(ctx->resource, locate))
           continue;
-
 
       uint64_t res = locate;
 
@@ -2175,6 +2172,7 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
             score = env->resources[__builtin_ctzll(r)]->amount;
             break;
           case DATA_MAP_CELL:
+            continue;
             ctx->method = I_NONE;
             ctx->how_to = ACTION_MOVE;
             map_cell_t* mc = ParamReadMapCell(&ctx->other);
@@ -2318,7 +2316,8 @@ local_ctx_t* EntFindLocation(ent_t* e, local_ctx_t* other, Interactive method){
     if(choices >= 20)
       break;
 
-    local_ctx_t* ctx = &e->local->entries[i];
+    int k = e->local->sorted_indices[i];
+    local_ctx_t* ctx = &e->local->entries[k];
     if(ctx->other.type_id != DATA_MAP_CELL)
       continue;
 
