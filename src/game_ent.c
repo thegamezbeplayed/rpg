@@ -956,7 +956,7 @@ void EnvRender(env_t* e){
 void OnEnvStatus(env_t* e, EnvStatus s, EnvStatus old){
   switch(s){
     case ENV_STATUS_DEAD:
-      WorldEvent(EVENT_ENV_DEATH, e->world_ref, e->gouid);
+      WorldEvent(EVENT_ENV_DEATH, &e->gouid, e->gouid);
       break;
   }
 }
@@ -1127,11 +1127,6 @@ void EntInitOnce(ent_t* e){
       continue;
 
     StatMaxOut(e->stats[i]);
-  }
-
-  if(e->this_world_ctx){
-    e->this_world_ctx->pos = e->pos;
-    e->this_world_ctx->ctx_revision++;
   }
 
   EntBuildAllyTable(e);
@@ -1738,10 +1733,6 @@ TileStatus EntGridStep(ent_t *e, Cell step){
     e->pos = newPos;
     e->old_pos = oldPos;
 
-    if(e->this_world_ctx){
-      e->this_world_ctx->pos = e->pos;
-      e->this_world_ctx->ctx_revision++;
-    }
     e->facing = CellInc(e->pos,step);
     //WorldDebugCell(e->pos, GREEN);
   }
@@ -1871,7 +1862,7 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s){
         RegisterEnv(corpse);
 
       e->status = ENT_STATUS_DEAD;
-      WorldEvent(EVENT_ENT_DEATH, e->this_world_ctx, e->gouid);
+      WorldEvent(EVENT_ENT_DEATH, &e->gouid, e->gouid);
       EntDestroy(e);
       break;
     case STATE_STANDBY:
@@ -2316,4 +2307,76 @@ skill_check_t* EntGetSkillPB(SkillType s, ent_t* e, local_ctx_t* ctx, Senses sen
   }
 
   return sc;
+}
+
+local_ctx_t* EntFindLocation(ent_t* e, local_ctx_t* other, Interactive method){
+  local_ctx_t* out = NULL;
+
+  choice_pool_t* c = InitChoicePool(20, ChooseBest);
+  int choices = 0;
+  for(int i = 0; i < e->local->count; i++){
+    if(choices >= 20)
+      break;
+
+    local_ctx_t* ctx = &e->local->entries[i];
+    if(ctx->other.type_id != DATA_MAP_CELL)
+      continue;
+
+    if(ctx->dist > 10)
+      break;
+
+    map_cell_t* mc = ParamReadMapCell(&ctx->other);
+    if(mc->status > TILE_ISSUES)
+      continue;
+
+    map_cell_t* nei[8];
+    int neighbors = MapGetNeighborsByStatus(e->map, mc->coords, nei, TILE_OCCUPIED);
+
+    int score = cell_distance(mc->coords, *other->pos);
+    for (int j = 0; j < neighbors; j++){
+      ent_t* occ = nei[j]->occupant;
+      if(!occ)
+        continue;
+
+      SpeciesRelate rel = GetSpecRelation(e->props->race, occ->props->race);
+
+      switch(rel){
+        case SPEC_KIN:
+        case SPEC_FRIEND:
+          score += ctx->cr;
+          break;
+        case SPEC_CAUT:
+        case SPEC_AVOID:
+        case SPEC_HOSTILE:
+          score -= ctx->cr;
+          break;
+        case SPEC_FEAR:
+          score -= ctx->cr*2;
+          break;
+      }
+
+    }
+
+    int dist = cell_distance(mc->coords, e->pos);
+    int cost = ScorePathCell(e->map, e->pos, mc->coords, ctx->awareness * MAX_SEN_DIST);
+
+    if(cost == -1)
+      continue;
+
+    if(cost > dist)
+      score -= cost-dist;
+    ctx->score = score;
+    ctx->cost = cost;
+    if(AddChoice(c, ctx->gouid, score, ctx, NULL))
+      choices++;
+
+  }
+
+  choice_t* sel = c->choose(c);
+  if(sel || sel->context)
+    out = sel->context;
+    
+
+  return out;
+
 }

@@ -66,7 +66,7 @@ struct local_ctx_s{
   game_object_uid_i   gouid;
   aggro_t*            aggro;             
   uint64_t            resource;
-  Cell                pos;
+  Cell                *pos;
   ActionType          how_to;
   Interactive         method;
   bool                valid, prune;
@@ -74,8 +74,7 @@ struct local_ctx_s{
   SpeciesRelate       rel;
   int                 cr;
   float               treatment[TREAT_DONE];
-  int                 dist, cost, index;
-  local_ctx_t*        world_ctx_ref;
+  int                 score, dist, cost, index;
   uint32_t            ctx_revision;
 };
 
@@ -257,6 +256,7 @@ typedef struct{
   game_object_uid_i gouid;
   Priorities        type;
   param_t           ctx, goal;
+  Interactive       method;
   int               score;
   bool              prune;
 }priority_t;
@@ -333,7 +333,6 @@ struct ent_s{
   local_table_t*        local;
   struct ent_s*         last_hit_by;
   Faction               team;
-  local_ctx_t*          this_world_ctx;
 };
 
 ent_t* InitEntByRace(mob_define_t def);
@@ -409,7 +408,7 @@ uint64_t EntGetResourceByNeed(ent_t* e, Needs n);
 local_ctx_t* EntLocateResource(ent_t* e, uint64_t r);
 uint64_t EntGetScents(ent_t* e);
 void EntActionsTaken(stat_t* self, float old, float cur);
-
+local_ctx_t* EntFindLocation(ent_t* e, local_ctx_t* other, Interactive method);
 struct env_s{
   game_object_uid_i     gouid;
   int         uid;
@@ -422,7 +421,6 @@ struct env_s{
   map_cell_t* map_cell;
   EnvStatus   status;
   sprite_t    *sprite;
-  local_ctx_t *world_ref;
 };
 
 env_t* InitEnv(EnvTile t,Cell pos);

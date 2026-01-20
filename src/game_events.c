@@ -509,26 +509,24 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       ent_t* mob = ParamReadEnt(entry);
       e->gouid = mob->gouid;
       e->resource = MONSTER_MASH[mob->type].has;
-      e->pos = mob->pos;
+      e->pos = &mob->pos;
       e->dist = cell_distance(pos, mob->pos);
-      mob->this_world_ctx = e;
-      WorldTargetSubscribe(EVENT_ENT_DEATH, OnWorldCtx, s, mob->gouid);
+      WorldTargetSubscribe(EVENT_ENT_DEATH, OnWorldByGOUID, s, mob->gouid);
       break;
     case  DATA_ENV:
       PRUNES--;
       env_t* tile = ParamReadEnv(entry);
       e->gouid = tile->gouid;
-      e->pos = tile->pos;
+      e->pos = &tile->pos;
       e->resource = tile->has_resources;
       e->dist = cell_distance(pos, tile->pos);
-      tile->world_ref = e;
-      WorldTargetSubscribe(EVENT_ENV_DEATH, OnWorldCtx, s, tile->gouid);
+      WorldTargetSubscribe(EVENT_ENV_DEATH, OnWorldByGOUID, s, tile->gouid);
       break;
     case DATA_MAP_CELL:
       PRUNES++;
       map_cell_t* mc = ParamReadMapCell(entry);
       e->gouid = mc->gouid;
-      e->pos = mc->coords;
+      e->pos = &mc->coords;
       e->resource = mc->props->resources;
       e->dist = cell_distance(pos, mc->coords);
       break;
@@ -753,7 +751,6 @@ void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
   if(lctx){
     lctx->ctx_revision = -1;
     lctx->pos = ctx->pos;
-    lctx->world_ctx_ref = ctx;
   }
 }
 
@@ -833,15 +830,14 @@ void LocalSync(local_table_t* s, bool sort){
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
 
-    local_ctx_t* wctx = ctx->world_ctx_ref;
+    local_ctx_t* wctx = WorldGetContext(ctx->other.type_id, ctx->gouid);
 
     if(!this_changed && wctx->ctx_revision == ctx->ctx_revision)
       continue;
 
     s->valid = false;
     ctx->ctx_revision = wctx->ctx_revision;
-    ctx->pos = wctx->pos;
-    int dist = cell_distance(s->owner->pos, ctx->pos);
+    int dist = cell_distance(s->owner->pos, *ctx->pos);
     if(dist != ctx->dist){
       dist_change += abs(dist - ctx->dist);
       ctx->dist = dist;

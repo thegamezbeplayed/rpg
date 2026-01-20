@@ -396,7 +396,25 @@ void OnWorldByGOUID(EventType event, void* data, void* user){
   LocalPruneCtx(table, *gouid);
 
 }
+local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid){
+  ObjectCategory cat = OBJ_NONE;
+  switch(type){
+    case DATA_ENTITY:
+      cat = OBJ_ENT;
+      break;
+    case DATA_ENV:
+      cat = OBJ_ENV;
+      break;
+    case DATA_MAP_CELL:
+      cat = OBJ_MAP_CELL;
+      break;
+  }
 
+  if(cat == OBJ_NONE)
+    return NULL;
+
+  return LocalGetEntry(world.ctx->tables[cat], gouid);
+}
 void WorldValidateContext(){
 world_context_t* wctx = world.ctx;
 

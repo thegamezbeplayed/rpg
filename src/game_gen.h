@@ -660,6 +660,21 @@ void MapSpawnMob(map_grid_t* m, int x, int y);
 void RoomSpawnMob(map_grid_t* m, room_t* r);
 Cell MapApplyContext(map_grid_t* m);
 
+static int MapGetNeighborsByStatus(map_grid_t* m, Cell pos, map_cell_t* nei[8], TileStatus status){
+
+  int count = 0;
+  for (int x = pos.x -1; x < pos.x+1; x++)
+    for (int y = pos.y -1; y < pos.y+1; y++){
+      map_cell_t* n = &m->tiles[x][y];
+
+      if(n->status != status)
+        continue;
+
+      nei[count++] = n;
+    }
+
+  return count;
+}
 static uint32_t g_navRevision = 1;
 
 static void NavMarkDirty(void) {
@@ -731,6 +746,10 @@ Cell RouteGetNext(ent_t* e, path_cache_entry_t* route);
 bool HasLOS(map_grid_t* m, Cell c0, Cell c1);
 void CastLight(map_grid_t *m, Cell pos, int row, float start, float end, int radius,int xx, int xy, int yx, int yy);
 int ScorePath(map_grid_t *m, int sx, int sy, int tx, int ty, int depth);
+static int ScorePathCell(map_grid_t *m, Cell sc, Cell tc, int depth){
+  return ScorePath(m, sc.x, sc.y, tc.x, tc.y, depth);
+}
+
 bool room_has_access(map_context_t* ctx, cell_bounds_t room,Cell *access);
 bool IsDiagBlocked(map_grid_t* m, map_cell_t* cc, map_cell_t* nc, TileBlock fn);
 

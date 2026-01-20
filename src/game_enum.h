@@ -8,6 +8,7 @@
 #define TREAT_RUN_MASK (TREAT_AVOID | TREAT_FEAR)
 
 typedef enum{
+  OBJ_NONE = -1,
   OBJ_ENT,
   OBJ_ENV,
   OBJ_MAP_CELL,
@@ -525,6 +526,7 @@ typedef enum{
   I_CONSUME,
   I_OPEN,
   I_CLOSE,
+  I_FLEE,
   I_KILL,
 }Interactive;
 
@@ -701,6 +703,7 @@ typedef enum{
   BN_TARGET_GOAL,
   BN_CAN_ATTACK,
   BN_AGGRO,
+  BN_ENGAGE,
   BN_GET_AGGRO,
   BN_CHECK_AGGRO,
   BN_TRY_ATTACK,
@@ -710,6 +713,9 @@ typedef enum{
   BN_CHECK_PRIO,
   BN_QUEUE_ATTACK,
   BN_CHECK_COMBAT,
+  BN_FLEE,
+  BN_CHECK_TARGET,
+  BN_FIND_SAFE,
   BN_COUNT
 }BehaviorID;
 

@@ -234,6 +234,7 @@ BehaviorStatus BehaviorChangeState(behavior_params_t *params);
 BehaviorStatus BehaviorClearState(behavior_params_t *params);
 BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params);
 BehaviorStatus BehaviorCheckAggro(behavior_params_t *params);
+BehaviorStatus BehaviorCheckTarget(behavior_params_t *params);
 BehaviorStatus BehaviorCheckPriority(behavior_params_t *params);
 BehaviorStatus BehaviorGetPriority(behavior_params_t *params);
 BehaviorStatus BehaviorCheckAbilities(behavior_params_t *params);
@@ -251,6 +252,7 @@ BehaviorStatus BehaviorTakeTurn(behavior_params_t *params);
 BehaviorStatus BehaviorCheckNeeds(behavior_params_t *params);
 BehaviorStatus BehaviorCheckNeed(behavior_params_t *params);
 BehaviorStatus BehaviorFindResource(behavior_params_t *params);
+BehaviorStatus BehaviorFindSafe(behavior_params_t *params);
 BehaviorStatus BehaviorSeekResource(behavior_params_t *params);
 BehaviorStatus BehaviorTrackResource(behavior_params_t *params);
 BehaviorStatus BehaviorCheckResource(behavior_params_t *params);
@@ -263,6 +265,7 @@ static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  
 static inline behavior_tree_node_t* LeafMoveToTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToTarget,params); }
 static inline behavior_tree_node_t* LeafCheckAbilities(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAbilities,params); }
 static inline behavior_tree_node_t* LeafCheckAggro(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAggro,params); }
+static inline behavior_tree_node_t* LeafCheckTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckTarget,params); }
 static inline behavior_tree_node_t* LeafCheckPriority(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckPriority,params); }
 static inline behavior_tree_node_t* LeafGetPriority(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorGetPriority,params); }
 static inline behavior_tree_node_t* LeafCheckInventory(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckInventory,params); }
@@ -279,6 +282,7 @@ static inline behavior_tree_node_t* LeafTakeTurn(behavior_params_t *params)  { r
 static inline behavior_tree_node_t* LeafCheckNeeds(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckNeeds,params); }
 static inline behavior_tree_node_t* LeafCheckNeed(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckNeed,params); }
 static inline behavior_tree_node_t* LeafFindResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorFindResource,params); }
+static inline behavior_tree_node_t* LeafFindSafe(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorFindSafe,params); }
 static inline behavior_tree_node_t* LeafAcquireResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireResource,params); }
 static inline behavior_tree_node_t* LeafCheckResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckResource,params); }
 static inline behavior_tree_node_t* LeafSeekResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorSeekResource,params); }

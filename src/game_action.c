@@ -864,13 +864,25 @@ priority_t* PriorityAdd(priorities_t* t, Priorities type, param_t entry){
   if(PrioritiesGetEntry(t, gouid))
     return NULL;
 
+  Interactive method = I_NONE;
+
+  switch(type){
+    case PRIO_ENGAGE:
+      method = I_KILL;
+      break;
+    case PRIO_FLEE:
+      method = I_FLEE;
+      break;
+  }
+
   PrioritiesEnsureCap(t);
   priority_t* p = &t->entries[t->count++];
 
   *p = (priority_t){
     .gouid = gouid,
     .type = type,
-      .ctx = entry
+      .ctx = entry,
+      .method = method
   };
 
   return p;
@@ -906,9 +918,8 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
           engage += l->treatment[i];
         break;
       case TREAT_DEFEND:
-        if(!l->aggro || !l->aggro->initiated)
-          continue;
-        engage+= l->treatment[i];
+        if(l->awareness > 1)
+          engage+= l->treatment[i] / l->dist;
         break;
       case TREAT_FLEE:
         if(!l->aggro || !l->aggro->initiated)
@@ -925,6 +936,7 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
   switch(p->type){
     case PRIO_FLEE:
       p->score = flee;
+
       if(engage > 0){
         priority_t* eng = PriorityAdd(e->control->priorities, PRIO_ENGAGE, p->ctx);
         if(eng){
@@ -934,7 +946,7 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
       }
       break;
     case PRIO_ENGAGE:
-      p->score = flee;
+      p->score = engage;
       if(flee > 0){
         priority_t* f = PriorityAdd(e->control->priorities, PRIO_FLEE, p->ctx);
         if(f){

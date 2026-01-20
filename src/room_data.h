@@ -191,7 +191,9 @@ static const BehaviorData room_behaviors[ BN_COUNT] = {
   {BN_TARGET_GOAL, false, BT_LEAF, LeafTargetGoal},
   {BN_CAN_ATTACK, false, BT_LEAF, LeafCanAttackTarget},
   {BN_AGGRO, true, BT_SELECTOR, NULL, true, STATE_IDLE, 3,
-    {BN_TRY_ATTACK, BN_GET_AGGRO, BN_CHANGE_STATE}},
+    {BN_ENGAGE, BN_FLEE , BN_CHANGE_STATE}},
+  {BN_ENGAGE, false, BT_SEQUENCE, NULL, true, STATE_ATTACK, 3,
+    {BN_CHECK_TARGET, BN_TRY_ATTACK, BN_CHANGE_STATE}},
   {BN_GET_AGGRO, false, BT_SEQUENCE, NULL, true, STATE_ATTACK, 3,
     {BN_CHECK_AGGRO, BN_MOVE_TO_TARGET, BN_CHANGE_STATE}},
   {BN_CHECK_AGGRO, false, BT_LEAF, LeafCheckAggro},
@@ -206,5 +208,9 @@ static const BehaviorData room_behaviors[ BN_COUNT] = {
   {BN_QUEUE_ATTACK, false, BT_SEQUENCE, NULL, true, STATE_STANDBY, 3,
     { BN_CHECK_COMBAT, BN_ATTACK,BN_CHANGE_STATE}},
   {BN_CHECK_COMBAT, false, BT_LEAF, LeafCombatCheck},
+  {BN_FLEE, false, BT_SEQUENCE, NULL, true, STATE_STANDBY, 3,
+    {BN_FIND_SAFE, BN_MOVE_TO_DEST, BN_CHANGE_STATE}},
+  {BN_CHECK_TARGET, false, BT_LEAF, LeafCheckTarget},
+  {BN_FIND_SAFE, false, BT_LEAF, LeafFindSafe}
 };
 #endif

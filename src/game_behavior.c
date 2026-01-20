@@ -133,6 +133,20 @@ struct ent_s* e = params->owner;
   return BEHAVIOR_SUCCESS;
 }
 
+BehaviorStatus BehaviorCheckTarget(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->target == NULL)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->target->method == I_KILL)
+    return BEHAVIOR_SUCCESS;
+
+  return BEHAVIOR_FAILURE;
+}
+
 BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
@@ -219,7 +233,7 @@ BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params){
   if(!e->control->target)
     return BEHAVIOR_FAILURE;
 
-   if(cell_distance(e->control->target->pos, e->pos)<2)
+   if(cell_distance(*e->control->target->pos, e->pos)<2)
     return BEHAVIOR_SUCCESS;
 
 
@@ -258,16 +272,17 @@ BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params){
   if(!e->control->destination)
     return BEHAVIOR_FAILURE;
  
-  if(cell_distance(e->control->destination->pos, e->pos)<2)
+  if(cell_distance(*e->control->destination->pos, e->pos)<2)
     return BEHAVIOR_SUCCESS;
  
   int depth = MAX_PATH_LEN;
   bool found = false;
   e->control->destination->path = StartRoute(e, e->control->destination, depth, &found);
  
-  if(!found)
+  if(!found){
+    e->control->destination = NULL;
     return BEHAVIOR_FAILURE;
-
+  }
   Cell dest = RouteGetNext(e, e->control->destination->path);
   if(cell_compare(dest, CELL_UNSET))
     return BEHAVIOR_FAILURE;
@@ -375,7 +390,31 @@ BehaviorStatus BehaviorCheckNeed(behavior_params_t *params){
 */
   return BEHAVIOR_SUCCESS;
 }
- 
+  
+BehaviorStatus BehaviorFindSafe(behavior_params_t *params){
+ ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->target == NULL)
+    return BEHAVIOR_FAILURE;
+
+  if(e->control->target->method != I_FLEE)
+    return BEHAVIOR_FAILURE;
+  
+  local_ctx_t *dest = e->control->destination; 
+
+  if(!dest || dest->method != I_FLEE)
+   dest = EntFindLocation(e, e->control->target, I_FLEE);
+
+  if(!dest)
+    return BEHAVIOR_FAILURE;
+  dest->method = I_FLEE;
+  e->control->destination = dest;
+
+  return BEHAVIOR_SUCCESS;
+}
+
 BehaviorStatus BehaviorTrackResource(behavior_params_t *params){
  ent_t* e = params->owner;
   if(!e)
@@ -498,6 +537,14 @@ BehaviorStatus BehaviorGetPriority(behavior_params_t *params){
       }
       else
         e->control->goal = ctx;
+      break;
+    case DATA_GOUID:
+      game_object_uid_i other = ParamReadGOUID(&prio->ctx);
+      ctx = LocalGetEntry(e->local, other);
+      if(ctx){
+        ctx->method = prio->method;
+        e->control->target = ctx;
+      }
       break;
     case DATA_LOCAL_CTX:
       ctx = ParamReadCtx(&prio->ctx);
