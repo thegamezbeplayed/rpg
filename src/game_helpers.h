@@ -859,9 +859,9 @@ static race_class_t* GetRaceClass(EntityType e, Archetype id){
 static SpeciesRelate GetSpecRelation(SpeciesType main, SpeciesType other){
   species_relation_t sr = SPEC_ALIGN[SpecToIndex(main)];
 
-  for (int i = 0; i < SPEC_RELATE_DONE; i++){
+  for (int i = 0; i < BCTZL(SPEC_RELATE_DONE); i++){
     if((sr.relation[i] & other) > 0)
-      return i;
+      return BIT64(i);
   }
 
   return SPEC_RELATE_NONE;

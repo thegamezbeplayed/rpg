@@ -1,10 +1,19 @@
 #include "game_types.h"
+#include "game_process.h"
 
 static game_input_t player_input;
 
 void InitInput(ent_t* player){
   player_input.owner = player;
 
+  player->control->decider[STATE_STANDBY] = InitDecisionPool(ACTION_DONE, player, STATE_STANDBY);
+
+  for(int i = 0; i < ACTION_PASSIVE; i++){
+    player_input.decisions[i] = InitDecision(player->control->decider[STATE_STANDBY], i);
+    player_input.decisions[i]->score = 100;
+    player_input.decisions[i]->cost = 1;
+    player_input.decisions[i]->decision = i;
+  }
   player_input.actions[ACTION_MOVE] = (action_key_t){
     ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},NULL,SLOT_NONE};
 
@@ -14,9 +23,8 @@ bool InputToggle(void){
   player_input.key_event = !player_input.key_event;
 }
 
-action_t* InputActionMove(action_key_t akey, KeyboardKey k){
+BehaviorStatus InputActionMove(action_key_t akey, KeyboardKey k){
   Cell dir = CELL_UNSET;
-
 
   switch(k){
     case KEY_A:
@@ -40,10 +48,12 @@ action_t* InputActionMove(action_key_t akey, KeyboardKey k){
   }
 
   if(cell_compare(dir, CELL_UNSET))
-    return NULL;
+    return BEHAVIOR_FAILURE;
 
+  param_t p = ParamMake(DATA_CELL, sizeof(Cell), &dir);
 
-  return InitActionMove(player_input.owner, ACT_MAIN, dir, 50); 
+  player_input.decisions[ACTION_MOVE]->params[ACT_PARAM_STEP] = p;
+  return ActionExecute(player_input.decisions[ACTION_MOVE], ACTION_MOVE); 
 }
 
 action_t* InputActionAttack(action_key_t akey){
@@ -59,32 +69,27 @@ action_t* InputActionMagic(action_key_t akey){
 }
 
 bool InputQueueAction(action_key_t akey, KeyboardKey k){
-  action_t* a = NULL;
 
+  BehaviorStatus status = BEHAVIOR_FAILURE;
   switch(akey.action){
     case ACTION_MOVE:
-      a = InputActionMove(akey, k);
+      status = InputActionMove(akey, k);
       break;
     case ACTION_ATTACK:
     case ACTION_WEAPON:
-      a = InputActionAttack(akey);
+      //a = InputActionAttack(akey);
       break;
     case ACTION_ITEM:
-      a = InputActionItem(akey);
+      //a = InputActionItem(akey);
       break;
     case ACTION_MAGIC:
-      a = InputActionMagic(akey);
+      //a = InputActionMagic(akey);
       break;
     default:
       break;
   }
 
-  if(a == NULL)
-    return false;
-
-  ActionStatus res = QueueAction(player_input.owner->control->actions, a);
-
-  return res == ACT_STATUS_QUEUED;
+  return status == BEHAVIOR_SUCCESS;
 }
 
 void InputSync(TurnPhase phase, int turn){
@@ -102,7 +107,7 @@ bool InputCheck(TurnPhase phase, int turn){
     return false;
 
   if(IsKeyDown(KEY_SPACE))
-    DO_NOTHING();
+    moncontrol(1);
 
   if(player_input.key_event)
     return false;

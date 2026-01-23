@@ -1,6 +1,8 @@
 #ifndef __GAME_PROCESS__
 #define __GAME_PROCESS__
-
+#ifdef __GNUC__
+extern void moncontrol(int);
+#endif
 #include <unistd.h>
 #include <pthread.h>
 #include "game_types.h"
@@ -9,7 +11,7 @@
 #include "room_data.h"
 
 #define MAX_SUBS 1024
-#define MAX_INTERACTIONS 1024
+#define MAX_INTERACTIONS 2048
 #define DEBUG false
 #define TURN WorldGetTurn()
 
@@ -79,17 +81,16 @@ struct interaction_s {
 };
 
 static inline interaction_uid_i InteractionMakeUID(EventType type, uint16_t context_id,
-    uint16_t source_id,
-    uint16_t target_id){
-  return ((uint64_t)(type       & 0xFFFF) << 48) |
-    ((uint64_t)(context_id & 0xFFFF) << 32) |
-    ((uint64_t)(source_id  & 0xFFFF) << 16) |
-    ((uint64_t)(target_id  & 0xFFFF));  
+    uint64_t source_id,
+    uint64_t target_id){
+  uint64_t who = hash_combine_64(source_id, target_id);
+
+  return hash_combine_64(who, context_id);  
 }
 
 int InitInteractions();
-interaction_t* RegisterInteraction(uint16_t source, uint16_t target, EventType event, int duration, void* ctx, uint16_t ctx_id);
-interaction_t* StartInteraction(uint16_t source, uint16_t target, EventType event,
+interaction_t* RegisterInteraction(uint64_t source, uint64_t target, EventType event, int duration, void* ctx, uint16_t ctx_id);
+interaction_t* StartInteraction(uint64_t source, uint64_t target, EventType event,
     int duration, void* ctx, uint16_t ctx_id, param_t data, InteractionCB add, InteractionCB update, bool refresh);
 int InteractionExists(interaction_uid_i uid);
 interaction_t* GetInteractionByUID(interaction_uid_i uid);

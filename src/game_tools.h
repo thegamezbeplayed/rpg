@@ -432,4 +432,23 @@ static void MakeTriangleFromRect(Rectangle r, Cell dir, Vector2 out[3]) {
 }
 
 
+
+static int next_pow2_int(int v) {
+    if (v <= 1)
+        return 1;
+
+    // Prevent overflow (largest power of 2 that fits in signed int)
+    if (v > (1 << 30))
+        return 0; // or clamp to (1 << 30)
+
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+
+    return v;
+}
 #endif

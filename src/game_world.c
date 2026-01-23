@@ -39,11 +39,13 @@ ent_t* WorldPlayer(void){
 }
 
 bool TogglePause(ui_menu_t* m){
+/*
   if(game_process.state[SCREEN_GAMEPLAY] == GAME_READY)
     GameSetState(GAME_PAUSE);
   else if (game_process.state[SCREEN_GAMEPLAY] == GAME_PAUSE)
     GameSetState(GAME_READY);
-
+*/
+  moncontrol(1);
   return true;
 }
 
@@ -320,7 +322,6 @@ bool RegisterEnt( ent_t *e){
     player = e;
     SkillCapOff(player->skills[SKILL_LVL]);
     WorldTestPrint();
-    InitInput(player);
   }
 
   if(e->sprite)
@@ -454,6 +455,7 @@ void WorldInitOnce(){
   //MapRoomSpawn(world.map, ENT_BEAR, 3);
   //MapRoomSpawn(world.map, ENT_RAT, 3);
 
+  SetState(player, STATE_IDLE, NULL);
   WorldContextInitOnce();
   
   InteractionStep();
@@ -461,6 +463,7 @@ void WorldInitOnce(){
   for(int i = 0; i< world.num_ent; i++)
     EntInitOnce(world.ents[i]);
 
+  InitInput(player);
   WorldValidateContext();
 }
 

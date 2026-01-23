@@ -23,14 +23,6 @@ typedef struct ability_sim_s ability_sim_t;
 typedef struct item_s item_t;
 
 typedef struct{
-  bool                initiated;
-  int                 challenge;
-  int                 offensive_rating, defensive_rating;
-  float               threat_mul, threat;
-  int                 last_turn;
-}aggro_t;
-
-typedef struct{
   ent_t* ally;          
   SpeciesRelate relation;
   float  danger;        // how threatened they are
@@ -59,48 +51,6 @@ void InitAllyTable(ally_table_t* t, int cap, ent_t* owner);
 static void AllyEnsureCapacity(ally_table_t* t);
 int AllyAdd(ally_table_t* t, ent_t* source, int dist);
 void AllySync(void* params);
-typedef struct local_ctx_s local_ctx_t;
-struct local_ctx_s{
-  param_t             other, need;
-  path_cache_entry_t* path;
-  game_object_uid_i   gouid;
-  aggro_t*            aggro;             
-  uint64_t            resource;
-  Cell                *pos;
-  ActionType          how_to;
-  Interactive         method;
-  bool                valid, prune;
-  float               awareness;
-  SpeciesRelate       rel;
-  int                 cr;
-  float               treatment[TREAT_DONE];
-  int                 prio, score, dist, cost, index;
-  uint32_t            ctx_revision;
-};
-
-typedef struct{
-  ent_t*             owner;
-  bool               valid;
-  local_ctx_t*       entries;
-  int                count,cap;
-  choice_pool_t*     choice_pool;
-  int                sorted_indices[MAX_ENTS + MAX_ENVS*2];
-  hash_map_t         ctx_by_gouid;
-}local_table_t;
-
-local_table_t* InitLocals(ent_t* e, int cap);
-local_ctx_t* MakeLocalContext(local_table_t* s, param_t* e, Cell p);
-void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx);
-void LocalSync(local_table_t* s, bool sort);
-bool LocalCheck(local_ctx_t* ctx);
-void LocalPruneCtx(local_table_t* t, game_object_uid_i other);
-
-local_ctx_t* RemoveEntryByRel(local_table_t*, SpeciesRelate rel);
-void LocalSortByDist(local_table_t* table);
-int LocalAddAggro(local_table_t* t, ent_t* e, int threat, float mul, bool init);
-aggro_t* LocalGetAggro(local_table_t* table, game_object_uid_i other);
-local_ctx_t* LocalGetThreat(local_table_t* t);
-local_ctx_t* LocalGetEntry(local_table_t* table, game_object_uid_i other);
 
 typedef struct{
   SpeciesType   race;
@@ -255,36 +205,16 @@ item_t* InitItem(item_def_t* def);
 item_def_t* GetItemDefByID(GearID id);
 
 typedef struct{
-  game_object_uid_i gouid;
-  Priorities        type;
-  param_t           ctx, goal;
-  Interactive       method;
-  int               score;
-  bool              prune;
-}priority_t;
-
-typedef struct{
-  ent_t*     owner;
-  bool       valid;
-  int        cap, count;
-  priority_t *entries;
-}priorities_t;
-
-priorities_t* InitPriorities(ent_t* e, int cap);
-priority_t*  PriorityAdd(priorities_t* table, Priorities type, param_t entry);
-void PrioritiesSync(priorities_t* t);
-typedef struct{
-  local_ctx_t*            target, *goal, *destination;
   int                     turn;
   TurnPhase               phase;
   action_pool_t*          actions;
   Cell                    start;
-  int                     ranges[RANGE_EMPTY];
-  behavior_tree_node_t*   bt[STATE_END];
+  EntityState             next;
+  ActionType              action; 
+  decision_pool_t*        decider[STATE_RETURN];
+  behavior_tree_node_t*   bt[STATE_RETURN];
   BehaviorID              current, failure;
-  need_t                  *needs[N_DONE];
   priorities_t            *priorities;
-  priority_t              *priority;
   ability_t*              pref;
   uint64_t                behave_traits;
   initiative_t*           speed[ACTION_PASSIVE];
@@ -326,6 +256,7 @@ struct ent_s{
   EntityState           state,previous;
   EntityStatus          status;
   action_turn_t         *actions[ACTION_DONE];
+  need_t                *needs[N_DONE];
   controller_t          *control;
   events_t              *events;
   inventory_t           *inventory[INV_DONE];
@@ -356,7 +287,7 @@ void EntInitOnce(ent_t* e);
 bool EntPrepareAttack(ent_t* e, ent_t* t, ability_t** a);
 //attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
-InteractResult EntMeetNeed(ent_t* e, need_t* n);
+InteractResult EntMeetNeed(ent_t* e, need_t* n, param_t g);
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source);
 InteractResult EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
 InteractResult EntSkillCheck(ent_t* owner, ent_t* target, SkillType s);
@@ -411,6 +342,11 @@ local_ctx_t* EntLocateResource(ent_t* e, uint64_t r);
 uint64_t EntGetScents(ent_t* e);
 void EntActionsTaken(stat_t* self, float old, float cur);
 local_ctx_t* EntFindLocation(ent_t* e, local_ctx_t* other, Interactive method);
+
+bool EntCheckRange(ent_t* e, decision_t* d);
+
+int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]);
+
 struct env_s{
   game_object_uid_i     gouid;
   int         uid;

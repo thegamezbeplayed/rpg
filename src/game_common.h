@@ -463,7 +463,7 @@ typedef struct{
 }skill_event_t;
 
 skill_event_t* InitSkillEvent(skill_t* s, int challenge);
-bool SkillUse(skill_t* self, int source, int target, int gain, InteractResult result);
+bool SkillUse(skill_t* self, uint64_t source, uint64_t target, int gain, InteractResult result);
 bool SkillUseSecondary(skill_t* self, int gain, InteractResult result);
 skill_decay_t* SkillEventDecay(SkillType skill, int difficulty);
 bool SkillWeightedGain(skill_t* self, int gain);

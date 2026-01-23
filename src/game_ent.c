@@ -96,14 +96,8 @@ ent_t* InitEntByRace(mob_define_t def){
 
   e->control->bt[STATE_SPAWN] = InitBehaviorTree(BN_SPAWN);
   e->control->bt[STATE_IDLE] = InitBehaviorTree(BN_IDLE);
-  e->control->bt[STATE_NEED] = InitBehaviorTree(BN_NEED);
   e->control->bt[STATE_AGGRO] = InitBehaviorTree(BN_AGGRO);
-  e->control->bt[STATE_ATTACK] = InitBehaviorTree(BN_COMBAT);
-  e->control->bt[STATE_REQ] = InitBehaviorTree(BN_REQ);
-
-  e->control->ranges[RANGE_NEAR] = 2;
-  e->control->ranges[RANGE_LOITER] = 3;
-  e->control->ranges[RANGE_ROAM] = 4;
+  e->control->bt[STATE_NEED] = InitBehaviorTree(BN_NEED);
 
   for (int i = 0; i < ATTR_BLANK; i++){
     e->attribs[i] = InitAttribute(i,0);
@@ -1002,15 +996,15 @@ int EnvExtractResource(env_t* env, ent_t* ent, Resource res){
   if(extra > 0){
 
     for(int i = 0; i < N_DONE; i++){
-      if(ent->control->needs[i]->resource == N_NONE)
+      if(ent->needs[i]->resource == N_NONE)
         continue;
 
-      if((ent->control->needs[i]->resource&r->attached)==0)
+      if((ent->needs[i]->resource&r->attached)==0)
         continue;
 
-      ent->control->needs[i]->val-=extra;
-      ent->control->needs[i]->activity = true;
-      ent->control->needs[i]->meter = 0;
+      ent->needs[i]->val-=extra;
+      ent->needs[i]->activity = true;
+      ent->needs[i]->meter = 0;
     }
   }
   
@@ -1101,6 +1095,7 @@ void EntPrepare(ent_t* e){
 void EntBuildAllyTable(ent_t* e){
   AllyAdd(e->allies, e, 0);
 
+  /*
   for (int i = 0; i < e->local->count; i++){
     local_ctx_t* ctx = RemoveEntryByRel(e->local, SPEC_KIN);
     if(ctx == NULL || ctx->other.type_id != DATA_ENTITY)
@@ -1111,7 +1106,7 @@ void EntBuildAllyTable(ent_t* e){
     AllyAdd(e->allies, ally, dist);
 
   }
-
+*/
 }
 
 void EntInitOnce(ent_t* e){
@@ -1130,9 +1125,6 @@ void EntInitOnce(ent_t* e){
   }
 
   EntBuildAllyTable(e);
-
-  cooldown_t* spawner = InitCooldown(3,EVENT_SPAWN,StepState_Adapter,e);
-  AddEvent(e->events, spawner);
 }
 
 void EntApplyTraits(ent_t* e){
@@ -1262,16 +1254,16 @@ ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
   return res;
 }
 
-int EntConsume(ent_t* e, local_ctx_t* goal, Resource res){
+int EntConsume(ent_t* e, param_t goal, Resource res){
 
   int consumed = 0;
-  switch(goal->other.type_id){
+  switch(goal.type_id){
     case DATA_ENTITY:
       break;
     case DATA_ENV:
-      env_t* env = ParamReadEnv(&goal->other);
+      env_t* env = ParamReadEnv(&goal);
       consumed = EnvExtractResource(env, e, res);
-      goal->resource = env->has_resources;
+      //goal->resource = env->has_resources;
       if(consumed >0)
         TraceLog(LOG_INFO,"%s eats %i grams of food", e->name, consumed);
       break;
@@ -1281,18 +1273,18 @@ int EntConsume(ent_t* e, local_ctx_t* goal, Resource res){
   return consumed;
 }
 
-InteractResult EntMeetNeed(ent_t* e, need_t* n){
+InteractResult EntMeetNeed(ent_t* e, need_t* n, param_t goal){
   InteractResult res = IR_NONE;
   int amount = 0;
   switch(n->id){
     case N_HUNGER:
-      amount = EntConsume(e, n->goal, n->resource);
+      amount = EntConsume(e, goal, n->resource);
       break;
     default:
       break;
   }
   
-  NeedFulfill(e->control->needs[n->id], amount); 
+  NeedFulfill(n, amount); 
   return res;
 }
 
@@ -1505,8 +1497,8 @@ controller_t* InitController(ent_t* e){
   ctrl->phase = TURN_NONE;
   ctrl->behave_traits = e->props->traits & TRAIT_CAP_MASK;
   for(int i = 0; i < N_DONE; i++){
-    ctrl->needs[i] = InitNeed(i,e);
-    param_t np = ParamMake(DATA_NEED, 0, ctrl->needs[i]);
+    e->needs[i] = InitNeed(i,e);
+    param_t np = ParamMake(DATA_NEED, 0, e->needs[i]);
     np.gouid = hash_combine_64(e->gouid, hash_string_64(NEED_STRINGS[i]));
     PriorityAdd(ctrl->priorities, PRIO_NEEDS, np);
   }
@@ -1752,7 +1744,7 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
 
   if(turn != e->control->turn){
     for(int i = 1; i < N_DONE; i++)
-      NeedStep(e->control->needs[i]);
+      NeedStep(e->needs[i]);
   }
   
   if(turn == e->control->turn && e->control->phase == phase)
@@ -1777,7 +1769,7 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
   PrioritiesSync(e->control->priorities);
   behavior_tree_node_t* current = e->control->bt[e->state];
 
-  if(e->type == ENT_BEAR)
+  if(e->state > STATE_SPAWN && e->type == ENT_DEER)
     DO_NOTHING();
 
   current->tick(current, e);
@@ -1843,8 +1835,6 @@ void OnStateChange(ent_t *e, EntityState old, EntityState s){
     case STATE_SPAWN:
       e->status = ENT_STATUS_ALIVE;
       item_t* item = InventoryGetEquipped(e, INV_HELD);
-      if(item) 
-        TraceLog(LOG_INFO,"%s ready with %s",e->name, item->def->name);
       if(e->sprite)
         e->sprite->is_visible = true;
       break;
@@ -2038,7 +2028,7 @@ InteractResult EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
 
     diff = tar->skills[s]->val;
 
-    SkillUse(owner->skills[counter], owner->uid, tar->uid, diff, res);
+    SkillUse(owner->skills[counter], owner->gouid, tar->gouid, diff, res);
     
     int gain = owner->skills[counter]->val;
     InteractResult tarres = IR_NONE;
@@ -2057,7 +2047,7 @@ InteractResult EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
         break;
     }
 
-    SkillUse(tar->skills[s], tar->uid, owner->uid, gain, tarres);
+    SkillUse(tar->skills[s], tar->gouid, owner->gouid, gain, tarres);
   }
 
   return res;
@@ -2065,19 +2055,21 @@ InteractResult EntSkillCheck(ent_t* owner, ent_t* tar, SkillType s){
 
 InteractResult EntCanDetect(ent_t* e, ent_t* tar, Senses s){
   int depth = e->senses[s]->range;
-  SkillType counter = tar->skills[s]->checks->counter;
+  SkillType counter = tar->skills[SKILL_STEALTH]->checks->counter;
   depth += SkillCheckGetVal(e->skills[counter],VAL_REACH);
   int dist = cell_distance(e->pos, tar->pos);
   if( dist > depth)
-    return false;
+    return IR_FAIL;
 
+  if(e->props->race == tar->props->race)
+    return IR_TOTAL_SUCC;
 
   bool los = HasLOS(e->map, e->pos, tar->pos);
 
-  if(!los)
-    return false;
+  if(!los && s == SEN_SEE)
+    return IR_FAIL;
 
-  SkillUse(e->skills[counter], e->uid, tar->uid, dist, IR_SUCCESS);
+  SkillUse(e->skills[counter], e->gouid, tar->gouid, dist, IR_SUCCESS);
 
   InteractResult res =  EntSkillCheck(e, tar, SKILL_STEALTH);
 
@@ -2103,122 +2095,6 @@ uint64_t EntGetResourceByNeed(ent_t* e, Needs n){
 
 uint64_t EntGetSize(ent_t* e){
   return PQ_SMALL;
-}
-
-local_ctx_t* EntLocateResource(ent_t* e, uint64_t locate){
-
-  bool picking = false;
-
-  local_table_t* local = e->local;
-  e->local->choice_pool = StartChoice(&local->choice_pool, local->count, ChooseCheapest, &picking);
-
-  if(e->type == ENT_DEER)
-    DO_NOTHING();
-
-  int max_dist = imin(e->map->width, e->map->height);
-  int cap = 32;
-  
-  if(!local->valid){
-    picking = false;
-    local->choice_pool->count = 0;
-    local->valid = true;
-  }
-
-  if(!picking){
-    for(int i = 0; i < local->count; i++){
-      int k = local->sorted_indices[i];
-      local_ctx_t *ctx = &local->entries[k];
-      if(ctx->dist > max_dist)
-        break;
-
-      if(local->choice_pool->count > cap)
-        break;
-       
-      if(!HasResource(ctx->resource, locate))
-          continue;
-
-      uint64_t res = locate;
-
-      int depth = ctx->awareness > 1? MAX_SEN_DIST*(ctx->awareness+0.5):MAX_SEN_DIST;
-      depth+=EntGetTrackDist(e, ctx);
-      Cell pos = CELL_UNSET;
-      int score = -1;
-      int cost = 0;
-      while(res){ 
-        Resource r = res & -res;
-        res &= res -1;
-
-        if(!HasResource(ctx->resource, r))
-          continue;
-
-        switch(ctx->other.type_id){
-          case DATA_ENTITY:
-            if((ctx->rel&SPEC_HUNTS)==0)
-              continue;
-            ctx->how_to = ACTION_ATTACK;
-            ctx->method = I_KILL;
-            ent_t* tar = ParamReadEnt(&ctx->other);
-            depth += tar->props->resources[BCTZL(r)]->smell * 2;
-            pos = tar->pos;
-            if(ctx->cr > e->props->cr)
-              cost =  ctx->cr - e->props->cr;
-            score = tar->props->resources[__builtin_ctzll(r)]->amount;
-            break;
-          case DATA_ENV:
-            ctx->method = I_CONSUME;
-            ctx->how_to = ACTION_INTERACT;
-            env_t* env = ParamReadEnv(&ctx->other);
-            pos = env->pos;
-            score = env->resources[__builtin_ctzll(r)]->amount;
-            break;
-          case DATA_MAP_CELL:
-            continue;
-            ctx->method = I_NONE;
-            ctx->how_to = ACTION_MOVE;
-            map_cell_t* mc = ParamReadMapCell(&ctx->other);
-            if(mc->occupant == e)
-              continue;
-            pos = mc->coords;
-            score = 1;
-            break;
-
-        }
-      }
-
-      if(cell_compare(pos, CELL_UNSET))
-        continue;
-
-      if(score < 1)
-        continue;
-
-
-      if(!ctx->valid){
-        int p_score = ScorePath(e->map, e->pos.x, e->pos.y, pos.x, pos.y, depth); 
-
-        if(p_score == -1)
-          continue;
-        ctx->cost = cost+p_score;
-        ctx->valid = true;
-      }
-      AddPurchase(local->choice_pool, i, score, ctx->cost, ctx, ChoiceReduceScore);
-    }
-  }
-
-  choice_t* sel = local->choice_pool->choose(local->choice_pool);
-
-  if(sel == NULL)
-    return NULL;
-    
-  local_ctx_t* best = sel->context;
-  
-  if(!best || (best->resource&locate) == 0)
-    DiscardChoice(local->choice_pool, sel);
-
-  if(best)
-    return sel->context;
-
-
-  return EntLocateResource(e, locate);
 }
 
 uint64_t EntGetScents(ent_t* e){
@@ -2307,75 +2183,36 @@ skill_check_t* EntGetSkillPB(SkillType s, ent_t* e, local_ctx_t* ctx, Senses sen
   return sc;
 }
 
-local_ctx_t* EntFindLocation(ent_t* e, local_ctx_t* other, Interactive method){
-  local_ctx_t* out = NULL;
+bool EntCheckRange(ent_t* e, decision_t* d){
 
-  choice_pool_t* c = InitChoicePool(20, ChooseBest);
-  int choices = 0;
-  for(int i = 0; i < e->local->count; i++){
-    if(choices >= 20)
+  local_ctx_t* ctx = NULL;
+  switch(d->decision){
+    case ACTION_MOVE:
+    case ACTION_INTERACT:
+      if(d->params[ACT_PARAM_DEST].type_id != DATA_LOCAL_CTX)
+        return NULL;
+      ctx = ParamReadCtx(&d->params[ACT_PARAM_DEST]);
+      return ctx->dist < 1;
       break;
+    case ACTION_ATTACK:
+      if(d->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX)
+        return NULL;
+      ctx = ParamReadCtx(&d->params[ACT_PARAM_TAR]);
+      if(ctx->dist < 2)
+        return true;
 
-    int k = e->local->sorted_indices[i];
-    local_ctx_t* ctx = &e->local->entries[k];
-    if(ctx->other.type_id != DATA_MAP_CELL)
-      continue;
-
-    if(ctx->dist > 10)
+      return AbilityCanTarget(e->control->pref, ctx);
       break;
-
-    map_cell_t* mc = ParamReadMapCell(&ctx->other);
-    if(mc->status > TILE_ISSUES)
-      continue;
-
-    map_cell_t* nei[8];
-    int neighbors = MapGetNeighborsByStatus(e->map, mc->coords, nei, TILE_OCCUPIED);
-
-    int score = cell_distance(mc->coords, *other->pos);
-    for (int j = 0; j < neighbors; j++){
-      ent_t* occ = nei[j]->occupant;
-      if(!occ)
-        continue;
-
-      SpeciesRelate rel = GetSpecRelation(e->props->race, occ->props->race);
-
-      switch(rel){
-        case SPEC_KIN:
-        case SPEC_FRIEND:
-          score += ctx->cr;
-          break;
-        case SPEC_CAUT:
-        case SPEC_AVOID:
-        case SPEC_HOSTILE:
-          score -= ctx->cr;
-          break;
-        case SPEC_FEAR:
-          score -= ctx->cr*2;
-          break;
-      }
-
-    }
-
-    int dist = cell_distance(mc->coords, e->pos);
-    int cost = ScorePathCell(e->map, e->pos, mc->coords, ctx->awareness * MAX_SEN_DIST);
-
-    if(cost == -1)
-      continue;
-
-    if(cost > dist)
-      score -= cost-dist;
-    ctx->score = score;
-    ctx->cost = cost;
-    if(AddChoice(c, ctx->gouid, score, ctx, NULL))
-      choices++;
-
   }
 
-  choice_t* sel = c->choose(c);
-  if(sel || sel->context)
-    out = sel->context;
-    
+  return false;
+}
 
-  return out;
+int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]){
 
+  uint64_t res = n->resource;
+
+  param_t f = ParamMake(DATA_UINT64, sizeof(res), &res);
+
+  return LocalContextFilter(e->local, num, pool, f, ACT_PARAM_RES);
 }

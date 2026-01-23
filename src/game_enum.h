@@ -16,6 +16,13 @@ typedef enum{
 }ObjectCategory;
 
 typedef enum{
+  SCORE_RES,
+  SCORE_CR,
+  SCORE_PATH,
+  SCORE_ALL,
+}Score;
+
+typedef enum{
   SATUR_FAINT,
   SATUR_LOW,
   SATUR_SOFT,
@@ -50,14 +57,15 @@ typedef enum {
   DATA_FLOAT,
   DATA_BOOL,
   DATA_PTR,
+  DATA_CELL,
+  DATA_UINT64,
+  DATA_GOUID,
+  DATA_STRING,
   DATA_ENTITY,
   DATA_ENV,
   DATA_MAP_CELL,
   DATA_NEED,
-  DATA_CELL,
   DATA_LOCAL_CTX,
-  DATA_GOUID,
-  DATA_STRING
 } DataType;
 
 typedef enum {
@@ -258,8 +266,6 @@ typedef enum{
   STATE_SPAWN,//Should only be set after NONE
   STATE_IDLE, //should be able to move freely between these ==>
   STATE_AGGRO,
-  STATE_ATTACK,
-  STATE_REQ,
   STATE_NEED,
   STATE_SELECTION,
   STATE_DIE,//<===== In MOST cases. Should not be able to go down from DIE
@@ -513,6 +519,20 @@ typedef enum{
   ACT_STATUS_INVALID,
   ACT_STATUS_DONE
 }ActionStatus;
+
+typedef enum{
+  ACT_PARAM_NONE = -1,
+  ACT_PARAM_OWNER,
+  ACT_PARAM_TAR,
+  ACT_PARAM_DEST,
+  ACT_PARAM_INTER,
+  ACT_PARAM_NEED,
+  ACT_PARAM_RES,
+  ACT_PARAM_REL,
+  ACT_PARAM_STEP,
+  ACT_PARAM_ALL,
+}ActionParam;
+
 typedef enum{
   PRIO_NONE = -1,
   PRIO_NEEDS,
@@ -672,50 +692,20 @@ typedef enum{
 typedef enum{
   BN_NONE,
   BN_CHANGE_STATE,      //1
-  BN_GET_TARGET,        //2
-  BN_GET_DEST,          //3
-  BN_MOVE_TO_TARGET,    //4
-  BN_MOVE_TO_DEST,      //4
-  BN_ATTACK,            //6
-  BN_MOVE,              //11
-  BN_ACQUIRE,           //13
-  BN_CLEAR_CTRL,
   BN_IDLE,
-  BN_SEEK,              //17
-  BN_CHECK_SENSE,
+  BN_WANDER,
   BN_SPAWN,
-  BN_CHECK_NEEDS,
-  BN_FILL_NEEDS,
-  BN_NEEDS,
-  BN_PREPARE_GEAR,
-  BN_PREPARE_ABILITIES,
-  BN_REQ,
-  BN_SEEK_RESOURCE,
-  BN_FILL_NEED,
-  BN_NEED,
-  BN_CHECK_NEED,
-  BN_TRACK,
-  BN_TRACK_RESOURCE,
-  BN_RES_REQ,
-  BN_CHECK_RES,
-  BN_GET_RES,
-  BN_HUNT,
-  BN_TARGET_GOAL,
-  BN_CAN_ATTACK,
+  BN_PREPARE,
   BN_AGGRO,
-  BN_ENGAGE,
-  BN_GET_AGGRO,
-  BN_CHECK_AGGRO,
-  BN_TRY_ATTACK,
-  BN_COMBAT,
+  BN_AGGRO_DEC,
   BN_PRIO,
-  BN_GET_PRIO,
-  BN_CHECK_PRIO,
-  BN_QUEUE_ATTACK,
-  BN_CHECK_COMBAT,
-  BN_FLEE,
-  BN_CHECK_TARGET,
-  BN_FIND_SAFE,
+  BN_PRIO_DEC,
+  BN_NEED,
+  BN_NEED_DEC,
+  BN_LOC_DEC,
+  BN_DEC_EXEC,
+  BN_DEC,
+  BN_CHECK_RANGE,
   BN_COUNT
 }BehaviorID;
 

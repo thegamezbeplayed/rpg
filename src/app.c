@@ -26,6 +26,7 @@ bool wantQuit = false;
 
 int main(void)
 {
+  //moncontrol(0);
   srand((unsigned int)time(NULL));  // seed once using current time
 
 #if defined(PLATFORM_ANDROID)

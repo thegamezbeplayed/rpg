@@ -98,91 +98,113 @@ typedef enum{
 }SpeciesType;
 
 typedef enum{
-  SPEC_RELATE_NONE ,
-  SPEC_FEAR        ,
-  SPEC_AVOID       ,
-  SPEC_INDIF       ,
-  SPEC_HOSTILE     ,
-  SPEC_CAUT        ,
-  SPEC_HUNTS       ,
-  SPEC_FRIEND      ,
-  SPEC_REVERED     ,
-  SPEC_KIN         ,
-  SPEC_WANTS       ,
-  SPEC_RELATE_DONE
+  SPEC_RELATE_NONE = 0,
+  SPEC_FEAR        = BIT64(0),
+  SPEC_AVOID       = BIT64(1),
+  SPEC_INDIF       = BIT64(2),
+  SPEC_HOSTILE     = BIT64(3),
+  SPEC_CAUT        = BIT64(4),
+  SPEC_HUNTS       = BIT64(5),
+  SPEC_FRIEND      = BIT64(6),
+  SPEC_REVERED     = BIT64(7),
+  SPEC_KIN         = BIT64(8),
+  SPEC_WANTS       = BIT64(9),
+  SPEC_RELATE_DONE  = BIT64(10),
 }SpeciesRelate;
 
-static float TREATMENT[SPEC_RELATE_DONE][TREAT_DONE] = {
-  [SPEC_RELATE_NONE]  = 0, 
-  [SPEC_FEAR]         = {
-    [TREAT_KILL]      = 0,
-    [TREAT_DEFEND]    = 0.75,
-    [TREAT_EAT]       = 0,
-    [TREAT_HELP]      = 0,
-    [TREAT_FLEE]      = 1.0,
-},
-[SPEC_AVOID]        = {
-    [TREAT_KILL]      = 0.125,
-    [TREAT_DEFEND]    = 0.875,
-    [TREAT_EAT]       = 0,
-    [TREAT_HELP]      = 0,
-    [TREAT_FLEE]      = 0.25,
+typedef struct {
+  SpeciesRelate rel;
+  float         val[TREAT_DONE];
+}species_treatment_t;
 
-},
-[SPEC_INDIF]        = {
-    [TREAT_KILL]      = 0.125,
-    [TREAT_DEFEND]    = 1,
-    [TREAT_EAT]       = 0,
-    [TREAT_HELP]      = 0.075,
-    [TREAT_FLEE]      = 0.125,
-},  
-[SPEC_HOSTILE]      = {
-    [TREAT_KILL]      = 0.875,
-    [TREAT_DEFEND]    = 1,
-    [TREAT_EAT]       = 0,
-    [TREAT_HELP]      = 0,
-    [TREAT_FLEE]      = 0.125,
-},
-[SPEC_CAUT]         = {
-    [TREAT_KILL]      = 0.125,
-    [TREAT_DEFEND]    = 0.875,
-    [TREAT_EAT]       = 0,
-    [TREAT_HELP]      = 0.125,
-    [TREAT_FLEE]      = 0.5,
-}, 
-[SPEC_HUNTS]        = {
-    [TREAT_KILL]      = 0.875,
-    [TREAT_DEFEND]    = 1,
-    [TREAT_EAT]       = 1,
-    [TREAT_HELP]      = 0,
-    [TREAT_FLEE]      = 0.125,
-},
-[SPEC_FRIEND]       = {
-    [TREAT_KILL]      = 0,
-    [TREAT_DEFEND]    = 0.375,
-    [TREAT_EAT]       = 0,
-    [TREAT_HELP]      = 0.75,
-    [TREAT_FLEE]      = 0,
-},
-[SPEC_REVERED]      = {
-    [TREAT_KILL]      = 0,
-    [TREAT_DEFEND]    = 0.125,
-    [TREAT_EAT]       = 0,
-    [TREAT_HELP]      = 1.0,
-    [TREAT_FLEE]      = 0,
-},
-[SPEC_KIN]          = {
-    [TREAT_KILL]      = 0,
-    [TREAT_DEFEND]    = 0.25,
-    [TREAT_EAT]       = 0,
-    [TREAT_HELP]      = 1.0,
-    [TREAT_FLEE]      = 0,
-}
+static species_treatment_t TREATMENT[10] = {
+  {SPEC_RELATE_NONE}, 
+  {SPEC_FEAR, 
+    {
+      [TREAT_KILL]      = 0,
+      [TREAT_DEFEND]    = 0.75,
+      [TREAT_EAT]       = 0,
+      [TREAT_HELP]      = 0,
+      [TREAT_FLEE]      = 1.0,
+    }
+  },
+  {SPEC_AVOID,
+    {
+      [TREAT_KILL]      = 0.125,
+      [TREAT_DEFEND]    = 0.875,
+      [TREAT_EAT]       = 0,
+      [TREAT_HELP]      = 0,
+      [TREAT_FLEE]      = 0.25,
+    }
+  },
+  {SPEC_INDIF,
+    {
+      [TREAT_KILL]      = 0.125,
+      [TREAT_DEFEND]    = 1,
+      [TREAT_EAT]       = 0,
+      [TREAT_HELP]      = 0.075,
+      [TREAT_FLEE]      = 0.125,
+    }
+  },  
+  {SPEC_HOSTILE,
+    {
+      [TREAT_KILL]      = 0.875,
+      [TREAT_DEFEND]    = 1,
+      [TREAT_EAT]       = 0,
+      [TREAT_HELP]      = 0,
+      [TREAT_FLEE]      = 0.125,
+    }
+  },
+  {SPEC_CAUT,
+    {
+      [TREAT_KILL]      = 0.125,
+      [TREAT_DEFEND]    = 0.875,
+      [TREAT_EAT]       = 0,
+      [TREAT_HELP]      = 0.125,
+      [TREAT_FLEE]      = 0.5,
+    }
+  }, 
+  {SPEC_HUNTS,
+    {
+      [TREAT_KILL]      = 0.875,
+      [TREAT_DEFEND]    = 1,
+      [TREAT_EAT]       = 1,
+      [TREAT_HELP]      = 0,
+      [TREAT_FLEE]      = 0.125,
+    }
+  },
+  {SPEC_FRIEND,
+    {
+      [TREAT_KILL]      = 0,
+      [TREAT_DEFEND]    = 0.375,
+      [TREAT_EAT]       = 0,
+      [TREAT_HELP]      = 0.75,
+      [TREAT_FLEE]      = 0,
+    }
+  },
+  {SPEC_REVERED,
+    {
+      [TREAT_KILL]      = 0,
+      [TREAT_DEFEND]    = 0.125,
+      [TREAT_EAT]       = 0,
+      [TREAT_HELP]      = 1.0,
+      [TREAT_FLEE]      = 0,
+    }
+  },
+  {SPEC_KIN,
+    {
+      [TREAT_KILL]      = 0,
+      [TREAT_DEFEND]    = 0.25,
+      [TREAT_EAT]       = 0,
+      [TREAT_HELP]      = 1.0,
+      [TREAT_FLEE]      = 0,
+    }
+  }
 };
 
 typedef struct{
   SpeciesType     spec;
-  SpeciesType     relation[SPEC_RELATE_DONE];
+  SpeciesType     relation[__builtin_ctzll(SPEC_RELATE_DONE)];
 }species_relation_t;
 extern species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)];
 
@@ -316,7 +338,7 @@ typedef struct{
 
 need_t* InitNeed(Needs id, ent_t* owner);
 void NeedStep(need_t* n);
-void NeedIncrement(Needs id, ent_t* owner, int amount);
+void NeedIncrement(need_t*, ent_t* owner, int amount);
 Needs NeedGetGreatest(need_t* list[N_DONE]);
 void NeedFulfill(need_t* n, int amount);
 

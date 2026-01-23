@@ -148,7 +148,7 @@ bool InitMap(void){
   mark_spr[markers++] = InitSpriteByID(ENV_BORDER_DUNGEON, SHEET_ENV);
   ctx->level = BoundsFromRec(Rect(99,99,-99,-99));
   ctx->player_start = CELL_UNSET;
-  ctx->decor_density = 12;  
+  ctx->decor_density = 15;  
   bool gen = MapGenerate(ctx);
   
   if(gen){
@@ -572,7 +572,9 @@ Cell MapApplyContext(map_grid_t* m){
       map_cell_t* mc = RegisterMapCell(x,y);
 
       m->tiles[x][y] = *mc;
-      MapSpawn(world_map.tiles[x][y],x,y);
+      env_t* e = MapSpawn(world_map.tiles[x][y],x,y);
+      if(e)
+        RegisterEnv(e);
     }
   }
   for(int r = 0; r < world_map.num_rooms; r++)
@@ -845,36 +847,35 @@ env_t* MapSpawn(TileFlags flags, int x, int y){
   Cell pos = {x,y};
  
   if(flags & TILEFLAG_BORDER)
-   return NULL;
+    return NULL;
 
   uint32_t tflags = EnvTileFlags[t];
   uint32_t size = GetEnvSize(tflags);
   env_t* env = InitEnv(t,pos);
-  if(RegisterEnv(env)){
-    if(size==0)
-      return env;
-    for (int i = 0; i < RES_DONE; i++){
-      define_resource_t* temp = GetResourceByCatFlags(BIT64(i), OBJ_ENV, tflags);
-      resource_t *res = calloc(1,sizeof(resource_t));
-      env->resources[i] = res;
-      if(!temp)
-        continue;
+  if(size==0)
+    return env;
+  
+  for (int i = 0; i < RES_DONE; i++){
+    define_resource_t* temp = GetResourceByCatFlags(BIT64(i), OBJ_ENV, tflags);
+    resource_t *res = calloc(1,sizeof(resource_t));
+    env->resources[i] = res;
+    if(!temp)
+      continue;
 
-      res->name = temp->name;
-      res->type = temp->type;
-      env->has_resources |= temp->type;
-      uint64_t amnt = size*temp->quantity;
+    res->name = temp->name;
+    res->type = temp->type;
+    env->has_resources |= temp->type;
+    uint64_t amnt = size*temp->quantity;
 
 
-      *res = (resource_t){
-        .type = temp->type,
-          .amount = amnt,
-          .attached = temp->attached
-      };
+    *res = (resource_t){
+      .type = temp->type,
+        .amount = amnt,
+        .attached = temp->attached
+    };
 
-      env->smell += temp->smell;
-      env->resources[i]->amount+=amnt;
-    }
+    env->smell += temp->smell;
+    env->resources[i]->amount+=amnt;
   }
 
   return env;
@@ -1990,7 +1991,13 @@ void RoomCarveTiles(map_context_t* ctx, room_t* r){
           x == r->bounds.max.x ||
           y == r->bounds.min.y ||
           y == r->bounds.max.y);
-      TileFlags floor = RandRange(0,100)<ctx->decor_density?TILEFLAG_FLOOR:TILEFLAG_FLOOR|TILEFLAG_SIZE_XS;
+      int r = RandRange(0,100);
+
+      TileFlags floor = TILEFLAG_EMPTY;
+      if(r<ctx->decor_density)
+        floor = TILEFLAG_FLOOR;
+      else if (r < ctx->decor_density *2)
+        floor =  TILEFLAG_FLOOR|TILEFLAG_SIZE_XS;
       if(ctx->tiles[x][y])
       ctx->tiles[x][y] = border ? TILEFLAG_WALL : floor;
     }

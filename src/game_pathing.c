@@ -1,5 +1,6 @@
 #include "game_gen.h"
 #include "game_types.h"
+#include "game_process.h"
 
 bool TileBlocksMovement(map_cell_t *c) {
   if(c->occupant)
@@ -30,6 +31,24 @@ path_cache_entry_t* PathCacheFindByUID(game_object_uid_i start, game_object_uid_
       path_cache_entry_t* e = &pathCache[i];
 
       if(e->guid == guid)
+        return e;
+   }
+
+   return NULL;
+}
+
+path_cache_entry_t* PathCacheFindByAB(Cell start, Cell end){
+
+   int a = IntGridIndex(start.x, start.y);
+   int b = IntGridIndex(end.x, end.y);
+   path_cache_uid_i puid = hash_combine_64(a, b);
+
+   assert(puid != UID_INVALID );
+
+   for (int i = 0; i < MAX_CACHED_PATHS; i++){
+      path_cache_entry_t* e = &pathCache[i];
+
+      if(e->puid == puid)
         return e;
    }
 
@@ -70,18 +89,37 @@ Cell PathGetLocal(local_ctx_t* dest){
   return goal;
 }
 
-path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* result){
+path_cache_entry_t* PathCacheFindRoute(ent_t* e, local_ctx_t* dest){
   game_object_uid_i start = e->gouid;
   game_object_uid_i end = dest->gouid;
- 
-  path_cache_entry_t* p = PathCacheFindByUID(start, end);
+
+  path_cache_entry_t *p = NULL;
+
+  p = PathCacheFindByUID(start, end);
+  if(p)
+    return p;
+
+  p = PathCacheFindByAB(e->pos, dest->pos);
+
+  return p;
+}
+
+path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* result){
+    path_cache_entry_t* p = PathCacheFindRoute(e, dest);
 
   if(p)
     *result = true;
   else{
+    game_object_uid_i start = e->gouid;
+    game_object_uid_i end = dest->gouid;
+
     Cell goal = PathGetLocal(dest);
     Cell next;
-    path_result_t* pres = FindPathCell(e->map, e->pos, goal, &next, depth); 
+    map_grid_t* m = e->map;
+    if(!m)
+      m = WorldGetMap();
+
+    path_result_t* pres = FindPathCell(m, e->pos, goal, &next, depth); 
     if(pres){
       *result = true;
       p = PathCacheStore(pres, e->pos, goal, start, end); 
@@ -91,27 +129,39 @@ path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* res
   return p;
 }
 
-Cell* PathCachedNext(path_cache_entry_t* entry, int sx, int sy){
-  int cur = entry->length;
+Cell* PathCachedNext(path_cache_entry_t* entry, int sx, int sy, int *index){
+  *index = entry->length;
 
   Cell cc = CELL_NEW(sx,sy);
   for(int i = entry->length-1; i > -1; i--){
     if(cell_compare(cc, entry->path[i])){
-      cur = i;
+      *index = i;
       break;
     }
   }
 
-  if(cur > 0)
-    return &entry->path[cur-1];
+  if(*index > 0)
+    return &entry->path[*index-1];
 
   return NULL;
+}
+int RouteScore(ent_t* e, path_cache_entry_t* route){
+
+  int index = -1;
+  Cell *out = PathCachedNext(route, e->pos.x, e->pos.y, &index);
+
+  if(index > -1){
+    route->next = route->path[index];
+    return route->cost - (route->length - index);
+  }
+  return 0;
 }
 
 Cell RouteGetNext(ent_t* e, path_cache_entry_t* route){
 
-  Cell c = e->pos;  
-  Cell *out = PathCachedNext(route, c.x,c.y);
+  Cell c = e->pos;
+  int index = -1;  
+  Cell *out = PathCachedNext(route, c.x,c.y,&index);
 
   return out?*out:CELL_UNSET;
 }
@@ -120,14 +170,20 @@ path_cache_entry_t* PathCacheStore(path_result_t* res, Cell sc, Cell tc, game_ob
   static int next = 0;
   path_cache_entry_t* tmp = PathCacheStoreTemp(res, sc.x, sc.y, tc.x, tc.y);
 
+  int a = IntGridIndex(sc.x, sc.y);
+  int b = IntGridIndex(tc.x, tc.y);
+  path_cache_uid_i puid = hash_combine_64(a, b);
+
+  assert(puid != UID_INVALID );
 
   path_cache_uid_i guid = hash_combine_64(start, end);
 
   assert(guid != UID_INVALID );
 
-  path_cache_entry_t* dst = &pathCache[next++ % MAX_CACHED_PATHS];
+  path_cache_entry_t* dst = &pathCache[next++ ];//% MAX_CACHED_PATHS];
   *dst = *tmp;
   dst->guid = guid;
+  dst->puid = puid;
   tmp->valid = false;
   return dst;
 }
@@ -402,7 +458,8 @@ path_result_t* FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *out
     PathCacheStoreTemp(res , sx, sy, tx, ty);
   }
   else{
-    outNextStep = PathCachedNext(cached, sx, sy);
+    int index = -1;
+    outNextStep = PathCachedNext(cached, sx, sy, &index);
  
     *res = (path_result_t){
      .found = cached->valid,

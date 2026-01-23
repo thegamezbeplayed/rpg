@@ -126,24 +126,24 @@ species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)] = {
   },   
   {SPEC_GOBLINOID,
     {
-      [SPEC_HOSTILE]  = SPEC_HUMAN | SPEC_ELF,
-      [SPEC_INDIF]     = SPEC_RUMINANT ,
-      [SPEC_KIN]       = SPEC_ORC,
-      [SPEC_FRIEND]   = SPEC_SULKING,
-      [SPEC_CAUT]      = SPEC_ARCHAIN | SPEC_SKELETAL | SPEC_ROTTING,
-      [SPEC_AVOID]     = SPEC_CANIFORM | SPEC_GIANT,
-      [SPEC_REVERED]   = SPEC_ARTHROPOD | SPEC_RODENT
+      [__builtin_ctzll(SPEC_HOSTILE)]  = SPEC_HUMAN | SPEC_ELF,
+      [__builtin_ctzll(SPEC_INDIF)]     = SPEC_RUMINANT ,
+      [__builtin_ctzll(SPEC_KIN)]       = SPEC_ORC,
+      [__builtin_ctzll(SPEC_FRIEND)]   = SPEC_SULKING,
+      [__builtin_ctzll(SPEC_CAUT)]      = SPEC_ARCHAIN | SPEC_SKELETAL | SPEC_ROTTING,
+      [__builtin_ctzll(SPEC_AVOID)]     = SPEC_CANIFORM | SPEC_GIANT,
+      [__builtin_ctzll(SPEC_REVERED)]   = SPEC_ARTHROPOD | SPEC_RODENT
     }
   }, 
   {SPEC_ORC,
     {
-      [SPEC_HOSTILE]   = SPEC_HUMAN | SPEC_ELF,
-      [SPEC_INDIF]     = SPEC_RUMINANT | SPEC_ARTHROPOD | SPEC_RODENT ,
-      [SPEC_KIN]       = SPEC_GOBLINOID,
-      [SPEC_FRIEND]    = SPEC_SULKING,
-      [SPEC_CAUT]      = SPEC_ARCHAIN | SPEC_SKELETAL | SPEC_ROTTING,
-      [SPEC_AVOID]     = SPEC_GIANT,
-      [SPEC_REVERED]   = SPEC_CANIFORM 
+      [__builtin_ctzll(SPEC_HOSTILE)]   = SPEC_HUMAN | SPEC_ELF,
+      [__builtin_ctzll(SPEC_INDIF)]     = SPEC_RUMINANT | SPEC_ARTHROPOD | SPEC_RODENT ,
+      [__builtin_ctzll(SPEC_KIN)]       = SPEC_GOBLINOID,
+      [__builtin_ctzll(SPEC_FRIEND)]    = SPEC_SULKING,
+      [__builtin_ctzll(SPEC_CAUT)]      = SPEC_ARCHAIN | SPEC_SKELETAL | SPEC_ROTTING,
+      [__builtin_ctzll(SPEC_AVOID)]     = SPEC_GIANT,
+      [__builtin_ctzll(SPEC_REVERED)]   = SPEC_CANIFORM 
     }
   },      
   {SPEC_GIANT,
@@ -151,12 +151,12 @@ species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)] = {
   },     
   {SPEC_ARTHROPOD,
     {
-      [SPEC_FEAR]       = SPEC_RODENT | SPEC_ELF | SPEC_HUMAN,
-      [SPEC_AVOID]      = SPEC_CANIFORM | SPEC_RUMINANT,
-      [SPEC_REVERED]    = SPEC_GOBLINOID | SPEC_SULKING,
-      [SPEC_INDIF]      = SPEC_ARCHAIN | SPEC_GIANT,
-      [SPEC_FRIEND]     = SPEC_SKELETAL | SPEC_ROTTING,
-      [SPEC_HUNTS]      = SPEC_ARTHROPOD
+      [__builtin_ctzll(SPEC_FEAR)]       = SPEC_RODENT | SPEC_ELF | SPEC_HUMAN,
+      [__builtin_ctzll(SPEC_AVOID)]      = SPEC_CANIFORM | SPEC_RUMINANT,
+      [__builtin_ctzll(SPEC_REVERED)]    = SPEC_GOBLINOID | SPEC_SULKING,
+      [__builtin_ctzll(SPEC_INDIF)]      = SPEC_ARCHAIN | SPEC_GIANT,
+      [__builtin_ctzll(SPEC_FRIEND)]     = SPEC_SKELETAL | SPEC_ROTTING,
+      [__builtin_ctzll(SPEC_HUNTS)]      = SPEC_ARTHROPOD
     }
   }, 
   {SPEC_ETHEREAL,
@@ -173,44 +173,45 @@ species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)] = {
   }, 
   {SPEC_CANIFORM,
     {
-      [SPEC_FEAR]        = SPEC_ROTTING,
-      [SPEC_AVOID]       = SPEC_HUMAN | SPEC_ELF | SPEC_SKELETAL,
-      [SPEC_INDIF]       = SPEC_SULKING | SPEC_ARCHAIN,
-      [SPEC_HOSTILE]     = SPEC_ARTHROPOD,
-      [SPEC_CAUT]        = SPEC_CANIFORM | SPEC_ETHEREAL | SPEC_VAMPIRIC,
-      [SPEC_HUNTS]       = SPEC_RUMINANT | SPEC_RODENT,
-      [SPEC_FRIEND]      = SPEC_ORC | SPEC_GOBLINOID,
-      [SPEC_REVERED]     = SPEC_GIANT,
+      [__builtin_ctzll(SPEC_FEAR)]        = SPEC_ROTTING,
+      [__builtin_ctzll(SPEC_AVOID)]       = SPEC_HUMAN | SPEC_ELF | SPEC_SKELETAL,
+      [__builtin_ctzll(SPEC_INDIF)]       = SPEC_SULKING | SPEC_ARCHAIN,
+      [__builtin_ctzll(SPEC_HOSTILE)]     = SPEC_ARTHROPOD,
+      [__builtin_ctzll(SPEC_CAUT)]        = SPEC_CANIFORM | SPEC_ETHEREAL | SPEC_VAMPIRIC,
+      [__builtin_ctzll(SPEC_HUNTS)]       = SPEC_RUMINANT | SPEC_RODENT,
+      [__builtin_ctzll(SPEC_FRIEND)]      = SPEC_ORC | SPEC_GOBLINOID,
+      [__builtin_ctzll(SPEC_REVERED)]     = SPEC_GIANT,
     }
   },  
   {SPEC_RODENT,
     {
-      [SPEC_FEAR]        = SPEC_CANIFORM,
-      [SPEC_AVOID]       = SPEC_HUMAN | SPEC_ELF | SPEC_SKELETAL,
-      [SPEC_INDIF]       = SPEC_ARCHAIN | SPEC_ROTTING,
-      [SPEC_CAUT]        = SPEC_RUMINANT | SPEC_GIANT | SPEC_ETHEREAL | SPEC_VAMPIRIC,
-      [SPEC_HUNTS]       = SPEC_ARTHROPOD,
-      [SPEC_FRIEND]      = SPEC_ORC | SPEC_GOBLINOID,
-      [SPEC_REVERED]     = SPEC_SULKING,
+      [__builtin_ctzll(SPEC_FEAR)]        = SPEC_CANIFORM,
+      [__builtin_ctzll(SPEC_AVOID)]       = SPEC_HUMAN | SPEC_ELF | SPEC_SKELETAL,
+      [__builtin_ctzll(SPEC_INDIF)]       = SPEC_ARCHAIN | SPEC_ROTTING,
+      [__builtin_ctzll(SPEC_CAUT)]        = SPEC_RUMINANT | SPEC_GIANT | SPEC_ETHEREAL | SPEC_VAMPIRIC,
+      [__builtin_ctzll(SPEC_HUNTS)]       = SPEC_ARTHROPOD,
+      [__builtin_ctzll(SPEC_FRIEND)]      = SPEC_ORC | SPEC_GOBLINOID,
+      [__builtin_ctzll(SPEC_REVERED)]     = SPEC_SULKING,
     }
   },    
   {SPEC_RUMINANT,
     {
-      [SPEC_FEAR]        = SPEC_CANIFORM | SPEC_VAMPIRIC | SPEC_SULKING | SPEC_ORC | SPEC_GOBLINOID,
-      [SPEC_AVOID]       = SPEC_HUMAN | SPEC_SKELETAL | SPEC_ARTHROPOD,
-        [SPEC_INDIF]       = SPEC_ARCHAIN | SPEC_ROTTING,
-        [SPEC_CAUT]        = SPEC_RODENT | SPEC_GIANT | SPEC_ETHEREAL,
-        [SPEC_FRIEND]      = SPEC_ELF,
+      [__builtin_ctzll(SPEC_FEAR)]        = SPEC_CANIFORM | SPEC_VAMPIRIC | SPEC_SULKING | SPEC_ORC | SPEC_GOBLINOID,
+      [__builtin_ctzll(SPEC_AVOID)]       = SPEC_HUMAN | SPEC_SKELETAL | SPEC_ARTHROPOD,
+        [__builtin_ctzll(SPEC_INDIF)]       = SPEC_ARCHAIN | SPEC_ROTTING,
+        [__builtin_ctzll(SPEC_CAUT)]        = SPEC_RODENT | SPEC_GIANT | SPEC_ETHEREAL,
+        [__builtin_ctzll(SPEC_FRIEND)]      = SPEC_ELF,
       }
     },  
     {SPEC_SULKING,
       {
-        [SPEC_FEAR]       = SPEC_GIANT | SPEC_ROTTING | SPEC_VAMPIRIC,
-        [SPEC_AVOID]      = SPEC_CANIFORM,
-        [SPEC_HOSTILE]    = SPEC_HUMAN | SPEC_ELF,    
-        [SPEC_CAUT]       = SPEC_ARCHAIN,     
-        [SPEC_HUNTS]      = SPEC_SKELETAL | SPEC_RUMINANT | SPEC_ARTHROPOD,       [SPEC_FRIEND]     = SPEC_ORC | SPEC_GOBLINOID, 
-        [SPEC_REVERED]  = SPEC_RODENT,
+        [__builtin_ctzll(SPEC_FEAR)]       = SPEC_GIANT | SPEC_ROTTING | SPEC_VAMPIRIC,
+        [__builtin_ctzll(SPEC_AVOID)]      = SPEC_CANIFORM,
+        [__builtin_ctzll(SPEC_HOSTILE)]    = SPEC_HUMAN | SPEC_ELF,    
+        [__builtin_ctzll(SPEC_CAUT)]       = SPEC_ARCHAIN,     
+        [__builtin_ctzll(SPEC_HUNTS)]      = SPEC_SKELETAL | SPEC_RUMINANT | SPEC_ARTHROPOD,
+        [__builtin_ctzll(SPEC_FRIEND)]     = SPEC_ORC | SPEC_GOBLINOID, 
+        [__builtin_ctzll(SPEC_REVERED)]  = SPEC_RODENT,
       }
     }   
 };
@@ -973,7 +974,7 @@ bool StatChangeValue(struct ent_s* owner, stat_t* s, float val){
     return false;
 
   if(s->need>N_NONE)
-    NeedIncrement(s->need, s->owner, val);
+    NeedIncrement(owner->needs[s->need], s->owner, val);
 
   if(s->on_stat_change != NULL)
     s->on_stat_change(s,old, cur);
@@ -1151,7 +1152,7 @@ bool SkillUseSecondary(skill_t* self, int gain, InteractResult result){
   
 }
  
-bool SkillUse(skill_t* self, int source, int target, int gain, InteractResult result){
+bool SkillUse(skill_t* self, uint64_t source, uint64_t target, int gain, InteractResult result){
 
   define_skill_rank_t r = SKILL_RANKS[SkillRankGet(self)];
   gain-=r.penalty;
@@ -1330,7 +1331,7 @@ bool SkillIncrease(struct skill_s* s, int amnt){
 
   s->threshold+= 100/s->val;
   
-  TraceLog(LOG_INFO,"%s has reached %s rank %i",s->owner->name, SKILL_NAMES[s->id], s->val);
+  //TraceLog(LOG_INFO,"%s has reached %s rank %i",s->owner->name, SKILL_NAMES[s->id], s->val);
   if(s->on_skill_up)
     s->on_skill_up(s,old,s->val);
 
@@ -1461,9 +1462,7 @@ void NeedFulfill(need_t* n, int amount){
   n->activity = true;
 }
 
-void NeedIncrement(Needs id, ent_t* owner, int amount){
-  need_t* n = owner->control->needs[id];
-
+void NeedIncrement(need_t *n, ent_t* owner, int amount){
   NeedSyncMeter(n, amount);
   
 }

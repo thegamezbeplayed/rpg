@@ -130,4 +130,13 @@ static inline bool is_perfect_square(int n) {
     int r = (int)sqrt((double)n);
     return r * r == n;
 }
+
+static inline float f_safe_divide(int a, int b){
+  if(a == 0 || b == 0)
+    return -1;
+
+  float af = a*1.0f;
+  float bf = b*1.0f;
+  return (float)(af/bf);
+}
 #endif

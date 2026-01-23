@@ -1,5 +1,7 @@
 #include "game_utils.h"
 
+static decision_pool_t* g_sort_decisions;
+
 choice_pool_t* StartChoice(choice_pool_t** pool, int size, ChoiceFn fn, bool* result){
   if(*pool==NULL){
     *pool = InitChoicePool(size, fn);
@@ -201,6 +203,9 @@ choice_t* ChooseBest(choice_pool_t* pool){
     best = c->score;
   }
 
+  if(best_index < 0)
+    return NULL;
+  
   choice_t* out = pool->choices[best_index];
   if(pool->choices[best_index]->cb)
     pool->choices[best_index]->cb(pool,pool->choices[best_index]);
@@ -327,4 +332,247 @@ choice_t* ChooseByWeightInBudget(choice_pool_t* pool){
   }
 
   return NULL;
+}
+
+void DecisionsEnsureCap(decision_pool_t* t){
+  if (t->count < t->cap)
+    return;
+
+  size_t new_cap = next_pow2_int(t->cap + 1);
+
+  decision_t* new_entries =
+    realloc(t->entries, new_cap * sizeof(decision_t));
+
+  if (!new_entries) {
+    // Handle failure explicitly
+    //TraceLog(LOG_WARNING,"==== LOCAL CONTEXT ERROR ===\n REALLOC FAILED");
+  }
+
+  t->entries = new_entries;
+  t->cap = new_cap;
+
+}
+
+decision_pool_t* InitDecisionPool(int size, ent_t* e, EntityState id){
+  decision_pool_t* t = calloc(1,sizeof(decision_pool_t));
+  int cap = next_pow2_int(size);
+  t->owner = e;
+  t->id = id;
+  t->cap = cap;
+  t->entries = calloc(size, sizeof(decision_t));
+  HashInit(&t->map, cap*2);
+
+  return t; 
+}
+
+decision_pool_t* StartDecision(decision_pool_t** pool, int size, ent_t* e, EntityState id, bool* result){
+
+  if(*pool==NULL){
+    *pool = InitDecisionPool(size, e, id);
+    *result = false;
+  }
+  else{
+    *result = (*pool)->cap != size;
+  }
+  return *pool;
+
+}
+
+static int DecisionCompareScoreDesc(const void* a, const void* b) {
+    int ia = *(const int*)a;
+    int ib = *(const int*)b;
+
+    const decision_t* A = &g_sort_decisions->entries[ia];
+    const decision_t* B = &g_sort_decisions->entries[ib];
+
+    if (A->score < B->score) return 1;
+    if (A->score > B->score) return -1;
+    return 0;
+}
+
+static int DecisionCompareRatioDesc(const void* a, const void* b) {
+    int ia = *(const int*)a;
+    int ib = *(const int*)b;
+
+    const decision_t* A = &g_sort_decisions->entries[ia];
+    const decision_t* B = &g_sort_decisions->entries[ib];
+
+    float arat = f_safe_divide(A->score, A->cost);
+    float brat = f_safe_divide(B->score, B->cost);
+    if (arat < brat) return 1;
+    if (arat > brat) return -1;
+    return 0;
+}
+
+static int DecisionCompareCostAsc(const void* a, const void* b) {
+    int ia = *(const int*)a;
+    int ib = *(const int*)b;
+
+    const decision_t* A = &g_sort_decisions->entries[ia];
+    const decision_t* B = &g_sort_decisions->entries[ib];
+
+    if (A->cost < B->cost) return -1;
+    if (A->cost > B->cost) return 1;
+    return 0;
+}
+
+void DecisionBuildSortedIndices(decision_pool_t* table) {
+    for (int i = 0; i < table->count; i++){
+        table->costs[i] = i;
+        table->scores[i] = i;
+        table->econ[i] = i;
+    }
+}
+
+decision_t* DecisionSortEconomic(decision_pool_t* table){
+  if (!table || table->count <= 1)
+    return 0;
+  DecisionBuildSortedIndices(table);
+
+  g_sort_decisions = table;
+
+  qsort(table->econ,
+      table->count,
+      sizeof(int),
+      DecisionCompareRatioDesc);
+
+  return &table->entries[table->econ[0]];
+
+}
+
+decision_t* DecisionSortByCost(decision_pool_t* table){
+  if (!table || table->count <= 1)
+    return 0;
+  DecisionBuildSortedIndices(table);
+
+  g_sort_decisions = table; 
+
+  qsort(table->costs,
+      table->count,
+      sizeof(int),
+      DecisionCompareCostAsc);
+
+  return &table->entries[table->costs[0]];
+}
+
+
+decision_t* DecisionSortByScore(decision_pool_t* table){
+  if (!table || table->count <= 1)
+    return 0;
+  DecisionBuildSortedIndices(table);
+
+  g_sort_decisions = table; 
+
+  qsort(table->scores,
+      table->count,
+      sizeof(int),
+      DecisionCompareScoreDesc);
+  
+  return &table->entries[table->scores[0]];
+}
+
+
+bool MakeDecision(decision_pool_t* t, DecisionSortFn fn){
+  if(!t || t->count == 0)
+    return false;
+
+  if(t->count == 1)
+    t->selected = &t->entries[0];
+  else
+    t->selected = fn(t);
+  
+  return t->selected != NULL;
+}
+
+decision_t* InitDecision(decision_pool_t* t, game_object_uid_i other){
+  if(!t)
+    return NULL;
+
+  
+  game_object_uid_i id = hash_combine_64(other, t->ouid);
+  if(DecisionGetEntry(t, id))
+    return NULL;
+
+  DecisionsEnsureCap(t);
+  decision_t* d = &t->entries[t->count++];
+
+  d->id = id;
+  d->params[ACT_PARAM_OWNER] = ParamMake(DATA_ENTITY, 0, t->owner);
+  HashPut(&t->map, id, d);
+
+  return d;
+}
+
+bool AddPriority(decision_pool_t* t, priority_t* p){
+    if (!t) return false;
+
+    decision_t *d = InitDecision(t, p->gouid);
+    if(!d)
+      return false;
+
+    d->score = p->score;
+    switch(p->method){
+      case I_FLEE:
+      case I_KILL:
+        d->state = STATE_AGGRO;
+        d->params[ACT_PARAM_TAR] = p->ctx;
+        break;
+      case I_CONSUME:
+        d->state = STATE_NEED;
+        d->params[ACT_PARAM_NEED] = p->ctx;
+        break;
+    }
+    return true;
+}
+
+bool AddDestination(decision_pool_t* t, local_ctx_t* ctx, EntityState s, Score score, Score cost){
+    decision_t *d = InitDecision(t, ctx->gouid);
+
+    if(!d)
+      return false;
+
+    d->score = ctx->scores[score];
+    d->cost = ctx->scores[cost];
+
+    param_t p = ParamMake(DATA_LOCAL_CTX, 0, ctx);
+
+    d->decision = ACTION_MOVE;
+    d->state = s;
+    d->params[ACT_PARAM_DEST] = p;
+    d->params[ACT_PARAM_INTER] = p;
+
+    return true; 
+}
+
+bool AddCandidate(decision_pool_t* t, local_ctx_t* ctx, ActionParam type, Score score, Score cost){
+    decision_t *d = InitDecision(t, ctx->gouid);
+
+    if(!d)
+      return false;
+
+    d->score = ctx->scores[score];
+    d->cost = ctx->scores[cost];
+
+    param_t p = ParamMake(DATA_LOCAL_CTX, 0, ctx);
+
+    switch (ctx->method){
+      case I_KILL:
+        d->decision = ACTION_ATTACK;
+        d->state = STATE_AGGRO;
+        d->params[ACT_PARAM_DEST] = p;
+        d->params[ACT_PARAM_TAR] = p;
+        break;
+      case I_CONSUME:
+        d->decision = ACTION_INTERACT;
+        d->state = STATE_NEED;
+        d->params[ACT_PARAM_DEST] = p;
+        d->params[ACT_PARAM_INTER] = p;
+        break;
+    }
+
+    return true; 
+}
+
+bool AddDecision(decision_pool_t* t, ActionType a){
+
 }

@@ -7,12 +7,23 @@
 #define MAX_DEBUG_ITEMS 128
 #define MAX_PLAYERS 32
 #define MAX_BEHAVIOR_TREE 12
+#define MAX_CONTEXT 8192
 #include "game_common.h"
 
 #define COMBO_KEY(a, b) ((a << 8) | b)
 #define CALL_FUNC(type, ptr, ...) ((type)(ptr))(__VA_ARGS__)
 #define MAKE_ADAPTER(name, T) \
     static void name##_Adapter(void *p) { name((T)p); }
+
+#define ParamRead(o, T) ((T*)((o)->data))
+typedef struct local_ctx_s local_ctx_t;
+typedef struct{
+  bool                initiated;
+  int                 challenge;
+  int                 offensive_rating, defensive_rating;
+  float               threat_mul, threat;
+  int                 last_turn;
+}aggro_t;
 
 typedef struct{
   game_object_uid_i gouid;
@@ -28,25 +39,18 @@ typedef struct{
 }debug_info_t;
 
 static param_t ParamMake(DataType type, size_t size, void* src) {
-    param_t o;
-    o.type_id = type;
-    switch(type){
-      case DATA_INT:
-      case DATA_FLOAT:
-      case DATA_BOOL:
-      case DATA_STRING:
-      case DATA_CELL:
-      case DATA_GOUID:
-        o.size = size;
-        o.data = malloc(size);
-        memcpy(o.data, src, size);
-        break;
-      default:
-        o.size = 0;
-        o.data = src;
-        break;
-    }
-    return o;
+  param_t o;
+  o.type_id = type;
+  o.size = size;
+  if(type < DATA_ENTITY){
+    o.data = malloc(size);
+    memcpy(o.data, src, size);
+  }
+  else{
+    o.size = 0;
+    o.data = src;
+  }
+  return o;
 }
 
 static inline param_t ParamMakePtr(DataType type, void* ptr){
@@ -54,6 +58,42 @@ static inline param_t ParamMakePtr(DataType type, void* ptr){
     .type_id = type,
     .data = ptr
   };
+}
+
+static param_t ParamClone(const param_t* src) {
+    param_t p = *src;
+
+    if (src->size > 0 && src->data) {
+        p.data = malloc(src->size);
+        memcpy(p.data, src->data, src->size);
+    }
+
+    return p;
+}
+
+static int ParamScore(DataType type, param_t *a, param_t* b){
+  assert(a->type_id == type);
+  assert(b->type_id == type);
+
+}
+
+static bool ParamCompare(param_t *a, param_t *b){
+  assert(a->type_id == b->type_id);
+
+  switch(a->type_id){
+    case DATA_BOOL:
+    case DATA_INT:
+      return (ParamRead(a, int) == ParamRead(b, int));
+      break;
+    case DATA_UINT64:
+      uint64_t aint = *ParamRead(a, uint64_t);
+      uint64_t bint = *ParamRead(b, uint64_t);
+      return (*ParamRead(a, uint64_t) & *ParamRead(b, uint64_t)) > 0;
+      break;
+
+  }
+
+  return false;
 }
 
 static inline const char* ParamReadString(param_t* o){
@@ -154,6 +194,108 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn);
 bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn);
 bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, OnChosen fn);
 bool AddFilter(choice_pool_t *pool, int id, void *ctx);
+
+typedef struct{
+  game_object_uid_i gouid;
+  Priorities        type;
+  param_t           ctx, goal;
+  Interactive       method;
+  int               score;
+  bool              prune;
+}priority_t;
+  
+typedef struct{
+  ent_t*     owner;     
+  bool       valid;     
+  int        cap, count;
+  priority_t *entries;
+}priorities_t;
+  
+priorities_t* InitPriorities(ent_t* e, int cap);
+priority_t*  PriorityAdd(priorities_t* table, Priorities type, param_t entry);
+void PrioritiesSync(priorities_t* t);
+
+typedef struct{
+  uint64_t      id;
+  ActionType    decision;
+  EntityState   state;
+  param_t       params[ACT_PARAM_ALL];
+  int           score, cost;
+}decision_t;
+
+typedef struct{
+  EntityState   id;
+  ent_t*        owner;
+  uint64_t      ouid;
+  int           count, cap;
+  int           scores[128],costs[128], econ[128];
+  decision_t    *selected;
+  decision_t*   entries;
+  hash_map_t    map;
+}decision_pool_t;
+
+typedef decision_t* (*DecisionSortFn)(decision_pool_t*);
+decision_t* DecisionSortEconomic(decision_pool_t* table);
+decision_t* DecisionSortByScore(decision_pool_t* table);
+decision_t* DecisionSortByCost(decision_pool_t* table);
+
+static decision_t* DecisionGetEntry(decision_pool_t* t, game_object_uid_i id){
+    return HashGet(&t->map, id);
+
+}
+decision_pool_t* StartDecision(decision_pool_t** pool, int size, ent_t* e, EntityState id, bool* result);
+bool AddPriority(decision_pool_t* t, priority_t*);
+bool AddDecision(decision_pool_t* t, ActionType a);
+bool AddCandidate(decision_pool_t*, local_ctx_t*, ActionParam, Score s, Score c);
+bool AddDestination(decision_pool_t*, local_ctx_t*, EntityState, Score s, Score c);
+bool MakeDecision(decision_pool_t* t, DecisionSortFn);
+decision_t* InitDecision(decision_pool_t* t, game_object_uid_i other);
+decision_pool_t* InitDecisionPool(int size, ent_t* e, EntityState id);
+
+struct local_ctx_s{
+  param_t             other, need;
+  path_cache_entry_t* path;
+  game_object_uid_i   puid;
+  game_object_uid_i   gouid;
+  aggro_t*            aggro;
+  param_t             params[ACT_PARAM_ALL];
+  int                 scores[SCORE_ALL];
+  uint64_t            resource;
+  Cell                pos;
+  ActionType          how_to;
+  Interactive         method;
+  bool                valid, prune;
+  float               awareness;
+  float               treatment[TREAT_DONE];
+  int                 prio, dist, index;
+  uint32_t            ctx_revision;
+  int                 last_update;
+};
+
+typedef struct{
+  ent_t*             owner;
+  bool               valid;
+  local_ctx_t*       entries;
+  int                count,cap;
+  choice_pool_t*     choice_pool;
+  int                sorted_indices[MAX_CONTEXT];
+  hash_map_t         ctx_by_gouid;
+  int                last_update;
+}local_table_t;
+
+local_table_t* InitLocals(ent_t* e, int cap);
+local_ctx_t* MakeLocalContext(local_table_t* s, param_t* e, Cell p);
+void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx);
+void LocalSync(local_table_t* s, bool sort);
+bool LocalCheck(local_ctx_t* ctx);
+void LocalPruneCtx(local_table_t* t, game_object_uid_i other);
+int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_t filter, ActionParam type);
+void LocalSortByDist(local_table_t* table);
+int LocalAddAggro(local_table_t* t, ent_t* e, int threat, float mul, bool init);
+aggro_t* LocalGetAggro(local_table_t* table, game_object_uid_i other);
+local_ctx_t* LocalGetThreat(local_table_t* t);
+local_ctx_t* LocalGetEntry(local_table_t* table, game_object_uid_i other);
+void LocalSetPath(ent_t* e, local_ctx_t* dest);
 //<===BEHAVIOR TREES
 
 //forward declare
@@ -171,7 +313,8 @@ typedef enum{
   BT_LEAF,
   BT_SEQUENCE,
   BT_SELECTOR,
-  BT_CONCURRENT
+  BT_CONCURRENT,
+  BT_DECIDER,
 }BehaviorTreeType;
 
 typedef struct {
@@ -188,8 +331,8 @@ typedef BehaviorStatus (*BehaviorTreeTickFunc)(struct behavior_tree_node_s* self
 
 typedef struct behavior_params_s{
   struct ent_s*         owner;
-  EntityState           state;
-  ActionType            action;
+  EntityState           state, o_state;
+  ActionType            action, o_action;
 }behavior_params_t;
 
 struct behavior_tree_node_s *BuildTreeNode(BehaviorID id, behavior_params_t* parent_params);
@@ -231,64 +374,34 @@ behavior_tree_node_t* BehaviorCreateSelector(behavior_tree_node_t **children, in
 behavior_tree_node_t* BehaviorCreateConcurrent(behavior_tree_node_t **children, int count);
 
 BehaviorStatus BehaviorChangeState(behavior_params_t *params);
-BehaviorStatus BehaviorClearState(behavior_params_t *params);
-BehaviorStatus BehaviorMoveToTarget(behavior_params_t *params);
 BehaviorStatus BehaviorCheckAggro(behavior_params_t *params);
-BehaviorStatus BehaviorCheckTarget(behavior_params_t *params);
-BehaviorStatus BehaviorCheckPriority(behavior_params_t *params);
 BehaviorStatus BehaviorGetPriority(behavior_params_t *params);
-BehaviorStatus BehaviorCheckAbilities(behavior_params_t *params);
-BehaviorStatus BehaviorCheckInventory(behavior_params_t *params);
-BehaviorStatus BehaviorCheckSenses(behavior_params_t *params);
-BehaviorStatus BehaviorMoveToDestination(behavior_params_t *params);
+BehaviorStatus BehaviorCheckReady(behavior_params_t *params);
+BehaviorStatus BehaviorCheckRange(behavior_params_t *params);
 BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params);
-BehaviorStatus BehaviorAcquireTarget(behavior_params_t *params);
-BehaviorStatus BehaviorTargetGoal(behavior_params_t *params);
-BehaviorStatus BehaviorCanAttackTarget(behavior_params_t *params);
-BehaviorStatus BehaviorCheckTurn(behavior_params_t *params);
 BehaviorStatus BehaviorAttackTarget(behavior_params_t *params);
-BehaviorStatus BehaviorCombatCheck(behavior_params_t *params);
 BehaviorStatus BehaviorTakeTurn(behavior_params_t *params);
-BehaviorStatus BehaviorCheckNeeds(behavior_params_t *params);
-BehaviorStatus BehaviorCheckNeed(behavior_params_t *params);
+BehaviorStatus BehaviorFillNeed(behavior_params_t *params);
 BehaviorStatus BehaviorFindResource(behavior_params_t *params);
-BehaviorStatus BehaviorFindSafe(behavior_params_t *params);
 BehaviorStatus BehaviorSeekResource(behavior_params_t *params);
-BehaviorStatus BehaviorTrackResource(behavior_params_t *params);
 BehaviorStatus BehaviorCheckResource(behavior_params_t *params);
 BehaviorStatus BehaviorAcquireResource(behavior_params_t *params);
-BehaviorStatus BehaviorFillNeeds(behavior_params_t *params);
-BehaviorStatus BehaviorBuildAwareness(behavior_params_t *params);
+BehaviorStatus BehaviorExecuteDecision(behavior_params_t *params);
 
-static inline behavior_tree_node_t* LeafClearState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorClearState,params); }
 static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeState,params); }
-static inline behavior_tree_node_t* LeafMoveToTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToTarget,params); }
-static inline behavior_tree_node_t* LeafCheckAbilities(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAbilities,params); }
+static inline behavior_tree_node_t* LeafCheckReady(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckReady,params); }
+static inline behavior_tree_node_t* LeafCheckRange(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckRange,params); }
 static inline behavior_tree_node_t* LeafCheckAggro(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAggro,params); }
-static inline behavior_tree_node_t* LeafCheckTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckTarget,params); }
-static inline behavior_tree_node_t* LeafCheckPriority(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckPriority,params); }
 static inline behavior_tree_node_t* LeafGetPriority(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorGetPriority,params); }
-static inline behavior_tree_node_t* LeafCheckInventory(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckInventory,params); }
-static inline behavior_tree_node_t* LeafCheckSenses(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckSenses,params); }
-static inline behavior_tree_node_t* LeafMoveToDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorMoveToDestination,params); }
 static inline behavior_tree_node_t* LeafAcquireDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireDestination,params); }
-static inline behavior_tree_node_t* LeafAcquireTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireTarget,params); }
-static inline behavior_tree_node_t* LeafTargetGoal(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorTargetGoal,params); }
-static inline behavior_tree_node_t* LeafCanAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCanAttackTarget,params); }
-static inline behavior_tree_node_t* LeafCheckTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckTurn,params); }
 static inline behavior_tree_node_t* LeafAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAttackTarget,params); }
-static inline behavior_tree_node_t* LeafCombatCheck(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCombatCheck,params); }
 static inline behavior_tree_node_t* LeafTakeTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorTakeTurn,params); }
-static inline behavior_tree_node_t* LeafCheckNeeds(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckNeeds,params); }
-static inline behavior_tree_node_t* LeafCheckNeed(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckNeed,params); }
+static inline behavior_tree_node_t* LeafFillNeed(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorFillNeed,params); }
 static inline behavior_tree_node_t* LeafFindResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorFindResource,params); }
-static inline behavior_tree_node_t* LeafFindSafe(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorFindSafe,params); }
 static inline behavior_tree_node_t* LeafAcquireResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireResource,params); }
 static inline behavior_tree_node_t* LeafCheckResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckResource,params); }
 static inline behavior_tree_node_t* LeafSeekResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorSeekResource,params); }
-static inline behavior_tree_node_t* LeafTrackResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorTrackResource,params); }
-static inline behavior_tree_node_t* LeafFillNeeds(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorFillNeeds,params); }
-static inline behavior_tree_node_t* LeafBuildAwareness(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorBuildAwareness,params); }
+static inline behavior_tree_node_t* LeafExecuteDecision(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorExecuteDecision,params); }
 
 
 

@@ -58,7 +58,7 @@ struct action_s{
   ActionStatus    status;
   TurnPhase       phase;
   ent_t*          owner;
-  param_t         ctx;
+  param_t         params[ACT_PARAM_ALL];
   int             initiative;
   int             turn, weight, score;
   ActionFn        fn;
@@ -91,13 +91,10 @@ typedef struct{
   action_round_t  round[TURN_ALL];
 }turn_action_manager_t;
 
+BehaviorStatus ActionExecute(decision_t*, ActionType);
 void InitActionManager(void);
 void InitActions(action_turn_t* actions[ACTION_DONE]);
 bool ActionHasStatus(action_pool_t* p, ActionStatus s);
-action_t* InitActionFulfill(ent_t* e, ActionCategory cat, need_t* n, int weight);
-action_t* InitActionAttack(ent_t* e, ActionCategory cat, param_t tar, int weight);
-action_t* InitActionMove(ent_t* e, ActionCategory cat, Cell dest, int weight);
-action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, param_t ctx, int weight);
 action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap);
 
 ActionStatus QueueAction(action_pool_t *p, action_t* t);
@@ -128,6 +125,7 @@ typedef struct{
   int           turn;
   TurnPhase     phase;
   bool          key_event;
+  decision_t*   decisions[ACTION_PASSIVE];
   action_key_t  actions[ACTION_DONE];
 }game_input_t;
 

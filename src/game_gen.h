@@ -708,8 +708,10 @@ typedef struct {
 typedef uint64_t path_cache_uid_i;
 typedef struct {
   path_cache_uid_i  guid;
+  path_cache_uid_i  puid;
   bool              valid;
   int               sx, sy, tx, ty, cost, length;
+  Cell              next;
   Cell              path[MAX_PATH_LEN];
   uint32_t          navRevision;
 } path_cache_entry_t;
@@ -740,8 +742,9 @@ path_result_t* FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *out
 static path_result_t* FindPathCell(map_grid_t *m, Cell sc, Cell tc, Cell *out, int depth){
   return FindPath(m, sc.x, sc.y, tc.x, tc.y, out, depth);
 }
-
+path_cache_entry_t* PathCacheFindRoute(ent_t* e, local_ctx_t* dest);
 path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* result);
+int RouteScore(ent_t* e, path_cache_entry_t* route);
 Cell RouteGetNext(ent_t* e, path_cache_entry_t* route);
 bool HasLOS(map_grid_t* m, Cell c0, Cell c1);
 void CastLight(map_grid_t *m, Cell pos, int row, float start, float end, int radius,int xx, int xy, int yx, int yy);

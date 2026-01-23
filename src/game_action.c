@@ -134,14 +134,14 @@ bool ActionHasStatus(action_pool_t* p, ActionStatus s){
 }
 
 ActionStatus ActionAttack(action_t* a){
-  if(a->ctx.type_id != DATA_ENTITY)
+  if(a->params[ACT_PARAM_TAR].type_id != DATA_ENTITY)
     a->status = ACT_STATUS_BAD_DATA;
 
   bool prepared = false;
   ability_t* ab;
   ent_t* tar = NULL;
   if(a->status == ACT_STATUS_RUNNING){
-    tar = ParamReadEnt(&a->ctx);
+    tar = ParamReadEnt(&a->params[ACT_PARAM_TAR]);
 
     if(tar)
       prepared = EntPrepareAttack(a->owner, tar, &ab);
@@ -161,12 +161,12 @@ ActionStatus ActionInteract(action_t* a){
   InteractResult res = IR_NONE;
 
   ActionStatus status = ACT_STATUS_ERROR;
-  switch(a->ctx.type_id){
-    case DATA_NEED:
-      need_t* n = ParamReadNeed(&a->ctx);
-      res = EntMeetNeed(a->owner, n);
-      status = ACT_STATUS_TAKEN;
-      break;
+  param_t p = a->params[ACT_PARAM_NEED];
+  param_t g = a->params[ACT_PARAM_INTER];
+  if(p.type_id == DATA_NEED){
+    need_t* n = ParamReadNeed(&p);
+    res = EntMeetNeed(a->owner, n, g);
+    status = ACT_STATUS_TAKEN;
   }
 
   a->status = status;
@@ -176,16 +176,20 @@ ActionStatus ActionInteract(action_t* a){
 
 
 ActionStatus ActionMove(action_t* a){
-  if(a->ctx.type_id != DATA_CELL)
-    return ACT_STATUS_BAD_DATA;
+  param_t p = a->params[ACT_PARAM_STEP];
 
-  Cell dest = ParamReadCell(&a->ctx);
+  if(p.type_id != DATA_CELL)
+    a->status = ACT_STATUS_BAD_DATA;
+    
+  if(a->status != ACT_STATUS_RUNNING)
+    return a->status;
+
+  Cell dest = ParamReadCell(&p);
   TileStatus tstat = EntGridStep(a->owner,dest);
   if(tstat >= TILE_ISSUES)
     a->status = ACT_STATUS_BLOCK;
   else
     a->status = ACT_STATUS_TAKEN;
-
   return a->status;
 }
 
@@ -341,17 +345,16 @@ void ActionManagerSync(void){
   InputSync(ActionMan.phase, ActionMan.turn);
 }
 
-action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, param_t ctx, int weight){
+action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, uint64_t gouid, int weight){
   action_t* a = calloc(1, sizeof(action_t));
 
-  uint64_t id = hash_combine_64(e->gouid, ctx.gouid);
+  uint64_t id = hash_combine_64(gouid, cat*100 +type);
 
   *a = (action_t) {
     .owner = e,
       .id = id,
       .type = type,
       .cat = cat,
-      .ctx = ctx,
       .weight = weight,
       .score = weight,
       .turn  = ActionMan.turn,
@@ -361,51 +364,55 @@ action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, param_t ctx,
   return a;
 }
 
-action_t* InitActionAttack(ent_t* e, ActionCategory cat, param_t tar, int weight){
-    action_t* a = InitAction(e, ACTION_ATTACK, cat, tar, weight);
+action_t* InitActionByDecision(decision_t* d){
+  if(d->params[ACT_PARAM_OWNER].type_id != DATA_ENTITY)
+    return NULL;
 
-    a->fn = ActionAttack;
+  ent_t* e = ParamReadEnt(&d->params[ACT_PARAM_OWNER]);
 
-    a->cb = StepState_Adapter;
-    return a;
-}
+  action_t* a = InitAction(e, d->decision, ACT_MAIN, d->id, d->score);
 
-action_t* InitActionFulfill(ent_t* e, ActionCategory cat, need_t* n, int weight){
+  memcpy(a->params, d->params, ACT_PARAM_ALL * sizeof(param_t));
+  switch(d->decision){
+    case ACTION_MOVE:
+      if(a->params[ACT_PARAM_STEP].type_id != DATA_CELL){
+        local_ctx_t* dest = ParamReadCtx(&a->params[ACT_PARAM_DEST]);
+        if(dest->path == NULL)
+          return NULL;
 
+        Cell step = CellSub(e->pos,dest->path->next);
+        a->params[ACT_PARAM_STEP] =  ParamMake(DATA_CELL, sizeof(Cell),
+            &step);
 
-  param_t ctx = ParamMake(DATA_NEED, sizeof(need_t), n);
-  action_t* a = InitAction(e, ACTION_INTERACT, cat, ctx, weight);
+        path_cache_entry_t* test = PathCacheFindRoute(e, dest);
 
-  a->fn = ActionInteract;
-  a->cb = StepState_Adapter;
-
+        DO_NOTHING();
+      }
+      a->fn = ActionMove;
+      break;
+    case ACTION_ATTACK:
+      a->fn = ActionAttack;
+      break;
+    case ACTION_INTERACT:
+      a->fn = ActionInteract;
+      break;
+  }
   return a;
 }
 
-action_t* InitActionInteract(ent_t* e, ActionCategory cat, local_ctx_t* ctx, int weight){
-  
+BehaviorStatus ActionExecute(decision_t* d, ActionType t){
+  action_t* a = InitActionByDecision(d);
+  if(t!= ACTION_NONE)
+    a->type = t;
 
-  uint64_t id = hash_combine_64(e->gouid, ctx->gouid);
+  ActionStatus status = ACT_STATUS_ERROR;
+  if(a)
+    status = QueueAction(a->owner->control->actions, a);
 
+  if(status == ACT_STATUS_QUEUED)
+    return BEHAVIOR_SUCCESS;
 
-  action_t* a = InitAction(e,  ACTION_MOVE, cat, ctx->other, weight);
-  
-  a->fn = ActionInteract;
-
-  a->cb = StepState_Adapter;
-  return a;
-}
-
-action_t* InitActionMove(ent_t* e, ActionCategory cat, Cell dest, int weight){
-
-  int id = IntGridIndex(dest.x, dest.y);
-
-  param_t ctx = ParamMake(DATA_CELL, sizeof(Cell), &dest);
-
-  ctx.gouid = id;
-  action_t* a = InitAction(e, ACTION_MOVE, cat, ctx, weight);
-
-  a->fn = ActionMove;
+  return BEHAVIOR_FAILURE;
 }
 
 action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap){
@@ -873,6 +880,9 @@ priority_t* PriorityAdd(priorities_t* t, Priorities type, param_t entry){
     case PRIO_FLEE:
       method = I_FLEE;
       break;
+    case PRIO_NEEDS:
+      method = I_CONSUME;
+      break;
   }
 
   PrioritiesEnsureCap(t);
@@ -899,13 +909,14 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
   game_object_uid_i gouid = ParamReadGOUID(&p->ctx);
 
   local_ctx_t *l = LocalGetEntry(e->local, gouid);
-  if(l->other.type_id != DATA_ENTITY)
+  if(!l || l->other.type_id != DATA_ENTITY)
     return false;
 
   int score = p->score;
   if(l->awareness == 0)
     return p->score == 0;
 
+  int cr = l->scores[SCORE_CR];
   float flee = l->awareness;
   float engage = l->awareness;
 
@@ -932,8 +943,8 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
     }
   }
 
-  flee *= (l->cr - e->props->cr);
-  engage -= l->awareness * (e->props->cr - l->cr);
+  flee *= (cr - e->props->cr);
+  engage -= l->awareness * (e->props->cr - cr);
 
   switch(p->type){
     case PRIO_FLEE:
@@ -983,7 +994,7 @@ void PrioritizePriorities(priorities_t* t){
 
 void PrioritiesSync(priorities_t* t){
   bool changes = !t->valid;
-  for (int i = 0; i < t->count; i++){
+  for (int i = 0; i < t->count;){
     priority_t* p = &t->entries[i];
     if(!p || p->prune){
       PriorityPrune(t, i);
@@ -991,6 +1002,7 @@ void PrioritiesSync(priorities_t* t){
       continue;
     }
 
+    i++;
     switch(p->ctx.type_id){
       case DATA_NEED:
         need_t* n = ParamReadNeed(&p->ctx);
