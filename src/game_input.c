@@ -53,7 +53,8 @@ BehaviorStatus InputActionMove(action_key_t akey, KeyboardKey k){
   param_t p = ParamMake(DATA_CELL, sizeof(Cell), &dir);
 
   player_input.decisions[ACTION_MOVE]->params[ACT_PARAM_STEP] = p;
-  return ActionExecute(player_input.decisions[ACTION_MOVE], ACTION_MOVE); 
+  action_t* a;
+  return ActionExecute(player_input.decisions[ACTION_MOVE], ACTION_MOVE, &a); 
 }
 
 action_t* InputActionAttack(action_key_t akey){

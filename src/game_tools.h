@@ -72,6 +72,7 @@ void HashFree(hash_map_t* m);
 void* HashGet(hash_map_t* m, hash_key_t key);
 void HashPut(hash_map_t* m, hash_key_t key, void* value);
 void HashRemove(hash_map_t* m, hash_key_t key);
+void HashExpand(hash_map_t* m);
 
 static inline uint64_t Hash64(uint64_t x) {
     x ^= x >> 33;

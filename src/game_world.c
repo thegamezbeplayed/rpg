@@ -10,7 +10,7 @@ game_process_t game_process;
 TreeCacheEntry tree_cache[18] = {0};
 int tree_cache_count = 0;
 ent_t* player = {0};
-static world_t world;
+world_t world;
 
 void WorldEvent(EventType type, void* data, uint64_t uid){
   event_t event = {
@@ -478,11 +478,17 @@ void WorldPreUpdate(){
 
   TurnPhase p = ActionManagerPreSync();
     
+  int states[STATE_END+1] = {0};
 
   for(int i = 0; i < world.num_ent; i++){
+    if(p == TURN_END)
+      states[world.ents[i]->state]++;
     EntControlStep(world.ents[i], world.ctx->turn, p);
   }
-  
+ 
+  if(p == TURN_END) 
+  for (int i = 0; i < 1 + STATE_END; i++)
+   TraceLog(LOG_INFO, "%i ents in state %s", states[i], STATE_STRING[i]); 
 }
 
 void WorldFixedUpdate(){

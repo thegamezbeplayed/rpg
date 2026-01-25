@@ -229,12 +229,16 @@ void ActionManagerRunQueue(TurnPhase phase){
   ActionRoundSort(phase,count);
 
   for (int i = 0; i < count; i++){
-    ActionStatus res = ActionRun(ActionMan.round[phase].entries[i]);
+    action_t* a = ActionMan.round[phase].entries[i];
+    ActionStatus res = ActionRun(a);
     switch(res){
       case ACT_STATUS_INVALID:
       case ACT_STATUS_MISQUEUE:
       case ACT_STATUS_BAD_DATA:
-        
+        break;
+      case ACT_STATUS_TAKEN:
+        WorldEvent(EVENT_ACT_TAKEN, a, a->id);
+        break;
     }
   }
 }
@@ -246,7 +250,7 @@ bool ActionTurnStep(TurnPhase phase){
   if(ActionMan.phase != TURN_STANDBY && phase == TURN_STANDBY){
     ActionMan.phase = TURN_STANDBY;
 
-    return true;;
+    return true;
   }
 
   if(ActionMan.next < TURN_END){
@@ -372,7 +376,9 @@ action_t* InitActionByDecision(decision_t* d){
 
   action_t* a = InitAction(e, d->decision, ACT_MAIN, d->id, d->score);
 
-  memcpy(a->params, d->params, ACT_PARAM_ALL * sizeof(param_t));
+  for(int i = 0; i < ACT_PARAM_ALL; i++){
+    a->params[i] = ParamClone(&d->params[i]);
+  }
   switch(d->decision){
     case ACTION_MOVE:
       if(a->params[ACT_PARAM_STEP].type_id != DATA_CELL){
@@ -380,12 +386,14 @@ action_t* InitActionByDecision(decision_t* d){
         if(dest->path == NULL)
           return NULL;
 
-        Cell step = CellSub(e->pos,dest->path->next);
+        Cell next = RouteGetNext(e, dest->path);
+        Cell step = cell_dir(e->pos,next);
         a->params[ACT_PARAM_STEP] =  ParamMake(DATA_CELL, sizeof(Cell),
             &step);
 
         path_cache_entry_t* test = PathCacheFindRoute(e, dest);
 
+        if(CELL_LEN(step) == 0 || CELL_LEN(step)>1)
         DO_NOTHING();
       }
       a->fn = ActionMove;
@@ -400,7 +408,7 @@ action_t* InitActionByDecision(decision_t* d){
   return a;
 }
 
-BehaviorStatus ActionExecute(decision_t* d, ActionType t){
+BehaviorStatus ActionExecute(decision_t* d, ActionType t, action_t** out){
   action_t* a = InitActionByDecision(d);
   if(t!= ACTION_NONE)
     a->type = t;
@@ -409,6 +417,7 @@ BehaviorStatus ActionExecute(decision_t* d, ActionType t){
   if(a)
     status = QueueAction(a->owner->control->actions, a);
 
+  *out = a;
   if(status == ACT_STATUS_QUEUED)
     return BEHAVIOR_SUCCESS;
 

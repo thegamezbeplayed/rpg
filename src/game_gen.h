@@ -716,6 +716,13 @@ typedef struct {
   uint32_t          navRevision;
 } path_cache_entry_t;
 
+typedef struct{
+  int                 count, cap;
+  path_cache_entry_t  *entries;
+} path_pool_t;
+
+path_pool_t* InitPathPool(int cap);
+
 typedef struct {
   bool  found;
   int   cost;
@@ -732,7 +739,6 @@ static inline int Heuristic(int x1, int y1, int x2, int y2) {
 }
 
 static path_node_t nodes[GRID_WIDTH][GRID_HEIGHT];
-static path_cache_entry_t pathCache[MAX_CACHED_PATHS];
 static path_cache_entry_t pathCacheTmp[MAX_CACHED_PATHS];
 path_cache_entry_t* PathCacheFind(int sx, int sy, int tx, int ty);
 

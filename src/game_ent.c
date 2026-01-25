@@ -1258,6 +1258,10 @@ int EntConsume(ent_t* e, param_t goal, Resource res){
 
   int consumed = 0;
   switch(goal.type_id){
+    case DATA_LOCAL_CTX:
+      local_ctx_t* ctx = ParamReadCtx(&goal);
+      return EntConsume(e, ctx->other, res);
+      break;
     case DATA_ENTITY:
       break;
     case DATA_ENV:
@@ -1713,6 +1717,9 @@ TileStatus EntGridStep(ent_t *e, Cell step){
   
   TileStatus status = MapSetOccupant(e->map,e,newPos);
 
+  if(cell_compare(newPos,e->pos))
+    DO_NOTHING();
+
   if(status < TILE_ISSUES){
     map_cell_t* mc = &e->map->tiles[newPos.x][newPos.y];
     if(mc){
@@ -1724,7 +1731,7 @@ TileStatus EntGridStep(ent_t *e, Cell step){
     //WorldDebugCell(e->pos, YELLOW);
     e->pos = newPos;
     e->old_pos = oldPos;
-
+    TraceLog(LOG_INFO,"%s steps %i, %i", e->name, newPos.x - oldPos.x, newPos.y- oldPos.y);
     e->facing = CellInc(e->pos,step);
     //WorldDebugCell(e->pos, GREEN);
   }
@@ -2214,5 +2221,5 @@ int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]){
 
   param_t f = ParamMake(DATA_UINT64, sizeof(res), &res);
 
-  return LocalContextFilter(e->local, num, pool, f, ACT_PARAM_RES);
+  return LocalContextFilter(e->local, num, pool, f, PARAM_RESOURCE);
 }

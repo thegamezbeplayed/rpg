@@ -1,4 +1,5 @@
 #include "game_utils.h"
+#include "game_control.h"
 
 static decision_pool_t* g_sort_decisions;
 
@@ -351,6 +352,8 @@ void DecisionsEnsureCap(decision_pool_t* t){
   t->entries = new_entries;
   t->cap = new_cap;
 
+  if(t->map.count * 4 >= t->map.cap *3)
+    HashExpand(&t->map);
 }
 
 decision_pool_t* InitDecisionPool(int size, ent_t* e, EntityState id){
@@ -487,12 +490,14 @@ bool MakeDecision(decision_pool_t* t, DecisionSortFn fn){
 decision_t* InitDecision(decision_pool_t* t, game_object_uid_i other){
   if(!t)
     return NULL;
-
   
   game_object_uid_i id = hash_combine_64(other, t->ouid);
-  if(DecisionGetEntry(t, id))
-    return NULL;
+  decision_t* exists = DecisionGetEntry(t, id);
+  if(exists)
+    return exists;
 
+  if(t->count >= 128)
+    DO_NOTHING();
   DecisionsEnsureCap(t);
   decision_t* d = &t->entries[t->count++];
 
@@ -526,22 +531,24 @@ bool AddPriority(decision_pool_t* t, priority_t* p){
 }
 
 bool AddDestination(decision_pool_t* t, local_ctx_t* ctx, EntityState s, Score score, Score cost){
-    decision_t *d = InitDecision(t, ctx->gouid);
+  if(!ctx->path)
+    return false;
+  decision_t *d = InitDecision(t, ctx->gouid);
 
-    if(!d)
-      return false;
+  if(!d)
+    return false;
 
-    d->score = ctx->scores[score];
-    d->cost = ctx->scores[cost];
+  d->score = ctx->scores[score];
+  d->cost = ctx->scores[cost];
 
-    param_t p = ParamMake(DATA_LOCAL_CTX, 0, ctx);
+  param_t p = ParamMake(DATA_LOCAL_CTX, 0, ctx);
 
-    d->decision = ACTION_MOVE;
-    d->state = s;
-    d->params[ACT_PARAM_DEST] = p;
-    d->params[ACT_PARAM_INTER] = p;
+  d->decision = ACTION_MOVE;
+  d->state = s;
+  d->params[ACT_PARAM_DEST] = p;
+  d->params[ACT_PARAM_INTER] = p;
 
-    return true; 
+  return true; 
 }
 
 bool AddCandidate(decision_pool_t* t, local_ctx_t* ctx, ActionParam type, Score score, Score cost){
@@ -574,5 +581,23 @@ bool AddCandidate(decision_pool_t* t, local_ctx_t* ctx, ActionParam type, Score 
 }
 
 bool AddDecision(decision_pool_t* t, ActionType a){
+
+}
+
+void OnDecisionAction(EventType event, void* data, void* user){
+  decision_pool_t* pool = user;
+  action_t* action = data;
+
+  switch(event){
+    case EVENT_ACT_TAKEN:
+      pool->status = ACT_STATUS_TAKEN;
+      if(pool->selected)
+        pool->selected->status = 0;
+
+      pool->selected = NULL;
+      break;
+  }
+
+
 
 }

@@ -29,9 +29,39 @@ void* HashGet(hash_map_t* m, hash_key_t key) {
     return NULL;
 }
 
-void HashPut(hash_map_t* m, hash_key_t key, void* value) {
-    assert(m->count * 2 < m->cap); // load factor < 0.5
+void HashExpand(hash_map_t* m){
+  int old_cap = m->cap;
+  size_t new_cap = old_cap * 2;
+  hash_slot_t* new_entries = calloc(new_cap, sizeof(hash_slot_t));
 
+  for (int i = 0; i < old_cap; i++) {
+    hash_slot_t* e = &m->slots[i];
+
+    if (e->state != 1)
+      continue;
+
+    uint64_t h = Hash64(e->key);
+    uint32_t mask = new_cap - 1;
+
+    size_t idx = h  & mask;
+
+    while (new_entries[idx].state == 1)
+      idx = (idx + 1) & mask;
+
+    new_entries[idx].key   = e->key;
+    new_entries[idx].value = e->value;
+    new_entries[idx].state = 1;
+  }
+
+  free(m->slots);
+  m->slots = new_entries;
+  m->cap = new_cap;
+}
+
+void HashPut(hash_map_t* m, hash_key_t key, void* value) {
+    if(m->count * 4 > m->cap*3) // load factor < 0.5
+      return;
+     
     uint64_t h = Hash64(key);
     uint32_t mask = m->cap - 1;
     hash_slot_t* tomb = NULL;

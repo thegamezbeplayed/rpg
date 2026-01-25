@@ -25,6 +25,20 @@ static faction_t FACTION_DEFS[3] = {
   }
 };
 
+static const char* STATE_STRING[STATE_END + 1]={
+  "NONE",
+  "SPAWN",
+  "IDLE",
+  "AGGRO",
+  "NEED",
+  "SELECT",
+  "DIE",
+  "DEAD",
+  "STANDBY",
+  "RETURN",
+  "END"
+};
+
 static const char* DAMAGE_STRING[DMG_DONE]={
   "Blunt",
   "Piercing",

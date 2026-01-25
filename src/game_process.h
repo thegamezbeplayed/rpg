@@ -179,6 +179,7 @@ typedef struct{
 }child_process_t;
 
 typedef struct{
+  path_pool_t*     paths;
   int              num_factions;
   faction_groups_t *factions[MAX_FACTIONS];
 }level_t;
@@ -235,6 +236,7 @@ typedef struct world_s{
   debug_info_t  debug[DEBUG_ALL][MAX_DEBUG_ITEMS];
   world_context_t  *ctx;
 } world_t;
+extern world_t world;
 
 void PrepareWorldRegistry(void);
 ent_t* WorldGetEnt(const char* name);
@@ -249,6 +251,9 @@ Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);
 map_cell_t* WorldGetTile(Cell pos);
 map_grid_t* WorldGetMap(void);
+static level_t* WorldLevel(void){
+  return world.level;
+}
 int WorldGetEnts(ent_t** results,EntFilterFn fn, param_t* ctx);
 bool WorldGetTurnState(void);
 bool WorldAddEvent(event_uid_i eid, cooldown_t* cd, StepType when);

@@ -534,6 +534,15 @@ typedef enum{
 }ActionParam;
 
 typedef enum{
+  PARAM_NONE,
+  PARAM_RESOURCE,
+  PARAM_AGGRO,
+  PARAM_RELATE,
+  PARAM_POS,
+  PARAM_ALL,
+}GameObjectParam;
+
+typedef enum{
   PRIO_NONE = -1,
   PRIO_NEEDS,
   PRIO_ENGAGE,
@@ -737,6 +746,7 @@ typedef enum{
   EVENT_DEL_LOCAL_CTX,
   EVENT_ENT_DEATH,
   EVENT_ENV_DEATH,
+  EVENT_ACT_TAKEN,
   EVENT_NONE,
   MAX_EVENTS
 } EventType;

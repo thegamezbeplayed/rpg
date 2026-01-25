@@ -108,7 +108,23 @@ BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
+  EntityState s = e->state;
 
+  bool running = false;
+  e->control->decider[s] = StartDecision(&e->control->decider[s], 32, e, s, &running);
+
+  if(!running){
+    decision_pool_t* decider = e->control->decider[s];
+    e->control->decider[s]->ouid = e->gouid;
+
+    GameObjectParam p = PARAM_AGGRO;
+    int min = 1;
+    param_t f = ParamMake(DATA_INT, sizeof(int), &min);
+    local_ctx_t* ctx_pool[32] = {0};
+
+    int count = LocalContextFilter(e->local, 32, ctx_pool, f, p);
+
+  }
   return BEHAVIOR_FAILURE;
 }
 
@@ -120,18 +136,18 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
   param_t f;
   Score stype = SCORE_CR;
   Score ctype = SCORE_PATH;
-  ActionParam p = ACT_PARAM_NONE;
+  GameObjectParam p = PARAM_NONE;
   switch(e->state){
     case STATE_IDLE:
       uint64_t dat = SPEC_RELATE_POSITIVE;
       f = ParamMake(DATA_UINT64, sizeof(uint64_t), &dat);
-      p = ACT_PARAM_REL;
+      p = PARAM_RELATE;
       break;
 
   }
 
   EntityState s = e->state;
-  if(p == ACT_PARAM_NONE)
+  if(p == PARAM_NONE)
     return BEHAVIOR_FAILURE;
 
   bool running = false;
@@ -186,6 +202,9 @@ BehaviorStatus BehaviorExecuteDecision(behavior_params_t *params){
 
   decision_t* sel = e->control->decider[e->control->next]->selected;
 
+  if(sel->status == ACT_STATUS_QUEUED)
+    return BEHAVIOR_SUCCESS;
+
   if(sel->decision == ACTION_NONE || sel->score == 0){
     if (sel->state == STATE_NONE)
       return BEHAVIOR_FAILURE;
@@ -194,7 +213,16 @@ BehaviorStatus BehaviorExecuteDecision(behavior_params_t *params){
     return BEHAVIOR_SUCCESS;
   }
 
-  return ActionExecute(sel, e->control->action);
+  action_t* a = NULL;
+
+  BehaviorStatus res = ActionExecute(sel, e->control->action, &a);
+  if(res ==BEHAVIOR_SUCCESS){
+    sel->auid = a->id;
+    sel->status = ACT_STATUS_QUEUED;
+    e->control->decider[e->control->next]->status = ACT_STATUS_QUEUED;
+    WorldTargetSubscribe(EVENT_ACT_TAKEN, OnDecisionAction, e->control->decider[e->control->next], a->id);
+  }
+  return res;
 }
 
 BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
@@ -245,11 +273,10 @@ BehaviorStatus BehaviorGetPriority(behavior_params_t *params){
     return BEHAVIOR_FAILURE;
   EntityState s = STATE_NONE;
   bool running = false;
-  e->control->decider[s] = StartDecision(&e->control->decider[s], e->control->priorities->count, e, s, &running);
+  e->control->decider[s] = StartDecision(&e->control->decider[s], 32, e, s, &running);
 
-  if(!running) 
-    for(int i = 0; i < e->control->priorities->count; i++)
-      AddPriority(e->control->decider[s], &e->control->priorities->entries[i]);
+  for(int i = 0; i < e->control->priorities->count; i++)
+    AddPriority(e->control->decider[s], &e->control->priorities->entries[i]);
 
   e->control->next = STATE_NONE;
   e->control->action = ACTION_NONE;
@@ -259,7 +286,6 @@ BehaviorStatus BehaviorGetPriority(behavior_params_t *params){
   }
 
   return BEHAVIOR_FAILURE;
-
 }
 
 BehaviorStatus BehaviorTickLeaf(behavior_tree_node_t *self, void *context) {

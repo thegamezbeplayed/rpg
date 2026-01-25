@@ -21,38 +21,34 @@ bool TileBlocksSight(map_cell_t *c) {
   return (f & TILEFLAG_SOLID) || (f & TILEFLAG_OBSTRUCT);
 }
 
-path_cache_entry_t* PathCacheFindByUID(game_object_uid_i start, game_object_uid_i end){
+path_pool_t* InitPathPool(int cap){
+  path_pool_t* p = calloc(1, sizeof(path_pool_t));
 
-   path_cache_uid_i guid = hash_combine_64(start, end);
+  *p = (path_pool_t){
+    .cap = cap,
+      .entries = calloc(cap, sizeof(path_cache_entry_t))
+  };
 
-   assert(guid != UID_INVALID );
-
-   for (int i = 0; i < MAX_CACHED_PATHS; i++){
-      path_cache_entry_t* e = &pathCache[i];
-
-      if(e->guid == guid)
-        return e;
-   }
-
-   return NULL;
+  return p;
 }
 
-path_cache_entry_t* PathCacheFindByAB(Cell start, Cell end){
+void PathsEnsureCap(path_pool_t* t){
+  if (t->count < t->cap)
+    return;
 
-   int a = IntGridIndex(start.x, start.y);
-   int b = IntGridIndex(end.x, end.y);
-   path_cache_uid_i puid = hash_combine_64(a, b);
+  size_t new_cap = t->cap + 64;
 
-   assert(puid != UID_INVALID );
+  path_cache_entry_t* new_entries =
+    realloc(t->entries, new_cap * sizeof(path_cache_entry_t));
 
-   for (int i = 0; i < MAX_CACHED_PATHS; i++){
-      path_cache_entry_t* e = &pathCache[i];
+  if (!new_entries) {
+    // Handle failure explicitly
+    TraceLog(LOG_WARNING,"==== LOCAL CONTEXT ERROR ===\n REALLOC FAILED");
+  }
 
-      if(e->puid == puid)
-        return e;
-   }
+  t->entries = new_entries;
+  t->cap = new_cap;
 
-   return NULL;
 }
 
 path_cache_entry_t* PathCacheFind(int sx, int sy, int tx, int ty){
@@ -67,6 +63,55 @@ path_cache_entry_t* PathCacheFind(int sx, int sy, int tx, int ty){
             return e;
     }
     return NULL;
+}
+
+path_cache_entry_t* PathCacheFindByUID(path_pool_t* p, game_object_uid_i start, game_object_uid_i end){
+
+   path_cache_uid_i guid = hash_combine_64(start, end);
+
+   assert(guid != UID_INVALID );
+
+   for (int i = 0; i < p->count; i++){
+      path_cache_entry_t* e = &p->entries[i];
+
+      if(e->guid == guid && e->valid)
+        return e;
+   }
+
+   return NULL;
+}
+
+path_cache_entry_t* PathCacheFindByAB(path_pool_t* p, Cell start, Cell end){
+
+   int a = IntGridIndex(start.x, start.y);
+   int b = IntGridIndex(end.x, end.y);
+   path_cache_uid_i puid = hash_combine_64(a, b);
+
+   assert(puid != UID_INVALID );
+
+   for (int i = 0; i < p->count; i++){
+      path_cache_entry_t* e = &p->entries[i];
+
+      if(e->puid == puid && e->valid)
+        return e;
+   }
+
+   return NULL;
+}
+path_cache_entry_t* PathCacheFindRoute(ent_t* e, local_ctx_t* dest){
+  game_object_uid_i start = e->gouid;
+  game_object_uid_i end = dest->gouid;
+
+  path_cache_entry_t *p = NULL;
+  path_pool_t* pool = WorldLevel()->paths;
+
+  p = PathCacheFindByUID(pool, start, end);
+  if(p)
+    return p;
+
+  p = PathCacheFindByAB(pool, e->pos, dest->pos);
+
+  return p;
 }
 
 Cell PathGetLocal(local_ctx_t* dest){
@@ -89,20 +134,6 @@ Cell PathGetLocal(local_ctx_t* dest){
   return goal;
 }
 
-path_cache_entry_t* PathCacheFindRoute(ent_t* e, local_ctx_t* dest){
-  game_object_uid_i start = e->gouid;
-  game_object_uid_i end = dest->gouid;
-
-  path_cache_entry_t *p = NULL;
-
-  p = PathCacheFindByUID(start, end);
-  if(p)
-    return p;
-
-  p = PathCacheFindByAB(e->pos, dest->pos);
-
-  return p;
-}
 
 path_cache_entry_t* StartRoute(ent_t* e, local_ctx_t* dest, int depth, bool* result){
     path_cache_entry_t* p = PathCacheFindRoute(e, dest);
@@ -135,13 +166,13 @@ Cell* PathCachedNext(path_cache_entry_t* entry, int sx, int sy, int *index){
   Cell cc = CELL_NEW(sx,sy);
   for(int i = entry->length-1; i > -1; i--){
     if(cell_compare(cc, entry->path[i])){
-      *index = i;
+      *index = i-1;
       break;
     }
   }
 
-  if(*index > 0)
-    return &entry->path[*index-1];
+  if(*index >= 0)
+    return &entry->path[*index];
 
   return NULL;
 }
@@ -180,9 +211,21 @@ path_cache_entry_t* PathCacheStore(path_result_t* res, Cell sc, Cell tc, game_ob
 
   assert(guid != UID_INVALID );
 
-  path_cache_entry_t* dst = &pathCache[next++ ];//% MAX_CACHED_PATHS];
-  *dst = *tmp;
+  path_pool_t* p = WorldLevel()->paths;
+  PathsEnsureCap(p);
+
+  path_cache_entry_t* dst = &p->entries[p->count++];
   dst->guid = guid;
+  dst->length = tmp->length;
+  dst->sx = tmp->sx;
+  dst->sy = tmp->sy;
+  dst->tx = tmp->tx;
+  dst->ty = tmp->ty;
+  dst->cost = tmp->cost;
+  dst->valid = true;
+  memcpy(dst->path, tmp->path, tmp->length * sizeof(Cell));
+  dst->length = tmp->length;
+
   dst->puid = puid;
   tmp->valid = false;
   return dst;
@@ -444,7 +487,9 @@ path_result_t* FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *out
       if (len >= MAX_PATH_LEN)
         break;
     }
-    
+   
+    path[len++] = CELL_NEW(sx,sy);
+
     *res = (path_result_t){
       .found = true, goal->gCost,
         .length = len

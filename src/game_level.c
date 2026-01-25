@@ -3,6 +3,7 @@
 level_t* InitLevel(map_grid_t* m){
   level_t* l = calloc(1,sizeof(level_t));
 
+  l->paths = InitPathPool(MAX_ENVS);
   map_gen_t mdef = MAPS[m->id];
   for (int i = 0; i < NUM_FACTIONS; i++){
     int ratio = FACTIONS[i]->bio_pref[mdef.biome];

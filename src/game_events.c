@@ -304,7 +304,6 @@ int GetEventIndex(events_t* pool, EventType type){
     if(pool->cooldowns[i].type != type)
       continue;
 
-
     return i;
   }
   
@@ -533,7 +532,7 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       break;
   }
 
-  e->params[ACT_PARAM_RES] = ParamMake(DATA_UINT64, sizeof(e->resource), &e->resource);
+  e->params[PARAM_RESOURCE] = ParamMake(DATA_UINT64, sizeof(e->resource), &e->resource);
   HashPut(&s->ctx_by_gouid, e->gouid, e);
   WorldEvent(EVENT_ADD_LOCAL_CTX, e, 0);
   return e;
@@ -667,7 +666,7 @@ local_ctx_t* LocalAddEnt(local_table_t* s, ent_t* e, SpeciesRelate rel){
   param_t ent = ParamMake(DATA_ENTITY, sizeof(ent_t), e);
   
 
-  ctx->params[ACT_PARAM_REL] = ParamMake(DATA_UINT64, sizeof(uint64_t), &rel);
+  ctx->params[PARAM_RELATE] = ParamMake(DATA_UINT64, sizeof(uint64_t), &rel);
   ctx->other = ent;
   ctx->aggro = NULL;
   for(int i = 0; i < RES_DONE; i++){
@@ -721,7 +720,8 @@ void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
   }
 
   if(lctx){
-    lctx->params[ACT_PARAM_RES] = ctx->params[ACT_PARAM_RES];
+    lctx->path = NULL;
+    lctx->params[PARAM_RESOURCE] = ctx->params[PARAM_RESOURCE];
     lctx->last_update = -1;
     HashPut(&s->ctx_by_gouid, lctx->gouid, lctx);
     lctx->ctx_revision = -1;
@@ -755,7 +755,7 @@ aggro_t* LocalAggroByCtx(local_ctx_t* ctx){
 void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   ent_t* other = ParamReadEnt(&ctx->other);
 
-  uint64_t rel = *ParamRead(&ctx->params[ACT_PARAM_REL], uint64_t);
+  uint64_t rel = *ParamRead(&ctx->params[PARAM_RELATE], uint64_t);
   if((rel & SPEC_RELATE_POSITIVE) > 0 && ctx->awareness <= 0)
     ctx->awareness = f_safe_divide(1,1+ctx->dist);
 
@@ -817,19 +817,24 @@ void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
 
   }
 
+  if(ctx->aggro){
+    param_t threat = ParamMake(DATA_INT, sizeof(int), &ctx->aggro->threat);
+    ctx->params[PARAM_AGGRO] = threat;
+  }
   ctx->awareness = fmax(0,ctx->awareness);
   ctx->scores[SCORE_CR] = EntGetChallengeRating(other);
   LocalSetPath(e, ctx);
 }
 
 void LocalSetPath(ent_t* e, local_ctx_t* dest){
-  if(!dest->path){
+  if(!dest->path || !dest->path->valid){
     bool res = false;
     dest->path = StartRoute(e, dest, (1+dest->awareness) * MAX_SEN_DIST, &res);
     if(!res)
       return;
   }
 
+  dest->path->valid = true;
   dest->puid = dest->path->guid;
   dest->scores[SCORE_PATH] = RouteScore(e, dest->path);
 }
@@ -902,9 +907,6 @@ void LocalSync(local_table_t* s, bool sort){
       /*if(this_changed)
         ctx->valid = false;
 */
-      if(ctx->last_update == WorldGetTurn())
-        continue;
-
       switch(ctx->other.type_id){
         case DATA_ENTITY:
           LocalEntCheck(s->owner, ctx);

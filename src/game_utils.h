@@ -216,17 +216,22 @@ priority_t*  PriorityAdd(priorities_t* table, Priorities type, param_t entry);
 void PrioritiesSync(priorities_t* t);
 
 typedef struct{
-  uint64_t      id;
-  ActionType    decision;
-  EntityState   state;
-  param_t       params[ACT_PARAM_ALL];
-  int           score, cost;
+  uint64_t          id;
+  ActionType        decision;
+  ActionStatus      status;
+  game_object_uid_i auid;
+  EntityState       state;
+  param_t           params[ACT_PARAM_ALL];
+  int               score, cost;
 }decision_t;
+
+void OnDecisionAction(EventType event, void* data, void* user);
 
 typedef struct{
   EntityState   id;
   ent_t*        owner;
   uint64_t      ouid;
+  ActionStatus  status;
   int           count, cap;
   int           scores[128],costs[128], econ[128];
   decision_t    *selected;
@@ -258,7 +263,7 @@ struct local_ctx_s{
   game_object_uid_i   puid;
   game_object_uid_i   gouid;
   aggro_t*            aggro;
-  param_t             params[ACT_PARAM_ALL];
+  param_t             params[PARAM_ALL];
   int                 scores[SCORE_ALL];
   uint64_t            resource;
   Cell                pos;
