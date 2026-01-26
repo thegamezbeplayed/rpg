@@ -88,7 +88,7 @@ static bool ParamCompare(param_t *a, param_t *b){
     case DATA_UINT64:
       uint64_t aint = *ParamRead(a, uint64_t);
       uint64_t bint = *ParamRead(b, uint64_t);
-      return (*ParamRead(a, uint64_t) & *ParamRead(b, uint64_t)) > 0;
+      return ((*ParamRead(a, uint64_t) & *ParamRead(b, uint64_t)) > 0);
       break;
 
   }
@@ -132,6 +132,7 @@ local_ctx_t* ParamReadCtx(const param_t* o);
 ent_t* ParamReadEnt(const param_t* o);
 env_t* ParamReadEnv(const param_t* o);
 map_cell_t* ParamReadMapCell(const param_t* o);
+//ability_t* ParamReadAbility(const param_t* o);
 static void ParamFree(param_t* o) {
     free(o->data);
     o->data = NULL;

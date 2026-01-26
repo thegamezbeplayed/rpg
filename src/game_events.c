@@ -598,6 +598,7 @@ local_ctx_t* LocalAddMap(local_table_t* s, map_cell_t* m){
   local_ctx_t* ctx = &s->entries[s->count++];
   param_t mc = ParamMake(DATA_MAP_CELL, sizeof(map_cell_t), m);
 
+  ctx->dist = dist;
   ctx->gouid = m->gouid;
   ctx->resource = m->props->resources;
 
@@ -890,6 +891,11 @@ void LocalSync(local_table_t* s, bool sort){
   int dist_change = 0;
 
   bool this_changed = !cell_compare(s->owner->pos ,s->owner->old_pos);
+  if(this_changed)
+    s->valid = false;
+
+  if(s->owner->type == ENT_PERSON)
+    DO_NOTHING();
 
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
@@ -1018,7 +1024,7 @@ int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_
     local_ctx_t* ctx = &t->entries[k];
 
     i++;
-    if(ctx->awareness < 0.5)
+    if(ctx->awareness < 1)
       continue;
 
     if(ctx->params[type].type_id != filter.type_id)

@@ -498,6 +498,7 @@ decision_t* InitDecision(decision_pool_t* t, game_object_uid_i other){
 
   if(t->count >= 128)
     DO_NOTHING();
+  
   DecisionsEnsureCap(t);
   decision_t* d = &t->entries[t->count++];
 
@@ -577,7 +578,26 @@ bool AddCandidate(decision_pool_t* t, local_ctx_t* ctx, ActionParam type, Score 
         break;
     }
 
+    d->params[ACT_PARAM_RES] = ctx->params[PARAM_RESOURCE];
     return true; 
+}
+
+bool AddEnemy(decision_pool_t* t, local_ctx_t* ctx){
+  decision_t *d = InitDecision(t, ctx->gouid);
+  if(!d)
+    return false;
+
+  param_t tar = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), ctx);
+  float threat = *ParamRead(&ctx->params[PARAM_AGGRO], float);
+  d->score = threat;
+  d->cost = ctx->scores[SCORE_PATH] * (1 + sqrt(ctx->scores[SCORE_CR]));
+
+  d->decision = ACTION_ATTACK;
+  d->state = STATE_AGGRO;
+  d->params[ACT_PARAM_DEST] = tar;
+  d->params[ACT_PARAM_TAR] = tar;
+
+  return true;
 }
 
 bool AddDecision(decision_pool_t* t, ActionType a){

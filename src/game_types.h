@@ -291,6 +291,7 @@ InteractResult EntMeetNeed(ent_t* e, need_t* n, param_t g);
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source);
 InteractResult EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
 InteractResult EntSkillCheck(ent_t* owner, ent_t* target, SkillType s);
+local_ctx_t* EntGetTarget(ent_t* e, AbilityID id);
 void EntSync(ent_t* e);
 void EntTurnSync(ent_t* e);
 void EntResetRegen(stat_t* self, float old, float cur);

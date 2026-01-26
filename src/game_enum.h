@@ -62,6 +62,7 @@ typedef enum {
   DATA_GOUID,
   DATA_STRING,
   DATA_ENTITY,
+  DATA_ABILITY,
   DATA_ENV,
   DATA_MAP_CELL,
   DATA_NEED,
@@ -522,6 +523,7 @@ typedef enum{
 
 typedef enum{
   ACT_PARAM_NONE = -1,
+  ACT_PARAM_ABILITY,
   ACT_PARAM_OWNER,
   ACT_PARAM_TAR,
   ACT_PARAM_DEST,

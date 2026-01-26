@@ -157,7 +157,7 @@ bool ScreenSelectorInput(void){
       if(!IsKeyPressed(k))
         continue;
 
-      return fn(player,a,k,SLOT_NONE);
+      //return fn(player,a,k,SLOT_NONE);
     }
   }
 }

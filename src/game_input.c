@@ -3,27 +3,8 @@
 
 static game_input_t player_input;
 
-void InitInput(ent_t* player){
-  player_input.owner = player;
 
-  player->control->decider[STATE_STANDBY] = InitDecisionPool(ACTION_DONE, player, STATE_STANDBY);
-
-  for(int i = 0; i < ACTION_PASSIVE; i++){
-    player_input.decisions[i] = InitDecision(player->control->decider[STATE_STANDBY], i);
-    player_input.decisions[i]->score = 100;
-    player_input.decisions[i]->cost = 1;
-    player_input.decisions[i]->decision = i;
-  }
-  player_input.actions[ACTION_MOVE] = (action_key_t){
-    ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},NULL,SLOT_NONE};
-
-  }
-
-bool InputToggle(void){
-  player_input.key_event = !player_input.key_event;
-}
-
-BehaviorStatus InputActionMove(action_key_t akey, KeyboardKey k){
+BehaviorStatus InputActionMove(ent_t* e, action_key_t akey, KeyboardKey k){
   Cell dir = CELL_UNSET;
 
   switch(k){
@@ -54,44 +35,53 @@ BehaviorStatus InputActionMove(action_key_t akey, KeyboardKey k){
 
   player_input.decisions[ACTION_MOVE]->params[ACT_PARAM_STEP] = p;
   action_t* a;
-  return ActionExecute(player_input.decisions[ACTION_MOVE], ACTION_MOVE, &a); 
+  return ActionExecute(player_input.decisions[ACTION_MOVE], ACTION_MOVE, &a);
 }
 
-action_t* InputActionAttack(action_key_t akey){
+BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
+
+  AbilityID aid = ABILITY_WEAP_BLUDGEON;
+  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_ABILITY] = ParamMake(DATA_INT, sizeof(int), &aid);
+
+  local_ctx_t* tar = EntGetTarget(e, aid);
+
+  param_t p = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), tar);
+  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_TAR] = p;
+
+  action_t* act = NULL;
+
+  return ActionExecute(player_input.decisions[ACTION_ATTACK], ACTION_ATTACK, &act);
+}
+
+BehaviorStatus InputActionItem(ent_t* e, action_key_t a,  KeyboardKey k){
 
 }
 
-action_t* InputActionItem(action_key_t akey){
+BehaviorStatus InputActionMagic(ent_t* e, action_key_t a, KeyboardKey k){
 
 }
 
-action_t* InputActionMagic(action_key_t akey){
 
-}
+void InitInput(ent_t* player){
+  player_input.owner = player;
 
-bool InputQueueAction(action_key_t akey, KeyboardKey k){
+  player_input.key_event = BEHAVIOR_FAILURE;
+  player->control->decider[STATE_STANDBY] = InitDecisionPool(ACTION_DONE, player, STATE_STANDBY);
 
-  BehaviorStatus status = BEHAVIOR_FAILURE;
-  switch(akey.action){
-    case ACTION_MOVE:
-      status = InputActionMove(akey, k);
-      break;
-    case ACTION_ATTACK:
-    case ACTION_WEAPON:
-      //a = InputActionAttack(akey);
-      break;
-    case ACTION_ITEM:
-      //a = InputActionItem(akey);
-      break;
-    case ACTION_MAGIC:
-      //a = InputActionMagic(akey);
-      break;
-    default:
-      break;
+  for(int i = 0; i < ACTION_PASSIVE; i++){
+    player_input.decisions[i] = InitDecision(player->control->decider[STATE_STANDBY], i);
+    player_input.decisions[i]->score = 100;
+    player_input.decisions[i]->cost = 1;
+    player_input.decisions[i]->decision = i;
   }
+  player_input.actions[ACTION_ATTACK] = (action_key_t){
+    ACTION_WEAPON,1,{KEY_F},InputActionAttack,SLOT_NONE};
 
-  return status == BEHAVIOR_SUCCESS;
-}
+
+  player_input.actions[ACTION_MOVE] = (action_key_t){
+    ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},InputActionMove,SLOT_ATTACK};
+
+  }
 
 void InputSync(TurnPhase phase, int turn){
   if(phase == player_input.phase && turn == player_input.turn)
@@ -100,7 +90,7 @@ void InputSync(TurnPhase phase, int turn){
   player_input.phase = phase;
   player_input.turn  = turn;
 
-  player_input.key_event = false;
+  player_input.key_event = BEHAVIOR_FAILURE;
 }
 
 bool InputCheck(TurnPhase phase, int turn){
@@ -110,7 +100,7 @@ bool InputCheck(TurnPhase phase, int turn){
   if(IsKeyDown(KEY_SPACE))
     moncontrol(1);
 
-  if(player_input.key_event)
+  if(player_input.key_event == BEHAVIOR_SUCCESS)
     return false;
 
   for(int i = 0; i < ACTION_DONE; i++){
@@ -124,11 +114,11 @@ bool InputCheck(TurnPhase phase, int turn){
         continue;
 
 
-      player_input.key_event = InputQueueAction(akey, k);
+      player_input.key_event = akey.fn(player, akey, k);
       
-      return player_input.key_event;
+      return (player_input.key_event == BEHAVIOR_SUCCESS);
     }
   }
 
-  return player_input.key_event;
+  return (player_input.key_event == BEHAVIOR_SUCCESS);
 }

@@ -86,13 +86,13 @@ void ScreenSyncKey(void);
 Vector2 CaptureInput();
 ent_t* ScreenEntMouseCollision(void);
 ent_t* ScreenEntMouseHover(void);
-
 static action_key_t selector_keys[ACTION_DONE] = {
   {ACTION_NONE},
+/*
   {ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},ScreenMoveSelector,SLOT_NONE},
   {ACTION_SELECT,1,{KEY_ENTER},ScreenMakeSelection},
-};
-
+*/
+  };
 //----------------------------------------------------------------------------------
 // Types and Structures Definition
 //----------------------------------------------------------------------------------

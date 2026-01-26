@@ -852,7 +852,7 @@ env_t* MapSpawn(TileFlags flags, int x, int y){
   uint32_t tflags = EnvTileFlags[t];
   uint32_t size = GetEnvSize(tflags);
   env_t* env = InitEnv(t,pos);
-  if(size==0)
+  if(size==0 && ((flags * TILEFLAG_BORDER) == 0))
     return env;
   
   for (int i = 0; i < RES_DONE; i++){

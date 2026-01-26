@@ -124,7 +124,14 @@ BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
 
     int count = LocalContextFilter(e->local, 32, ctx_pool, f, p);
 
+    for (int i = 0; i < count; i++)
+      AddCandidate( e->control->decider[e->state], ctx_pool[i], ACT_PARAM_RES, SCORE_RES, SCORE_PATH);
   }
+  
+  if ( MakeDecision( e->control->decider[s], DecisionSortEconomic)){
+    return BEHAVIOR_SUCCESS;
+  }
+  
   return BEHAVIOR_FAILURE;
 }
 

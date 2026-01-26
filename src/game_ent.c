@@ -1385,6 +1385,35 @@ ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot){
 
   return NULL;
 }
+
+local_ctx_t* EntGetTarget(ent_t* e, AbilityID id){
+  ability_t* a = EntFindAbility(e, id);
+  if(!a)
+    return NULL;
+
+  int range = a->stats[STAT_REACH]->current;
+  local_table_t* t = e->local;
+  for(int i = 0; i < t->count; i++){
+    local_ctx_t* ctx = &t->entries[t->sorted_indices[i]];
+
+    if(ctx->dist > range)
+      break;
+
+    if(ctx->other.type_id != DATA_ENTITY)
+      continue;
+
+    Cell dir = cell_dir(e->pos, ctx->pos);
+
+    Cell facing = CellSub(e->facing, e->pos);
+    if(!cell_compare(dir,facing))
+      continue;
+
+    return ctx;
+  }
+
+  return NULL;
+}
+
 bool EntPrepareAttack(ent_t* e, ent_t* t, ability_t** out){
 
   *out = EntChoosePreferredAbility(e);
@@ -1731,8 +1760,8 @@ TileStatus EntGridStep(ent_t *e, Cell step){
     //WorldDebugCell(e->pos, YELLOW);
     e->pos = newPos;
     e->old_pos = oldPos;
-    TraceLog(LOG_INFO,"%s steps %i, %i", e->name, newPos.x - oldPos.x, newPos.y- oldPos.y);
     e->facing = CellInc(e->pos,step);
+    WorldContextChange(OBJ_ENT, e->gouid);
     //WorldDebugCell(e->pos, GREEN);
   }
   else
@@ -1765,13 +1794,13 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
   if(ActionHasStatus(e->control->actions, ACT_STATUS_QUEUED))
     return;
 
+  LocalSync(e->local, false);
   if(e->type == ENT_PERSON)
     return;
 
   if(!e->control->bt || !e->control->bt[e->state])
     return;
 
-  LocalSync(e->local, false);
 
   PrioritiesSync(e->control->priorities);
   behavior_tree_node_t* current = e->control->bt[e->state];

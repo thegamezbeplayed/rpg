@@ -27,16 +27,16 @@ typedef struct{
   TakeActionCallback  fn;
   OnActionCallback    cb;
 }action_turn_t;
-
-typedef bool (*ActionKeyCallback)(struct ent_s* e, ActionType a, KeyboardKey k,ActionSlot slot);
+typedef struct action_key_s action_key_t;
+typedef BehaviorStatus (*ActionKeyCallback)(struct ent_s* e, action_key_t a, KeyboardKey k);
   
-typedef struct{
+struct action_key_s{
   ActionType        action;
   int               num_keys;
   KeyboardKey       keys[8];
   ActionKeyCallback fn;
   int               binding;
-}action_key_t;
+};
 
 typedef struct{
   ActionSlot     id;
@@ -121,12 +121,12 @@ void ActionSlotSortByPref(ent_t* owner, int *pool, int count);
 bool ActionSlotAddAbility(ent_t* owner, ability_t* a);
 
 typedef struct{
-  ent_t*        owner;
-  int           turn;
-  TurnPhase     phase;
-  bool          key_event;
-  decision_t*   decisions[ACTION_PASSIVE];
-  action_key_t  actions[ACTION_DONE];
+  ent_t*          owner;
+  int             turn;
+  TurnPhase       phase;
+  BehaviorStatus  key_event;
+  decision_t*     decisions[ACTION_PASSIVE];
+  action_key_t    actions[ACTION_DONE];
 }game_input_t;
 
 void InitInput(ent_t* player);

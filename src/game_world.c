@@ -444,6 +444,14 @@ void WorldApplyLocalContext(ent_t* e){
   }
 }
 
+void WorldContextChange(ObjectCategory cat, game_object_uid_i gouid){
+  local_table_t* t = world.ctx->tables[cat];
+
+  local_ctx_t* ctx = LocalGetEntry(t, gouid);
+  
+  ctx->ctx_revision++;  
+}
+
 void WorldContextInitOnce(void){
   for(int i = 0; i < OBJ_ALL; i++)
     LocalSortByDist(world.ctx->tables[i]);

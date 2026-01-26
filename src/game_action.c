@@ -134,16 +134,22 @@ bool ActionHasStatus(action_pool_t* p, ActionStatus s){
 }
 
 ActionStatus ActionAttack(action_t* a){
-  if(a->params[ACT_PARAM_TAR].type_id != DATA_ENTITY)
+  if(a->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX)
     a->status = ACT_STATUS_BAD_DATA;
 
   bool prepared = false;
   ability_t* ab;
   ent_t* tar = NULL;
   if(a->status == ACT_STATUS_RUNNING){
-    tar = ParamReadEnt(&a->params[ACT_PARAM_TAR]);
-
-    if(tar)
+    local_ctx_t* ctx = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
+    tar = ParamReadEnt(&ctx->other);
+    if(a->params[ACT_PARAM_ABILITY].type_id == DATA_INT){
+      AbilityID aid = ParamReadInt(&a->params[ACT_PARAM_ABILITY]);
+      ab = EntFindAbility(a->owner, aid);
+      prepared = ab!=NULL;
+    }
+    
+    if(!ab && tar)
       prepared = EntPrepareAttack(a->owner, tar, &ab);
   }
   if(!prepared){
