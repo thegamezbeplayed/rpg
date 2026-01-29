@@ -42,12 +42,15 @@ interaction_t* StartInteraction(uint64_t source, uint64_t target, EventType even
 
   interaction_t* result = GetInteractionByUID(uid);
 
+  int turn = WorldGetTurn();
   if(result){
+    if(turn == result->last_update_turn)
+      return result;
+
     if(result->on_update){
       uint64_t result_id = result->on_update(result, ctx, data);
-      if(result->refresh_on_update && result_id == result->uid){
-          //TODO REFRESH COOLIES
-      }
+      if(result->refresh_on_update && result_id == result->uid)
+        result->on_update(result, ctx, data);
     }
   }
   else{
@@ -61,6 +64,8 @@ interaction_t* StartInteraction(uint64_t source, uint64_t target, EventType even
     if(result->on_add)
       result->on_add(result, ctx, data);
   }
+
+  result->last_update_turn = WorldGetTurn();
 
   return result;
 
@@ -531,7 +536,8 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->dist = cell_distance(pos, mc->coords);
       break;
   }
-
+  
+  WorldTargetSubscribe(EVENT_UPDATE_LOCAL_CTX, OnWorldByGOUID, s, e->gouid);
   e->params[PARAM_RESOURCE] = ParamMake(DATA_UINT64, sizeof(e->resource), &e->resource);
   HashPut(&s->ctx_by_gouid, e->gouid, e);
   WorldEvent(EVENT_ADD_LOCAL_CTX, e, 0);
@@ -596,7 +602,7 @@ local_ctx_t* LocalAddMap(local_table_t* s, map_cell_t* m){
 
   int dist = cell_distance(s->owner->pos, m->coords);
   local_ctx_t* ctx = &s->entries[s->count++];
-  param_t mc = ParamMake(DATA_MAP_CELL, sizeof(map_cell_t), m);
+  param_t mc = ParamMakeObj(DATA_MAP_CELL, m->gouid, m);
 
   ctx->dist = dist;
   ctx->gouid = m->gouid;
@@ -630,10 +636,11 @@ local_ctx_t* LocalAddEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
 
   local_ctx_t* ctx = &s->entries[s->count++];
   ctx->gouid = e->gouid;
-  param_t env = ParamMake(DATA_ENV, sizeof(env_t), e);
+  param_t env = ParamMakeObj(DATA_ENV, e->gouid, e);
 
   ctx->other = env;
 
+  uint64_t food = 0;
   uint64_t eats = MONSTER_MASH[s->owner->type].eats;
   for(int i = 0; i < RES_DONE; i++){
     if(!e->resources[i] || e->resources[i]->amount == 0)
@@ -644,10 +651,16 @@ local_ctx_t* LocalAddEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
     if((e->resources[i]->type & eats) == 0)
       continue;
 
+    rel = SPEC_WANTS;
     ctx->method = I_CONSUME;
     ctx->scores[SCORE_RES] += e->resources[i]->amount;
   }
 
+  uint64_t matches = ctx->resource & eats;
+
+  ctx->params[PARAM_RELATE] = ParamMake(DATA_UINT64, sizeof(uint64_t), &rel);
+
+  ctx->params[PARAM_RESOURCE] = ParamMake(DATA_UINT64, sizeof(uint64_t), &matches);
   ctx->aggro = NULL;
   return ctx;
 }
@@ -664,7 +677,7 @@ local_ctx_t* LocalAddEnt(local_table_t* s, ent_t* e, SpeciesRelate rel){
   if(e->type == s->owner->type)
     rel = SPEC_KIN;
 
-  param_t ent = ParamMake(DATA_ENTITY, sizeof(ent_t), e);
+  param_t ent = ParamMakeObj(DATA_ENTITY, e->gouid, e);
   
 
   ctx->params[PARAM_RELATE] = ParamMake(DATA_UINT64, sizeof(uint64_t), &rel);
@@ -722,6 +735,7 @@ void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
 
   if(lctx){
     lctx->path = NULL;
+    lctx->scores[SCORE_PATH] = -1;
     lctx->params[PARAM_RESOURCE] = ctx->params[PARAM_RESOURCE];
     lctx->last_update = -1;
     HashPut(&s->ctx_by_gouid, lctx->gouid, lctx);
@@ -740,7 +754,7 @@ aggro_t* LocalAggroByCtx(local_ctx_t* ctx){
   aggro_t* a = calloc(1, sizeof(aggro_t));
   ent_t* e = ParamReadEnt(&ctx->other);
   
-  float threat_mul = ctx->awareness-1;
+  float threat_mul = CLAMPF(ctx->awareness,0.05f,0.25f);
   int cr = EntGetChallengeRating(e);
   *a = (aggro_t){
     .initiated = false,
@@ -819,7 +833,8 @@ void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   }
 
   if(ctx->aggro){
-    param_t threat = ParamMake(DATA_INT, sizeof(int), &ctx->aggro->threat);
+    ctx->scores[SCORE_THREAT] = ctx->aggro->threat;
+    param_t threat = ParamMake(DATA_FLOAT, sizeof(float), &ctx->aggro->threat);
     ctx->params[PARAM_AGGRO] = threat;
   }
   ctx->awareness = fmax(0,ctx->awareness);
@@ -831,8 +846,10 @@ void LocalSetPath(ent_t* e, local_ctx_t* dest){
   if(!dest->path || !dest->path->valid){
     bool res = false;
     dest->path = StartRoute(e, dest, (1+dest->awareness) * MAX_SEN_DIST, &res);
-    if(!res)
+    if(!res){
+      dest->path = NULL;
       return;
+    }
   }
 
   dest->path->valid = true;
@@ -868,10 +885,13 @@ bool LocalCheck(local_ctx_t* ctx){
     case DATA_ENTITY:
       ent_t* e = ParamReadEnt(&ctx->other);
       status = CheckEntAvailable(e);
+      ctx->pos = e->pos;
       break;
     case DATA_ENV:
       env_t* other = ParamReadEnv(&ctx->other);
       status = CheckEnvAvailable(other);
+      ctx->pos = other->pos;
+      ctx->resource = other->has_resources;
       break;
     case DATA_MAP_CELL:
       map_cell_t* mc = ParamReadMapCell(&ctx->other);
@@ -882,8 +902,15 @@ bool LocalCheck(local_ctx_t* ctx){
   if(!status)
     ctx->prune = true;
 
+
   return status;
 
+}
+
+void LocalSyncCtx(local_table_t* s, local_ctx_t* ctx){
+  
+  if(LocalCheck(ctx))
+    ctx->ctx_revision++;
 }
 
 void LocalSync(local_table_t* s, bool sort){
@@ -894,22 +921,23 @@ void LocalSync(local_table_t* s, bool sort){
   if(this_changed)
     s->valid = false;
 
-  if(s->owner->type == ENT_PERSON)
-    DO_NOTHING();
-
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
 
     local_ctx_t* wctx = WorldGetContext(ctx->other.type_id, ctx->gouid);
 
+    if(!wctx)
+      continue;
+
     if(!this_changed && wctx->ctx_revision == ctx->ctx_revision)
       continue;
 
     ctx->ctx_revision = wctx->ctx_revision;
-    int dist = cell_distance(s->owner->pos, ctx->pos);
+    int dist = cell_distance(s->owner->pos, wctx->pos);
     if(dist != ctx->dist){
       dist_change += abs(dist - ctx->dist);
       ctx->dist = dist;
+      ctx->pos = wctx->pos;
       /*if(this_changed)
         ctx->valid = false;
 */
@@ -932,9 +960,14 @@ void LocalSync(local_table_t* s, bool sort){
       }
       ctx->last_update = WorldGetTurn();
     }
+
+    param_t pos = ParamMake(DATA_CELL, sizeof(Cell), &ctx->pos);
+    ctx->params[PARAM_POS] = pos;
+    param_t res = ParamMake(DATA_UINT64, sizeof(uint64_t), &ctx->resource);
+    ctx->params[PARAM_RESOURCE] = res;
   }
 
-  if(s->valid || dist_change < 32){
+  if(s->valid && !this_changed){
     s->valid = true;
     return;
   }
@@ -991,27 +1024,33 @@ int LocalAddAggro(local_table_t* table, ent_t* source, int threat_gain, float mu
       ctx->aggro->initiated = true;
     ctx->aggro->threat += threat;
     ctx->aggro->last_turn = TURN;
-    return ctx->aggro->challenge;
   }
+  else{
+    int off = EntGetOffRating(source);
+    int def = EntGetDefRating(source);
 
-  int off = EntGetOffRating(source);
-  int def = EntGetDefRating(source);
+    float cr = (off*def) /10;
 
-  float cr = (off*def) /10;
+    ctx->aggro = calloc(1,sizeof(aggro_t));
 
-  ctx->aggro = calloc(1,sizeof(aggro_t));
+    ctx->aggro->initiated = init;
+    ctx->aggro->last_turn = TURN;
+    ctx->aggro->offensive_rating = off;
+    ctx->aggro->defensive_rating = def;
+    ctx->aggro->challenge = cr*mul;
+    ctx->aggro->threat = ctx->aggro->challenge>threat_gain?ctx->aggro->challenge:threat;
+  }
+  if(init)
+    ctx->awareness*=1.25f;
+  else
+    ctx->awareness*=1.05f;
 
-  ctx->aggro->initiated = init;
-  ctx->aggro->last_turn = TURN;
-  ctx->aggro->offensive_rating = off;
-  ctx->aggro->defensive_rating = def;
-  ctx->aggro->challenge = cr*mul;
-  ctx->aggro->threat = ctx->aggro->challenge>threat_gain?ctx->aggro->challenge:threat;
+  WorldEvent(EVENT_AGGRO, source, table->owner->gouid);
 
-  return cr;
+  return ctx->aggro->challenge;
 }
 
-int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_t filter, ActionParam type){
+int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_t filter, GameObjectParam type, ParamCompareFn fn){
 
   if(!t || t->count == 0)
     return 0;
@@ -1030,7 +1069,7 @@ int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_
     if(ctx->params[type].type_id != filter.type_id)
       continue;
 
-    if(!ParamCompare(&filter, &ctx->params[type]))
+    if(!ParamCompare(&filter, &ctx->params[type], fn))
       continue;
    
    pool[found++] = ctx; 

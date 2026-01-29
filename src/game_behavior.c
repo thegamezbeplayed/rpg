@@ -96,9 +96,6 @@ BehaviorStatus BehaviorCheckReady(behavior_params_t *params){
     InventorySetPrefs(e->inventory[i], e->control->behave_traits);
   }
 
-  if(e->control->pref == NULL)
-    e->control->pref = EntChoosePreferredAbility(e);
-
   e->control->next = params->state;
   return BEHAVIOR_SUCCESS;
 }
@@ -113,22 +110,21 @@ BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   bool running = false;
   e->control->decider[s] = StartDecision(&e->control->decider[s], 32, e, s, &running);
 
-  if(!running){
-    decision_pool_t* decider = e->control->decider[s];
-    e->control->decider[s]->ouid = e->gouid;
+  decision_pool_t* decider = e->control->decider[s];
+  e->control->decider[s]->ouid = e->gouid;
 
-    GameObjectParam p = PARAM_AGGRO;
-    int min = 1;
-    param_t f = ParamMake(DATA_INT, sizeof(int), &min);
-    local_ctx_t* ctx_pool[32] = {0};
+  GameObjectParam p = PARAM_AGGRO;
+  float min = 1.0f;
+  param_t f = ParamMake(DATA_FLOAT, sizeof(float), &min);
+  local_ctx_t* ctx_pool[32] = {0};
 
-    int count = LocalContextFilter(e->local, 32, ctx_pool, f, p);
+  int count = LocalContextFilter(e->local, 32, ctx_pool, f, p, ParamCompareLesser);
 
-    for (int i = 0; i < count; i++)
-      AddCandidate( e->control->decider[e->state], ctx_pool[i], ACT_PARAM_RES, SCORE_RES, SCORE_PATH);
-  }
-  
-  if ( MakeDecision( e->control->decider[s], DecisionSortEconomic)){
+  for (int i = 0; i < count; i++)
+    AddEnemy( e->control->decider[e->state], ctx_pool[i]);
+
+  if (MakeDecision( e->control->decider[s], DecisionSortEconomic)){
+    e->control->next = STATE_AGGRO;
     return BEHAVIOR_SUCCESS;
   }
   
@@ -146,7 +142,7 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
   GameObjectParam p = PARAM_NONE;
   switch(e->state){
     case STATE_IDLE:
-      uint64_t dat = SPEC_RELATE_POSITIVE;
+      uint64_t dat = SPEC_DESIRE | SPEC_RELATE_POSITIVE;
       f = ParamMake(DATA_UINT64, sizeof(uint64_t), &dat);
       p = PARAM_RELATE;
       break;
@@ -164,10 +160,19 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
 
     local_ctx_t* ctx_pool[32] = {0};
 
-    int count = LocalContextFilter(e->local, 32, ctx_pool, f, p);
+    int count = LocalContextFilter(e->local, 32, ctx_pool, f, p, ParamCompareAnd);
 
     for (int i = 0; i < count; i++){
       LocalSetPath(e, ctx_pool[i]);
+      switch(ctx_pool[i]->other.type_id){
+        case DATA_ENV:
+        case DATA_MAP_CELL:
+          stype = SCORE_RES;
+          break;
+        case DATA_ENTITY:
+          stype = SCORE_CR;
+          break;
+      }
       AddDestination( e->control->decider[s], ctx_pool[i], s, stype, ctype);
     }
   }
@@ -181,25 +186,83 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
   return BEHAVIOR_FAILURE;
 }
 
+BehaviorStatus BehaviorCheckAbility(behavior_params_t *params){
+  struct ent_s* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
+  decision_t* sel = e->control->decider[e->state]->selected;
+  if(!sel)
+    return BEHAVIOR_FAILURE;
+
+  local_ctx_t* tar = ParamReadCtx(&sel->params[ACT_PARAM_TAR]);
+
+  if(tar->other.type_id != DATA_ENTITY)
+    return BEHAVIOR_FAILURE;
+
+  EntityState s = e->control->next;
+  bool running = false;
+  decision_pool_t* d = e->control->decider[STATE_ATTACK];
+  d = StartDecision(&d, 16, e, s, &running);
+
+  d->ouid = e->gouid;
+
+  for(int i = 0; i < SLOT_ALL; i++){
+    action_slot_t *slot = e->slots[i];
+    for (int j = 0; j < slot->count; j++){
+      AddAbility(d, tar, slot->abilities[j]);
+    }
+  }
+
+  if (MakeDecision(d, DecisionSortEconomic)){
+    e->control->action = ACTION_ATTACK;
+    sel->params[ACT_PARAM_ABILITY] = d->selected->params[ACT_PARAM_ABILITY];
+  }
+  else
+    e->control->action = ACTION_MOVE;
+
+  return BEHAVIOR_SUCCESS;
+}
+
 BehaviorStatus BehaviorCheckRange(behavior_params_t *params){
   struct ent_s* e = params->owner;
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
   EntityState s = e->control->next;
-  decision_t* sel = e->control->decider[s]->selected;
+  decision_pool_t* dec = e->control->decider[s];
+  decision_t* sel = dec->selected;
 
-  if(sel->decision == ACTION_NONE)
+  if(e->control->action == ACTION_MOVE || sel->decision == ACTION_MOVE)
     return BEHAVIOR_SUCCESS;
 
   if(EntCheckRange(e, sel)){
+    e->control->action = sel->decision;
     e->control->next = sel->state;
     return BEHAVIOR_SUCCESS;
   }
 
-  e->control->action = ACTION_MOVE;
+  decision_t tmp = *sel;
+  decision_t* md = &tmp;
+  md->decision = ACTION_MOVE;
+  decision_t highest = dec->entries[dec->scores[0]];
+  md->score = highest.score+10;
+
+  if(!AddDecision(dec, md))
+    return BEHAVIOR_FAILURE;
+
+  if(!MakeDecision(dec, DecisionSortByScore))
+    return BEHAVIOR_FAILURE;
+
 
   return BEHAVIOR_SUCCESS;
+}
+
+BehaviorStatus BehaviorActionDecision(behavior_params_t *params){
+  ent_t* e = params->owner;
+  if(!e || !e->control)
+    return BEHAVIOR_FAILURE;
+
 }
 
 BehaviorStatus BehaviorExecuteDecision(behavior_params_t *params){
@@ -209,25 +272,21 @@ BehaviorStatus BehaviorExecuteDecision(behavior_params_t *params){
 
   decision_t* sel = e->control->decider[e->control->next]->selected;
 
-  if(sel->status == ACT_STATUS_QUEUED)
-    return BEHAVIOR_SUCCESS;
+  if(!sel)
+    return BEHAVIOR_FAILURE;
 
-  if(sel->decision == ACTION_NONE || sel->score == 0){
-    if (sel->state == STATE_NONE)
-      return BEHAVIOR_FAILURE;
+  action_t* a = InitActionByDecision(sel, ACTION_NONE);
+  if(!a)
+    return BEHAVIOR_FAILURE;
 
-    e->control->next = sel->state;
-    return BEHAVIOR_SUCCESS;
-  }
 
-  action_t* a = NULL;
-
-  BehaviorStatus res = ActionExecute(sel, e->control->action, &a);
+  BehaviorStatus res = ActionExecute(e->control->action, a);
   if(res ==BEHAVIOR_SUCCESS){
     sel->auid = a->id;
     sel->status = ACT_STATUS_QUEUED;
     e->control->decider[e->control->next]->status = ACT_STATUS_QUEUED;
-    WorldTargetSubscribe(EVENT_ACT_TAKEN, OnDecisionAction, e->control->decider[e->control->next], a->id);
+    WorldTargetSubscribe(EVENT_ACT_TAKEN, OnActionSuccess, e->control->decider[e->control->next], a->id);
+    WorldTargetSubscribe(EVENT_ACT_STATUS, OnDecisionAction, sel, a->id);
   }
   return res;
 }
@@ -260,6 +319,7 @@ BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
     for (int i = 0; i < count; i++){
       uint64_t res = n->resource;
 
+      ctx_pool[i]->params[PARAM_NEED] = p_need;
 
       AddCandidate( e->control->decider[e->state], ctx_pool[i], ACT_PARAM_RES, SCORE_RES, SCORE_PATH);
     }
@@ -268,16 +328,26 @@ BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
     if(MakeDecision( e->control->decider[e->state], DecisionSortEconomic)){
       e->control->action = e->control->decider[e->state]->selected->decision;
       e->control->decider[e->state]->selected->params[ACT_PARAM_NEED] = p_need; 
+      if(e->type == ENT_WOLF)
+        DO_NOTHING();
       return BEHAVIOR_SUCCESS;
     }    
 
     return BEHAVIOR_FAILURE;
 }
 
+BehaviorStatus BehaviorCheckUrgency(behavior_params_t *params){
+  ent_t* e = params->owner;
+  if(!e)
+    return BEHAVIOR_FAILURE;
+
+}
+
 BehaviorStatus BehaviorGetPriority(behavior_params_t *params){
   ent_t* e = params->owner;
   if(!e)
     return BEHAVIOR_FAILURE;
+
   EntityState s = STATE_NONE;
   bool running = false;
   e->control->decider[s] = StartDecision(&e->control->decider[s], 32, e, s, &running);
@@ -288,12 +358,13 @@ BehaviorStatus BehaviorGetPriority(behavior_params_t *params){
   e->control->next = STATE_NONE;
   e->control->action = ACTION_NONE;
   if( MakeDecision( e->control->decider[s], DecisionSortByScore)){
-    if(e->control->decider[s]->selected->score > 15)
-      return BEHAVIOR_SUCCESS;
+    e->control->next = e->control->decider[s]->selected->state;
+    return BEHAVIOR_SUCCESS;
   }
 
   return BEHAVIOR_FAILURE;
 }
+
 
 BehaviorStatus BehaviorTickLeaf(behavior_tree_node_t *self, void *context) {
     

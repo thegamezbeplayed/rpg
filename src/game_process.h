@@ -75,6 +75,7 @@ struct interaction_s {
   EventType         event;
   InteractResult    result;
   void*             ctx;
+  int               last_update_turn;
   cooldown_t*       timer;
   bool              refresh_on_update;
   InteractionCB     on_update, on_add;
@@ -184,6 +185,7 @@ typedef struct{
   faction_groups_t *factions[MAX_FACTIONS];
 }level_t;
 level_t* InitLevel(map_grid_t*);
+void LevelBury(game_object_uid_i gouid);
 
 typedef struct{
   GameScreen     screen;

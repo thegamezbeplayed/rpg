@@ -45,3 +45,8 @@ faction_groups_t* InitFactionGroups(Faction id, int desired){
 
   return g;
 }
+
+void LevelBury(game_object_uid_i gouid){
+
+
+}

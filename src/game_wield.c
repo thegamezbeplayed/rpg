@@ -599,6 +599,41 @@ item_def_t* BuildWeapon(SkillType skill, ItemProps props, WeaponProps w_props){
   return item;
 }
 
+int AbilityAddPB(ent_t* e, ability_t* a, StatType s){
+  SkillRank rank = SkillRankGet(e->skills[a->skills[0]]);
+  if(rank < SR_SKILLED)
+    return 0;
+
+  define_skill_rank_t dsr = SKILL_RANKS[rank];
+  if(dsr.proficiency > MOD_NONE){
+    a->stats[s]->base = e->stats[s]->base;
+    for (int i = 0; i < ATTR_DONE; i++){
+      if(a->stats[s]->modified_by[i] > MOD_NONE)
+        a->stats[s]->modified_by[i] = dsr.proficiency;
+    }
+    a->stats[s]->start(a->stats[s]);
+  }
+  return a->stats[s]->current;
+}
+
+ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
+  ability_sim_t* res = calloc(1,sizeof(ability_sim_t));
+
+  res->id = a->id;
+  res->type = a->type;
+  res->d_type = a->school;
+  res->d_bonus = AbilityAddPB(owner, a, STAT_DAMAGE);
+  res->dmg_die = a->dc->num_die;
+  res->dmg_sides = a->dc->sides;
+  res->penn = a->values[VAL_PENN]->val;
+
+  res->hit_calc = a->hit->roll(a->hit, res->hit_res);
+  res->dmg_calc = a->dc->roll(a->dc, res->dmg_res);
+
+  res->final_dmg = res->dmg_calc + res->d_bonus;
+  return res;
+}
+
 bool AbilityRankup(ent_t* owner, ability_t* a){
   ability_t base = ABILITIES[a->id];
   for(int i = 0; i < VAL_EXP; i++){
@@ -607,12 +642,60 @@ bool AbilityRankup(ent_t* owner, ability_t* a){
   }
 }
 
+ability_sim_t* AbilitySimMax(ent_t* owner,  ability_t* a){
+  ability_sim_t* res = calloc(1,sizeof(ability_sim_t));
+
+  res->id = a->id;
+  res->type = a->type;
+  res->d_type = a->school;
+  res->d_bonus = AbilityAddPB(owner, a, STAT_DAMAGE);
+  res->dmg_die = a->dc->num_die;
+  res->dmg_sides = a->dc->sides;
+  res->penn = a->values[VAL_PENN]->val;
+
+  res->hit_calc = DieMax(a->hit);
+  res->dmg_calc = DieMax(a->dc);
+
+  for(int i = 0; i < res->dmg_die; i++)
+    res->dmg_res[i] = res->dmg_sides;
+
+  res->final_dmg = res->dmg_calc + res->d_bonus;
+  return res;
+}
+
+int AbilitySimulate(ability_t* a, local_ctx_t* ctx){
+  ent_t* owner = a->stats[STAT_REACH]->owner;
+  ent_t* e = ParamReadEnt(&ctx->other);
+  ability_t* dr = EntFindAbility(e, ABILITY_ARMOR_DR);
+
+  ability_sim_t* sim = AbilitySimMax(owner, a);
+
+  if(dr && dr->save_fn)
+    dr->save_fn(e, dr, sim);
+
+  return sim->final_dmg;
+}
+
 bool AbilityCanTarget(ability_t* a, local_ctx_t* target){
   ent_t* e = a->stats[STAT_REACH]->owner;
+
+  int res = e->stats[a->resource]->current;
+  if(a->cost > res)
+    return false;
+
+  if(!HasLOS(e->map, e->pos, target->pos))
+    return false;
 
   int reach = a->stats[STAT_REACH]->current;
   if( target->dist <= reach)
     return true;
 
   return false;
+}
+
+void DamageEvent(EventType ev, void* edata, void* udata){
+  ent_t* e = udata;
+  ability_t* a = edata;
+
+  SetState(e, STATE_AGGRO, NULL);
 }

@@ -652,6 +652,7 @@ TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
 TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);
 ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status);
 map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
+TileStatus MapTileAvailable(map_grid_t* m, Cell c);
 TileStatus MapRemoveOccupant(map_grid_t* m, Cell c);
 TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c);
 void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);

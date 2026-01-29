@@ -228,9 +228,8 @@ int RemoveSprite(int index){
 int RemoveEnt(int index){
   int last_pos = world.num_ent -1;
 
-  if(!FreeEnt(world.ents[index]))
-    return 0;
 
+  LevelBury(world.ents[index]->gouid);
   world.num_ent--;
   if(index!=last_pos){
     world.ents[index] = world.ents[last_pos];
@@ -294,13 +293,13 @@ bool RegisterEnv( env_t *e){
 
  e->gouid = guid;
 
- param_t p = ParamMake(DATA_ENV, 0, e);
+ param_t p = ParamMakeObj(DATA_ENV, guid, e);
  p.gouid = e->gouid;
  Cell c = CELL_NEW(world.map->width/2, world.map->height/2);
  MakeLocalContext(world.ctx->tables[OBJ_ENV], &p, c);
  local_ctx_t* owner = LocalGetEntry(world.ctx->tables[OBJ_MAP_CELL], e->map_cell->gouid);
 
- param_t m = ParamMake(DATA_MAP_CELL, 0, e->map_cell);
+ param_t m = ParamMakeObj(DATA_MAP_CELL, e->map_cell->gouid, e->map_cell);
  m.gouid = e->map_cell->gouid;
  local_ctx_t* res = MakeLocalContext(world.ctx->tables[OBJ_MAP_CELL], &m, c);
 
@@ -336,7 +335,7 @@ bool RegisterEnt( ent_t *e){
 
   e->gouid = guid;
 
-  param_t p = ParamMake(DATA_ENTITY, 0, e);
+  param_t p = ParamMakeObj(DATA_ENTITY, guid, e);
   p.gouid = e->gouid;
   Cell c = CELL_NEW(world.map->width/2, world.map->height/2);
   MakeLocalContext(world.ctx->tables[OBJ_ENT], &p, c);
@@ -386,6 +385,9 @@ void OnWorldCtx(EventType event, void* data, void* user){
     case EVENT_ENV_DEATH:
       LocalPruneCtx(table, ctx->gouid);
       break;
+    case EVENT_UPDATE_LOCAL_CTX:
+      LocalSyncCtx(table, ctx);
+      break;
   }
 
 }
@@ -394,7 +396,16 @@ void OnWorldByGOUID(EventType event, void* data, void* user){
   local_table_t* table = user;
   game_object_uid_i* gouid = data;
 
-  LocalPruneCtx(table, *gouid);
+  switch(event){
+    case EVENT_ENV_DEATH:
+    case EVENT_ENT_DEATH:
+      LocalPruneCtx(table, *gouid);
+      break;
+    case EVENT_UPDATE_LOCAL_CTX:
+      local_ctx_t* ctx = LocalGetEntry(table, *gouid);
+      LocalSyncCtx(table, ctx);
+      break;
+  }
 
 }
 local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid){
@@ -486,27 +497,18 @@ void WorldPreUpdate(){
 
   TurnPhase p = ActionManagerPreSync();
     
-  int states[STATE_END+1] = {0};
-
   for(int i = 0; i < world.num_ent; i++){
-    if(p == TURN_END)
-      states[world.ents[i]->state]++;
-    EntControlStep(world.ents[i], world.ctx->turn, p);
+    ent_t* e = world.ents[i];
+    EntControlStep(e, world.ctx->turn, p);
   }
  
-  if(p == TURN_END) 
-  for (int i = 0; i < 1 + STATE_END; i++)
-   TraceLog(LOG_INFO, "%i ents in state %s", states[i], STATE_STRING[i]); 
 }
 
 void WorldFixedUpdate(){
   for(int i = 0; i < world.num_ent; i++){
-    switch(world.ents[i]->state){
-      case STATE_END:
+    switch(world.ents[i]->status){
+      case ENT_STATUS_DEAD:
         i-=RemoveEnt(i);
-        break;
-      case STATE_DIE:
-        //EntDestroy(world.ents[i]);
         break;
       default:
         EntSync(world.ents[i]);
@@ -657,6 +659,7 @@ void InitGameProcess(){
   
   for(int s = 0; s<SCREEN_DONE; s++){
     game_process.album_id[s] = -1;
+    
     for(int u = 0; u<UPDATE_DONE;u++){
       game_process.update_steps[s][u] = DO_NOTHING;
     

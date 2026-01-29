@@ -183,8 +183,12 @@ int RouteScore(ent_t* e, path_cache_entry_t* route){
 
   if(index > -1){
     route->next = route->path[index];
-    return route->cost - (route->length - index);
+    return route->cost - ((route->length-1) - index);
   }
+
+  if(!out)
+    return -1;
+
   return 0;
 }
 

@@ -246,8 +246,8 @@ void ScreenSyncKey(void){
   if(ScreenSelectorInput())
     if(keyctrl.selected >= keyctrl.desired){
       keyctrl.active = false;
-      ActionType next = ActionGetEntNext(player);
-      action_turn_t* action = player->actions[next];
+      //ActionType next = ActionGetEntNext(player);
+      //action_turn_t* action = player->actions[next];
       //TakeAction(player,action);
     }
 }

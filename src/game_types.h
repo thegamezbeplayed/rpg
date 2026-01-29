@@ -104,7 +104,10 @@ struct ability_s{
   AbilitySave         save_fn;
   AbilitySim          sim_fn;
   item_t*             item;
+  ActionCategory      cat;
 };
+
+int AbilityAddPB(ent_t* e, ability_t* a, StatType s);
 
 struct ability_sim_s{
   AbilityID     id;
@@ -115,6 +118,7 @@ struct ability_sim_s{
   int           hit_res[2];
 };
 
+int AbilitySimulate(ability_t* a, local_ctx_t* ctx);
 ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target);
 
 typedef struct{
@@ -215,7 +219,6 @@ typedef struct{
   behavior_tree_node_t*   bt[STATE_RETURN];
   BehaviorID              current, failure;
   priorities_t            *priorities;
-  ability_t*              pref;
   uint64_t                behave_traits;
   initiative_t*           speed[ACTION_PASSIVE];
   choice_pool_t           *choices[ACTION_PASSIVE];
@@ -255,7 +258,6 @@ struct ent_s{
   Cell                  old_pos, pos,facing;
   EntityState           state,previous;
   EntityStatus          status;
-  action_turn_t         *actions[ACTION_DONE];
   need_t                *needs[N_DONE];
   controller_t          *control;
   events_t              *events;
@@ -284,7 +286,7 @@ item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
 bool EntAddItem(ent_t* e, item_t* item, bool equip);
 void EntToggleTooltip(ent_t* e);
 void EntInitOnce(ent_t* e);
-bool EntPrepareAttack(ent_t* e, ent_t* t, ability_t** a);
+bool EntPrepareAttack(ent_t* e, ability_t* a, local_ctx_t*);
 //attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 int EntDamageReduction(ent_t* e, ability_t* a, int dmg);
 InteractResult EntMeetNeed(ent_t* e, need_t* n, param_t g);
@@ -347,6 +349,7 @@ local_ctx_t* EntFindLocation(ent_t* e, local_ctx_t* other, Interactive method);
 bool EntCheckRange(ent_t* e, decision_t* d);
 
 int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]);
+void DamageEvent(EventType ev, void* edata, void* udata);
 
 struct env_s{
   game_object_uid_i     gouid;

@@ -143,14 +143,16 @@ ActionStatus ActionAttack(action_t* a){
   if(a->status == ACT_STATUS_RUNNING){
     local_ctx_t* ctx = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
     tar = ParamReadEnt(&ctx->other);
-    if(a->params[ACT_PARAM_ABILITY].type_id == DATA_INT){
-      AbilityID aid = ParamReadInt(&a->params[ACT_PARAM_ABILITY]);
-      ab = EntFindAbility(a->owner, aid);
-      prepared = ab!=NULL;
+    switch(a->params[ACT_PARAM_ABILITY].type_id){
+      case DATA_INT:
+        AbilityID aid = ParamReadInt(&a->params[ACT_PARAM_ABILITY]);
+        ab = EntFindAbility(a->owner, aid);
+        break;
+      case DATA_ABILITY:
+        ab = ParamRead(&a->params[ACT_PARAM_ABILITY], ability_t);
+        break;
     }
-    
-    if(!ab && tar)
-      prepared = EntPrepareAttack(a->owner, tar, &ab);
+    prepared = ab!=NULL;
   }
   if(!prepared){
     a->status = ACT_STATUS_BAD_ATTACK;
@@ -203,7 +205,6 @@ ActionStatus ActionRun(action_t* a){
   if(!CheckEntAvailable(a->owner))
     a->status = ACT_STATUS_INVALID;
 
-
   if(a->status != ACT_STATUS_NEXT)
     return ACT_STATUS_MISQUEUE;
 
@@ -236,15 +237,15 @@ void ActionManagerRunQueue(TurnPhase phase){
 
   for (int i = 0; i < count; i++){
     action_t* a = ActionMan.round[phase].entries[i];
-    ActionStatus res = ActionRun(a);
-    switch(res){
-      case ACT_STATUS_INVALID:
-      case ACT_STATUS_MISQUEUE:
-      case ACT_STATUS_BAD_DATA:
-        break;
+    a->status = ActionRun(a);
+    switch(a->status){
       case ACT_STATUS_TAKEN:
         WorldEvent(EVENT_ACT_TAKEN, a, a->id);
         break;
+      default:
+        WorldEvent(EVENT_ACT_STATUS, a, a->id);
+        break;
+
     }
   }
 }
@@ -374,20 +375,26 @@ action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, uint64_t gou
   return a;
 }
 
-action_t* InitActionByDecision(decision_t* d){
+action_t* InitActionByDecision(decision_t* d, ActionType t){
   if(d->params[ACT_PARAM_OWNER].type_id != DATA_ENTITY)
     return NULL;
 
+  if(t == ACTION_NONE)
+    t = d->decision;
+
   ent_t* e = ParamReadEnt(&d->params[ACT_PARAM_OWNER]);
 
-  action_t* a = InitAction(e, d->decision, ACT_MAIN, d->id, d->score);
+  action_t* a = InitAction(e, t, ACT_MAIN, d->id, d->score);
 
   for(int i = 0; i < ACT_PARAM_ALL; i++){
     a->params[i] = ParamClone(&d->params[i]);
   }
-  switch(d->decision){
+  switch(t){
     case ACTION_MOVE:
       if(a->params[ACT_PARAM_STEP].type_id != DATA_CELL){
+        if(a->params[ACT_PARAM_DEST].type_id != DATA_LOCAL_CTX)
+          return NULL;
+
         local_ctx_t* dest = ParamReadCtx(&a->params[ACT_PARAM_DEST]);
         if(dest->path == NULL)
           return NULL;
@@ -397,10 +404,6 @@ action_t* InitActionByDecision(decision_t* d){
         a->params[ACT_PARAM_STEP] =  ParamMake(DATA_CELL, sizeof(Cell),
             &step);
 
-        path_cache_entry_t* test = PathCacheFindRoute(e, dest);
-
-        if(CELL_LEN(step) == 0 || CELL_LEN(step)>1)
-        DO_NOTHING();
       }
       a->fn = ActionMove;
       break;
@@ -414,18 +417,43 @@ action_t* InitActionByDecision(decision_t* d){
   return a;
 }
 
-BehaviorStatus ActionExecute(decision_t* d, ActionType t, action_t** out){
-  action_t* a = InitActionByDecision(d);
-  if(t!= ACTION_NONE)
-    a->type = t;
+BehaviorStatus ActionValidate(action_t* a){
+  switch(a->type){
+    case ACTION_MOVE:
+      if(a->params[ACT_PARAM_STEP].type_id != DATA_CELL){
+        a->status = ACT_STATUS_BAD_DATA;    
+        break;
+        local_ctx_t* dest = ParamReadCtx(&a->params[ACT_PARAM_DEST]);
+        if(!dest || dest->path == NULL){
+          a->status = ACT_STATUS_BAD_DATA; 
+          break;
+        } 
 
-  ActionStatus status = ACT_STATUS_ERROR;
-  if(a)
-    status = QueueAction(a->owner->control->actions, a);
+        Cell step = ParamReadCell(&a->params[ACT_PARAM_STEP]);
+        TileStatus tile = MapTileAvailable(a->owner->map, step);
+        if(tile > TILE_SUCCESS){
+          a->status = ACT_STATUS_BLOCK;
+          break;
+        }
+      }
+      break;
+    case ACTION_ATTACK:
+      break;
+    case ACTION_INTERACT:
+      break;
+  }
 
-  *out = a;
+  return a->status==ACT_STATUS_QUEUED?BEHAVIOR_SUCCESS:BEHAVIOR_FAILURE;
+}
+
+BehaviorStatus ActionExecute(ActionType t, action_t* a){
+  if(!a)
+    return BEHAVIOR_FAILURE;
+
+  ActionStatus status = QueueAction(a->owner->control->actions, a);
+
   if(status == ACT_STATUS_QUEUED)
-    return BEHAVIOR_SUCCESS;
+    return ActionValidate(a);
 
   return BEHAVIOR_FAILURE;
 }
@@ -563,192 +591,6 @@ void ActionPoolSync(action_pool_t* p){
 
   p->valid = true;
 }
-/*
-bool ActionPlayerAttack(ent_t* e, ActionType type, KeyboardKey k,ActionSlot slot){
- if(!EntCanTakeAction(e))
-    return false;
-
-  if(cell_compare(e->facing,CELL_EMPTY) || cell_compare(e->facing,CELL_UNSET))
-    return false;
-
-  TileStatus* status =malloc(sizeof(TileStatus));
-  
-  ability_t* a = e->slots[slot]->abilities[0];
-  ent_t* target = NULL;
-  switch(a->targeting){
-    case DES_NONE:
-      target = MapGetOccupant(e->map, e->facing, status);
-      break;
-    case DES_SELF:
-      target = e;
-    default:
-      break;
-  }
-
-  if(target)
-    return AbilityUse(e, e->slots[slot]->abilities[0], target, NULL);
-
-  return false;
-}
-*/
-
-
-bool ActionMakeSelection(Cell start, int num, bool occupied){
-  ScreenActivateSelector(start,num,occupied, ActionSetTarget);
-}
-/*
-bool ActionInput(void){
-  return false;
-  if(player->state == STATE_SELECTION)
-    return false;
-
-  ActionType acted = ACTION_NONE;
-  for(int i = 0; i < ACTION_DONE; i++){
-    if(acted>ACTION_NONE)
-      break;
-
-    ActionType a = action_keys[i].action;
-    ActionKeyCallback fn = action_keys[i].fn;
-    for(int j = 0; j<action_keys[i].num_keys; j++){
-      KeyboardKey k = action_keys[i].keys[j];
-      if(!IsKeyDown(k))
-        continue;
-
-      int binding = action_keys[i].binding;
-      switch(action_keys[i].action){
-        case ACTION_MOVE:
-          if(fn(player,a,k,binding))
-            acted = ACTION_MOVE;
-          break;
-        case ACTION_ATTACK:
-        case ACTION_MAGIC:
-        case ACTION_ITEM:
-          ability_t* ability = player->slots[binding]->abilities[0];
-          switch(ability->targeting){
-            case DES_SELECT_TARGET:
-            case DES_MULTI_TARGET:
-              ent_t* pool[8];
-              int dist = ability->reach;
-              Rectangle r = Rect(player->pos.x - dist, player->pos.y - dist, dist*2,2* dist);
-               * int num_near = WorldGetEnts(pool, FilterEntInRect,&r);
-              if(num_near < 2)
-                break;
-              else{
-                SetState(player, STATE_SELECTION,NULL);
-                SetAction(player, a, ability, ability->targeting);
-                ActionMakeSelection(player->facing, ability->reach ,true);
-              //}
-              break;
-            case DES_NONE:
-            case DES_FACING:
-            default:
-              if(fn(player,a,k,binding))
-                acted = a;
-              break;
-          }
-      }
-    }
-  }
-
-  if(acted > ACTION_NONE)
-    return ActionTaken(player,acted);
-  else
-   return false;
-    
-}
-*/
-bool TakeAction(ent_t* e, action_turn_t* action){
-  if(!action->fn(e,action->action,action->cb)){
-    if(e->state == STATE_SELECTION)
-      SetState(e,STATE_IDLE,NULL);
-    return false;
-  }
-
-  if(action->cb)
-    action->cb(e,action->action);
-
-//  return ActionTaken(e, action->action);
-}
-
-ActionType ActionGetEntNext(ent_t* e){
-  ActionType next = ACTION_NONE;
-
-  for(int i = 0; i < ACTION_DONE; i++){
-    if(!e->actions[i]->on_deck)
-      continue;
-
-    if(e->actions[i]->context)
-      return i;
-  }
-
-  return next;
-}
-
-bool SetAction(ent_t* e, ActionType a, void *context, DesignationType targeting){
-  if(e->actions[a]->action == ACTION_NONE)
-    return false;
-
-  for (int i = 0; i < ACTION_DONE;i++){
-    if(e->actions[i]->on_deck && i!=a)
-      return false;
-
-  }
-
-  e->actions[a]->targeting = targeting;
-  e->actions[a]->num_targets = 0;
-  //e->actions[a]->targets = ;
-  e->actions[a]->context = context;
-  e->actions[a]->on_deck = true;
-  
-  return true;
-}
-
-void ActionSetTarget(ent_t* e, ActionType a, void* target){
-
-  map_cell_t* tile = target;
-  ActionType next = ActionGetEntNext(e);
-  action_turn_t* action = e->actions[next];
-
-  action_target_t* at = calloc(1,sizeof(action_target_t));
-  at->type = action->targeting;
-  
-  switch(action->targeting){
-    case DES_SELECT_TARGET:
-    case DES_MULTI_TARGET:
-      at->target.mob = tile->occupant;
-      break;
-    default:
-      break;
-  }
-      
-  action->targets[action->num_targets++] = at;
-}
-
-bool ActionMultiTarget(ent_t* e, ActionType a, OnActionCallback cb){
-  action_turn_t* inst = e->actions[a];
-  if(!inst || !inst->context)
-    return false;
-
-  ability_t* ab = (ability_t*)inst->context;
-
-  bool success = false;
-
-  for (int i = 0; i < inst->num_targets; i++){
-    switch(ab->targeting){
-      case DES_SELECT_TARGET:
-      case DES_MULTI_TARGET:
-        ent_t* target = inst->targets[i]->target.mob;
-        success = AbilityUse(e,ab,target,NULL)||success;
-        break;
-      default:
-        break;
-    }
-  }
-
-  if(!success)
-    TraceLog(LOG_WARNING,"DEBUG");
-  return success;
-}
 
 action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap){
   action_slot_t* a = calloc(1,sizeof(action_slot_t));
@@ -883,8 +725,9 @@ priority_t* PriorityAdd(priorities_t* t, Priorities type, param_t entry){
   game_object_uid_i gouid = hash_combine_64(t->owner->gouid,
       hash_combine_64(type, entry.gouid));
   
-  if(PrioritiesGetEntry(t, gouid))
-    return NULL;
+  priority_t* exists = PrioritiesGetEntry(t, gouid);
+  if(exists)  
+    return exists;
 
   Interactive method = I_NONE;
 
@@ -907,7 +750,8 @@ priority_t* PriorityAdd(priorities_t* t, Priorities type, param_t entry){
     .gouid = gouid,
     .type = type,
       .ctx = entry,
-      .method = method
+      .method = method,
+      .score = 0,
   };
 
   return p;
@@ -921,9 +765,17 @@ void PriorityPrune(priorities_t* t, int i){
 }
 
 bool PriorityScoreCtx(priority_t* p, ent_t* e){
-  game_object_uid_i gouid = ParamReadGOUID(&p->ctx);
+  local_ctx_t *l = NULL; 
+  switch(p->ctx.type_id){
+    case DATA_GOUID:
+      game_object_uid_i gouid = ParamReadGOUID(&p->ctx);
+      l = LocalGetEntry(e->local, gouid);
+      break;
+    case DATA_LOCAL_CTX:
+      l = ParamReadCtx(&p->ctx);
+      break;
+  }
 
-  local_ctx_t *l = LocalGetEntry(e->local, gouid);
   if(!l || l->other.type_id != DATA_ENTITY)
     return false;
 
@@ -931,40 +783,55 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
   if(l->awareness == 0)
     return p->score == 0;
 
+  if(l->awareness >= 1 && !l->aggro)
+    l->aggro = LocalAggroByCtx(l);
+
   int cr = l->scores[SCORE_CR];
   float flee = l->awareness;
   float engage = l->awareness;
 
+  int cr_diff = abs(cr - e->props->cr);
+
   for (int i = 0; i < TREAT_DONE; i++){
+    float t_mod = l->treatment[i];
     switch(i){
       case TREAT_KILL:
       case TREAT_EAT:
-        engage += l->treatment[i];
+        if(cr < e->props->cr)
+        engage += l->awareness * cr_diff*t_mod;
         if(l->aggro && l->aggro->initiated)
-          engage += l->treatment[i];
+          engage += l->aggro->threat*t_mod;
         break;
       case TREAT_DEFEND:
         if(l->aggro)
-          engage+= l->aggro->threat * l->treatment[i];
+          engage+= l->aggro->threat * t_mod;
+        else if (cr < e->props->cr)
+          engage+= cr * t_mod;
+        else
+          flee+= cr *t_mod;
         break;
       case TREAT_FLEE:
-        if(!l->aggro)
-          flee += l->treatment[i];
-        else if(l->aggro->initiated)
+        flee += t_mod;
+        if(!l->aggro){
+          if(cr > e->props->cr)
+            flee *= cr_diff;
+
+        }
+        else if(l->aggro && l->aggro->initiated)
           engage += (l->aggro->threat * l->treatment[TREAT_DEFEND]);
-        else
+        else{
           engage += (l->aggro->threat * l->treatment[TREAT_DEFEND])/l->dist;
+          flee += l->aggro->threat * t_mod;
+        }
         break;
     }
   }
 
-  flee *= (cr - e->props->cr);
-  engage -= l->awareness * (e->props->cr - cr);
-
   switch(p->type){
     case PRIO_FLEE:
       p->score = flee;
-
+      if(!l->aggro)
+        l->aggro = LocalAggroByCtx(l);
       if(engage > 0){
         priority_t* eng = PriorityAdd(e->control->priorities, PRIO_ENGAGE, p->ctx);
         if(eng){
@@ -986,6 +853,22 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
   }
 
   return p->score == score;
+}
+
+
+void PriorityEvent(EventType ev, void* edata, void* udata){
+  priorities_t* table = udata;
+  switch(ev){
+    case EVENT_AGGRO:
+      ent_t* e = edata;
+
+      param_t p = ParamMakeObj(DATA_ENTITY, e->gouid, e);
+      priority_t* eng = PriorityAdd(table, PRIO_ENGAGE, p);
+
+      PriorityScoreCtx(eng, e);
+      break;
+  }
+
 }
 
 int PrioritiesCompareDesc(const void* a, const void* b){

@@ -1,5 +1,6 @@
 #include "game_utils.h"
 #include "game_control.h"
+#include "game_types.h"
 
 static decision_pool_t* g_sort_decisions;
 
@@ -483,7 +484,11 @@ bool MakeDecision(decision_pool_t* t, DecisionSortFn fn){
     t->selected = &t->entries[0];
   else
     t->selected = fn(t);
-  
+ 
+  if(t->selected->score < 0){
+    t->selected = NULL;
+    return false; 
+  }
   return t->selected != NULL;
 }
 
@@ -503,7 +508,7 @@ decision_t* InitDecision(decision_pool_t* t, game_object_uid_i other){
   decision_t* d = &t->entries[t->count++];
 
   d->id = id;
-  d->params[ACT_PARAM_OWNER] = ParamMake(DATA_ENTITY, 0, t->owner);
+  d->params[ACT_PARAM_OWNER] = ParamMakeObj(DATA_ENTITY, t->ouid, t->owner);
   HashPut(&t->map, id, d);
 
   return d;
@@ -527,6 +532,9 @@ bool AddPriority(decision_pool_t* t, priority_t* p){
         d->state = STATE_NEED;
         d->params[ACT_PARAM_NEED] = p->ctx;
         break;
+      default:
+        return false;
+        break;
     }
     return true;
 }
@@ -542,7 +550,7 @@ bool AddDestination(decision_pool_t* t, local_ctx_t* ctx, EntityState s, Score s
   d->score = ctx->scores[score];
   d->cost = ctx->scores[cost];
 
-  param_t p = ParamMake(DATA_LOCAL_CTX, 0, ctx);
+  param_t p = ParamMakeObj(DATA_LOCAL_CTX, ctx->gouid, ctx);
 
   d->decision = ACTION_MOVE;
   d->state = s;
@@ -553,33 +561,43 @@ bool AddDestination(decision_pool_t* t, local_ctx_t* ctx, EntityState s, Score s
 }
 
 bool AddCandidate(decision_pool_t* t, local_ctx_t* ctx, ActionParam type, Score score, Score cost){
-    decision_t *d = InitDecision(t, ctx->gouid);
+  if(ctx->method == I_NONE)
+    return false;  
+  decision_t *d = InitDecision(t, ctx->gouid);
 
-    if(!d)
+  if(!d)
+    return false;
+
+  d->score = ctx->scores[score];
+  d->cost = ctx->scores[cost];
+
+  param_t p = ParamMakeObj(DATA_LOCAL_CTX, ctx->gouid, ctx);
+
+  if(t->id == STATE_NEED)
+    d->params[ACT_PARAM_NEED] = ctx->params[PARAM_NEED];
+
+  switch (ctx->method){
+    case I_KILL:
+      d->decision = ACTION_ATTACK;
+      d->state = STATE_AGGRO;
+      d->params[ACT_PARAM_DEST] = p;
+      d->params[ACT_PARAM_TAR] = p;
+      break;
+    case I_CONSUME:
+      d->decision = ACTION_INTERACT;
+      d->state = STATE_NEED;
+      d->params[ACT_PARAM_DEST] = p;
+      d->params[ACT_PARAM_INTER] = p;
+      break;
+    default:
+      d->score = -1;
+      d->cost = 999;
       return false;
+      break;   
+  }
 
-    d->score = ctx->scores[score];
-    d->cost = ctx->scores[cost];
-
-    param_t p = ParamMake(DATA_LOCAL_CTX, 0, ctx);
-
-    switch (ctx->method){
-      case I_KILL:
-        d->decision = ACTION_ATTACK;
-        d->state = STATE_AGGRO;
-        d->params[ACT_PARAM_DEST] = p;
-        d->params[ACT_PARAM_TAR] = p;
-        break;
-      case I_CONSUME:
-        d->decision = ACTION_INTERACT;
-        d->state = STATE_NEED;
-        d->params[ACT_PARAM_DEST] = p;
-        d->params[ACT_PARAM_INTER] = p;
-        break;
-    }
-
-    d->params[ACT_PARAM_RES] = ctx->params[PARAM_RESOURCE];
-    return true; 
+  d->params[ACT_PARAM_RES] = ctx->params[PARAM_RESOURCE];
+  return true; 
 }
 
 bool AddEnemy(decision_pool_t* t, local_ctx_t* ctx){
@@ -587,7 +605,7 @@ bool AddEnemy(decision_pool_t* t, local_ctx_t* ctx){
   if(!d)
     return false;
 
-  param_t tar = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), ctx);
+  param_t tar = ParamMakeObj(DATA_LOCAL_CTX, ctx->gouid, ctx);
   float threat = *ParamRead(&ctx->params[PARAM_AGGRO], float);
   d->score = threat;
   d->cost = ctx->scores[SCORE_PATH] * (1 + sqrt(ctx->scores[SCORE_CR]));
@@ -600,24 +618,93 @@ bool AddEnemy(decision_pool_t* t, local_ctx_t* ctx){
   return true;
 }
 
-bool AddDecision(decision_pool_t* t, ActionType a){
+bool AddAbility(decision_pool_t* t, local_ctx_t* ctx, ability_t* a){
+ decision_t *d = InitDecision(t, a->id);
+  if(!d)
+    return false;
 
+  d->decision = ACTION_ATTACK;
+  d->state = STATE_AGGRO;
+
+  d->cat = a->cat;
+  d->params[ACT_PARAM_ABILITY] = ParamMakeObj(DATA_ABILITY, a->id, a);
+  if(!AbilityCanTarget(a, ctx)){
+    d->cost = 999;
+    d->score = -1;
+    return true;
+  }
+ 
+  float hit = DieMax(a->hit)/20;
+  int dmg = AbilitySimulate(a, ctx);
+  AbilityID chain = a->chain_id;
+  while(chain != ABILITY_NONE){
+    ability_t* ca = EntFindAbility(t->owner, chain);
+    if(!ca)
+      break;
+
+    dmg += AbilitySimulate(ca, ctx);
+    chain = ca->chain_id;
+  }
+
+  d->score = hit*dmg;;
+  d->cost = a->cost;
+
+  return true;
+}
+
+bool AddDecision(decision_pool_t* t, decision_t* dec){
+  uint64_t id = hash_combine_64(dec->id, dec->decision);
+  decision_t* d = InitDecision(t, id);
+
+  if(!d)
+    return false;
+
+
+  d->score = dec->score;
+  d->cost = dec->cost;
+  d->decision = dec->decision;
+  d->state = dec->state;
+  
+  for(int i = 0; i < ACT_PARAM_ALL; i++){
+    d->params[i] = ParamClone(&dec->params[i]);
+  }
+
+  return true;
 }
 
 void OnDecisionAction(EventType event, void* data, void* user){
-  decision_pool_t* pool = user;
-  action_t* action = data;
+  decision_t* d = user;
+  action_t* a = data;
 
-  switch(event){
-    case EVENT_ACT_TAKEN:
-      pool->status = ACT_STATUS_TAKEN;
-      if(pool->selected)
-        pool->selected->status = 0;
-
-      pool->selected = NULL;
+  d->status = a->status;
+  switch(a->status){
+    case ACT_STATUS_ERROR:
+    case ACT_STATUS_BAD_DATA:
+    case ACT_STATUS_MISQUEUE:
+    case ACT_STATUS_FULL:
+    case ACT_STATUS_BAD_ATTACK:
+    case ACT_STATUS_INVALID:
+      d->auid = -1;
+      d->score = 0;
+      break;
+    case ACT_STATUS_BLOCK:
+      d->score *=0.5f;
       break;
   }
 
+}
 
+void OnActionSuccess(EventType event, void* data, void* user){
+  decision_pool_t* p = user;
+  action_t* a = data;
+
+  if(p->selected && p->selected->auid == a->id){
+    p->selected->score = 0;
+    p->selected->cost = -1;
+    p->selected->status = ACT_STATUS_DONE;
+    p->selected = NULL;
+  }
 
 }
+
+

@@ -262,10 +262,12 @@ ability_t ABILITIES[ABILITY_DONE]={
     .skills = SKILL_SPELL_ABJ},
   {ABILITY_HAMSTRING},
   {ABILITY_RAGE, AT_DMG,ACTION_ATTACK,DMG_TRUE, STAT_RAGE, DES_NONE, 10, 1, 0,1, 2, 1,1, STAT_HEALTH, ATTR_NONE, ATTR_NONE },
-  {ABILITY_WEAP},
+  {ABILITY_DASH, AT_MOVE, ACTION_MOVE, 0, STAT_STAMINA, DES_NONE, 5, 5, 1, 0, 0,0,0,1, STAT_NONE, ATTR_NONE, ATTR_DEX, ABILITY_NONE, 1, SKILL_ACRO,
+  .cat = ACT_BONUS},
   {ABILITY_THROW_ROCK, AT_DMG, ACTION_ATTACK, DMG_BLUNT, STAT_STAMINA, DES_SELECT_TARGET, 20, 1, 10, 1, 4, 0, 2, STAT_HEALTH, ATTR_DEX, ATTR_STR,
     .skills = SKILL_WEAP_NONE
   },
+  {ABILITY_WEAP},
   {ABILITY_WEAP_BLUDGEON, AT_DMG,ACTION_WEAPON,
     DMG_BLUNT, STAT_STAMINA, DES_NONE, 25,1,17,3,2,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
   },
@@ -1406,6 +1408,22 @@ item_prop_mod_t* GetItemPropMods(ItemCategory cat, uint64_t prop){
   
   return NULL;
 }
+void OnNeedStatus(EventType event, void* data, void* user){
+  ent_t* e = user;
+  need_t* n = data;
+
+  if(e->state == STATE_NEED && n->status <= NEED_OK)
+    SetState(e, STATE_IDLE, NULL);
+
+}
+
+bool NeedSetStatus(need_t* n, NeedStatus s){
+  if(n->status = s)
+    return false;
+
+  n->status = s;
+  WorldEvent(EVENT_NEED_STATUS, n, n->owner->gouid);
+}
 
 need_t* InitNeed(Needs id, ent_t* owner){
 
@@ -1450,7 +1468,7 @@ void NeedSyncMeter(need_t* n, int amount){
     return;
 
   if(n->status < NEED_CRITICAL)
-    n->status++;
+    NeedSetStatus(n, n->status+1);
 }
 
 void NeedFulfill(need_t* n, int amount){
@@ -1469,13 +1487,18 @@ void NeedIncrement(need_t *n, ent_t* owner, int amount){
 void NeedReset(need_t* n){
   n->activity = false;
 
+  NeedStatus new = n->status;
+
   for(int i = NEED_CRITICAL; i > -1; i--){
     int diff = n->vals[i] - n->val;
     if (diff < 0)
       break;
     n->prio -= diff/(NEED_CRITICAL+i);
-    n->status = i;
+    new = i;
   }
+
+  if(! NeedSetStatus(n, new))
+    return;
 
   if(n->status > NEED_MET)
     return;

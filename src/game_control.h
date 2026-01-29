@@ -91,7 +91,8 @@ typedef struct{
   action_round_t  round[TURN_ALL];
 }turn_action_manager_t;
 
-BehaviorStatus ActionExecute(decision_t*, ActionType, action_t**);
+action_t* InitActionByDecision(decision_t* d, ActionType t);
+BehaviorStatus ActionExecute(ActionType, action_t*);
 void InitActionManager(void);
 void InitActions(action_turn_t* actions[ACTION_DONE]);
 bool ActionHasStatus(action_pool_t* p, ActionStatus s);

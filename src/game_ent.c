@@ -98,6 +98,7 @@ ent_t* InitEntByRace(mob_define_t def){
   e->control->bt[STATE_IDLE] = InitBehaviorTree(BN_IDLE);
   e->control->bt[STATE_AGGRO] = InitBehaviorTree(BN_AGGRO);
   e->control->bt[STATE_NEED] = InitBehaviorTree(BN_NEED);
+  e->control->bt[STATE_STANDBY] = InitBehaviorTree(BN_PRIO);
 
   for (int i = 0; i < ATTR_BLANK; i++){
     e->attribs[i] = InitAttribute(i,0);
@@ -185,6 +186,25 @@ ent_t* InitEntByRace(mob_define_t def){
   } 
   for(int i = 0; i < SLOT_ALL; i++)
     e->slots[i] = InitActionSlot(i, e, 1, 1);  
+
+  if(e->props->mind > 0){
+    for(int i = 0; i < 16; i++){
+      ment_qualities_t w = MIND[i];
+      if((e->props->mind & w.mq) == 0)
+        continue;
+
+      for(int j = 0; j < SKILL_DONE; j++)
+        if(w.skillup[j]>0)
+        SkillIncreaseUncapped(e->skills[j], w.skillup[j]);
+
+      for(int j = 0; j < w.num_abilities; j++){
+        ability_t* a = InitAbility(e, w.abilities[j]);
+        a->cost--;
+
+        ActionSlotAddAbility(e,a);
+      }
+    }
+  }
 
   if(e->props->natural_weaps > 0){
     for(int i = 0; i < 16; i++){
@@ -967,7 +987,7 @@ bool EnvSetStatus(env_t* e, EnvStatus s){
 int EnvExtractResource(env_t* env, ent_t* ent, Resource res){
   resource_t* r = env->resources[__builtin_ctzll(res)];
 
-  if(r->amount == 0){
+  if(!r || r->amount == 0){
     env->has_resources &= ~res;
     return 0;
   }
@@ -1124,6 +1144,9 @@ void EntInitOnce(ent_t* e){
     StatMaxOut(e->stats[i]);
   }
 
+  WorldTargetSubscribe(EVENT_AGGRO, PriorityEvent, e->control->priorities, e->gouid);
+  WorldTargetSubscribe(EVENT_DAMAGE_TAKEN, DamageEvent, e, e->gouid);
+
   EntBuildAllyTable(e);
 }
 
@@ -1208,50 +1231,16 @@ InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target){
 }
 
 int EntAddAggro(ent_t* owner, ent_t* source, int threat, float mul, bool init){
-    int cr = LocalAddAggro(owner->local, source, threat, mul, init);
-    
-    for (int i = 0; i < owner->allies->count; i++){
-      ent_t* e = owner->allies->entries[i].ally;
-      Cell next;
-      if(EntCanDetect(e, owner,SEN_SEE))
-        LocalAddAggro(e->local, source, threat, 0.1f, false);
-    } 
+  int cr = LocalAddAggro(owner->local, source, threat, mul, init);
 
-}
+  for (int i = 0; i < owner->allies->count; i++){
+    ent_t* e = owner->allies->entries[i].ally;
+    Cell next;
+    if(EntCanDetect(e, owner,SEN_SEE))
+      LocalAddAggro(e->local, source, threat, 0.1f, init);
+  } 
 
-int AbilityAddPB(ent_t* e, ability_t* a, StatType s){
-  SkillRank rank = SkillRankGet(e->skills[a->skills[0]]);
-  if(rank < SR_SKILLED)
-    return 0;
-
-  define_skill_rank_t dsr = SKILL_RANKS[rank];
-  if(dsr.proficiency > MOD_NONE){
-    a->stats[s]->base = e->stats[s]->base;
-    for (int i = 0; i < ATTR_DONE; i++){
-      if(a->stats[s]->modified_by[i] > MOD_NONE)
-        a->stats[s]->modified_by[i] = dsr.proficiency;
-    }
-    a->stats[s]->start(a->stats[s]);
-  }
-  return a->stats[s]->current;
-}
-
-ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
-  ability_sim_t* res = calloc(1,sizeof(ability_sim_t));
-
-  res->id = a->id;
-  res->type = a->type;
-  res->d_type = a->school;
-  res->d_bonus = AbilityAddPB(owner, a, STAT_DAMAGE);
-  res->dmg_die = a->dc->num_die;
-  res->dmg_sides = a->dc->sides;
-  res->penn = a->values[VAL_PENN]->val;
-
-  res->hit_calc = a->hit->roll(a->hit, res->hit_res);
-  res->dmg_calc = a->dc->roll(a->dc, res->dmg_res);
-
-  res->final_dmg = res->dmg_calc + res->d_bonus;
-  return res;
+  return cr;
 }
 
 int EntConsume(ent_t* e, param_t goal, Resource res){
@@ -1292,6 +1281,31 @@ InteractResult EntMeetNeed(ent_t* e, need_t* n, param_t goal){
   return res;
 }
 
+InteractResult EntTakeDamage(ent_t* e, ent_t* source, ability_t* a, int damage, bool initiated){
+  InteractResult result = IR_FAIL;  
+  EntAddAggro(e, source, damage, source->props->base_diff, initiated);
+    if(StatChangeValue(e,e->stats[a->damage_to], damage)){
+      TraceLog(LOG_INFO,"%s level %i hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
+          source->name, 
+          source->skills[SKILL_LVL]->val,
+          e->name,
+          damage*-1,
+          DAMAGE_STRING[a->school],
+          e->name,
+          STAT_STRING[a->damage_to].name,
+          e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
+
+      result = IR_SUCCESS;
+      if(StatIsEmpty(e->stats[STAT_HEALTH]))
+        result = IR_TOTAL_SUCC;
+
+      if(initiated)
+        WorldEvent(EVENT_DAMAGE_TAKEN, a, e->gouid);
+   }
+
+   return result; 
+}
+
 InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source){
   InteractResult result = IR_NONE;
   //int base_dmg = a->dc->roll(a->dc);
@@ -1315,30 +1329,11 @@ InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source){
     int damage = -1 * dummy->final_dmg; 
     e->last_hit_by = source; 
 
-    EntAddAggro(e, source, -1*damage, source->props->base_diff, true);
-    if(StatChangeValue(e,e->stats[a->damage_to], damage)){
-      TraceLog(LOG_INFO,"%s level %i hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
-          source->name, 
-          source->skills[SKILL_LVL]->val,
-          e->name,
-          damage*-1,
-          DAMAGE_STRING[a->school],
-          e->name,
-          STAT_STRING[a->damage_to].name,
-          e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
-
-      result = IR_SUCCESS;
-      if(StatIsEmpty(e->stats[STAT_HEALTH]))
-        result = IR_TOTAL_SUCC;
-
-      if(og_dmg<dummy->final_dmg)
-        TraceLog(LOG_INFO,"(%i damage reduction)",og_dmg-dummy->final_dmg); 
-
-      return result;
-    }
-    else
-      result = IR_FAIL;
+    result = EntTakeDamage(e, source, a, damage, true);
   }
+
+  if(og_dmg<dummy->final_dmg)
+    TraceLog(LOG_INFO,"(%i damage reduction)",og_dmg-dummy->final_dmg);
 
   return result;
 }
@@ -1414,11 +1409,9 @@ local_ctx_t* EntGetTarget(ent_t* e, AbilityID id){
   return NULL;
 }
 
-bool EntPrepareAttack(ent_t* e, ent_t* t, ability_t** out){
+bool EntPrepareAttack(ent_t* e, ability_t* a, local_ctx_t* t){
+  return AbilityCanTarget(a, t);
 
-  *out = EntChoosePreferredAbility(e);
-
-  return (*out!=NULL);
 }
 
 InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_sim_t* source){
@@ -1530,11 +1523,18 @@ controller_t* InitController(ent_t* e){
   ctrl->phase = TURN_NONE;
   ctrl->behave_traits = e->props->traits & TRAIT_CAP_MASK;
   for(int i = 0; i < N_DONE; i++){
-    e->needs[i] = InitNeed(i,e);
-    param_t np = ParamMake(DATA_NEED, 0, e->needs[i]);
+    need_t* n =  InitNeed(i,e);
+    e->needs[i] = n;
+    param_t np = ParamMakeObj(DATA_NEED, n->id, n);
+    WorldTargetSubscribe(EVENT_NEED_STATUS, OnNeedStatus, e, e->gouid);
     np.gouid = hash_combine_64(e->gouid, hash_string_64(NEED_STRINGS[i]));
     PriorityAdd(ctrl->priorities, PRIO_NEEDS, np);
   }
+
+  bool running = false;
+  ctrl->decider[STATE_ACTION] = StartDecision(&ctrl->decider[STATE_ACTION],
+      STATE_END, e, STATE_ACTION, &running);
+
   return ctrl;
 }
 
@@ -1761,7 +1761,8 @@ TileStatus EntGridStep(ent_t *e, Cell step){
     e->pos = newPos;
     e->old_pos = oldPos;
     e->facing = CellInc(e->pos,step);
-    WorldContextChange(OBJ_ENT, e->gouid);
+    WorldEvent(EVENT_UPDATE_LOCAL_CTX, &e->gouid, e->gouid);
+    //WorldContextChange(OBJ_ENT, e->gouid);
     //WorldDebugCell(e->pos, GREEN);
   }
   else
@@ -1779,21 +1780,22 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
     return;
 
   if(turn != e->control->turn){
-    for(int i = 1; i < N_DONE; i++)
+    for(int i = 0; i < N_DONE; i++)
       NeedStep(e->needs[i]);
   }
-  
+  /*
   if(turn == e->control->turn && e->control->phase == phase)
    return;
-
+*/
   ActionPoolSync(e->control->actions);
   
   e->control->phase = phase;
   e->control->turn = turn;
 
+  /*
   if(ActionHasStatus(e->control->actions, ACT_STATUS_QUEUED))
     return;
-
+*/
   LocalSync(e->local, false);
   if(e->type == ENT_PERSON)
     return;
@@ -1846,6 +1848,9 @@ bool CanChangeState(EntityState old, EntityState s){
       if(s!=STATE_DEAD)
         return false;
       break;
+    case STATE_AGGRO:
+      if(s == STATE_NEED)
+        return false;
     default:
       return true;
       break;
@@ -2220,24 +2225,28 @@ skill_check_t* EntGetSkillPB(SkillType s, ent_t* e, local_ctx_t* ctx, Senses sen
 }
 
 bool EntCheckRange(ent_t* e, decision_t* d){
-
   local_ctx_t* ctx = NULL;
   switch(d->decision){
     case ACTION_MOVE:
     case ACTION_INTERACT:
       if(d->params[ACT_PARAM_DEST].type_id != DATA_LOCAL_CTX)
-        return NULL;
+        return false;
       ctx = ParamReadCtx(&d->params[ACT_PARAM_DEST]);
       return ctx->dist < 1;
       break;
     case ACTION_ATTACK:
       if(d->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX)
-        return NULL;
+        return false;
+
+      if(d->params[ACT_PARAM_ABILITY].type_id != DATA_ABILITY)
+        return false;
+
+      ability_t* a = ParamRead(&d->params[ACT_PARAM_ABILITY], ability_t);
       ctx = ParamReadCtx(&d->params[ACT_PARAM_TAR]);
       if(ctx->dist < 2)
         return true;
 
-      return AbilityCanTarget(e->control->pref, ctx);
+      return AbilityCanTarget(a, ctx);
       break;
   }
 
@@ -2250,5 +2259,5 @@ int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]){
 
   param_t f = ParamMake(DATA_UINT64, sizeof(res), &res);
 
-  return LocalContextFilter(e->local, num, pool, f, PARAM_RESOURCE);
+  return LocalContextFilter(e->local, num, pool, f, PARAM_RESOURCE, ParamCompareAnd);
 }

@@ -19,6 +19,7 @@ typedef enum{
   SCORE_RES,
   SCORE_CR,
   SCORE_PATH,
+  SCORE_THREAT,
   SCORE_ALL,
 }Score;
 
@@ -266,7 +267,9 @@ typedef enum{
   STATE_NONE,//if ent_t is properly initalized to {0} this is already set
   STATE_SPAWN,//Should only be set after NONE
   STATE_IDLE, //should be able to move freely between these ==>
+  STATE_ACTION,
   STATE_AGGRO,
+  STATE_ATTACK,
   STATE_NEED,
   STATE_SELECTION,
   STATE_DIE,//<===== In MOST cases. Should not be able to go down from DIE
@@ -541,6 +544,7 @@ typedef enum{
   PARAM_AGGRO,
   PARAM_RELATE,
   PARAM_POS,
+  PARAM_NEED,
   PARAM_ALL,
 }GameObjectParam;
 
@@ -663,6 +667,7 @@ typedef enum{
   ABILITY_REND,
   ABILITY_HAMSTRING,
   ABILITY_RAGE,
+  ABILITY_DASH,
   ABILITY_THROW_ROCK,
   ABILITY_WEAP,
   ABILITY_WEAP_BLUDGEON,
@@ -687,6 +692,7 @@ typedef enum {
   AT_DMG,
   AT_SAVE,
   AT_DR,
+  AT_MOVE,
   AT_DONE
 }AbilityType;
 
@@ -713,10 +719,14 @@ typedef enum{
   BN_PRIO_DEC,
   BN_NEED,
   BN_NEED_DEC,
+  BN_FILL_NEED,
   BN_LOC_DEC,
+  BN_ACTION,
   BN_DEC_EXEC,
   BN_DEC,
   BN_CHECK_RANGE,
+  BN_CHECK_ABILITY,
+  BN_URGENT,
   BN_COUNT
 }BehaviorID;
 
@@ -746,9 +756,14 @@ typedef enum{
   EVENT_SKILL,
   EVENT_ADD_LOCAL_CTX,
   EVENT_DEL_LOCAL_CTX,
+  EVENT_UPDATE_LOCAL_CTX,
   EVENT_ENT_DEATH,
   EVENT_ENV_DEATH,
+  EVENT_DAMAGE_TAKEN,
+  EVENT_AGGRO,
   EVENT_ACT_TAKEN,
+  EVENT_ACT_STATUS,
+  EVENT_NEED_STATUS,
   EVENT_NONE,
   MAX_EVENTS
 } EventType;

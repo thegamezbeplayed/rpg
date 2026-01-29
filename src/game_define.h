@@ -341,6 +341,7 @@ void NeedStep(need_t* n);
 void NeedIncrement(need_t*, ent_t* owner, int amount);
 Needs NeedGetGreatest(need_t* list[N_DONE]);
 void NeedFulfill(need_t* n, int amount);
+void OnNeedStatus(EventType event, void* data, void* user);
 
 typedef struct{
   Needs             type;
@@ -891,10 +892,12 @@ typedef struct{
 }body_covering_t;
 
 typedef struct{
-  MentalQual    pq;
+  MentalQual    mq;
   Traits        traits;
   FeatFlags     feats;
+  int           num_abilities;
   AbilityID     abilities[4];
+  int           skillup[SKILL_DONE];
 }ment_qualities_t;
 
 static const ment_qualities_t MIND[25] = {
@@ -904,7 +907,7 @@ static const ment_qualities_t MIND[25] = {
     FEAT_ALERT | FEAT_DODGE
   },
   {MQ_CUNNING,0,FEAT_STEALTHY | FEAT_FOCUSED_MIND},
-
+  {MQ_AGGRESSIVE, 0, 0, 1, ABILITY_DASH},
 };
 
 static const natural_weapons_t NAT_WEAPS[17] = {
@@ -980,7 +983,7 @@ static inline mind_result_t GetMindResult(MentalQual mask) {
   mind_result_t result = {0};
 
   for (int i = 0; i < 25; i++) {
-    if (MIND[i].pq & mask) {         // if this mental quality is present
+    if (MIND[i].mq & mask) {         // if this mental quality is present
       result.traits |= MIND[i].traits;
       result.feats  |= MIND[i].feats;
     }

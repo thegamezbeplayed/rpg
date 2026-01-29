@@ -16,6 +16,8 @@
     static void name##_Adapter(void *p) { name((T)p); }
 
 #define ParamRead(o, T) ((T*)((o)->data))
+
+typedef struct ability_s ability_t;
 typedef struct local_ctx_s local_ctx_t;
 typedef struct{
   bool                initiated;
@@ -38,18 +40,23 @@ typedef struct{
   param_t   *info;
 }debug_info_t;
 
+
+static param_t ParamMakeObj(DataType type, game_object_uid_i uid, void* src) {
+  param_t o;
+  o.type_id = type;
+  o.size = 0;
+  o.gouid = uid;
+  o.data = src;
+  return o;
+}
+
 static param_t ParamMake(DataType type, size_t size, void* src) {
   param_t o;
   o.type_id = type;
   o.size = size;
-  if(type < DATA_ENTITY){
-    o.data = malloc(size);
-    memcpy(o.data, src, size);
-  }
-  else{
-    o.size = 0;
-    o.data = src;
-  }
+  o.gouid = -1;
+  o.data = malloc(size);
+  memcpy(o.data, src, size);
   return o;
 }
 
@@ -76,24 +83,48 @@ static int ParamScore(DataType type, param_t *a, param_t* b){
   assert(b->type_id == type);
 
 }
-
-static bool ParamCompare(param_t *a, param_t *b){
-  assert(a->type_id == b->type_id);
+typedef bool (*ParamCompareFn)(param_t *a, param_t *b);
+static bool ParamCompareGreater(param_t *a, param_t *b){
+  int aval = 0, bval = 0;
+  int adec = 0, bdec = 0;
 
   switch(a->type_id){
-    case DATA_BOOL:
-    case DATA_INT:
-      return (ParamRead(a, int) == ParamRead(b, int));
+    case DATA_FLOAT:
+      Cell afval = float_to_ints(*ParamRead(a, float));
+      Cell bfval = float_to_ints(*ParamRead(b, float));
+      aval = afval.x;
+      adec = afval.y;
+      
+      bval = bfval.x;
+      bdec = bfval.y;
+      aval = aval*100 + adec;
+      bval = bval*100 + bdec;
       break;
-    case DATA_UINT64:
-      uint64_t aint = *ParamRead(a, uint64_t);
-      uint64_t bint = *ParamRead(b, uint64_t);
-      return ((*ParamRead(a, uint64_t) & *ParamRead(b, uint64_t)) > 0);
+    case DATA_INT:
+      aval = *ParamRead(a, int);
+      bval = *ParamRead(b, int);
       break;
 
   }
+  return GREATER_THAN(aval, bval);
+}
+static bool ParamCompareAnd(param_t *a, param_t *b){
+  uint64_t abits = *ParamRead(a, uint64_t);
+  uint64_t bbits = *ParamRead(b, uint64_t);
 
-  return false;
+  return ((abits & bbits) > 0);
+}
+
+static bool ParamCompareLesser(param_t *a, param_t *b){
+  return LESS_THAN(*ParamRead(a, int) ,*ParamRead(b, int));
+}
+
+
+static bool ParamCompare(param_t *a, param_t *b, ParamCompareFn fn){
+  assert(a->type_id == b->type_id);
+
+  return fn(a ,b);
+
 }
 
 static inline const char* ParamReadString(param_t* o){
@@ -196,10 +227,12 @@ bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn);
 bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, OnChosen fn);
 bool AddFilter(choice_pool_t *pool, int id, void *ctx);
 
+void PriorityEvent(EventType, void* e, void* u);
+
 typedef struct{
   game_object_uid_i gouid;
   Priorities        type;
-  param_t           ctx, goal;
+  param_t           ctx;
   Interactive       method;
   int               score;
   bool              prune;
@@ -220,6 +253,7 @@ typedef struct{
   uint64_t          id;
   ActionType        decision;
   ActionStatus      status;
+  ActionCategory    cat;
   game_object_uid_i auid;
   EntityState       state;
   param_t           params[ACT_PARAM_ALL];
@@ -227,7 +261,6 @@ typedef struct{
 }decision_t;
 
 void OnDecisionAction(EventType event, void* data, void* user);
-
 typedef struct{
   EntityState   id;
   ent_t*        owner;
@@ -251,12 +284,15 @@ static decision_t* DecisionGetEntry(decision_pool_t* t, game_object_uid_i id){
 }
 decision_pool_t* StartDecision(decision_pool_t** pool, int size, ent_t* e, EntityState id, bool* result);
 bool AddPriority(decision_pool_t* t, priority_t*);
-bool AddDecision(decision_pool_t* t, ActionType a);
+bool AddDecision(decision_pool_t* t, decision_t*);
 bool AddCandidate(decision_pool_t*, local_ctx_t*, ActionParam, Score s, Score c);
 bool AddDestination(decision_pool_t*, local_ctx_t*, EntityState, Score s, Score c);
 bool MakeDecision(decision_pool_t* t, DecisionSortFn);
 decision_t* InitDecision(decision_pool_t* t, game_object_uid_i other);
 decision_pool_t* InitDecisionPool(int size, ent_t* e, EntityState id);
+bool AddEnemy(decision_pool_t* t, local_ctx_t* ctx);
+bool AddAbility(decision_pool_t* t, local_ctx_t* tar, ability_t* a);
+void OnActionSuccess(EventType event, void* data, void* user);
 
 struct local_ctx_s{
   param_t             other, need;
@@ -293,10 +329,12 @@ local_table_t* InitLocals(ent_t* e, int cap);
 local_ctx_t* MakeLocalContext(local_table_t* s, param_t* e, Cell p);
 void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx);
 void LocalSync(local_table_t* s, bool sort);
+void LocalSyncCtx(local_table_t* s, local_ctx_t*);
 bool LocalCheck(local_ctx_t* ctx);
 void LocalPruneCtx(local_table_t* t, game_object_uid_i other);
-int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_t filter, ActionParam type);
+int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_t filter, GameObjectParam type, ParamCompareFn);
 void LocalSortByDist(local_table_t* table);
+aggro_t* LocalAggroByCtx(local_ctx_t* ctx);
 int LocalAddAggro(local_table_t* t, ent_t* e, int threat, float mul, bool init);
 aggro_t* LocalGetAggro(local_table_t* table, game_object_uid_i other);
 local_ctx_t* LocalGetThreat(local_table_t* t);
@@ -381,7 +419,9 @@ behavior_tree_node_t* BehaviorCreateConcurrent(behavior_tree_node_t **children, 
 
 BehaviorStatus BehaviorChangeState(behavior_params_t *params);
 BehaviorStatus BehaviorCheckAggro(behavior_params_t *params);
+BehaviorStatus BehaviorCheckAbility(behavior_params_t *params);
 BehaviorStatus BehaviorGetPriority(behavior_params_t *params);
+BehaviorStatus BehaviorCheckUrgency(behavior_params_t *params);
 BehaviorStatus BehaviorCheckReady(behavior_params_t *params);
 BehaviorStatus BehaviorCheckRange(behavior_params_t *params);
 BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params);
@@ -393,12 +433,15 @@ BehaviorStatus BehaviorSeekResource(behavior_params_t *params);
 BehaviorStatus BehaviorCheckResource(behavior_params_t *params);
 BehaviorStatus BehaviorAcquireResource(behavior_params_t *params);
 BehaviorStatus BehaviorExecuteDecision(behavior_params_t *params);
+BehaviorStatus BehaviorActionDecision(behavior_params_t *params);
 
 static inline behavior_tree_node_t* LeafChangeState(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorChangeState,params); }
 static inline behavior_tree_node_t* LeafCheckReady(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckReady,params); }
 static inline behavior_tree_node_t* LeafCheckRange(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckRange,params); }
 static inline behavior_tree_node_t* LeafCheckAggro(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAggro,params); }
+static inline behavior_tree_node_t* LeafCheckAbility(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckAbility,params); }
 static inline behavior_tree_node_t* LeafGetPriority(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorGetPriority,params); }
+static inline behavior_tree_node_t* LeafCheckUrgency(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckUrgency,params); }
 static inline behavior_tree_node_t* LeafAcquireDestination(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAcquireDestination,params); }
 static inline behavior_tree_node_t* LeafAttackTarget(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorAttackTarget,params); }
 static inline behavior_tree_node_t* LeafTakeTurn(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorTakeTurn,params); }
@@ -408,6 +451,7 @@ static inline behavior_tree_node_t* LeafAcquireResource(behavior_params_t *param
 static inline behavior_tree_node_t* LeafCheckResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorCheckResource,params); }
 static inline behavior_tree_node_t* LeafSeekResource(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorSeekResource,params); }
 static inline behavior_tree_node_t* LeafExecuteDecision(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorExecuteDecision,params); }
+static inline behavior_tree_node_t* LeafActionDecision(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorActionDecision,params); }
 
 
 

@@ -31,11 +31,18 @@ BehaviorStatus InputActionMove(ent_t* e, action_key_t akey, KeyboardKey k){
   if(cell_compare(dir, CELL_UNSET))
     return BEHAVIOR_FAILURE;
 
+  Cell coords = CellInc(dir, e->pos);
+  if(MapTileAvailable(e->map, coords) >= TILE_ISSUES){
+    e->facing = coords;
+    return BEHAVIOR_FAILURE;
+  }
+
   param_t p = ParamMake(DATA_CELL, sizeof(Cell), &dir);
 
   player_input.decisions[ACTION_MOVE]->params[ACT_PARAM_STEP] = p;
-  action_t* a;
-  return ActionExecute(player_input.decisions[ACTION_MOVE], ACTION_MOVE, &a);
+  action_t* a = InitActionByDecision(player_input.decisions[ACTION_MOVE], ACTION_MOVE);
+
+  return ActionExecute(ACTION_MOVE, a);
 }
 
 BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
@@ -48,9 +55,10 @@ BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
   param_t p = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), tar);
   player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_TAR] = p;
 
-  action_t* act = NULL;
+  action_t* act = InitActionByDecision(player_input.decisions[ACTION_ATTACK], ACTION_ATTACK);
+;
 
-  return ActionExecute(player_input.decisions[ACTION_ATTACK], ACTION_ATTACK, &act);
+  return ActionExecute(ACTION_ATTACK, act);
 }
 
 BehaviorStatus InputActionItem(ent_t* e, action_key_t a,  KeyboardKey k){

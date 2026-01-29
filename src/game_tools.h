@@ -452,4 +452,11 @@ static int next_pow2_int(int v) {
 
     return v;
 }
+
+static Cell float_to_ints(float v) {
+    Cell c;
+    c.x = (int)v;
+    c.y = (int)((v - c.x) * 10); // choose precision
+    return c;
+}
 #endif

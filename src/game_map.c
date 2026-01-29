@@ -657,6 +657,16 @@ map_cell_t* MapGetTile(map_grid_t* map,Cell tile){
 
 }
 
+TileStatus MapTileAvailable(map_grid_t* m, Cell c){
+  Cell bounds = CELL_NEW(m->width,m->height);
+
+  if(!cell_in_bounds(c,bounds))
+    return TILE_OUT_OF_BOUNDS;
+  map_cell_t* mc = &m->tiles[c.x][c.y];
+
+  return mc->status;
+}
+
 TileStatus MapRemoveOccupant(map_grid_t* m, Cell c){
   Cell bounds = CELL_NEW(m->width,m->height);
   if(!cell_in_bounds(c,bounds))
