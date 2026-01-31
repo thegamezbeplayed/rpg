@@ -677,6 +677,12 @@ int AbilitySimulate(ability_t* a, local_ctx_t* ctx){
 }
 
 bool AbilityCanTarget(ability_t* a, local_ctx_t* target){
+  if(!a)
+    return false;
+
+  if(!target)
+    return false;
+
   ent_t* e = a->stats[STAT_REACH]->owner;
 
   int res = e->stats[a->resource]->current;

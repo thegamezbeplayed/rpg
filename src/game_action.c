@@ -3,7 +3,7 @@
 
 MAKE_ADAPTER(StepState, ent_t*);
 
-static turn_action_manager_t ActionMan;
+turn_action_manager_t ActionMan;
 
 int ActionCompareImpDsc(const void* a, const void* b){
   const action_t* A = (const action_t*)a;
@@ -75,8 +75,9 @@ void InitActionManager(void){
   for (int i = 0; i < TURN_ALL; i++)
     InitActionRound(ACT_MAIN, i, MAX_PHASE_ACTIONS);
 
-  ActionMan.phase = TURN_INIT;
-  ActionMan.next = TURN_START;
+  ActionMan.phase = TURN_MAIN;
+  ActionMan.next = TURN_POST;
+  WorldSubscribe(EVENT_PLAYER_INPUT, OnPlayerAction, &ActionMan); 
 }
 
 bool ActionManagerInsert(action_t* a, TurnPhase phase){
@@ -93,6 +94,16 @@ void ActionPrune(action_queue_t* q, int i) {
     q->entries[i] = q->entries[--q->count];
   else
     q->count--;
+}
+
+bool ActionSetStatus(action_t* a, ActionStatus status){
+  if(a->status == status)
+    return false;
+
+  a->status = status;
+  WorldEvent(EVENT_ACT_STATUS, a, a->id);
+
+  return true;
 }
 
 void ActionManagerBuildQueue(TurnPhase phase, ActionCategory cat){
@@ -114,7 +125,8 @@ void ActionManagerBuildQueue(TurnPhase phase, ActionCategory cat){
 
     q->status = ACT_STATUS_QUEUED;
 
-    a->status = ACT_STATUS_NEXT;
+    if(!ActionSetStatus(a, ACT_STATUS_NEXT))
+      continue;
 
     if(!ActionManagerInsert(a, phase))
       break;
@@ -134,13 +146,14 @@ bool ActionHasStatus(action_pool_t* p, ActionStatus s){
 }
 
 ActionStatus ActionAttack(action_t* a){
+  ActionStatus s = a->status;
   if(a->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX)
-    a->status = ACT_STATUS_BAD_DATA;
+    s = ACT_STATUS_BAD_DATA;
 
   bool prepared = false;
   ability_t* ab;
   ent_t* tar = NULL;
-  if(a->status == ACT_STATUS_RUNNING){
+  if(s == ACT_STATUS_RUNNING){
     local_ctx_t* ctx = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
     tar = ParamReadEnt(&ctx->other);
     switch(a->params[ACT_PARAM_ABILITY].type_id){
@@ -155,13 +168,14 @@ ActionStatus ActionAttack(action_t* a){
     prepared = ab!=NULL;
   }
   if(!prepared){
-    a->status = ACT_STATUS_BAD_ATTACK;
+    s = ACT_STATUS_BAD_ATTACK;
   }
   else{
     AbilityUse(a->owner, ab, tar, NULL);
-    a->status = ACT_STATUS_TAKEN;
+    s = ACT_STATUS_TAKEN;
   }
 
+  ActionSetStatus(a, s);
   return a->status;
 }
 
@@ -177,38 +191,41 @@ ActionStatus ActionInteract(action_t* a){
     status = ACT_STATUS_TAKEN;
   }
 
-  a->status = status;
+  ActionSetStatus(a ,status);
 
-  return status;
+  return a->status;
 }
 
 
 ActionStatus ActionMove(action_t* a){
   param_t p = a->params[ACT_PARAM_STEP];
 
+  ActionStatus s = a->status;
   if(p.type_id != DATA_CELL)
-    a->status = ACT_STATUS_BAD_DATA;
-    
-  if(a->status != ACT_STATUS_RUNNING)
-    return a->status;
+    s = ACT_STATUS_BAD_DATA;
 
-  Cell dest = ParamReadCell(&p);
-  TileStatus tstat = EntGridStep(a->owner,dest);
-  if(tstat >= TILE_ISSUES)
-    a->status = ACT_STATUS_BLOCK;
-  else
-    a->status = ACT_STATUS_TAKEN;
+  if(s -= ACT_STATUS_RUNNING){
+    Cell dest = ParamReadCell(&p);
+    TileStatus tstat = EntGridStep(a->owner,dest);
+    if(tstat >= TILE_ISSUES)
+      s = ACT_STATUS_BLOCK;
+    else
+      s = ACT_STATUS_TAKEN;
+  }
+  
+  ActionSetStatus(a,s);
   return a->status;
 }
 
 ActionStatus ActionRun(action_t* a){
+  ActionStatus s = ACT_STATUS_NEXT;
   if(!CheckEntAvailable(a->owner))
-    a->status = ACT_STATUS_INVALID;
+    s = ACT_STATUS_INVALID;
 
-  if(a->status != ACT_STATUS_NEXT)
+  ActionSetStatus(a, s);
+  if(s != ACT_STATUS_NEXT)
     return ACT_STATUS_MISQUEUE;
 
-  a->status = ACT_STATUS_RUNNING;
   ActionStatus res = ACT_STATUS_ERROR;
   res = a->fn(a);
 
@@ -237,28 +254,23 @@ void ActionManagerRunQueue(TurnPhase phase){
 
   for (int i = 0; i < count; i++){
     action_t* a = ActionMan.round[phase].entries[i];
-    a->status = ActionRun(a);
+    ActionSetStatus(a, ActionRun(a));
     switch(a->status){
       case ACT_STATUS_TAKEN:
         WorldEvent(EVENT_ACT_TAKEN, a, a->id);
         break;
       default:
-        WorldEvent(EVENT_ACT_STATUS, a, a->id);
         break;
 
     }
   }
 }
 
-bool ActionTurnStep(TurnPhase phase){
-  if(ActionMan.phase == TURN_STANDBY && phase != TURN_STANDBY)
+bool ActionTurnStep(void){
+  if(ActionMan.round[ActionMan.phase].status != ACT_STATUS_DONE)
     return false;
 
-  if(ActionMan.phase != TURN_STANDBY && phase == TURN_STANDBY){
-    ActionMan.phase = TURN_STANDBY;
-
-    return true;
-  }
+  ActionMan.round[ActionMan.phase].status = ACT_STATUS_NONE;
 
   if(ActionMan.next < TURN_END){
     ActionMan.phase = ActionMan.next;
@@ -268,13 +280,34 @@ bool ActionTurnStep(TurnPhase phase){
   }
   else{
     ActionMan.phase = ActionMan.next;
-    ActionMan.next = TURN_INIT;
+    ActionMan.next = TURN_MAIN;
     return true;
   }
 
  TraceLog(LOG_WARNING,"===== ACTION MANAGER TURN =====\nShouldnt reach here...");
  return false; 
 
+}
+
+void ActionManOnStatus(TurnPhase phase, ActionStatus s){
+  switch(s){
+    case ACT_STATUS_DONE:
+      ActionTurnStep();
+      break;
+  }
+}
+
+bool ActionManSetStatus(TurnPhase phase, ActionStatus next){
+  if(ActionMan.round[phase].status == next)
+    return false;
+
+  if(ActionMan.round[phase].status > next)
+    return false;
+
+  ActionMan.round[phase].status = next;
+
+  ActionManOnStatus(phase, next);
+  return true;
 }
 
 void ActionPoolRestart(action_pool_t* p){
@@ -288,6 +321,9 @@ void ActionPoolRestart(action_pool_t* p){
 
 void ActionManagerEndRound(TurnPhase phase){
   int count = ActionMan.round[phase].count;
+
+  if (ActionMan.round[phase].status !=  ACT_STATUS_NONE)
+    return;
   for(int i = 0; i < count; i++){
     action_t* a =ActionMan.round[phase].entries[i];
     if(CheckEntAvailable(a->owner))
@@ -298,68 +334,62 @@ void ActionManagerEndRound(TurnPhase phase){
 
 }
 
-void ActionManagerReset(){
+void ActionManagerEndTurn(){
   for(int i = 0; i < TURN_ALL; i++)
     ActionManagerEndRound(i);
-}
 
-void ActionManagerEndTurn(){
-  if(!ActionTurnStep(TURN_STANDBY))
-    return;
 
-  ActionManagerReset();
   ActionMan.turn++;
 }
 
 void ActionPhaseStep(TurnPhase phase){
-
+  ActionStatus s = ActionMan.round[phase].status;
+  ActionStatus next = ACT_STATUS_NONE;
   switch(phase){
     case TURN_NONE:
-      ActionMan.next = TURN_INIT;
-      ActionTurnStep(TURN_STANDBY);
+      ActionMan.next = TURN_MAIN;
+      ActionTurnStep();
       break;
-    case TURN_INIT:
-      if(ActionTurnStep(TURN_STANDBY)){
-        ActionManagerBuildQueue(TURN_START, ACT_BONUS);
-        ActionManagerBuildQueue(TURN_MAIN, ACT_MAIN);
+    case TURN_MAIN:
+      switch(s){
+        case ACT_STATUS_BUILD:
+          if(ActionManSetStatus(phase, ACT_STATUS_QUEUED))
+          ActionManagerBuildQueue(TURN_MAIN, ACT_MAIN);
+          break;
+        case ACT_STATUS_NEXT:
+          next = ACT_STATUS_RUNNING;
+          ActionManagerRunQueue(phase);
+          break;
+        case ACT_STATUS_TAKEN:
+          next = ACT_STATUS_DONE;
+          break;
       }
       break;
-    case TURN_START:
-    case TURN_MAIN:
-      if(ActionTurnStep(TURN_STANDBY))
-        ActionManagerRunQueue(phase);
-      break;
-    case TURN_STANDBY:
-      ActionTurnStep(TURN_STANDBY);
-      break;
     case TURN_POST:
-      ActionTurnStep(TURN_STANDBY);
+      next = ACT_STATUS_DONE;
       break;
     case TURN_END:
+      if(!ActionManSetStatus(phase, ACT_STATUS_DONE))
+        return;
+      next = ACT_STATUS_NONE;
       ActionManagerEndTurn();
       WorldEndTurn();
       break;
   }
-}
 
-TurnPhase ActionManagerPreSync(void){
-  bool input = InputCheck(ActionMan.phase, ActionMan.turn);
-
-  if(ActionMan.phase == TURN_INIT && !input)
-    return TURN_STANDBY;
-
-  ActionPhaseStep(ActionMan.phase);
-    return ActionMan.phase;
+  ActionManSetStatus(phase, next);
 }
 
 void ActionManagerSync(void){
-  InputSync(ActionMan.phase, ActionMan.turn);
+    ActionPhaseStep(ActionMan.phase);
 }
 
 action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, uint64_t gouid, int weight){
   action_t* a = calloc(1, sizeof(action_t));
 
-  uint64_t id = hash_combine_64(gouid, cat*100 +type);
+  uint64_t id = GameObjectMakeUID(e->name, 
+      10*ActionMan.turn + ActionMan.phase,
+      WorldGetTime());
 
   *a = (action_t) {
     .owner = e,
@@ -369,7 +399,7 @@ action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, uint64_t gou
       .weight = weight,
       .score = weight,
       .turn  = ActionMan.turn,
-      .phase = ActionMan.next,
+      .phase = ActionMan.phase,
   };
 
   return a;
@@ -417,11 +447,12 @@ action_t* InitActionByDecision(decision_t* d, ActionType t){
   return a;
 }
 
-BehaviorStatus ActionValidate(action_t* a){
+ActionStatus ActionValidate(action_t* a){
+  ActionStatus status = a->status;
   switch(a->type){
     case ACTION_MOVE:
       if(a->params[ACT_PARAM_STEP].type_id != DATA_CELL){
-        a->status = ACT_STATUS_BAD_DATA;    
+        status = ACT_STATUS_BAD_DATA;    
         break;
         local_ctx_t* dest = ParamReadCtx(&a->params[ACT_PARAM_DEST]);
         if(!dest || dest->path == NULL){
@@ -432,30 +463,44 @@ BehaviorStatus ActionValidate(action_t* a){
         Cell step = ParamReadCell(&a->params[ACT_PARAM_STEP]);
         TileStatus tile = MapTileAvailable(a->owner->map, step);
         if(tile > TILE_SUCCESS){
-          a->status = ACT_STATUS_BLOCK;
+          status = ACT_STATUS_BLOCK;
           break;
         }
       }
       break;
     case ACTION_ATTACK:
+      if(a->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX){
+        status = ACT_STATUS_BAD_DATA;
+        break;
+      }
+      if(a->params[ACT_PARAM_ABILITY].type_id != DATA_ABILITY){
+        status = ACT_STATUS_BAD_DATA;
+        break;
+      }
+      local_ctx_t* tar = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
+
+      ability_t* abi = ParamRead(&a->params[ACT_PARAM_ABILITY],ability_t);
+      if(!AbilityCanTarget(abi, tar))
+       status = ACT_STATUS_BAD_ATTACK;
       break;
     case ACTION_INTERACT:
       break;
   }
 
-  return a->status==ACT_STATUS_QUEUED?BEHAVIOR_SUCCESS:BEHAVIOR_FAILURE;
+  ActionSetStatus(a, status);
+  return a->status;
 }
 
 BehaviorStatus ActionExecute(ActionType t, action_t* a){
   if(!a)
     return BEHAVIOR_FAILURE;
 
-  ActionStatus status = QueueAction(a->owner->control->actions, a);
+  ActionValidate(a);
 
-  if(status == ACT_STATUS_QUEUED)
-    return ActionValidate(a);
+  if(a->status == ACT_STATUS_NONE)
+    QueueAction(a->owner->control->actions, a);
 
-  return BEHAVIOR_FAILURE;
+  return a->status==ACT_STATUS_QUEUED? BEHAVIOR_SUCCESS:BEHAVIOR_FAILURE;
 }
 
 action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap){
@@ -479,9 +524,6 @@ action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap){
 action_t* ActionForPhase(action_queue_t* q, TurnPhase phase){
   if(q->charges <1)
     return NULL;
-
-  if(q->count > 1)
-    DO_NOTHING();
 
   for(int i = 0; i < q->count; i++){
     action_t* a = &q->entries[i];
@@ -530,8 +572,8 @@ action_t* ActionFindByID(action_queue_t *q, action_t* t){
 }
 
 ActionStatus AddAction(action_queue_t *q, action_t* t){
-  t->status = ACT_STATUS_QUEUED; 
-  q->entries[q->count++] = *t;
+  if (ActionSetStatus(t,ACT_STATUS_QUEUED)) 
+    q->entries[q->count++] = *t;
 
   return t->status;
 }
@@ -590,6 +632,37 @@ void ActionPoolSync(action_pool_t* p){
     ActionQueueSync(p->queues[i]);
 
   p->valid = true;
+}
+
+void OnPlayerAction(EventType event, void* data, void* user){
+  action_t* a = data;
+  switch(event){
+    case EVENT_PLAYER_INPUT:
+      if(ActionManSetStatus(a->phase, ACT_STATUS_BUILD))
+        WorldTargetSubscribe(EVENT_ACT_STATUS, OnPlayerAction, a, a->id);
+
+      InputSync(ActionMan.phase, ActionMan.turn);
+      break;
+    case EVENT_ACT_STATUS:        
+      switch(a->status){
+        case ACT_STATUS_TAKEN:
+          ActionManSetStatus(a->phase, a->status);
+          WorldUnsub(a->id);
+          break;
+        case ACT_STATUS_BUILD:
+        case ACT_STATUS_QUEUED:
+          TraceLog(LOG_INFO,"This was teh problem");
+          break;
+        case ACT_STATUS_NEXT:
+        case ACT_STATUS_RUNNING:
+          ActionManSetStatus(a->phase, a->status);
+          break;
+        default:
+          TraceLog(LOG_WARNING,"==== GAME ACTIONS ===\n Unexpected player action Status %i",a->status);
+          break;
+      }
+      break;
+  }
 }
 
 action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap){
@@ -733,6 +806,7 @@ priority_t* PriorityAdd(priorities_t* t, Priorities type, param_t entry){
 
   switch(type){
     case PRIO_ENGAGE:
+    case PRIO_HELP:
       method = I_KILL;
       break;
     case PRIO_FLEE:
@@ -849,6 +923,9 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
           return true;
         }
       }
+      break;
+    case PRIO_HELP:
+      p->score = engage;
       break;
   }
 

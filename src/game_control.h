@@ -80,6 +80,7 @@ typedef struct{
 
 typedef struct{
   int             count, cap;
+  ActionStatus  status;
   TurnPhase       phase;
   ActionCategory  allowed;
   action_t*       entries[MAX_PHASE_ACTIONS];
@@ -90,10 +91,12 @@ typedef struct{
   TurnPhase       phase, next;
   action_round_t  round[TURN_ALL];
 }turn_action_manager_t;
+extern turn_action_manager_t ActionMan;
 
 action_t* InitActionByDecision(decision_t* d, ActionType t);
 BehaviorStatus ActionExecute(ActionType, action_t*);
 void InitActionManager(void);
+void OnPlayerAction(EventType event, void* data, void* user);
 void InitActions(action_turn_t* actions[ACTION_DONE]);
 bool ActionHasStatus(action_pool_t* p, ActionStatus s);
 action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap);
@@ -104,7 +107,6 @@ void ActionPoolSync(action_pool_t* p);
 action_pool_t* InitActionPool(ent_t* e);
 
 void ActionManagerSync(void);
-TurnPhase ActionManagerPreSync(void);
 action_turn_t* InitActionTurn(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb);
 void ActionStandby(ent_t* e);
 void ActionTurnSync(ent_t* e);
@@ -125,7 +127,6 @@ typedef struct{
   ent_t*          owner;
   int             turn;
   TurnPhase       phase;
-  BehaviorStatus  key_event;
   decision_t*     decisions[ACTION_PASSIVE];
   action_key_t    actions[ACTION_DONE];
 }game_input_t;
@@ -133,6 +134,7 @@ typedef struct{
 void InitInput(ent_t* player);
 void InputSync(TurnPhase phase, int turn);
 bool InputCheck(TurnPhase phase, int turn);
+void InputSetTarget(ent_t* e, ActionType a, local_ctx_t* target);
 
 
 #endif

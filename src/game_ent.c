@@ -16,6 +16,9 @@ ent_t* InitEnt(EntityType id,Cell pos){
   e->props->base_diff = 5;
   item_def_t* w = GetItemDefByID(GEAR_MACE);
   EntAddItem(e, InitItem(w), true);
+  
+  item_def_t* r = GetItemDefByID(GEAR_BOW_LIGHT);
+  EntAddItem(e, InitItem(r),true);
 
   item_def_t* b = GetItemDefByID(GEAR_BANDOLIER);
   EntAddItem(e, InitItem(b),true);
@@ -956,6 +959,17 @@ env_t* InitEnv(EnvTile t,Cell pos){
   return e;
 }
 
+void EntRender(ent_t* e){
+  switch(e->status){
+    case ENT_STATUS_ALIVE:
+      DrawSprite(e->sprite);
+      break;
+    case ENT_STATUS_DEAD:
+      DO_NOTHING();
+      break;
+  } 
+}
+ 
 void EnvRender(env_t* e){
   switch(e->status){
     case ENV_STATUS_NORMAL:
@@ -1233,11 +1247,14 @@ InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target){
 int EntAddAggro(ent_t* owner, ent_t* source, int threat, float mul, bool init){
   int cr = LocalAddAggro(owner->local, source, threat, mul, init);
 
+  param_t gouid = ParamMake(DATA_UINT64, sizeof(uint64_t), &owner->gouid);
   for (int i = 0; i < owner->allies->count; i++){
     ent_t* e = owner->allies->entries[i].ally;
     Cell next;
-    if(EntCanDetect(e, owner,SEN_SEE))
+    if(EntCanDetect(e, owner,SEN_SEE)){
+      PriorityAdd(e->control->priorities, PRIO_HELP, gouid);
       LocalAddAggro(e->local, source, threat, 0.1f, init);
+    }
   } 
 
   return cr;
@@ -1283,7 +1300,6 @@ InteractResult EntMeetNeed(ent_t* e, need_t* n, param_t goal){
 
 InteractResult EntTakeDamage(ent_t* e, ent_t* source, ability_t* a, int damage, bool initiated){
   InteractResult result = IR_FAIL;  
-  EntAddAggro(e, source, damage, source->props->base_diff, initiated);
     if(StatChangeValue(e,e->stats[a->damage_to], damage)){
       TraceLog(LOG_INFO,"%s level %i hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
           source->name, 
@@ -1297,8 +1313,10 @@ InteractResult EntTakeDamage(ent_t* e, ent_t* source, ability_t* a, int damage, 
 
       result = IR_SUCCESS;
       if(StatIsEmpty(e->stats[STAT_HEALTH]))
-        result = IR_TOTAL_SUCC;
+        return IR_TOTAL_SUCC;
 
+  
+      EntAddAggro(e, source, damage, source->props->base_diff, initiated);
       if(initiated)
         WorldEvent(EVENT_DAMAGE_TAKEN, a, e->gouid);
    }
@@ -1762,6 +1780,7 @@ TileStatus EntGridStep(ent_t *e, Cell step){
     e->old_pos = oldPos;
     e->facing = CellInc(e->pos,step);
     WorldEvent(EVENT_UPDATE_LOCAL_CTX, &e->gouid, e->gouid);
+    WorldEvent(EVENT_ENT_STEP, e, e->gouid);
     //WorldContextChange(OBJ_ENT, e->gouid);
     //WorldDebugCell(e->pos, GREEN);
   }

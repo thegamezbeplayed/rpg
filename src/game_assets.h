@@ -271,7 +271,6 @@ typedef struct {
 
 void DrawSlice(sprite_t *spr, Vector2 position,float rot);
 void DrawNineSlice(scaling_slice_t *spr, Rectangle dst);
-void DrawScreenOverlay(Color c, Rectangle r);
 sprite_t* InitSpriteByID(int id, SheetID sid);
 sprite_t* InitSpriteByIndex(int index, sprite_sheet_data_t* spritesheet);
 scaling_slice_t* InitScalingElement(ElementID id);
@@ -284,4 +283,18 @@ bool SpriteCanChangeState(AnimState old, AnimState s);
 void SpriteAnimate(sprite_t *spr);
 void SpritePreprocessImg(Image *img, Texture2D* out);
 //====SPRITE_T>>
+typedef struct{
+  Rectangle     area;
+  Color         col;
+}mask_t;
+
+typedef struct{
+  texture_chain_t     tex_chain;
+  gl_shader_t         shaders[SHADER_DONE];
+  sprite_sheet_data_t sheets[SHEET_ALL];
+  mask_t              masks[VIS_DONE];
+}asset_manager_t;
+extern asset_manager_t AssMan;
+void InitAssetManager(void);
+void DrawScreenOverlay(mask_t m, Cell c);
 #endif

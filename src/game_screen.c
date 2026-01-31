@@ -173,8 +173,10 @@ bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k, int bindi
     return false;
 
   keyctrl.selections[keyctrl.selected++] = sel;
-  if(keyctrl.on_select)
-    keyctrl.on_select(player, a, sel);
+  if(keyctrl.on_select){
+    local_ctx_t* ctx = WorldGetContext(DATA_MAP_CELL, sel->gouid);
+    keyctrl.on_select(player, a, ctx);
+  }
   return true;
 }
 

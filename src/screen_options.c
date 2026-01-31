@@ -30,7 +30,7 @@ void DrawOptionsScreen(void)
   BeginDrawing();
   ClearBackground(BROWN);
 
-  MapRender();
+  MapGenRender();
 
 DrawFPS(5,5);
   //UISync();

@@ -126,15 +126,16 @@ typedef struct {
 } event_bus_t;
 
 typedef struct{
-  EventType type;
-  void*     data;
-  uint64_t  iuid;
+  EventType   type;
+  EventStatus status;
+  void*       data;
+  uint64_t    iuid;
 }event_t;
 
 event_bus_t* InitEventBus(int cap);
 event_sub_t* EventSubscribe(event_bus_t* bus, EventType event, EventCallback cb, void* u_data);
 void EventEmit(event_bus_t* bus, event_t*);
-
+void EventRemove(event_bus_t* bus, uint64_t id);
 static inline event_uid_i EventMakeUID(EventType type, uint64_t data_id){
   event_uid_i euid = hash_combine_64(type, data_id);
 
@@ -186,6 +187,7 @@ typedef struct{
 }level_t;
 level_t* InitLevel(map_grid_t*);
 void LevelBury(game_object_uid_i gouid);
+void LevelReady(map_grid_t* m);
 
 typedef struct{
   GameScreen     screen;
@@ -201,6 +203,7 @@ typedef struct{
   UpdateFn       update_steps[SCREEN_DONE][UPDATE_DONE];
   UpdateFn       finish[SCREEN_DONE];
 }game_process_t;
+extern game_process_t game_process;
 
 void InitGameEvents();
 void InitGameProcess();
@@ -249,6 +252,9 @@ env_t* WorldGetEnvById(unsigned int uid);
 void WorldSubscribe(EventType, EventCallback, void*);
 void WorldTargetSubscribe(EventType event, EventCallback cb, void* data, uint64_t iid);
 void WorldEvent(EventType, void*, uint64_t);
+static void WorldUnsub(uint64_t id){
+  EventRemove(world.bus, id);
+}
 int WorldGetEntSprites(sprite_t** pool);
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);
@@ -275,6 +281,11 @@ void WorldTurnUpdate(void* context);
 void InitWorld(void);
 void WorldRender();
 Rectangle WorldRoomBounds();
+static int WorldGetTime(){
+  return game_process.game_frames;
+} 
+  
+
 const char* GetWorldTime();
 int WorldGetTurn(void);
 void WorldDebugShape(Rectangle r); 

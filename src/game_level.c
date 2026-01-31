@@ -19,6 +19,20 @@ level_t* InitLevel(map_grid_t* m){
   return l;
 }
 
+void LevelReady(map_grid_t* m){
+
+  for(int x = 0; x < m->width; x++){
+    for(int y = 0; y < m->height; y++){
+      map_cell_t* mc = &m->tiles[x][y];
+      Cell c = CELL_NEW(x,y);
+      //if(!HasLOS(m, player->pos, c))
+        //continue;
+      WorldTargetSubscribe(EVENT_ENT_STEP, MapVisEvent, mc, player->gouid);      
+      mc->vis = VIS_UNSEEN;
+    }
+  }
+}
+
 void InitMobGroup(faction_groups_t** f, MobRule size, int index)
 {
   mob_group_t m = {

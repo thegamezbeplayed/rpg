@@ -484,6 +484,8 @@ void WorldInitOnce(){
 
   InitInput(player);
   WorldValidateContext();
+  LevelReady(world.map);
+  WorldEvent(EVENT_ENT_STEP, player, player->gouid);
 }
 
 void WorldPreUpdate(){
@@ -495,16 +497,17 @@ void WorldPreUpdate(){
     SpriteSync(world.sprs[i]);
   }
 
-  TurnPhase p = ActionManagerPreSync();
-    
+  InputCheck(world.ctx->turn, ActionMan.phase);
+
   for(int i = 0; i < world.num_ent; i++){
     ent_t* e = world.ents[i];
-    EntControlStep(e, world.ctx->turn, p);
+    EntControlStep(e, world.ctx->turn, ActionMan.phase);
   }
  
 }
 
 void WorldFixedUpdate(){
+  ActionManagerSync();
   for(int i = 0; i < world.num_ent; i++){
     switch(world.ents[i]->status){
       case ENT_STATUS_DEAD:
@@ -634,16 +637,7 @@ void FreeWorld(){
 void WorldRender(){
   ClearBackground(world.map->floor);
 
-  for(int i = 0; i < world.num_env; i++)
-    EnvRender(world.envs[i]);
-
-
-  for(int i = 0; i < world.num_spr;i++)
-    if(world.sprs[i]->state < ANIM_KILL)
-      if(world.sprs[i]->owner)
-        DrawSprite(world.sprs[i]);
-      else
-        i-=RemoveSprite(i);
+  MapRender(world.map);
 
   ScreenRender(); 
 }
@@ -786,10 +780,6 @@ const char* GetWorldTime(){
   int minute = (int)((time_world_speed%15)*4);
 
   return TextFormat("%i : %02d", hour, minute);
-}
-
-const char* GetGameTime(){
-  return TextFormat("%09i",(int)(game_process.game_frames/fixedFPS));
 }
 
 int WorldGetTurn(void){

@@ -7,6 +7,7 @@
 #include "asset_ent.h"
 #include "screens.h"
 
+asset_manager_t AssMan;
 texture_chain_t TexChain;
 
 void InitShaderChainCache(int type,int maxWidth, int maxHeight) {
@@ -15,6 +16,21 @@ void InitShaderChainCache(int type,int maxWidth, int maxHeight) {
 
   TexChain.chain1[type]= LoadRenderTexture(maxWidth, maxHeight);
   TexChain.chain2[type]= LoadRenderTexture(maxWidth, maxHeight);
+}
+
+void InitAssetManager(void){
+//TODO MOVE SHEETS TO assman
+
+  mask_t base = (mask_t){
+    .area = Rect(0,0,CELL_WIDTH, CELL_HEIGHT),
+      .col = (Color){0,0,0, 255}
+  };
+
+  for(int i = 0; i < VIS_FULL; i++){
+    mask_t mask = base;
+    mask.col.a -= (i*32);
+    AssMan.masks[i] = mask;
+  }
 }
 
 void InitResources(){
@@ -211,8 +227,11 @@ void DrawNineSlice(scaling_slice_t *spr, Rectangle dst){
   return;
 }
 
-void DrawScreenOverlay(Color c,Rectangle r){
-  DrawRectangleRec(r,c);
+void DrawScreenOverlay(mask_t m, Cell c){
+ Vector2 corner = (Vector2){c.x-0.5, c.y-0.5};
+ Vector2 pos = Vector2Scale(corner, CELL_WIDTH);
+ Rectangle r = RectPos(pos, m.area);
+ DrawRectangleRec(r, m.col);
 }
 
 bool FreeSprite(sprite_t* s){

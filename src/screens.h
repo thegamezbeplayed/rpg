@@ -35,7 +35,7 @@ typedef struct{
   ent_t   *hover;
 }mouse_controller_t;
 
-typedef void (*SelectionCallback)(ent_t* e, ActionType a, void* selection);
+typedef void (*SelectionCallback)(ent_t* e, ActionType a, local_ctx_t* selection);
 
 typedef struct{
   bool              active;

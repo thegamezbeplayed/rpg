@@ -328,8 +328,6 @@ BehaviorStatus BehaviorFillNeed(behavior_params_t *params){
     if(MakeDecision( e->control->decider[e->state], DecisionSortEconomic)){
       e->control->action = e->control->decider[e->state]->selected->decision;
       e->control->decider[e->state]->selected->params[ACT_PARAM_NEED] = p_need; 
-      if(e->type == ENT_WOLF)
-        DO_NOTHING();
       return BEHAVIOR_SUCCESS;
     }    
 
@@ -341,6 +339,30 @@ BehaviorStatus BehaviorCheckUrgency(behavior_params_t *params){
   if(!e)
     return BEHAVIOR_FAILURE;
 
+  EntityState s = e->state;
+
+  decision_t* sel = e->control->decider[STATE_NONE]->selected;
+
+  if(sel && sel->state == s){
+    priority_t* top = &e->control->priorities->entries[0];
+
+    switch(top->type){
+      case PRIO_NEEDS:
+        if(s == STATE_NEED)
+          return BEHAVIOR_SUCCESS;
+        e->control->next = STATE_NEED;
+        break;
+      case PRIO_ENGAGE:
+      case PRIO_FLEE:
+        if(s == STATE_AGGRO)
+          return BEHAVIOR_SUCCESS;
+        e->control->next = STATE_AGGRO;
+        break;
+    }
+
+  }
+
+  return BEHAVIOR_FAILURE;
 }
 
 BehaviorStatus BehaviorGetPriority(behavior_params_t *params){

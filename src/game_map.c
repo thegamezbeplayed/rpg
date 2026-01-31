@@ -58,7 +58,7 @@ map_grid_t* InitMapGrid(void){
 void MapCellTurnStep(map_cell_t* m){
   ent_t* occ = m->occupant;
   env_t* env = m->tile;
- 
+
   if(m->tile && m->tile->has_resources == 0)
     EnvSetStatus(m->tile, ENV_STATUS_DEAD);
 
@@ -110,6 +110,9 @@ void MapTurnStep(map_grid_t* m){
       if(!mc->in_ctx)
         continue;
 
+      if(mc->vis == VIS_NEVER)
+        continue;
+
       MapCellTurnStep(mc);
     }
 }
@@ -124,6 +127,33 @@ void MapSync(map_grid_t* m){
 
   m->num_changes = 0;
 }
+
+void MapCellRender(map_cell_t* mc){
+  if(mc->vis > VIS_HAS){
+    if(mc->tile)
+      EnvRender(mc->tile);
+
+    if(mc->vis == VIS_FULL && mc->occupant)
+      EntRender(mc->occupant);
+  }
+
+  if(mc->vis < VIS_FULL){
+    mask_t m = AssMan.masks[mc->vis];
+    DrawScreenOverlay(m, mc->coords);
+  } 
+
+}
+
+void MapRender(map_grid_t* m){
+  for(int x = 0; x < m->width; x++){
+    for(int y = 0; y < m->height; y++){
+      map_cell_t* mc = &m->tiles[x][y];
+
+      MapCellRender(mc);
+    }
+ }
+}
+
 
 bool MapContextSetTile(Cell c, RoomFlags f){
   world_map.tiles[c.x][c.y] = f;
@@ -442,7 +472,7 @@ void DrawNode(room_node_t* node, Color col){
   }
 }
 
-void MapRender(void){
+void MapGenRender(void){
   Rectangle sect = RectScale(RecFromBounds(&world_map.level),GEN_SCALE);
   sect.x*=GEN_SCALE;
   sect.y*=GEN_SCALE;
@@ -2981,5 +3011,27 @@ void ConnectionSetStatus(Cell pos, RoomStatus status){
       continue;
 
     world_map.connections[i]->status = status;
+  }
+}
+
+void MapVisEvent(EventType event, void* data, void* user){
+  map_cell_t* mc = user;
+  ent_t* e = data;
+
+  int range = e->senses[SEN_SEE]->range;
+
+  int dist = cell_distance(e->pos, mc->coords);
+  switch(mc->vis){
+    case VIS_UNSEEN:
+    case VIS_EXPLORED:
+      if(dist < range)
+        mc->vis = VIS_FULL;
+      if(dist == range)
+        mc->vis = VIS_EXPLORED;
+      break;
+    case VIS_FULL:
+      if(dist > range)
+        mc->vis = VIS_EXPLORED;
+      break;
   }
 }

@@ -281,7 +281,7 @@ typedef struct{
   const char*     name;
   Resource        type;
   ObjectCategory  cat;
-  uint64_t        cat_flags;
+  uint64_t        cat_flags, exc_flags;
   int             quantity, smell;      
   Resource        attached;
 }define_resource_t;
@@ -304,6 +304,9 @@ static inline define_resource_t* GetResourceByCatFlags(Resource type, ObjectCate
       continue;
 
     if(res->cat != cat)
+      continue;
+
+    if((res->exc_flags & flags) > 0)
       continue;
 
     if((res->cat_flags & flags) > 0)

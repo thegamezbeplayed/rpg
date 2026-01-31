@@ -42,23 +42,12 @@ BehaviorStatus InputActionMove(ent_t* e, action_key_t akey, KeyboardKey k){
   player_input.decisions[ACTION_MOVE]->params[ACT_PARAM_STEP] = p;
   action_t* a = InitActionByDecision(player_input.decisions[ACTION_MOVE], ACTION_MOVE);
 
-  return ActionExecute(ACTION_MOVE, a);
-}
+  if(ActionExecute(ACTION_MOVE, a) == BEHAVIOR_SUCCESS){
+    WorldEvent(EVENT_PLAYER_INPUT, a, player->gouid);
+    return BEHAVIOR_SUCCESS;
+  }
 
-BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
-
-  AbilityID aid = ABILITY_WEAP_BLUDGEON;
-  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_ABILITY] = ParamMake(DATA_INT, sizeof(int), &aid);
-
-  local_ctx_t* tar = EntGetTarget(e, aid);
-
-  param_t p = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), tar);
-  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_TAR] = p;
-
-  action_t* act = InitActionByDecision(player_input.decisions[ACTION_ATTACK], ACTION_ATTACK);
-;
-
-  return ActionExecute(ACTION_ATTACK, act);
+  return BEHAVIOR_FAILURE;
 }
 
 BehaviorStatus InputActionItem(ent_t* e, action_key_t a,  KeyboardKey k){
@@ -69,11 +58,65 @@ BehaviorStatus InputActionMagic(ent_t* e, action_key_t a, KeyboardKey k){
 
 }
 
+void InputSetTarget(ent_t* e, ActionType a, local_ctx_t* target){
+
+}
+
+BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
+
+  ability_t* abi = NULL;
+  switch(k){
+    case KEY_M:
+      abi = EntFindAbility(e, ABILITY_MAGIC_MISSLE);
+      break;
+    case KEY_F:
+      abi = EntFindAbility(e, ABILITY_WEAP_BLUDGEON);
+      break;
+    case KEY_R:
+      abi = EntFindAbility(e, ABILITY_WEAP_RANGE_PIERCE);
+      break;
+  }
+
+  local_ctx_t* tar = NULL;
+  switch(abi->targeting){
+    case DES_NONE:
+    case DES_FACING:
+      tar = EntGetTarget(e, abi->id);
+      break;
+    case DES_SELF:
+      tar = WorldGetContext(DATA_ENTITY, e->gouid);
+      break;
+    case DES_SEL_TAR:
+    case DES_MULTI_TAR:
+      ScreenActivateSelector(e->pos, 1, true, InputSetTarget);
+      return BEHAVIOR_RUNNING;
+      break;
+  }
+
+  if(!tar)
+    return BEHAVIOR_FAILURE;
+
+  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_ABILITY] = ParamMakeObj(DATA_ABILITY, abi->id , abi);
+
+
+  param_t p = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), tar);
+  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_TAR] = p;
+
+  action_t* act = InitActionByDecision(player_input.decisions[ACTION_ATTACK], ACTION_ATTACK);
+  ;
+
+  if(ActionExecute(ACTION_ATTACK, act) == BEHAVIOR_SUCCESS){
+    WorldEvent(EVENT_PLAYER_INPUT, act, player->gouid);
+    return BEHAVIOR_SUCCESS;
+  }
+
+  return BEHAVIOR_FAILURE;
+
+}
 
 void InitInput(ent_t* player){
   player_input.owner = player;
 
-  player_input.key_event = BEHAVIOR_FAILURE;
   player->control->decider[STATE_STANDBY] = InitDecisionPool(ACTION_DONE, player, STATE_STANDBY);
 
   for(int i = 0; i < ACTION_PASSIVE; i++){
@@ -82,8 +125,9 @@ void InitInput(ent_t* player){
     player_input.decisions[i]->cost = 1;
     player_input.decisions[i]->decision = i;
   }
+
   player_input.actions[ACTION_ATTACK] = (action_key_t){
-    ACTION_WEAPON,1,{KEY_F},InputActionAttack,SLOT_NONE};
+    ACTION_WEAPON,3,{KEY_F, KEY_M, KEY_R},InputActionAttack,SLOT_NONE};
 
 
   player_input.actions[ACTION_MOVE] = (action_key_t){
@@ -97,21 +141,16 @@ void InputSync(TurnPhase phase, int turn){
 
   player_input.phase = phase;
   player_input.turn  = turn;
-
-  player_input.key_event = BEHAVIOR_FAILURE;
 }
 
 bool InputCheck(TurnPhase phase, int turn){
-  if(phase != TURN_INIT)
-    return false;
-
   if(IsKeyDown(KEY_SPACE))
     moncontrol(1);
 
-  if(player_input.key_event == BEHAVIOR_SUCCESS)
+  if(ActionMan.round[phase].status != ACT_STATUS_NONE)
     return false;
 
-  for(int i = 0; i < ACTION_DONE; i++){
+    for(int i = 0; i < ACTION_DONE; i++){
     action_key_t akey = player_input.actions[i];
 
     for (int j = 0; j< akey.num_keys; j++){
@@ -122,11 +161,9 @@ bool InputCheck(TurnPhase phase, int turn){
         continue;
 
 
-      player_input.key_event = akey.fn(player, akey, k);
-      
-      return (player_input.key_event == BEHAVIOR_SUCCESS);
+      akey.fn(player, akey, k);
+      TraceLog(LOG_INFO,"%i",WorldGetTime());
     }
   }
 
-  return (player_input.key_event == BEHAVIOR_SUCCESS);
 }

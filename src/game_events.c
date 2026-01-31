@@ -210,6 +210,44 @@ event_sub_t* EventSubscribe(event_bus_t* bus, EventType event, EventCallback cb,
   return sub;
 }
 
+void EventRemove(event_bus_t* bus, uint64_t id){
+  if (!bus) return;
+
+  int index = -1;
+  for (int i = 0; i < bus->count; i++) {
+    if (bus->subs[i].uid != id)
+      continue;
+    index = i;
+    break;
+  }
+
+  if (index < 0) return; // not found
+
+  bus->subs[index] = bus->subs[bus->count - 1];
+  bus->count--;
+
+}
+
+void EventUnsubscribe(event_bus_t* bus, event_sub_t* sub)
+{
+  if (!bus || !sub) return;
+
+  // Find the subscription in the array
+  int index = -1;
+  for (int i = 0; i < bus->count; i++) {
+    if (&bus->subs[i] == sub) {
+      index = i;
+      break;
+    }
+  }
+
+  if (index < 0) return; // not found
+
+  // Move last element into the removed slot
+  bus->subs[index] = bus->subs[bus->count - 1];
+  bus->count--;
+}
+
 void EventEmit(event_bus_t* bus, event_t* e){
   for (int i = 0; i < bus->count; i++) {
     if (bus->subs[i].event != e->type)

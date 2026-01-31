@@ -348,9 +348,9 @@ struct behavior_tree_node_s;
 struct behavior_tree_node_s *BehaviorGetTree( BehaviorID id);
 
 typedef enum{
-  BEHAVIOR_SUCCESS,
   BEHAVIOR_FAILURE,
-  BEHAVIOR_RUNNING
+  BEHAVIOR_RUNNING,
+  BEHAVIOR_SUCCESS,
 }BehaviorStatus;
 
 typedef enum{

@@ -350,7 +350,7 @@ bool EntCheckRange(ent_t* e, decision_t* d);
 
 int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]);
 void DamageEvent(EventType ev, void* edata, void* udata);
-
+void EntRender(ent_t* e);
 struct env_s{
   game_object_uid_i     gouid;
   int         uid;

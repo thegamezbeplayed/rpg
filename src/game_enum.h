@@ -52,6 +52,15 @@ typedef enum {
   TREAT_DONE
 }Treatment;
 
+typedef enum{
+  VIS_NEVER = -1,
+  VIS_UNSEEN,
+  VIS_HAS,
+  VIS_EXPLORED,
+  VIS_FULL,
+  VIS_DONE,
+}Visibility;
+
 typedef enum {
   DATA_NONE,
   DATA_INT,
@@ -471,7 +480,8 @@ typedef enum{
   TILE_REACHABLE,
   TILE_BORDER,
   TILE_OUT_OF_BOUNDS,
-  TILE_ERROR
+  TILE_ERROR,
+  TILE_UNREACHABLE
 }TileStatus;
 
 typedef enum{
@@ -499,17 +509,15 @@ typedef enum{
 
 typedef enum{
   TURN_NONE = -1,
-  TURN_INIT,
-  TURN_START,
   TURN_MAIN,
   TURN_POST,
   TURN_END,
   TURN_ALL,
-  TURN_STANDBY,
 }TurnPhase;
 
 typedef enum{
   ACT_STATUS_NONE,
+  ACT_STATUS_BUILD,
   ACT_STATUS_QUEUED,
   ACT_STATUS_NEXT,
   ACT_STATUS_RUNNING,
@@ -553,6 +561,7 @@ typedef enum{
   PRIO_NEEDS,
   PRIO_ENGAGE,
   PRIO_FLEE,
+  PRIO_HELP,
   PRIO_DONE
 }Priorities;
 
@@ -699,8 +708,8 @@ typedef enum {
 typedef enum{
   DES_NONE,
   DES_FACING,
-  DES_SELECT_TARGET,
-  DES_MULTI_TARGET,
+  DES_SEL_TAR,
+  DES_MULTI_TAR,
   DES_AREA,
   DES_SELF,
   DES_DIR,
@@ -743,6 +752,7 @@ typedef enum{
 typedef uint64_t event_uid_i;
 typedef enum{
   EVENT_GAME_PROCESS,
+  EVENT_PLAYER_INPUT,
   EVENT_INTERACTION,
   EVENT_TURN,
   EVENT_PLAY_SFX,
@@ -764,9 +774,15 @@ typedef enum{
   EVENT_ACT_TAKEN,
   EVENT_ACT_STATUS,
   EVENT_NEED_STATUS,
+  EVENT_ENT_STEP,
   EVENT_NONE,
   MAX_EVENTS
 } EventType;
+
+typedef enum{
+  EVS_NONE,
+  EVS_KILL
+}EventStatus;
 
 typedef enum{
   SKILL_NONE,

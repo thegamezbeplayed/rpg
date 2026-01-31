@@ -566,7 +566,7 @@ MapNodeResult NodeCarveToTiles(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeConnectHalls(map_context_t *ctx, map_node_t *node);
 MapNodeResult NodeDecorate(map_context_t *ctx, map_node_t *node);
 TileFlags RoomSpecialDecor(RoomFlags p);
-void MapRender(void);
+void MapGenRender(void);
 
 bool TooClose(Cell a, Cell b, int min_dist);
 static int RoomsOverlap(room_t *a, room_t *b, int spacing) {
@@ -609,6 +609,7 @@ typedef struct{
   int                 index;
   Cell                coords;
   TileStatus          status;
+  Visibility          vis;
   TileFlags           flags;
   env_t*              tile;
   ent_t*              occupant;
@@ -646,6 +647,7 @@ bool InitMap(void);
 void WorldMapLoaded(map_grid_t* m);
 map_grid_t* InitMapGrid(void);
 void MapRoomSpawn(map_grid_t* m, EntityType data, int room);
+void MapRender(map_grid_t* m);
 void MapSync(map_grid_t* m);
 void MapTurnStep(map_grid_t* m);
 TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
@@ -660,7 +662,7 @@ env_t* MapSpawn(TileFlags flags, int x, int y);
 void MapSpawnMob(map_grid_t* m, int x, int y);
 void RoomSpawnMob(map_grid_t* m, room_t* r);
 Cell MapApplyContext(map_grid_t* m);
-
+void MapVisEvent(EventType event, void* data, void* user);
 static int MapGetNeighborsByStatus(map_grid_t* m, Cell pos, map_cell_t* nei[8], TileStatus status){
 
   int count = 0;
