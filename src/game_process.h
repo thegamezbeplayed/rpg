@@ -284,7 +284,6 @@ Rectangle WorldRoomBounds();
 static int WorldGetTime(){
   return game_process.game_frames;
 } 
-  
 
 const char* GetWorldTime();
 int WorldGetTurn(void);

@@ -75,6 +75,7 @@ typedef struct{
 
 typedef struct{
   bool           valid;
+  bool           options[TURN_ALL];
   action_queue_t *queues[ACT_DONE];
 }action_pool_t;
 

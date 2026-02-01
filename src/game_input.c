@@ -133,7 +133,7 @@ void InitInput(ent_t* player){
   player_input.actions[ACTION_MOVE] = (action_key_t){
     ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},InputActionMove,SLOT_ATTACK};
 
-  }
+}
 
 void InputSync(TurnPhase phase, int turn){
   if(phase == player_input.phase && turn == player_input.turn)
@@ -146,6 +146,9 @@ void InputSync(TurnPhase phase, int turn){
 bool InputCheck(TurnPhase phase, int turn){
   if(IsKeyDown(KEY_SPACE))
     moncontrol(1);
+
+  if(!player->control->actions->options[phase])
+    return false;
 
   if(ActionMan.round[phase].status != ACT_STATUS_NONE)
     return false;

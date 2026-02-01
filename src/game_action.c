@@ -29,6 +29,9 @@ int ActionCompareInitDsc(const void* a, const void* b){
   if(A->initiative < B->initiative) return  1;
 
   ent_t *be = B->owner, *ae = A->owner;
+  if(!ae || !be)
+    return 0;
+
   if (be->attribs[ATTR_DEX]->val > ae->attribs[ATTR_DEX]->val) return -1;
   if (be->attribs[ATTR_DEX]->val < ae->attribs[ATTR_DEX]->val) return  1;
 
@@ -76,7 +79,7 @@ void InitActionManager(void){
     InitActionRound(ACT_MAIN, i, MAX_PHASE_ACTIONS);
 
   ActionMan.phase = TURN_MAIN;
-  ActionMan.next = TURN_POST;
+  ActionMan.next = TURN_END;
   WorldSubscribe(EVENT_PLAYER_INPUT, OnPlayerAction, &ActionMan); 
 }
 
@@ -204,7 +207,7 @@ ActionStatus ActionMove(action_t* a){
   if(p.type_id != DATA_CELL)
     s = ACT_STATUS_BAD_DATA;
 
-  if(s -= ACT_STATUS_RUNNING){
+  if(s == ACT_STATUS_RUNNING){
     Cell dest = ParamReadCell(&p);
     TileStatus tstat = EntGridStep(a->owner,dest);
     if(tstat >= TILE_ISSUES)
@@ -218,14 +221,14 @@ ActionStatus ActionMove(action_t* a){
 }
 
 ActionStatus ActionRun(action_t* a){
-  ActionStatus s = ACT_STATUS_NEXT;
+  ActionStatus s = ACT_STATUS_RUNNING;
   if(!CheckEntAvailable(a->owner))
     s = ACT_STATUS_INVALID;
 
-  ActionSetStatus(a, s);
-  if(s != ACT_STATUS_NEXT)
+  if(s != ACT_STATUS_RUNNING)
     return ACT_STATUS_MISQUEUE;
 
+  ActionSetStatus(a, s);
   ActionStatus res = ACT_STATUS_ERROR;
   res = a->fn(a);
 
@@ -365,6 +368,7 @@ void ActionPhaseStep(TurnPhase phase){
           break;
       }
       break;
+    
     case TURN_POST:
       next = ACT_STATUS_DONE;
       break;
@@ -542,6 +546,7 @@ action_pool_t* InitActionPool(ent_t* e){
 
   action_pool_t* p = calloc(1, sizeof(action_pool_t));
 
+  p->options[TURN_MAIN] = true;
   for(int i = 0; i < ACT_DONE; i++)
     p->queues[i] = InitActionQueue(e, i, 5);
 

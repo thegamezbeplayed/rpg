@@ -497,7 +497,7 @@ void WorldPreUpdate(){
     SpriteSync(world.sprs[i]);
   }
 
-  InputCheck(world.ctx->turn, ActionMan.phase);
+  InputCheck(ActionMan.phase, ActionMan.turn);
 
   for(int i = 0; i < world.num_ent; i++){
     ent_t* e = world.ents[i];
