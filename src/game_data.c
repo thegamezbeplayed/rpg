@@ -24,6 +24,22 @@ local_ctx_t* ParamReadCtx(const param_t* o){
     return (local_ctx_t*)o->data;
 }
 
+affect_t AFFECTS[NUM_AFFECTS] = {
+  {AFFECT_WEAP_SAP, AFF_ABI,
+    {EVENT_DAMAGE_DEALT, PARAM_WEAP_TYPE, {DATA_INT, .id = WEAP_MACE}},
+    {EVENT_ROLL_DMG, PARAM_NONE, -1},
+    AffectHitRoll,
+    AffectTick
+  }
+};
+
+feat_t FEATS[NUM_FEATS] = {
+  {FEAT_WEAPON_MASTERY, SKILL_WEAP_MACE, 4, 1,
+    {{AFF_MOD_ABI, AFFECT_WEAP_SAP, 4,0}}
+  }
+
+};
+
 faction_t* FACTIONS[MAX_FACTIONS];
 int NUM_FACTIONS = 0;
 
@@ -1255,6 +1271,45 @@ skill_decay_t* SkillEventDecay(SkillType skill, int difficulty){
   return decay;
 }
 
+bool UnlockRequirementMet(skill_t* self, unlock_req_t req){
+  switch(req.req){
+    case REQ_SKILL_RANK:
+      if(req.vals[self->rank])
+        return true;
+      break;
+  }
+
+  return false;
+}
+
+bool UnlockRequirementsMet(skill_t* s, unlock_t u){
+  for (int i = 0; i < u.num_req; i++){
+    if(!UnlockRequirementMet(s, u.req[i]))
+      return false;
+  }
+
+  return true;
+}
+
+void SkillRankup(skill_t* self, float old, float cur){
+  skill_unlocks_t sru = SKILL_UNLOCKS[self->id];
+
+  for(int i = 0; i < sru.num_unlocks; i++){
+    unlock_t unlock = sru.unlocks[i];
+
+    if(!UnlockRequirementsMet(self, unlock))
+      continue;
+
+    Feats feats = unlock.feats;
+    while(feats){
+      FeatFlag feat = feats & -feats;
+      feats &= feats-1;
+
+      PropAddFeat(self->owner, feat, self->id);
+    }
+  }
+}
+
 skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
   skill_t* s = calloc(1,sizeof(skill_t));
 
@@ -1266,7 +1321,8 @@ skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
     .point = 0,
     .threshold = 350,
     .owner = owner,
-    .on_skill_up = SkillupRelated
+    .on_skill_up = SkillupRelated,
+    .on_rank_up = SkillRankup,
   };
 
   s->checks = InitSkillCheck(s); 
@@ -1339,6 +1395,14 @@ bool SkillIncrease(struct skill_s* s, int amnt){
   //TraceLog(LOG_INFO,"%s has reached %s rank %i",s->owner->name, SKILL_NAMES[s->id], s->val);
   if(s->on_skill_up)
     s->on_skill_up(s,old,s->val);
+
+  define_skill_rank_t r = SKILL_RANKS[SkillRankGet(s)];
+
+  if(r.rank != s->rank){
+    s->rank=r.rank;
+    if(s->on_rank_up)
+      s->on_rank_up(s, old, s->rank);
+  }
 
   return true;
 }

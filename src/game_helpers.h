@@ -1189,4 +1189,29 @@ static uint32_t GetEnvSize(TileFlags flags){
 
   return coeff * size;
 }
+
+static affect_t* GetAffectByID(AffectID id){
+  for (int i = 0; i < 20; i ++){
+    if((AFFECTS[i].id & id) == 0)
+      continue;
+
+    return &AFFECTS[i];
+  }
+
+  return NULL;
+}
+
+static feat_t* GetSkillFeat(FeatFlag f, SkillType s){
+  for (int i = 0; i < 20; i ++){
+    if((FEATS[i].id & f) == 0)
+      continue;
+
+    if(FEATS[i].skill_rel != s)
+      continue;
+
+    return &FEATS[i];
+  }
+
+  return NULL;
+}
 #endif

@@ -1,110 +1,143 @@
-#include "game_tools.h"
+#include "game_process.h"
 
-void HashInit(hash_map_t* m, uint32_t cap) {
-    assert((cap & (cap - 1)) == 0); // power of two
-    m->cap = cap;
-    m->count = 0;
-    m->slots = calloc(cap, sizeof(hash_slot_t));
+static combat_system_t COMBAT;
+
+void InitCombatSystem(int cap){
+
+  COMBAT.cap = cap;
+  COMBAT.entries = calloc(cap,sizeof(interaction_t));
+  HashInit(&COMBAT.map, cap*3);
 }
 
-void HashFree(hash_map_t* m) {
-    free(m->slots);
-    memset(m, 0, sizeof(*m));
+interaction_t* CombatGetEntry(game_object_uid_i other){
+  return HashGet(&COMBAT.map, other);
 }
 
-void* HashGet(hash_map_t* m, hash_key_t key) {
-    uint64_t h = Hash64(key);
-    uint32_t mask = m->cap - 1;
+void CombatEnsureCap(void){
+  if(COMBAT.count < COMBAT.cap)
+    return;
 
-    for (uint32_t i = 0; i < m->cap; i++) {
-        hash_slot_t* s = &m->slots[(h + i) & mask];
+  size_t new_cap = COMBAT.cap + 64;
 
-        if (s->state == 0)
-            return NULL;
+  interaction_t* new_entries = realloc(COMBAT.entries, new_cap * sizeof(interaction_t));
 
-        if (s->state == 1 && s->key == key)
-            return s->value;
-    }
-
-    return NULL;
-}
-
-void HashExpand(hash_map_t* m){
-  int old_cap = m->cap;
-  size_t new_cap = old_cap * 2;
-  hash_slot_t* new_entries = calloc(new_cap, sizeof(hash_slot_t));
-
-  for (int i = 0; i < old_cap; i++) {
-    hash_slot_t* e = &m->slots[i];
-
-    if (e->state != 1)
-      continue;
-
-    uint64_t h = Hash64(e->key);
-    uint32_t mask = new_cap - 1;
-
-    size_t idx = h  & mask;
-
-    while (new_entries[idx].state == 1)
-      idx = (idx + 1) & mask;
-
-    new_entries[idx].key   = e->key;
-    new_entries[idx].value = e->value;
-    new_entries[idx].state = 1;
+  if (!new_entries) {
+    TraceLog(LOG_WARNING,"==== COMBAT SYSTEM ERROR ===\n REALLOC FAILED");
+    return;
   }
 
-  free(m->slots);
-  m->slots = new_entries;
-  m->cap = new_cap;
+  COMBAT.cap = new_cap;
+  COMBAT.entries = new_entries;
 }
 
-void HashPut(hash_map_t* m, hash_key_t key, void* value) {
-    if(m->count * 4 > m->cap*3) // load factor < 0.5
-      return;
-     
-    uint64_t h = Hash64(key);
-    uint32_t mask = m->cap - 1;
-    hash_slot_t* tomb = NULL;
+interaction_t* RegisterCombat(combat_t* c){
 
-    for (uint32_t i = 0; i < m->cap; i++) {
-        hash_slot_t* s = &m->slots[(h + i) & mask];
+  interaction_t* i = NULL;
+  i = CombatGetEntry(c->exid);
 
-        if (s->state == 1 && s->key == key) {
-            s->value = value;
-            return;
-        }
+  if(!i){
+    CombatEnsureCap();
+    interaction_t* i = &COMBAT.entries[COMBAT.count++];
 
-        if (s->state == 2 && !tomb)
-            tomb = s;
+    i->ctx = c;
+    i->uid = c->exid;
+    HashPut(&COMBAT.map, i->uid, i);
+  }
 
-        if (s->state == 0) {
-            s = tomb ? tomb : s;
-            s->key = key;
-            s->value = value;
-            s->state = 1;
-            m->count++;
-            return;
-        }
-    }
-
-    assert(0 && "HashPut failed");
+  return i;
 }
 
-void HashRemove(hash_map_t* m, hash_key_t key) {
-    uint64_t h = Hash64(key);
-    uint32_t mask = m->cap - 1;
+interaction_t* StartCombat(ent_t* agg, ent_t* tar, ability_t* a){
+  combat_t* c = calloc(1,sizeof(combat_t));
 
-    for (uint32_t i = 0; i < m->cap; i++) {
-        hash_slot_t* s = &m->slots[(h + i) & mask];
+  combat_exchange_i exid = CombatMakeExID(agg, tar->gouid, a->id, WorldGetTime());
+  c->cctx[IM_AGGR] = CombatContext(agg, IM_AGGR, a);
+  c->cctx[IM_TAR] = CombatContext(tar, IM_TAR, NULL);
 
-        if (s->state == 0)
-            return;
+  interaction_t* i = RegisterCombat(c);
 
-        if (s->state == 1 && s->key == key) {
-            s->state = 2; // tombstone
-            s->value = NULL;
-            m->count--;
-            return;
-        }
-    }
+  return i; 
+}
+
+combat_context_t* CombatContext(ent_t* e, InteractMember type, ability_t* a){
+  combat_context_t* c = calloc(1, sizeof(combat_context_t));
+
+  c->type = type;
+  c->ctx[IP_OWNER] = ParamMakeObj(DATA_LOCAL_CTX, e->gouid, WorldGetContext(DATA_ENTITY, e->gouid));
+  c->ctx[IP_ABILITY] = ParamMakeObj(DATA_ABILITY, a->id, a);
+
+
+  if(a->item)
+    c->ctx[IP_ITEM] = ParamMakeObj(DATA_ITEM, a->item->gouid, a->item);
+
+  return c;  
+}
+
+void CombatOnStep(combat_t* c, BattleStep step){
+
+  combat_context_t* a = c->cctx[IM_AGGR];
+  combat_context_t* t = c->cctx[IM_TAR];
+  param_t p_agg = a->ctx[IP_OWNER];
+  param_t p_tar =t->ctx[IP_OWNER];
+  ent_t* agg = ParamReadEnt(&p_agg);
+  ent_t* tar = ParamReadEnt(&p_tar);
+  switch(step){
+    case BAT_HIT:
+      break;
+    case BAT_DMG:
+      WorldEvent(EVENT_DAMAGE_TAKEN, tar, tar->uid);
+      WorldEvent(EVENT_DAMAGE_DEALT, agg, agg->uid);
+      break;
+    case BAT_DONE:
+      break;
+  }
+}
+
+InteractResult CombatStepPhase(combat_t* c, CombatPhase phase){
+  switch(c->phase){
+    case COM_BATTLE:
+      CombatOnStep(c, c->step);
+      c->step++;
+      if(c->step == BAT_DONE){
+        c->phase++;
+        c->step = BAT_NONE;
+      }
+      break;
+    case BAT_DONE:
+      c->phase = COM_INIT;
+      break;
+    default:
+      c->phase++;
+      break;
+
+  }
+}
+
+InteractResult CombatStep(interaction_t* i, InteractResult res){
+
+  switch (res){
+    case IR_FAIL:
+    case IR_CRITICAL_FAIL:
+    case IR_ALMOST:
+      return res;
+      break;
+    default:
+      break;
+  }
+
+  combat_t* c = i->ctx;
+  switch(c->phase){
+    case COM_INIT:
+      return CombatStepPhase(c, COM_BATTLE);
+      break;
+    case COM_BATTLE:
+      return CombatStepPhase(c, COM_RESPONSE);
+      break;
+    case COM_RESPONSE:
+      return CombatStepPhase(c, COM_END);
+      break;
+    case COM_END:
+      break;
+
+  }
 }

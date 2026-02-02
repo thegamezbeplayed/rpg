@@ -12,6 +12,7 @@ typedef enum{
   OBJ_ENT,
   OBJ_ENV,
   OBJ_MAP_CELL,
+  OBJ_ABILITY,
   OBJ_ALL
 }ObjectCategory;
 
@@ -76,6 +77,7 @@ typedef enum {
   DATA_ENV,
   DATA_MAP_CELL,
   DATA_NEED,
+  DATA_ITEM,
   DATA_LOCAL_CTX,
 } DataType;
 
@@ -175,6 +177,8 @@ typedef enum{
   VAL_SAVE,
   VAL_ADV_SAVE,
   VAL_REACH,
+  VAL_SWAP_HIT,
+  VAL_SWAP_DMG,
   VAL_WORTH,
   VAL_WEIGHT,
   VAL_SIZE,
@@ -516,6 +520,20 @@ typedef enum{
 }TurnPhase;
 
 typedef enum{
+  BAT_NONE,
+  BAT_HIT,
+  BAT_DMG,
+  BAT_DONE,
+}BattleStep;
+
+typedef enum{
+  COM_INIT,
+  COM_BATTLE,
+  COM_RESPONSE,
+  COM_END,
+}CombatPhase;
+
+typedef enum{
   ACT_STATUS_NONE,
   ACT_STATUS_BUILD,
   ACT_STATUS_QUEUED,
@@ -553,8 +571,38 @@ typedef enum{
   PARAM_RELATE,
   PARAM_POS,
   PARAM_NEED,
+  PARAM_SKILL,
+  PARAM_ABILITY,
   PARAM_ALL,
+  PARAM_WEAP_TYPE,
 }GameObjectParam;
+
+typedef enum {
+  REQ_HAS_ABILITY,
+  REQ_HAS_ITEM,
+  REQ_SKILL_RANK,   // optional if you want this inside the same system
+  REQ_STAT_MIN,
+  REQ_ATTR_MIN,
+} Requirement;
+
+typedef enum{
+  AFF_SKILL,
+  AFF_ABI,
+  AFF_ATTRI,
+  AFF_STAT,
+  AFF_RES,
+}AffectCategory;
+
+typedef enum{
+  AFF_ADD_ABI,
+  AFF_ADD_ITEM,
+  AFF_ADD_SKILL,
+  AFF_MOD_ABI,
+  AFF_INC_ATTR,
+  AFF_INC_STAT,
+  AFF_INC_SKILL,
+  AFF_INC_RES,
+}AffectType;
 
 typedef enum{
   PRIO_NONE = -1,
@@ -695,6 +743,12 @@ typedef enum{
   ABILITY_DONE,
 }AbilityID;
 
+typedef enum{
+  AFFECT_NONE = -1,
+  AFFECT_WEAP_SAP   = BIT64(0),
+}AffectID;
+typedef uint64_t Affects;
+
 typedef enum {
   AT_NONE = -1,
   AT_HEAL,
@@ -749,6 +803,22 @@ typedef enum{
   IR_MAX
 }InteractResult;
 
+typedef enum{
+  IM_NONE,
+  IM_AGGR,
+  IM_TAR,
+  IM_DONE
+}InteractMember;
+
+typedef enum{
+  IP_NONE,
+  IP_OWNER,
+  IP_ITEM,
+  IP_ABILITY,
+  IP_ACTION,
+  IP_DONE
+}InteractParams;
+
 typedef uint64_t event_uid_i;
 typedef enum{
   EVENT_GAME_PROCESS,
@@ -769,11 +839,15 @@ typedef enum{
   EVENT_UPDATE_LOCAL_CTX,
   EVENT_ENT_DEATH,
   EVENT_ENV_DEATH,
+  EVENT_ROLL_HIT,
+  EVENT_ROLL_DMG,
   EVENT_DAMAGE_TAKEN,
+  EVENT_DAMAGE_DEALT,
   EVENT_AGGRO,
   EVENT_ACT_TAKEN,
   EVENT_ACT_STATUS,
   EVENT_NEED_STATUS,
+  EVENT_COMBAT,
   EVENT_ENT_STEP,
   EVENT_NONE,
   MAX_EVENTS

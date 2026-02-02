@@ -16,6 +16,26 @@
 
 #define RATIO(s) ((s)->ratio((s)))
 
+#define NUM_FEATS 40
+#define NUM_AFFECTS 1
+typedef struct{
+  DataType    type;
+  union{
+    int       id;
+    uint64_t  uid;
+  };
+}flex_id_t;
+
+typedef struct{
+  DataType   type;
+  union{
+    int      i;
+    float    f;
+    uint64_t bit;
+  };
+}flex_val_t;
+
+
 static inline bool RaceHasAbility(AbilityID id, SpeciesType race){
   return (CLASS_ABILITIES[id].racial & race) !=0;
 }
@@ -445,12 +465,13 @@ struct skill_s{
  SkillType                id;
  int                      val,min,max,threshold;
  float                    point;
- SkillCallback            on_skill_up;
+ SkillCallback            on_skill_up, on_rank_up;
  SkillOnEvent             on_success,on_use,on_fail;
  SkillProficiencyFormula  get_bonus;
  skill_check_t            *checks, *ovrd;
  struct ent_s             *owner;
  SkillRate                rate;
+ int                      rank;
 };
 
 typedef struct{
@@ -557,7 +578,46 @@ typedef struct{
   uint64_t     et_props;
 }ItemInstance;
 
+typedef struct trigger_s trigger_t;
+typedef void (*TriggerCallback)(
+    EventType  event,
+    void*      event_data,
+    void*      user_data
+);
 
+struct trigger_s{
+  EventType       event;
+  GameObjectParam cause;
+  flex_id_t       id;
+  ent_t*          owner;
+};
+
+typedef struct affect_s affect_t;
+struct affect_s{
+  AffectID        id;
+  AffectCategory  cat;
+  trigger_t       source, trigger;
+  TriggerCallback apply, tick;
+  int             duration;
+};
+extern affect_t AFFECTS[NUM_AFFECTS];
+void InitAffect(ent_t*,AffectID, int val);
+void AffectHitRoll(EventType, void* edat, void* udat);
+void AffectTick(EventType, void* edat, void* udat);
+
+typedef struct{
+  AffectType  type;
+  int         type_id, val, dec;
+}reward_t;
+
+typedef struct{
+  FeatFlag    id;
+  SkillType   skill_rel;
+  int         ranks, num_rewards;
+  reward_t    rewards[4];
+}feat_t;
+extern feat_t FEATS[NUM_FEATS];
+void InitFeat(ent_t* e, feat_t* f);
 EntityType MobGetByRules(MobRules rules);
 
 int ResistDmgLookup(uint64_t trait);

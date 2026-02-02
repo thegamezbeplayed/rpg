@@ -1,9 +1,12 @@
 #include "game_types.h"
+#include "game_helpers.h"
+#include "game_process.h"
 
 item_t* InitItem(item_def_t* def){
   item_t* item = malloc(sizeof(item_t));
-
+  game_object_uid_i gouid = GameObjectMakeUID(def->name, def->id, WorldGetTime());
   *item = (item_t){
+    .gouid = gouid,
     .def = def
   };
 
@@ -704,4 +707,50 @@ void DamageEvent(EventType ev, void* edata, void* udata){
   ability_t* a = edata;
 
   SetState(e, STATE_AGGRO, NULL);
+}
+
+
+trigger_t* InitTriggerAffect(ent_t* e, trigger_t t, affect_t* aff){
+  trigger_t* trig = calloc(1, sizeof(trigger_t));
+   *trig =  t;
+   trig->owner = e;
+
+   event_fuid_i fuid = EventMakeFlexID(e->gouid, trig->id);
+   if(fuid == -1)
+     return NULL;
+
+   WorldTargetSubscribe(trig->event, aff->apply, aff, fuid);
+
+   return trig;
+}
+
+void InitAffect(ent_t* e, AffectID id, int val){
+  affect_t* aff = GetAffectByID(id);
+  if(!aff)
+    return;//TODO ERROR/WARN
+           //
+  trigger_t* apply = InitTriggerAffect(e, aff->source, aff);
+  //TriggerAdd(e, aff->trigger, aff->tick);
+
+
+}
+
+void AffectHitRoll(EventType, void* edat, void* udat){
+
+}
+
+void AffectTick(EventType, void* edat, void* udat){
+
+}
+
+void InitFeat(ent_t* e, feat_t* f){
+  for (int i = 0; i < f->num_rewards; i++){
+    reward_t rew = f->rewards[i];
+    switch(rew.type){
+      case AFF_MOD_ABI:
+        InitAffect(e, rew.type_id, rew.val);
+        break;
+    }
+  }
+
 }

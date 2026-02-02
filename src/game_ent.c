@@ -910,6 +910,16 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
   }
   return p;
 }
+
+void PropAddFeat(ent_t* e, FeatFlag f, SkillType skill){
+  feat_t* feat = GetSkillFeat(f, skill);
+
+  if(!feat)
+    return;
+
+  InitFeat(e, feat);
+}
+
 env_t* InitEnvFromEnt(ent_t* e){
   env_t* env = InitEnv(ENV_BONES_BEAST, e->pos);
 
@@ -1194,6 +1204,9 @@ item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped){
 
 bool EntAddItem(ent_t* e, item_t* item, bool equip){
   if(InventoryAddItem(e, item)){
+    event_fuid_i fuid = EventMakeFlexID(e->gouid, 
+        (flex_id_t){DATA_INT, .id = item->def->type});
+    item->fuid = fuid;
     item->equipped = equip;
     return true;
   }
@@ -1472,9 +1485,11 @@ InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source){
 }
 
 InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
+  interaction_t* combat = StartCombat(e, target, a);
   bool success = true;
   InteractResult ires = IR_NONE;
 
+  CombatStep(combat, ires);
   int cr = LocalAddAggro(e->local, target, 1, target->props->base_diff, false);
   LocalAddAggro(target->local, e, 1, 1, false);//e->props->base_diff);
 
@@ -1495,6 +1510,8 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
     success = false;
     ires = IR_FAIL;
   }
+
+  CombatStep(combat, ires);
 
   if(success){
     if(a->resource > STAT_NONE)

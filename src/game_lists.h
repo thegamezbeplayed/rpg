@@ -270,7 +270,7 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
   {SPEC_HUMAN, "Joseph", ENT_PERSON,
     RACE_USE_TOOLS | RACE_USE_WEAPS | RACE_USE_ARMOR | RACE_USE_POTIONS |RACE_USE_SCROLLS |
     RACE_ARMOR_SIMPLE | RACE_ARMS_SIMPLE,
-    TRAIT_EXP_SWORD,
+    TRAIT_EXP_SWORD | TRAIT_EXP_MACE,
     PQ_BIPED,
     MQ_SENTIENT | MQ_CAUTIOUS | MQ_DETERMINED | MQ_PATIENT | MQ_STRATEGIC | MQ_LEADER | MQ_PROTECTIVE | MQ_DISCIPLINED,
     PW_NONE, PB_NONE,
@@ -1850,5 +1850,18 @@ static skill_proficiency_bonus_t GRANTS_PB[SKILL_DONE] = {
   [SKILL_WEAP_NONE]  =  {},      
   [SKILL_WRESTLE]  =  {},        
   [SKILL_WOOD]  =  {},           
+};
+static skill_unlocks_t SKILL_UNLOCKS[SKILL_DONE] = {
+  [SKILL_WEAP_MACE] = {SKILL_WEAP_MACE, 1,
+    { 1,
+      { 
+        {REQ_SKILL_RANK, 5,
+          {[SR_SKILLED] = true, [SR_EXPERT] = true, [SR_ARTIS] = true,
+            [SR_MASTER] = true, [SR_LEGEND] = true}
+        }
+      },
+      FEAT_WEAPON_MASTERY
+    }
+  }
 };
 #endif

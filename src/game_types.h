@@ -72,7 +72,7 @@ typedef struct{
 }properties_t;
 
 properties_t* InitProperties(race_define_t racials, mob_define_t m);
-
+void  PropAddFeat(ent_t* e, FeatFlag f, SkillType skill);
 typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, struct ent_s* target, InteractResult result);
 typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, ent_t* target);
 typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a, ent_t* target);
@@ -152,8 +152,8 @@ InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_sim_t* source);
 InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source);
 
 typedef struct item_def_s{
-  int id;
-  char name[32];
+  int                 id;
+  char                name[32];
   int                 type;
   ItemCategory        category;        // weapon / armor / potion / scroll
   damage_reduction_t  *dr; //TODO MOVE TO VALUE_T
@@ -170,12 +170,14 @@ typedef bool (*ItemEquipCallback)(struct ent_s* owner, struct item_s* item);
 typedef bool (*ItemUseCallback)(ent_t* owner, item_t* item, InteractResult res);
 
 struct item_s{
-  const item_def_t *def;
-  struct ent_s*    owner;
-  bool             equipped;
-  int              durability;
-  StorageMethod    location;
-  ability_t        *ability;     
+  game_object_uid_i gouid;
+  uint64_t          fuid;
+  const item_def_t  *def;
+  struct ent_s*     owner;
+  bool              equipped;
+  int               durability;
+  StorageMethod     location;
+  ability_t         *ability;     
   ItemEquipCallback on_equip[2];
   ItemUseCallback   on_use;
 };

@@ -550,6 +550,23 @@ typedef struct{
   ModifierType  proficiency;
 }define_skill_rank_t;
 
+typedef struct{
+  Requirement     req;
+  int             num_ranks;
+  bool            vals[SR_DONE];
+}unlock_req_t;
+
+typedef struct{
+  int           num_req;
+  unlock_req_t  req[4];
+  uint64_t      feats;
+}unlock_t;
+
+typedef struct{
+  SkillType skill;
+  int       num_unlocks;
+  unlock_t  unlocks[4];
+}skill_unlocks_t;
 
 SkillRate SkillRateLookup(SkillType);
 typedef enum {
@@ -767,7 +784,8 @@ typedef enum {
   FEAT_POISONER           = 1ULL << 37,
   FEAT_BRAWLER            = 1ULL << 38,
   FEAT_DURABLE            = 1ULL << 39,
-} FeatFlags;
+  FEAT_DONE               = 1ULL << 40
+} FeatFlag;
 typedef uint64_t PhysQs;
 typedef uint64_t MentalQs;
 typedef uint64_t Feats;
@@ -873,14 +891,14 @@ typedef enum{
 typedef struct{
   PhysQual      pq;
   Traits        traits;
-  FeatFlags     feats;
+  Feats         feats;
   AbilityID     abilities[4];
 }phys_qualities_t;
 
 typedef struct{
   PhysWeapon    pq;
   Traits        traits;
-  FeatFlags     feats;
+  Feats         feats;
   int           num_abilities;
   AbilityID     abilities[4];
   int           skillup[SKILL_DONE];
@@ -889,7 +907,7 @@ typedef struct{
 typedef struct{
   PhysBody      pq;
   Traits        traits;
-  FeatFlags     feats;
+  Feats         feats;
   AbilityID     abilities[4];
   int           skillup[SKILL_DONE];
 }body_covering_t;
@@ -897,7 +915,7 @@ typedef struct{
 typedef struct{
   MentalQual    mq;
   Traits        traits;
-  FeatFlags     feats;
+  Feats         feats;
   int           num_abilities;
   AbilityID     abilities[4];
   int           skillup[SKILL_DONE];
@@ -979,7 +997,7 @@ static const phys_qualities_t BODY[35] = {
 
 typedef struct {
   Traits traits;
-  FeatFlags feats;
+  Feats  feats;
 } mind_result_t;
 
 static inline mind_result_t GetMindResult(MentalQual mask) {
@@ -997,7 +1015,7 @@ static inline mind_result_t GetMindResult(MentalQual mask) {
 
 typedef struct {
   Traits traits;
-  FeatFlags feats;
+  Feats feats;
 } body_result_t;
 
 static inline body_result_t GetBodyResult(MentalQual mask) {

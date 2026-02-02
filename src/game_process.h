@@ -9,6 +9,7 @@ extern void moncontrol(int);
 #include "game_common.h"
 #include "screens.h"
 #include "room_data.h"
+#include "game_systems.h"
 
 #define MAX_SUBS 1024
 #define MAX_INTERACTIONS 2048
@@ -65,85 +66,8 @@ static bool FilterEntByState(ent_t* e,  param_t* ctx){
   return (e->state != state);
 }
 
-//INTERACTIONS_T===>
-typedef struct interaction_s interaction_t;
-typedef uint64_t interaction_uid_i;
-typedef interaction_uid_i (*InteractionCB)(interaction_t* self, void* ctx, param_t payload);
-
-struct interaction_s {
-  interaction_uid_i uid;
-  EventType         event;
-  InteractResult    result;
-  void*             ctx;
-  int               last_update_turn;
-  cooldown_t*       timer;
-  bool              refresh_on_update;
-  InteractionCB     on_update, on_add;
-};
-
-static inline interaction_uid_i InteractionMakeUID(EventType type, uint16_t context_id,
-    uint64_t source_id,
-    uint64_t target_id){
-  uint64_t who = hash_combine_64(source_id, target_id);
-
-  return hash_combine_64(who, context_id);  
-}
-
-int InitInteractions();
-interaction_t* RegisterInteraction(uint64_t source, uint64_t target, EventType event, int duration, void* ctx, uint16_t ctx_id);
-interaction_t* StartInteraction(uint64_t source, uint64_t target, EventType event,
-    int duration, void* ctx, uint16_t ctx_id, param_t data, InteractionCB add, InteractionCB update, bool refresh);
-int InteractionExists(interaction_uid_i uid);
-interaction_t* GetInteractionByUID(interaction_uid_i uid);
-bool AddInteraction(interaction_t* inter);
-bool CanInteract(int source, int target);
-int GetInteractions(int source);
-void FreeInteraction(interaction_t* item);
-void FreeInteractionByIndex(int i);
-void FreeInteractions();
-void InteractionStep();
-//==INTERACTIONS_T==>
-interaction_uid_i RegisterSkillEvent(interaction_t* self, void* ctx, param_t payload);
-interaction_uid_i UpdateSkillEvent(interaction_t* self, void* ctx, param_t payload);
-typedef uint64_t event_uid_i;
-
-typedef void (*EventCallback)(
-    EventType  event,
-    void*      event_data,
-    void*      user_data
-);
-
-typedef struct {
-    EventType      event;
-    EventCallback  cb;
-    uint64_t       uid;
-    void*          user_data;
-} event_sub_t;
-
-typedef struct {
-    event_sub_t* subs;
-    int count, cap;
-} event_bus_t;
-
-typedef struct{
-  EventType   type;
-  EventStatus status;
-  void*       data;
-  uint64_t    iuid;
-}event_t;
-
-event_bus_t* InitEventBus(int cap);
-event_sub_t* EventSubscribe(event_bus_t* bus, EventType event, EventCallback cb, void* u_data);
-void EventEmit(event_bus_t* bus, event_t*);
-void EventRemove(event_bus_t* bus, uint64_t id);
-static inline event_uid_i EventMakeUID(EventType type, uint64_t data_id){
-  event_uid_i euid = hash_combine_64(type, data_id);
-
-  return euid;
-}
 void OnWorldByGOUID(EventType event, void* data, void* user);
 void OnWorldCtx(EventType, void*, void*);
-//EVENTS==>
 
 typedef enum{
   PROCESS_NONE = -1,
