@@ -1,5 +1,6 @@
 #include "game_types.h"
 #include "game_process.h"
+#include "game_ui.h"
 
 MAKE_ADAPTER(StepState, ent_t*);
 
@@ -296,6 +297,7 @@ void ActionManOnStatus(TurnPhase phase, ActionStatus s){
   switch(s){
     case ACT_STATUS_DONE:
       ActionTurnStep();
+      UISync(FETCH_TURN);
       break;
   }
 }

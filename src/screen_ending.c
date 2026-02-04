@@ -22,7 +22,7 @@ void DrawEndScreen(void)
   BeginDrawing();
   ClearBackground(RAYWHITE);
 
-  UISync();
+//  UISync();
   EndDrawing();
 }
 

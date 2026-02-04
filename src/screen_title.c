@@ -20,7 +20,7 @@ void DrawTitleScreen(void)
   BeginDrawing();
   ClearBackground(RAYWHITE);
 
-  UISync();
+  UISync(FETCH_UPDATE);
   EndDrawing();
 }
 

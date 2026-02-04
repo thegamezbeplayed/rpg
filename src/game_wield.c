@@ -724,22 +724,63 @@ trigger_t* InitTriggerAffect(ent_t* e, trigger_t t, affect_t* aff){
    return trig;
 }
 
+trigger_t* InitTriggerTick(ent_t* e, trigger_t t, affect_t* aff){
+  trigger_t* trig = calloc(1, sizeof(trigger_t));
+   *trig =  t;
+   trig->owner = e;
+
+   WorldTargetSubscribe(aff->trigger.event, aff->tick, aff, e->gouid);
+
+   return trig;
+}
+
 void InitAffect(ent_t* e, AffectID id, int val){
   affect_t* aff = GetAffectByID(id);
   if(!aff)
     return;//TODO ERROR/WARN
-           //
+  
+  aff->hit = Die(aff->vals[VAL_HIT], 1);
+  aff->aff = Die(aff->vals[VAL_ADV_HIT], 1);
   trigger_t* apply = InitTriggerAffect(e, aff->source, aff);
-  //TriggerAdd(e, aff->trigger, aff->tick);
-
 
 }
 
 void AffectHitRoll(EventType, void* edat, void* udat){
+  affect_t* aff = udat;
+  ent_t* e = edat;
 
+  if(!aff->hit)
+    return;
+
+  int res[1];
+  if(!aff->hit->roll(aff->hit,res))
+    return;
+  
+  //aff->trigger = InitTriggerTick(e, aff->trigger, aff);
+  WorldTargetSubscribe(aff->trigger.event, aff->tick, aff, e->gouid);
 }
 
+void AffectRollAdv(EventType, void* edat, void* udat){
+  affect_t* aff = udat;
+  combat_t* c = edat;
+
+  combat_context_t* cc = c->cctx[IM_TAR];
+  ent_t* e = ParamReadEnt(&cc->ctx[IP_OWNER]);
+  switch(aff->trigger.cause){
+    case PARAM_ABILITY:
+      ability_t* a = ParamRead(&cc->ctx[IP_ABILITY], ability_t);
+      if(aff->vals[VAL_DMG_DIE] != 0)
+        a->dc->advantage += aff->vals[VAL_DMG_DIE];
+      break;
+  }
+}
+
+
 void AffectTick(EventType, void* edat, void* udat){
+  affect_t* aff = udat;
+  ent_t* e = edat;
+
+
 
 }
 

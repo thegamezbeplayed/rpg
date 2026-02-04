@@ -8,12 +8,12 @@
 
 // Gameplay Screen Initialization logic
 void InitGameplayScreen(void){
-  MenuSetState(&ui.menus[MENU_HUD],MENU_ACTIVE);
   //camera.target = player.position;
   InitCamera(2.0f,0.0f,VECTOR2_CENTER_SCREEN,VECTOR2_CENTER_SCREEN);
   
   InitGameEvents();
   InitScreenInteractive();
+  MenuSetState(&ui.menus[MENU_HUD],MENU_ACTIVE);
 }
 
 void PreUpdate(void){
@@ -55,8 +55,8 @@ void DrawGameplayScreen(void)
   ScreenCameraToggle();
   DrawTextEx(ui.font,GetWorldTime(),Vector2XY(VECTOR2_CENTER_SCREEN.x, 32) ,28,1,BLUE);
 
-  MapGenRender();
-  UISync();
+  //MapGenRender();
+  UISync(FETCH_UPDATE);
   DrawFPS(5,5);
 
   EndDrawing();

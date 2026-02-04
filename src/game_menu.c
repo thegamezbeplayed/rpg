@@ -7,6 +7,69 @@
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
+ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o){
+  ui_element_d d;
+
+  for (int i = 0; i < MAX_SUB_ELE; i++){
+    if(strcmp(name, ELEM_DATA[i].identifier) != 0)
+      continue;
+
+    ui_element_d d = ELEM_DATA[i];
+    ui_element_t *e = calloc(1,sizeof(ui_element_t));
+
+    *e = (ui_element_t){
+      .hash     = hash_str_32(d.identifier),
+      .type     = d.type,
+      .state    = d.state,
+      .layout   = d.layout,
+      .align    = d.align,
+      .set_val  = d.set,
+      .get_ctx  = d.context,
+      .menu     = m,
+      .owner    = o,
+      .bounds   = Rect(d.pos.x,d.pos.y,d.size.x,d.size.y),
+      .width    = d.size.x,
+      .height   = d.size.y
+    };
+
+    for (int j = 0; j < UI_POSITIONING; j++)
+      e->spacing[j] = d.spacing[j];
+
+    for (int j = 0; j < ELEMENT_DONE; j++){
+      if(d.cb[j])
+        e->cb[j] = d.cb[j];
+    }
+    
+    for (int j = 0; j < d.num_children; j++)
+      e->children[e->num_children++] = InitElementByName(d.kids[i], m, e);
+    
+    return e;
+
+  }
+  return NULL;
+}
+
+void InitMenuById(MenuId id){
+  ui_menu_d d = MENU_DATA[id];
+
+
+  ui_menu_t m = {0};
+
+  m.state = d.state;
+  m.is_modal = d.is_modal;
+
+  m.element = InitElementByName(d.element, &m, NULL);
+  
+  for(int i = 0; i < MENU_END; i++){
+    if(d.cb[i])
+      m.cb[i] = d.cb[i];
+    else
+      m.cb[i] = MenuInert;
+  }
+
+  ui.menus[id] = m;
+}
+
 void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color baseColor) { }
 ui_manager_t ui;
 void InitUI(void){
@@ -34,14 +97,6 @@ void InitUI(void){
 
   ui.menus[MENU_MAIN] = InitMenu(MENU_MAIN,VECTOR2_ZERO,DEFAULT_MENU_SIZE,ALIGN_CENTER|ALIGN_MID,LAYOUT_VERTICAL,false);
 
-  ui.menus[MENU_HUD] = InitMenu(MENU_HUD,VECTOR2_ZERO,VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_HORIZONTAL,false);
-
-  ui_element_t* playerPanel = InitElement("PLAYER_PANEL", UI_PANEL, VECTOR2_ZERO,VECTOR2_ZERO, ALIGN_TOP, LAYOUT_VERTICAL);
-
-  ui_element_t* playerInfo = InitElement("PLAYER_INFO", UI_PANEL, VECTOR2_ZERO,VECTOR2_ZERO, ALIGN_TOP, LAYOUT_VERTICAL);
-
-  ui_element_t *attrPanel = InitElement("ATTR_PANEL",UI_PANEL,VECTOR2_ZERO, VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_VERTICAL);
-
   ui_element_t *playBtn = InitElement("PLAY_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,ALIGN_CENTER|ALIGN_MID,0); 
   strcpy(playBtn->text, "PLAY");
   playBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
@@ -52,33 +107,11 @@ void InitUI(void){
   continueBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
  
   ui.menus[MENU_OPTIONS] = InitMenu(MENU_OPTIONS, VECTOR2_ZERO,DEFAULT_MENU_SIZE,ALIGN_CENTER,LAYOUT_HORIZONTAL,false);
-/*
-
-  ui_element_t *die = InitElement("DIE_ICON",UI_STATUSBAR,VECTOR2_ZERO, SQUARE_PANEL,ALIGN_CENTER,0);
-
-  die->get_val = GetSelectionRoll; 
+  
+  ui.menus[MENU_HUD] = InitMenu(MENU_HUD, VECTOR2_ZERO, VECTOR2_ZERO, ALIGN_CENTER, LAYOUT_HORIZONTAL, false);
 
 
-   ui_element_t *attrPanelB = InitElement("ATTR_PANEL",UI_PANEL,VECTOR2_ZERO, VECTOR2_ZERO,ALIGN_CENTER,LAYOUT_VERTICAL);
-
-  ElementAddChild(ui.menus[MENU_OPTIONS].element,attrPanel);
-  ElementAddChild(ui.menus[MENU_OPTIONS].element,attrPanelB);
-  ElementAddChild(ui.menus[MENU_OPTIONS].element,die);
-  for(int i = 0; i < ATTR_DONE; i++){
-
-    for(int j = 0; j <2; j++){
-      ui_element_t *attrBtn = InitElement("ATTR_BUTTON",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_WIDE,ALIGN_CENTER|ALIGN_MID,0);
-
-      strcpy(attrBtn->text,attributes[i].name);
-      attrBtn->cb[ELEMENT_ACTIVATE] = UISelectOption;
-      attrBtn->cb[ELEMENT_ACTIVATED] = UIHideElement;
-
-      ElementAddChild(ui.menus[MENU_OPTIONS].element->children[j],attrBtn);
-    }
-  }
-
-  ElementAddChild(ui.menus[MENU_OPTIONS].element,continueBtn);
-  */
+  InitMenuById(MENU_HUD);
 }
 
 ui_menu_t InitMenu(MenuId id,Vector2 pos, Vector2 size, UIAlignment align,UILayout layout, bool modal){
@@ -134,60 +167,6 @@ ui_element_t* InitElement(const char* name, ElementType type, Vector2 pos, Vecto
   u->layout= layout;
   ui.elements[ui.num_elements++] = u;
   return u;
-}
-
-ui_element_t* InitGameElement(ent_t* e){
-  ui_element_t* u = malloc(sizeof(ui_element_t));
-  *u = (ui_element_t) {0};
-
-  u->ent = e;
-  Vector2 pos = VECTOR2_ZERO;
-  Vector2 size = RectSize(RectScale(e->sprite->slice->bounds,ScreenSized(SIZE_SCALE)));
-  const char* name = TextFormat("TILE%i%i",e->pos.x,e->pos.y);
-  u->hash = hash_str_32(name);
-  u->num_children = 0;
-  u->type = UI_GAME;
-  u->state = ELEMENT_NONE;
-  u->sync_val = NULL;//CHAR_DO_NOTHING;
-  u->bounds = Rect(pos.x,pos.y,size.x,size.y);
-  u->width = size.x;
-  u->height = size.y;
-  
-  for(int i = 0; i < ELEMENT_DONE; i++)
-    u->cb[i] = UI_BOOL_DO_NOTHING;
-
-  for (int i = 0; i < UI_POSITIONING; i++)
-    u->spacing[i] = 0.0f;
-
-  ui.elements[ui.num_elements++] = u;
-  return u;
-
-}
-
-ui_element_t* ElementGetChild(ui_element_t* owner, uint32_t child_id){
-  for(int i = 0; i < MAX_ELEMENTS; i++){
-    if(ui.elements[i] == NULL)
-      return NULL;
-
-    if(ui.elements[i]->hash == child_id)
-      return ui.elements[i];
-  }
-
-  return NULL;
-}
-
-
-void ElementAddGameElement( ent_t* e){
-  ui_element_t *o = ui.menus[MENU_PLAY_AREA].element;
-
-  if(!o->menu)
-    o->menu = &ui.menus[MENU_PLAY_AREA];
-  ui_element_t* g = InitGameElement(e);
-  g->owner = o;
-  g->layout = LAYOUT_GRID;
-  g->menu = o->menu;
-  g->index = o->num_children;
-  o->children[o->num_children++] = g;
 }
 
 void ElementAddChild(ui_element_t *o, ui_element_t* c){
@@ -263,7 +242,7 @@ void ElementResize(ui_element_t *e){
           cwidths = ElementGetWidthSum(e->children[i]);
         break;
       case LAYOUT_HORIZONTAL:
-        owidth += ElementGetWidthSum(e->children[i]);
+        //owidth += ElementGetWidthSum(e->children[i]);
         if(e->children[i]->height > cheights)
           cheights = e->children[i]->height;
         break;
@@ -344,31 +323,28 @@ void ElementResize(ui_element_t *e){
   }
 
   e->bounds = RectInc(e->bounds,xinc,yinc);
-/*
-  if(e->type == UI_GAME && e->ent)
-    EntSetPos(e->ent,Vector2Add(e->ent->sprite->slice->center,RectXY(e->bounds)));
-*/
+  
   for(int i = 0; i < e->num_children; i++)
     ElementResize(e->children[i]);
 }
 
-void UISync(void){
+void UISync(FetchRate poll){
   for(int i = 0; i < MENU_DONE; i++){
     if(IsKeyPressed(ui.menu_key[i]))
       MenuSetState(&ui.menus[i],MENU_OPENED);
 
-    UISyncMenu(&ui.menus[i]);
+    UISyncMenu(&ui.menus[i], poll);
   }
 }
 
-void UISyncMenu(ui_menu_t* m){
+void UISyncMenu(ui_menu_t* m, FetchRate poll){
   if(m->state < MENU_ACTIVE)
     return;
 
   if(!m->element->menu )
     m->element->menu = m; 
 
-  UISyncElement(m->element);
+  UISyncElement(m->element, poll);
 
   if(IsKeyPressed(KEY_ESCAPE)){
     if(m->cb[MENU_CLOSE](m))
@@ -376,7 +352,7 @@ void UISyncMenu(ui_menu_t* m){
   }
 }
 
-void UISyncElement(ui_element_t* e){
+void UISyncElement(ui_element_t* e, FetchRate poll){
   if(!e->menu && e->owner)
     e->menu = e->owner->menu;
 
@@ -385,7 +361,7 @@ void UISyncElement(ui_element_t* e){
 
   int clicked = 0,toggle = 0,focused = 0;
   if(e->sync_val){
-    e->sync_val(e->value,FETCH_UPDATE);
+    e->sync_val(e,poll);
 
     switch(e->value->type){
       case VAL_CHAR:
@@ -407,7 +383,7 @@ void UISyncElement(ui_element_t* e){
       clicked = GuiButton(e->bounds,e->text);
       break;
     case UI_PANEL:
-      GuiPanel(e->bounds,NULL);//e->text);
+      GuiPanel(e->bounds, e->text);
       break;
     case UI_LABEL:
       GuiLabel(e->bounds,e->text);
@@ -427,7 +403,7 @@ void UISyncElement(ui_element_t* e){
     ElementSetState(e,ELEMENT_ACTIVATE);
 
   for(int i = 0; i<e->num_children; i++)
-    UISyncElement(e->children[i]);
+    UISyncElement(e->children[i], poll);
 }
 
 bool UIFreeElement(ui_element_t* e){
@@ -479,8 +455,17 @@ bool UITransitionScreen(ui_element_t* e){
   return true; 
 }
 
+bool ElementActivateChildren(ui_element_t* e){
+  for (int i = 0; i < e->num_children; i++)
+    ElementSetState(e->children[i], ELEMENT_IDLE);
+}
+bool MenuActivateChildren(ui_menu_t* m){
+  ElementSetState(m->element, ELEMENT_IDLE);
+}
+
 void MenuOnStateChanged(ui_menu_t*m, MenuState old, MenuState s){
-  m->cb[m->state](m);
+  if(m->cb)
+    m->cb[m->state](m);
 
   switch(old){
     case MENU_INACTIVE:
@@ -543,6 +528,8 @@ void ElementStepState(ui_element_t* e, ElementState s){
     case ELEMENT_ACTIVATE:
       ElementSetState(e,ELEMENT_ACTIVATED);
       break;
+    case ELEMENT_NONE:
+      ElementSetState(e,ELEMENT_IDLE);
     default:
      break;
   } 
@@ -559,6 +546,28 @@ bool ElementSetState(ui_element_t* e, ElementState s){
   return true;
 }
 
+void ElementSyncVal(ui_element_t* e, FetchRate poll){
+  element_value_t* ev = e->value;
+
+  if(!e->ctx || !ev || poll != ev->rate)
+    return;
+
+  e->value = e->set_val(e, e->ctx);
+
+}
+
+
+bool ElementSetContext(ui_element_t* e){
+  if(e->get_ctx){
+    e->ctx = e->get_ctx();
+
+    e->value = e->set_val(e, e->ctx);
+    e->sync_val = ElementSyncVal;
+  }
+  return (e->ctx == NULL);
+
+}
+
 element_value_t GetDisplayHealth(ui_element_t* e){
   element_value_t ev = {0}; 
   ev.type = VAL_FLOAT;
@@ -570,15 +579,14 @@ element_value_t GetDisplayHealth(ui_element_t* e){
   return ev;
 }
 
+element_value_t* GetStatSheet(ui_element_t* e, void* context){
+  local_ctx_t* ctx = context;
+  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  ev->rate = FETCH_TURN;
 
-element_value_t GetSelectionRoll(ui_element_t* e){
-/*
-  element_value_t ev = {0};
-  ev.rate = FETCH_ACTIVE;
-  ev.type = VAL_INT;
-  ev.i = malloc(sizeof(int));
-  *ev.i = selection.roll(&selection);
+  ev->type = VAL_CHAR;
+  ent_t* ectx = ParamReadEnt(&ctx->other);
+  int num_lines = PrintStatSheet(ectx, ev->lines);
 
   return ev;
-  */
 }

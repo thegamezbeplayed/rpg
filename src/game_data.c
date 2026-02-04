@@ -27,9 +27,10 @@ local_ctx_t* ParamReadCtx(const param_t* o){
 affect_t AFFECTS[NUM_AFFECTS] = {
   {AFFECT_WEAP_SAP, AFF_ABI,
     {EVENT_DAMAGE_DEALT, PARAM_WEAP_TYPE, {DATA_INT, .id = WEAP_MACE}},
-    {EVENT_ROLL_DMG, PARAM_NONE, -1},
+    {EVENT_ROLL_DMG, PARAM_ABILITY, -1},
     AffectHitRoll,
-    AffectTick
+    AffectRollAdv,
+    {[VAL_HIT] = 3, [VAL_ADV_DMG] = -1}
   }
 };
 

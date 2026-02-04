@@ -598,13 +598,14 @@ struct affect_s{
   AffectCategory  cat;
   trigger_t       source, trigger;
   TriggerCallback apply, tick;
-  int             duration;
+  int             vals[VAL_ALL];
+  dice_roll_t*    hit, *aff;
 };
 extern affect_t AFFECTS[NUM_AFFECTS];
 void InitAffect(ent_t*,AffectID, int val);
 void AffectHitRoll(EventType, void* edat, void* udat);
 void AffectTick(EventType, void* edat, void* udat);
-
+void AffectRollAdv(EventType, void* edat, void* udat);
 typedef struct{
   AffectType  type;
   int         type_id, val, dec;

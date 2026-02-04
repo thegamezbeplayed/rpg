@@ -1,7 +1,7 @@
 #include "raylib.h"
 #include "game_tools.h"
 #include "game_process.h"
-#include "game_info.h"
+#include "game_ui.h"
 #if defined(PLATFORM_ANDROID)
 #include <jni.h>
 #endif
@@ -281,7 +281,7 @@ ent_t* ScreenEntMouseHover(void){
   
   if(e && e!=mousectrl.hover){
     mousectrl.hover = e;
-    PrintMobDetail(e);
+    //PrintMobDetail(e);
   }
   return e;
 }

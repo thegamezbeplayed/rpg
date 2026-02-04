@@ -148,6 +148,7 @@ typedef struct{
 void WorldApplyLocalContext(ent_t* e);
 local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid);
 void WorldContextChange(ObjectCategory cat, game_object_uid_i gouid);
+local_ctx_t* WorldPlayerContext(void);
 
 typedef struct world_s{
   map_grid_t    *map;

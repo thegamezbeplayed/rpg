@@ -1,5 +1,6 @@
-#include "game_info.h"
+#include "game_ui.h"
 #include "game_common.h"
+#include "game_types.h"
 #include <stdio.h>
 
 void PrintMobDetail(ent_t* e){
@@ -61,20 +62,21 @@ const char* PrintLine(line_item_t* ln){
   }
 }
 
-char *TextFormatLineItem(const line_item_t *item) {
+char *TextFormatLineItem(line_item_t *item) {
     static char buffer[2048];
     char temp[256];
 
     buffer[0] = 0;
     const char *fmt = item->text_format;
 
+    item->r_len = 0;
     int arg_index = 0;
 
     for (int i = 0; fmt[i] != 0; i++) {
         // Check for '%' format token
         if (fmt[i] == '%' && fmt[i+1] != 0 && arg_index < item->num_val) {
             element_value_t *val = item->values[arg_index];
-
+            size_t before = strlen(buffer);
             switch (fmt[i+1]) {
                 case 's':
                     if (val->type == VAL_CHAR)
@@ -106,7 +108,8 @@ char *TextFormatLineItem(const line_item_t *item) {
                     strncat(buffer, &fmt[i], 2);
                     break;
             }
-
+            size_t after = strlen(buffer);
+            item->r_len += after - before;
             arg_index++;
             i++; // Skip format character
         } else {
@@ -213,3 +216,34 @@ element_value_t* SkillGetPretty(element_value_t* self, void* context){
       break;
   }
 }
+
+int PrintStatSheet(ent_t* e, line_item_t** li){
+  char* out = calloc(1, 1024);
+
+  stat_sheet_t* sb = calloc(1,sizeof(stat_sheet_t));
+  element_value_t* header[2];
+  int title_len = EntGetNamePretty(header, e);
+
+  sb->ln[sb->lines++] = InfoInitLineItem(header,title_len, "%s %s");
+
+  element_value_t* base[2];
+  int items = EntGetStatPretty(base, e->stats[STAT_HEALTH]);
+  sb->ln[sb->lines++] = InfoInitLineItem(base,items, "%s: %s");
+
+  items = EntGetStatPretty(base, e->stats[STAT_ARMOR]);
+
+  sb->ln[sb->lines++] = InfoInitLineItem(base,items, "%s: %s");
+
+  int count = 0;
+  for(int i = 0; i < sb->lines; i++){
+    i++;
+    PrintSyncLine(sb->ln[i],FETCH_ONCE);
+    li[i] = sb->ln[i]; 
+  }
+
+  free(sb);
+
+  return count;
+}
+
+

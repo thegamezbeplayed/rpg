@@ -12,7 +12,7 @@ typedef enum{
   OBJ_ENT,
   OBJ_ENV,
   OBJ_MAP_CELL,
-  OBJ_ABILITY,
+  //OBJ_ABILITY,
   OBJ_ALL
 }ObjectCategory;
 
@@ -177,6 +177,7 @@ typedef enum{
   VAL_SAVE,
   VAL_ADV_SAVE,
   VAL_REACH,
+  VAL_DUR,
   VAL_SWAP_HIT,
   VAL_SWAP_DMG,
   VAL_WORTH,

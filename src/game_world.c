@@ -4,7 +4,6 @@
 #include "game_tools.h"
 #include "game_utils.h"
 #include "game_ui.h"
-#include "game_info.h"
 
 game_process_t game_process;
 TreeCacheEntry tree_cache[18] = {0};
@@ -32,6 +31,9 @@ void WorldTargetSubscribe(EventType event, EventCallback cb, void* data, uint64_
 void WorldSubscribe(EventType event, EventCallback cb, void* data){
 
   EventSubscribe(world.bus, event, cb, data);
+}
+local_ctx_t* WorldPlayerContext(void){
+  return WorldGetContext(DATA_ENTITY, player->gouid);
 }
 
 ent_t* WorldPlayer(void){
@@ -709,6 +711,7 @@ void InitGameEvents(){
   turnEvent->is_recycled = true;
   AddEvent(game_process.events,turnEvent);
 
+  InitCombatSystem(MAX_ENTS);
 }
 
 bool WorldAddEvent(event_uid_i eid, cooldown_t* cd, StepType when){
