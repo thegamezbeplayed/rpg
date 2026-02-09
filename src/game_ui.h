@@ -6,6 +6,8 @@
 #include "game_assets.h"
 
 #define MAX_LINE_ITEMS 12
+#define MAX_LINE_VAL 4
+#define MAX_LINE_LEN 128
 #define MAX_SUB_ELE 16
 #define MAX_ELEMENTS 64
 #if defined(PLATFORM_ANDROID)
@@ -23,19 +25,30 @@
 #define XS_PANEL_SIZE (Vector2){108*UI_SCALE, 64*UI_SCALE}
 #define XS_PANEL_THIN_SIZE (Vector2){108*UI_SCALE, 32*UI_SCALE}
 #endif
-#define LARGE_BUTTON_SIZE (Vector2){164*UI_SCALE, 32*UI_SCALE}
-#define SQUARE_PANEL (Vector2){96,96}
-#define DEFAULT_BUTTON_WIDE (Vector2){172*UI_SCALE, 48*UI_SCALE}
-#define DEFAULT_PANEL_SIZE (Vector2){GetScreenWidth()*UI_SCALE, 64*UI_SCALE}
-#define FIXED_PANEL_HOR (Vector2){910, 64}
-#define FIXED_PANEL_VER (Vector2){96, 540}
+#define LARGE_BUTTON_SIZE     (Vector2){164*UI_SCALE, 32*UI_SCALE}
+#define SQUARE_PANEL          (Vector2){96,96}
+#define DEFAULT_BUTTON_WIDE   (Vector2){172*UI_SCALE, 48*UI_SCALE}
+#define DEFAULT_PANEL_SIZE    (Vector2){GetScreenWidth()*UI_SCALE, 64*UI_SCALE}
+#define FIXED_PANEL_HOR       (Vector2){910, 64}
+#define FIXED_PANEL_VER       (Vector2){96, 540}
+#define STAT_SHEET_PANEL_VER  (Vector2){128, 540}
 #define DEFAULT_PANEL_THIN_SIZE (Vector2){224*UI_SCALE, 32*UI_SCALE}
 #define LARGE_PANEL_THIN_SIZE (Vector2){GetScreenWidth()*UI_SCALE, 32*UI_SCALE}
 #define SMALL_PANEL_SIZE (Vector2){192*UI_SCALE, 64*UI_SCALE}
 #define SMALL_PANEL_THIN_SIZE (Vector2){184*UI_SCALE, 32*UI_SCALE}
 #define DEFAULT_LINE_SIZE (Vector2){2 *UI_SCALE, 64*UI_SCALE}
 
+#define FIXED_LABEL_SIZE      (Vector2){96, 24}
+#define FIXED_TOOL_TIP        (Vector2){96, 24}
+
+#define UI_PANEL_RIGHT (Vector2){1472, 0}
+#define UI_PANEL_BOT (Vector2){0, 1080}
+
+#define LIST_LEFT_HAND_PAD 20
+#define LIST_RIGHT_HAND_PAD 8
+
 typedef struct element_value_s element_value_t;
+typedef struct local_context_s local_context_t;
 
 typedef enum{
   MENU_INACTIVE,
@@ -50,8 +63,10 @@ typedef enum{
 
 typedef enum{
   ELEMENT_NONE,
+  ELEMENT_LOAD,
   ELEMENT_HIDDEN,
   ELEMENT_IDLE,
+  ELEMENT_SHOW,
   ELEMENT_FOCUSED,
   ELEMENT_ACTIVATE,
   ELEMENT_TOGGLE,
@@ -69,6 +84,7 @@ typedef enum{
   UI_BOX,
   UI_LINE,
   UI_GAME,
+  UI_TOOL_TIP,
   UI_BLANK
 }ElementType;
 
@@ -81,12 +97,13 @@ typedef enum{
 
 typedef enum{
   ALIGN_NONE = 0,
-  ALIGN_CENTER = 0x01,
-  ALIGN_LEFT = 0x02,
-  ALIGN_RIGHT = 0x04,
-  ALIGN_TOP = 0x10,
-  ALIGN_MID = 0x20,
-  ALIGN_BOT = 0x40,
+  ALIGN_CENTER  = 0x01,
+  ALIGN_LEFT    = 0x02,
+  ALIGN_RIGHT   = 0x04,
+  ALIGN_TOP     = 0x10,
+  ALIGN_MID     = 0x20,
+  ALIGN_BOT     = 0x40,
+  ALIGN_OVER    = 0x100,
 }UIAlignment;
 
 typedef enum{
@@ -98,6 +115,7 @@ typedef enum{
   UI_MARGIN,
   UI_MARGIN_TOP,
   UI_MARGIN_LEFT,
+  UI_MARGIN_RIGHT,
   UI_POSITIONING
 }UIPosition;
 
@@ -125,7 +143,7 @@ typedef enum{
 
 
 typedef struct{
-  int               num_val, r_len;
+  int               num_val, r_len, r_wid, r_hei, padd_r, padd_l, des_len;
   element_value_t   *values[4];
   const char*       text_format;
 }line_item_t;
@@ -135,21 +153,27 @@ typedef struct{
   line_item_t*  ln[MAX_LINE_ITEMS];
 }stat_sheet_t;
 
-line_item_t* InfoInitLineItem(element_value_t **val, int num_val, char* format);
+line_item_t* InitLineItem(element_value_t **val, int num_val, const char* format);
 const char* PrintLine(line_item_t* ln);
 char *TextFormatLineItem(line_item_t *item);
 void PrintMobDetail(ent_t* e);
 int EntGetStatPretty(element_value_t **fill, stat_t* stat);
 int EntGetNamePretty(element_value_t **fill, ent_t* e );
+int CtxGetString(element_value_t **fill, local_ctx_t*, GameObjectParam);
 element_value_t* StatGetPretty(element_value_t* self, void* context);
 element_value_t* SkillGetPretty(element_value_t* self, void* context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
-int PrintStatSheet(ent_t* e, line_item_t**);
-
-typedef struct local_context_s local_context_t;
+int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
+int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
+char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]);
 typedef struct ui_element_s ui_element_t;
 typedef bool (*ElementCallback)( ui_element_t* self);
-typedef enum { VAL_INT, VAL_FLOAT, VAL_CHAR } ValueType;
+typedef enum {
+  VAL_INT,
+  VAL_FLOAT,
+  VAL_CHAR,
+  VAL_LN,
+} ValueType;
 typedef element_value_t* (*ElementFetchValue)(element_value_t* e, void* context);
 typedef element_value_t* (*ElementSetValue)(ui_element_t* e, void* context);
 
@@ -160,16 +184,19 @@ struct element_value_s{
         int   *i;
         float *f;
         char*  c;
-        line_item_t* lines[MAX_LINE_ITEMS];
+        line_item_t* l[MAX_LINE_ITEMS];
     };
-  size_t            text_len, text_hei;
+  size_t            num_ln, text_len, text_hei;
   void*             context;
   ElementFetchValue get_val;
 };
 
 typedef void (*ElementValueSync)(ui_element_t* e, FetchRate poll);
 
-typedef local_ctx_t* (*ElementDataContext)(void);
+typedef local_ctx_t* (*ElementDataContext)(void*);
+local_ctx_t* ElementGetOwnerContext(void*);
+local_ctx_t* ElementGetScreenSelection(void* p);
+bool ElementScreenContext(ui_element_t* e);
 
 struct ui_element_s{
   uint32_t            hash;
@@ -184,14 +211,15 @@ struct ui_element_s{
   float               width,height;
   UILayout            layout;
   UIAlignment         align;
-  float               spacing[UI_POSITIONING];
-  char                text[MAX_NAME_LEN];
+  int                 spacing[UI_POSITIONING];
+  char                text[MAX_LINE_LEN];
   ElementSetValue     set_val;
   ElementValueSync    sync_val;
   element_value_t        *value;
-  int                 num_children;
-  struct ui_element_s *children[MAX_SUB_ELE];
+  int                 num_children, num_params;
+  ui_element_t*       children[MAX_SUB_ELE];
   ElementDataContext  get_ctx;
+  GameObjectParam     params[4];
   void*               ctx;
 };
 
@@ -205,13 +233,14 @@ typedef struct{
   ElementSetValue     set;
   ElementDataContext  context;
   ElementCallback     cb[ELEMENT_DONE];
-  float               spacing[UI_POSITIONING];
+  int                 spacing[UI_POSITIONING];
   //ElementValueSync  sync;
   int                 num_children;
   const char          kids[MAX_SUB_ELE][MAX_NAME_LEN];
+  GameObjectParam     params[MAX_SUB_ELE][PARAM_ALL];
 }ui_element_d;
-
 extern ui_element_d ELEM_DATA[MAX_SUB_ELE];
+
 ui_element_t* InitElement(const char* name, ElementType type, Vector2 pos, Vector2 size, UIAlignment align,UILayout layout);
 ui_element_t* GetElement(const char* name);
 void ElementStepState(ui_element_t* e, ElementState s);
@@ -223,11 +252,29 @@ bool UICloseOwner(ui_element_t* e);
 bool UIFreeElement(ui_element_t* e);
 bool UIHideElement(ui_element_t* e);
 bool ElementActivateChildren(ui_element_t*);
+bool ElementLoadChildren(ui_element_t*);
+bool ElementShowChildren(ui_element_t*);
 bool ElementSetContext(ui_element_t* e);
+bool ElementSyncContext(ui_element_t* e);
+bool ElementShowContext(ui_element_t* e);
+bool ElementSyncOwnerContext(ui_element_t* e);
+bool ElementToggleTooltip(ui_element_t* e);
+bool ElementToggle(ui_element_t* e);
+bool ElementShowTooltip(ui_element_t* e);
+bool ElementSetTooltip(ui_element_t* e);
 struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
-element_value_t* GetStatSheet(ui_element_t* e, void* context);
+element_value_t* GetContextName(ui_element_t* e, void* context);
+element_value_t* GetContextStat(ui_element_t* e, void* context);
+element_value_t* GetContextDetails(ui_element_t* e, void* context);
+
+static void UIEventActivate(EventType event, void* data, void* user){
+  local_ctx_t* ctx = data;
+  ui_element_t* e = user;
+  e->ctx = ctx;
+  ElementSetState(e, ELEMENT_IDLE);
+}
 typedef struct ui_menu_s{
   ui_element_t  *element;
   MenuCallback  cb[MENU_END];
@@ -262,11 +309,13 @@ static bool MenuInert(ui_menu_t* self){
 bool MenuActivateChildren(ui_menu_t*);
 typedef struct{
   Font         font;
+  float        text_size, text_spacing;
   //MenuId      open_menu;
   KeyboardKey  menu_key[MENU_DONE];
   ui_menu_t    menus[MENU_DONE];
   int          num_elements;
   ui_element_t *elements[MAX_ELEMENTS];
+  local_ctx_t*  contexts[SCREEN_CTX_ALL];
 }ui_manager_t;
 
 extern ui_manager_t ui;
@@ -278,4 +327,16 @@ void UIRender(void);
 bool TogglePause(ui_menu_t* m);
 static inline bool UI_BOOL_DO_NOTHING(ui_element_t* self){return false;}
 
+
+static state_change_requirement_t ELEM_STATE_REQ[ELEMENT_DONE] = {
+  {ELEMENT_NONE, NEVER, ELEMENT_NONE},
+  {ELEMENT_LOAD, EQUAL_TO, ELEMENT_NONE},
+  {ELEMENT_HIDDEN, ALWAYS, ELEMENT_NONE},
+  {ELEMENT_IDLE, ALWAYS, ELEMENT_HIDDEN},
+  {ELEMENT_SHOW, ALWAYS, ELEMENT_NONE},
+  {ELEMENT_FOCUSED, NOT_EQUAL_TO, ELEMENT_HIDDEN},
+  {ELEMENT_ACTIVATE, ALWAYS, ELEMENT_NONE},
+  {ELEMENT_TOGGLE, GREATER_THAN, ELEMENT_SHOW},
+  {ELEMENT_ACTIVATED, NOT_EQUAL_TO, ELEMENT_HIDDEN}
+};
 #endif

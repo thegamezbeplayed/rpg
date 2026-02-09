@@ -130,7 +130,6 @@ void InitScreenInteractive(void){
     .is_dragging = false,
       .pos = GetMousePosition(),
       .offset = VECTOR2_ZERO,
-      .target = NULL
   };
 
   keyctrl = (key_controller_t) {0};
@@ -160,6 +159,15 @@ bool ScreenSelectorInput(void){
       //return fn(player,a,k,SLOT_NONE);
     }
   }
+}
+
+void ScreenApplyContext(local_ctx_t* ctx[SCREEN_CTX_ALL]){
+    for(int i = 0; i < SCREEN_CTX_ALL; i++)
+      ctx[i] = mousectrl.ctx[i];
+}
+
+local_ctx_t* ScreenSelectContext(void*){
+  return mousectrl.ctx[SCREEN_CTX_TAR];
 }
 
 key_controller_t* ScreenGetSelection(void){
@@ -212,20 +220,84 @@ bool ScreenMoveSelector(struct ent_s* e, ActionType a, KeyboardKey k, int bindin
 }
 
 void ClearMouse(void){
-  mousectrl.target = NULL;
+  for(int i = 0; i < SCREEN_CTX_ALL; i++)
+    mousectrl.ctx[i] = NULL;
+  
   mousectrl.offset = VECTOR2_ZERO;
   mousectrl.is_dragging = false;
+}
+
+/*
+ent_t* ScreenEntMouseHover(void){
+  Cell c = vec_to_cell(mousectrl.pos,CELL_WIDTH); 
+
+  Vector2 pos = GetScreenToWorld2D(mousectrl.pos,*cam->camera);
+  sprite_t* ent_sprites[MAX_ENTS];
+  int num = WorldGetEntSprites(ent_sprites);
+
+  ent_t *e = {0};
+  for (int i = 0; i < num; i++){
+    if(Vector2Distance(pos,ent_sprites[i]->pos)<CELL_WIDTH){
+      e = ent_sprites[i]->owner;
+    }
+  }
+  
+  if(e && e!=mousectrl.hover){
+    mousectrl.hover = e;
+    SetHoverContext(e);
+  }
+  return e;
+}
+*/
+
+bool SetHoverContext(local_ctx_t* ctx){
+  if(ctx == NULL)
+    return false;
+
+  if(ctx == mousectrl.ctx[SCREEN_CTX_HOVER])
+    return false;
+
+  if(ctx->gouid == player->gouid)
+    return false;
+
+  mousectrl.ctx[SCREEN_CTX_HOVER] = ctx;
+
+  WorldEvent(SCREEN_EVENT_SELECT, ctx, ctx->gouid);
+  return true;
+}
+
+bool ScreenMouseFindContext(void){
+  Cell c = vec_to_cell(mousectrl.pos,CELL_WIDTH); 
+
+  Vector2 pos = GetScreenToWorld2D(mousectrl.pos,*cam->camera);
+
+  Cell tile = vec_to_cell(pos, CELL_WIDTH);
+
+  map_cell_t* mc = MapGetTile(WorldGetMap(), tile);
+  if(!mc || mc->vis < VIS_HAS)
+    return false;
+
+  local_ctx_t* tar = {0};
+  if(mc->occupant)
+    tar = WorldGetContext(DATA_ENTITY, mc->occupant->gouid); 
+  /*
+  else if (mc->tile)
+    tar = WorldGetContext(DATA_ENV, mc->tile->gouid);
+*/
+ return SetHoverContext(tar); 
+
 }
 
 void ScreenSyncMouse(void){
 
   mousectrl.pos = GetMousePosition();
-  ScreenEntMouseHover();
+  ScreenMouseFindContext();
+  /*
   if(!mousectrl.target && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
 
   //  mousectrl.target = ScreenEntMouseCollision();
     if(mousectrl.target){
-      mousectrl.offset = Vector2Subtract(mousectrl.pos, mousectrl.target->sprite->pos);
+      //mousectrl.offset = Vector2Subtract(mousectrl.pos, mousectrl.target->sprite->pos);
       mousectrl.is_dragging = true;
     }
     else
@@ -242,6 +314,7 @@ void ScreenSyncMouse(void){
 
   if(mousectrl.is_dragging){
   }
+  */
 }
 
 void ScreenSyncKey(void){
@@ -265,25 +338,14 @@ Vector2 CaptureInput(){
   return input;
 }
 
-ent_t* ScreenEntMouseHover(void){
-  Cell c = vec_to_cell(mousectrl.pos,CELL_WIDTH); 
+local_ctx_t* ScreenPlayerContext(void*){
+  for(int i = 0; i < SCREEN_CTX_ALL; i++){
+    if(mousectrl.ctx[i])
+      return mousectrl.ctx[i];
 
-  Vector2 pos = GetScreenToWorld2D(mousectrl.pos,*cam->camera);
-  sprite_t* ent_sprites[MAX_ENTS];
-  int num = WorldGetEntSprites(ent_sprites);
+  }
 
-  ent_t *e = {0};
-  for (int i = 0; i < num; i++){
-    if(Vector2Distance(pos,ent_sprites[i]->pos)<CELL_WIDTH){
-      e = ent_sprites[i]->owner;
-    }
-  }
-  
-  if(e && e!=mousectrl.hover){
-    mousectrl.hover = e;
-    //PrintMobDetail(e);
-  }
-  return e;
+  return NULL;
 }
 
 float GetApproxDPIScale(void)

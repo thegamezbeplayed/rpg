@@ -54,6 +54,12 @@ typedef enum {
 }Treatment;
 
 typedef enum{
+  SCREEN_CTX_TAR,
+  SCREEN_CTX_HOVER,
+  SCREEN_CTX_ALL
+}ScreenContextType;
+
+typedef enum{
   VIS_NEVER = -1,
   VIS_UNSEEN,
   VIS_HAS,
@@ -77,6 +83,8 @@ typedef enum {
   DATA_ENV,
   DATA_MAP_CELL,
   DATA_NEED,
+  DATA_STAT,
+  DATA_SKILL,
   DATA_ITEM,
   DATA_LOCAL_CTX,
 } DataType;
@@ -574,6 +582,12 @@ typedef enum{
   PARAM_NEED,
   PARAM_SKILL,
   PARAM_ABILITY,
+  PARAM_NAME,
+  PARAM_SKILL_LVL,
+  PARAM_STAT_HEALTH,
+  PARAM_STAT_ARMOR,
+  PARAM_STAT_STAMINA,
+  PARAM_STAT_ENERGY,
   PARAM_ALL,
   PARAM_WEAP_TYPE,
 }GameObjectParam;
@@ -822,6 +836,9 @@ typedef enum{
 
 typedef uint64_t event_uid_i;
 typedef enum{
+  EVENT_NONE,
+  SCREEN_EVENT_SELECT,
+  SCREEN_EVENTS_DONE,
   EVENT_GAME_PROCESS,
   EVENT_PLAYER_INPUT,
   EVENT_INTERACTION,
@@ -850,7 +867,9 @@ typedef enum{
   EVENT_NEED_STATUS,
   EVENT_COMBAT,
   EVENT_ENT_STEP,
-  EVENT_NONE,
+  EVENT_ENT_ACTIVITY,
+  EVENT_COMBAT_ACTIVITY,
+  EVENT_DONE,
   MAX_EVENTS
 } EventType;
 

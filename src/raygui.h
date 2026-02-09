@@ -1973,7 +1973,7 @@ int GuiScrollPanel(Rectangle bounds, const char *text, Rectangle content, Vector
 }
 
 // Label control
-int GuiLabel(Rectangle bounds, const char *text)
+int CUSTOMGuiLabel(Rectangle bounds, const char *text)
 {
     int result = 0;
     GuiState state = guiState;

@@ -3,6 +3,34 @@
 #include "game_types.h"
 #include <stdio.h>
 
+void StringPrependPadding(char* s, size_t padding){
+    size_t len = strlen(s);
+
+    if (len >= padding)
+        return;
+
+    size_t pad = padding - len;
+
+    /* shift existing text right */
+    memmove(s + pad, s, len + 1);   // +1 to move the '\0'
+
+    /* fill the front with spaces */
+    for (size_t i = 0; i < pad; i++)
+        s[i] = ' ';
+}
+
+void StringAppendPadding(char* s, size_t padding){
+  size_t len = strlen(s);
+
+  if(len >= padding)
+    return;
+
+  for(size_t i = len; i < padding; i++)
+    s[i] = ' ';
+
+  s[padding] = '\0';
+}
+
 void PrintMobDetail(ent_t* e){
   faction_t* f = GetFactionByID(e->team);
   char* team = "";
@@ -12,7 +40,9 @@ void PrintMobDetail(ent_t* e){
       team);
 
   stat_t* health = e->stats[STAT_HEALTH];
-  TraceLog(LOG_INFO,"%s: [%i/%i] \n",STAT_STRING[STAT_HEALTH].name, (int)health->current,(int)health->max);
+
+  char* stat_str = strdup(STAT_STRING[STAT_HEALTH].name);
+  TraceLog(LOG_INFO,"%s: [%i/%i] \n", stat_str, (int)health->current,(int)health->max);
 
    TraceLog(LOG_INFO,"<=====ATTRIBUTES=====>\n");
   for(int i = 0; i < ATTR_DONE; i++){
@@ -25,13 +55,13 @@ void PrintMobDetail(ent_t* e){
   }
 }
 
-line_item_t* InfoInitLineItem(element_value_t **val, int num_val, char* format){
+line_item_t* InitLineItem(element_value_t **val, int num_val, const char* format){
   line_item_t* ln = calloc(1,sizeof(line_item_t));
 
   for (int i = 0; i < num_val; i++)
     ln->values[ln->num_val++]=val[i];
 
-  ln->text_format = format;
+  ln->text_format = strdup(format);
 
 }
 void PrintSyncLine(line_item_t* ln, FetchRate poll){
@@ -73,68 +103,149 @@ char *TextFormatLineItem(line_item_t *item) {
     int arg_index = 0;
 
     for (int i = 0; fmt[i] != 0; i++) {
-        // Check for '%' format token
-        if (fmt[i] == '%' && fmt[i+1] != 0 && arg_index < item->num_val) {
-            element_value_t *val = item->values[arg_index];
-            size_t before = strlen(buffer);
-            switch (fmt[i+1]) {
-                case 's':
-                    if (val->type == VAL_CHAR)
-                        strcat(buffer, val->c);
-                    else
-                        strcat(buffer, "<BAD%S>");
-                    break;
-
-                case 'i':
-                    if (val->type == VAL_INT) {
-                        sprintf(temp, "%i", *val->i);
-                        strcat(buffer, temp);
-                    } else {
-                        strcat(buffer, "<BAD%I>");
-                    }
-                    break;
-
-                case 'f':
-                    if (val->type == VAL_FLOAT) {
-                        sprintf(temp, "%.2f", *val->f);
-                        strcat(buffer, temp);
-                    } else {
-                        strcat(buffer, "<BAD%F>");
-                    }
-                    break;
-
-                default:
-                    // Copy unknown sequence literally
-                    strncat(buffer, &fmt[i], 2);
-                    break;
+      // Check for '%' format token
+      if (fmt[i] == '%' && fmt[i+1] != 0 && arg_index < item->num_val) {
+        element_value_t *val = item->values[arg_index];
+        size_t before = strlen(buffer);
+        switch (fmt[i+1]) {
+          case 'V':
+            if (val->type == VAL_CHAR){
+              StringPrependPadding(val->c, LIST_RIGHT_HAND_PAD);  
+              strcat(buffer, val->c);
             }
-            size_t after = strlen(buffer);
-            item->r_len += after - before;
-            arg_index++;
-            i++; // Skip format character
-        } else {
-            // Regular character
-            int len = strlen(buffer);
-            buffer[len] = fmt[i];
-            buffer[len+1] = 0;
+            else
+              strcat(buffer, "<BAD%S>");
+            break;
+
+          case 'S':
+            if (val->type == VAL_CHAR){
+              StringAppendPadding(val->c, LIST_LEFT_HAND_PAD);  
+              strcat(buffer, val->c);
+            }
+            else
+              strcat(buffer, "<BAD%S>");
+            break;
+          case 's':
+            if (val->type == VAL_CHAR)
+              strcat(buffer, val->c);
+            else
+              strcat(buffer, "<BAD%S>");
+            break;
+
+          case 'i':
+            if (val->type == VAL_INT) {
+              sprintf(temp, "%i", *val->i);
+              strcat(buffer, temp);
+            } else {
+              strcat(buffer, "<BAD%I>");
+            }
+            break;
+          case 'f':
+            if (val->type == VAL_FLOAT) {
+              sprintf(temp, "%.2f", *val->f);
+              strcat(buffer, temp);
+            } else {
+              strcat(buffer, "<BAD%F>");
+            }
+            break;
+
+          default:
+            // Copy unknown sequence literally
+            strncat(buffer, &fmt[i], 2);
+            break;
         }
+        size_t after = strlen(buffer);
+        item->r_len += after - before;
+        arg_index++;
+        i++; // Skip format character
+      } else {
+        // Regular character
+        int len = strlen(buffer);
+        buffer[len] = fmt[i];
+        buffer[len+1] = 0;
+      }
     }
 
     return buffer;
 }
 
-int EntGetStatPretty(element_value_t **fill, stat_t* stat){
+
+int CtxGetSkill(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
+  if(ctx->params[p].type_id != DATA_SKILL)
+    return 0;
+
+  skill_t* skill = ParamRead(&ctx->params[p], skill_t);
+  element_value_t* lbl = calloc(1,sizeof(element_value_t));
+
+  lbl->type = VAL_CHAR;
+  lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
+  strcpy(lbl->c ,SKILL_STRING[skill->id].name);
+
+  lbl->rate = FETCH_NONE;
+
+  element_value_t* cur = calloc(1,sizeof(element_value_t));
+
+  cur->rate = FETCH_TURN;
+  cur->context = skill;
+  cur->c = malloc(sizeof(char)*MAX_NAME_LEN);
+   
+  cur->type = VAL_CHAR;
+  cur->get_val = SkillGetPretty;
+
+  fill[0] = lbl;
+  fill[1] = cur;
+  return 2;
+
+
+}
+ 
+int CtxGetSkillDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
+  if(ctx->params[p].type_id != DATA_SKILL)
+    return 0;
+
+  skill_t* skill = ParamRead(&ctx->params[p], skill_t);
+  element_value_t* lbl = calloc(1,sizeof(element_value_t));
+
+  lbl->type = VAL_INT;
+  lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
+  int exp = skill->threshold - (int)skill->point;
+  *lbl->i = exp;
+
+  lbl->rate = FETCH_NONE;
+
+  element_value_t* cur = calloc(1,sizeof(element_value_t));
+
+  cur->rate = FETCH_TURN;
+  cur->context = skill;
+  cur->c = malloc(sizeof(char)*MAX_NAME_LEN);
+   
+  cur->type = VAL_INT;
+  int *next_lvl = cur->i;
+  *next_lvl = skill->val+1;
+  fill[0] = lbl;
+  fill[1] = cur;
+  return 2;
+
+
+}
+
+int CtxGetStat(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
+  if(ctx->params[p].type_id != DATA_STAT)
+    return 0;
+
+  stat_t* stat = ParamRead(&ctx->params[p], stat_t);
   element_value_t* lbl = calloc(1,sizeof(element_value_t));
 
   lbl->type = VAL_CHAR;
   lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
   strcpy(lbl->c ,STAT_STRING[stat->type].name);
+
   lbl->rate = FETCH_NONE;
 
   element_value_t* cur = calloc(1,sizeof(element_value_t));
   
   cur->type = VAL_CHAR;
-  cur->rate = FETCH_UPDATE;
+  cur->rate = FETCH_TURN;
   cur->get_val = StatGetPretty;
   cur->context = stat;
   cur->c = malloc(sizeof(char)*MAX_NAME_LEN);
@@ -144,6 +255,51 @@ int EntGetStatPretty(element_value_t **fill, stat_t* stat){
   return 2;
 
 }
+
+int CtxGetStatDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
+  if(ctx->params[p].type_id != DATA_STAT)
+    return 0;
+
+  stat_t* stat = ParamRead(&ctx->params[p], stat_t);
+  element_value_t* lbl = calloc(1,sizeof(element_value_t));
+
+  lbl->type = VAL_CHAR;
+  lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
+  strcpy(lbl->c ,STAT_STRING[stat->type].name);
+
+  lbl->rate = FETCH_NONE;
+
+  element_value_t* cur = calloc(1,sizeof(element_value_t));
+  
+  cur->type = VAL_CHAR;
+  cur->rate = FETCH_TURN;
+  cur->get_val = StatGetPretty;
+  cur->context = stat;
+  cur->c = malloc(sizeof(char)*MAX_NAME_LEN);
+
+  fill[0] = lbl;
+  fill[1] = cur;
+  return 2;
+
+}
+
+int CtxGetString(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
+  if(ctx->params[p].type_id != DATA_STRING)
+    return 0;
+
+  element_value_t* txt = calloc(1,sizeof(element_value_t));
+
+  txt->type = VAL_CHAR;
+
+  
+  txt->c = strdup(ParamReadString(&ctx->params[p]));
+  txt->rate = FETCH_NONE;
+
+  fill[0] = txt;
+
+  return 1;
+}
+
 
 int EntGetSkillPretty(element_value_t **fill, skill_t* skill){
   element_value_t* lbl = calloc(1,sizeof(element_value_t));
@@ -163,26 +319,6 @@ int EntGetSkillPretty(element_value_t **fill, skill_t* skill){
   fill[1] = cur;
   return 2;
 
-}
-
-int EntGetNamePretty(element_value_t **fill, ent_t* e ){
-  element_value_t* name = calloc(1,sizeof(element_value_t));
-
-  name->type = VAL_CHAR;
-  name->c = calloc(1,sizeof(e->name));
-  strcpy(name->c,e->name);
-  name->rate = FETCH_NONE;
-
-  element_value_t* role = calloc(1,sizeof(element_value_t));
-
-  role->type = VAL_CHAR;
-  role->rate = FETCH_NONE;
-  role->c = EntGetClassNamePretty(e);
-
-  fill[0] = name;
-  fill[1] = role;
-
-  return 2;
 }
 
 element_value_t* StatGetPretty(element_value_t* self, void* context){
@@ -212,38 +348,148 @@ element_value_t* SkillGetPretty(element_value_t* self, void* context){
       *self->f = skill->val;
       break;
     case VAL_CHAR:
-      strcpy(self->c,TextFormat("%i - (%i / %i) EXP",skill->val, skill->point,skill->threshold));
+      strcpy(self->c,TextFormat("%i",skill->val));
       break;
   }
 }
 
-int PrintStatSheet(ent_t* e, line_item_t** li){
-  char* out = calloc(1, 1024);
+int SetCtxDetails(local_ctx_t* ctx , line_item_t** li, const char fmt[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool combo){
+  int count = 0, num_p = 0;
 
-  stat_sheet_t* sb = calloc(1,sizeof(stat_sheet_t));
-  element_value_t* header[2];
-  int title_len = EntGetNamePretty(header, e);
+  for(int i = 0; i < PARAM_ALL; i++){
+    if(fmt[i][0] == '\0')
+      continue;
 
-  sb->ln[sb->lines++] = InfoInitLineItem(header,title_len, "%s %s");
-
-  element_value_t* base[2];
-  int items = EntGetStatPretty(base, e->stats[STAT_HEALTH]);
-  sb->ln[sb->lines++] = InfoInitLineItem(base,items, "%s: %s");
-
-  items = EntGetStatPretty(base, e->stats[STAT_ARMOR]);
-
-  sb->ln[sb->lines++] = InfoInitLineItem(base,items, "%s: %s");
-
-  int count = 0;
-  for(int i = 0; i < sb->lines; i++){
-    i++;
-    PrintSyncLine(sb->ln[i],FETCH_ONCE);
-    li[i] = sb->ln[i]; 
+    num_p++;
   }
+  for (int i = 0; i < PARAM_ALL; i++){
+    if(fmt[i][0] == '\0')
+      continue;
 
-  free(sb);
+
+    int p_left = pad[UI_PADDING_LEFT];
+    int p_right = pad[UI_PADDING_RIGHT];
+
+    GameObjectParam param = i;
+    int des_len = li[count]->des_len;
+    char* format = strdup(fmt[i]);
+
+    int items = 0;
+    element_value_t* base[MAX_LINE_VAL];
+    switch(ctx->params[param].type_id){
+      case DATA_STAT:
+        items = CtxGetStatDetails(base, ctx, param);
+        break;
+      case DATA_SKILL:
+        format = "%i exp till Level %i";
+        items = CtxGetSkillDetails(base, ctx, param);
+        break;
+      default:
+        continue;
+        break;
+    }
+
+    li[count] = InitLineItem(base,items,format);
+    PrintSyncLine(li[count],FETCH_ONCE);
+    const char* ln = TextFormatLineItem(li[count]);
+    TraceLog(LOG_INFO, "MEASURE: %s", ln);
+
+    Vector2 size = MeasureTextEx(ui.font, ln, ui.text_size, ui.text_spacing);
+    if(size.x > des_len){
+      int space = size.x - des_len;
+      p_right += space/2;
+      //p_left += space/2;
+
+    }
+    li[count]->r_wid = size.x + p_right;
+    li[count]->r_hei = size.y;
+
+    count++;
+
+  
+  }
 
   return count;
 }
 
+int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool combo){
+  int count = 0, num_p = 0;
+  
+  for(int i = 0; i < PARAM_ALL; i++){
+    if(fmt[i][0] == '\0')
+      continue;
 
+    num_p++;
+  }
+
+  if(combo  && num_p > 1)
+    return 0; // OTHER FUNC TODO
+  
+  for (int i = 0; i < PARAM_ALL; i++){
+    if(fmt[i][0] == '\0')
+      continue;
+
+    int p_left = pad[UI_PADDING_LEFT];
+    int p_right = pad[UI_PADDING_RIGHT];
+
+    GameObjectParam param = i;
+    int des_len = li[count]->des_len;
+
+    int items = 0;
+    element_value_t* base[MAX_LINE_VAL];
+    switch(ctx->params[param].type_id){
+      case DATA_STRING:
+        items = CtxGetString(base, ctx, param);
+        break;
+      case DATA_STAT:
+        items = CtxGetStat(base, ctx, param);
+        break;
+      case DATA_SKILL:
+        items = CtxGetSkill(base, ctx, param);
+        break;
+      default:
+        continue;
+        break;
+    }
+        
+    li[count] = InitLineItem(base,items,fmt[i]);
+    PrintSyncLine(li[count],FETCH_ONCE);
+    const char* ln = TextFormatLineItem(li[count]);
+    TraceLog(LOG_INFO, "MEASURE: %s", ln);
+
+    Vector2 size = MeasureTextEx(ui.font, ln, ui.text_size, ui.text_spacing);
+    if(size.x > des_len){
+      int space = size.x - des_len;
+      p_right += space/2;
+      //p_left += space/2;
+
+    }
+    li[count]->r_wid = size.x + p_right;
+    li[count]->r_hei = size.y;
+
+    count++;
+  }
+
+  return count;
+}
+
+char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]){
+  char* out = calloc(1, 1024);
+
+  int p_top = imax(spacing[UI_PADDING], spacing[UI_PADDING_TOP]);
+  int p_bot = 1 + imax(spacing[UI_PADDING], spacing[UI_PADDING_BOT]);
+
+  char start_ln[16];
+  char end_ln[16];
+  RepeatChar(end_ln, sizeof(end_ln), '\n', p_bot);
+  RepeatChar(start_ln, sizeof(start_ln), '\n', p_top);
+  for( int i = 0; i < ev->num_ln; i++){
+    const char* ln = TextFormatLineItem(ev->l[i]);
+    strcat(out,start_ln);
+    strcat(out,ln);
+    strcat(out,end_ln);
+  }
+
+  return out;
+  
+}

@@ -355,6 +355,7 @@ bool ItemApplyStats(struct ent_s* owner, item_t* item){
       continue;
 
     StatType rel = item->def->values[i]->stat_relates_to;
+    owner->stats[rel]->bonus = item->def->values[i]->val;
     StatExpand(owner->stats[rel],item->def->values[i]->val,true);
   }
 }

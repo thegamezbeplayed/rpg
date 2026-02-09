@@ -7,6 +7,26 @@
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
+static ui_element_t* active_tooltip = NULL;
+
+int GuiLabel(Rectangle bounds, const char *text)
+{
+    GuiState state = guiState;
+
+    if ((state != STATE_DISABLED) && !guiLocked && !guiControlExclusiveMode)
+    {
+      Vector2 mousePoint = GetMousePosition();
+
+      // Check button state
+      if (CheckCollisionPointRec(mousePoint, bounds))
+        state = STATE_FOCUSED;
+
+    }
+    GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LABEL, TEXT + (state*3))));
+    //--------------------------------------------------------------------
+    return state;
+}
+
 ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o){
   ui_element_d d;
 
@@ -39,10 +59,17 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
       if(d.cb[j])
         e->cb[j] = d.cb[j];
     }
-    
-    for (int j = 0; j < d.num_children; j++)
-      e->children[e->num_children++] = InitElementByName(d.kids[i], m, e);
-    
+
+    for (int j = 0; j < d.num_children; j++){
+      ElementAddChild(e, InitElementByName(d.kids[j], m, e));
+      ui_element_t* c = e->children[j];
+      for(int k = 0; k < PARAM_ALL; k++){
+        if(d.params[j][k] == PARAM_NONE)
+          break;
+
+        c->params[c->num_params++] = d.params[j][k];
+      }
+    }
     return e;
 
   }
@@ -51,7 +78,6 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
 
 void InitMenuById(MenuId id){
   ui_menu_d d = MENU_DATA[id];
-
 
   ui_menu_t m = {0};
 
@@ -76,7 +102,7 @@ void InitUI(void){
   Font font = LoadFontEx("resources/fonts/kenney-pixel-square.ttf", 64, 0, 0);
   SetTextureFilter(font.texture, TEXTURE_FILTER_POINT);
   GuiSetFont(font);
-  ui.font = font;
+  ui.font = GuiGetFont();
 #if defined(PLATFORM_WEB)
   GuiSetStyle(DEFAULT,TEXT_SIZE,27);
 #elif defined(PLATFORM_ANDROID)
@@ -85,8 +111,11 @@ void InitUI(void){
   GuiSetStyle(DEFAULT,TEXT_SIZE,20*UI_SCALE);
 #endif
 
+  ui.text_size = GuiGetStyle(DEFAULT, TEXT_SIZE);
+  ui.text_spacing = GuiGetStyle(DEFAULT, TEXT_SPACING);
   SetTextureFilter(font.texture, TEXTURE_FILTER_POINT);
-  GuiSetStyle(DEFAULT,TEXT_ALIGNMENT,TEXT_ALIGN_CENTER);
+  GuiSetStyle(DEFAULT,TEXT_ALIGNMENT,TEXT_ALIGN_LEFT);
+  GuiSetStyle(DEFAULT,TEXT_ALIGNMENT_VERTICAL,TEXT_ALIGN_TOP);
   GuiSetStyle(LABEL,TEXT_ALIGNMENT,TEXT_ALIGN_LEFT);
   GuiSetStyle(DEFAULT,BORDER_COLOR_NORMAL,ColorToInt(WHITE));
   //GuiSetStyle(STATUSBAR,BASE_COLOR_NORMAL,ColorToInt(Fade(WHITE,0.5f)));
@@ -174,7 +203,6 @@ void ElementAddChild(ui_element_t *o, ui_element_t* c){
   c->index = o->num_children;
   c->menu = o->menu;
   c->owner = o;
-  ElementSetState(c,ELEMENT_IDLE);
   o->children[o->num_children++] = c;
 }
 
@@ -190,12 +218,15 @@ float ElementGetHeightSum(ui_element_t *e){
       return height+cheight;
   }
 
-  for(int i = 0; i < e->num_children; i++)
+  for(int i = 0; i < e->num_children; i++){
+    if(e->children[i]->align & ALIGN_OVER)
+      continue;
+
     if(e->layout == LAYOUT_VERTICAL)
       cheight += ElementGetHeightSum(e->children[i]);
     else
       cheight = (cheight < ElementGetHeightSum(e->children[i]))?ElementGetHeightSum(e->children[i]):cheight;
-
+  }
   return height+cheight;
 }
 
@@ -211,51 +242,69 @@ float ElementGetWidthSum(ui_element_t *e){
     return width+cwidth;
   }
 
-  for(int i = 0; i < e->num_children; i++)
+  for(int i = 0; i < e->num_children; i++){
+    if(e->children[i]->align & ALIGN_OVER)
+      continue;
+
     if(e->layout == LAYOUT_HORIZONTAL)
       cwidth += ElementGetWidthSum(e->children[i]);
     else
       cwidth = (cwidth < ElementGetWidthSum(e->children[i]))?ElementGetWidthSum(e->children[i]):cwidth;
+  }
 
   return width+cwidth;
 }
 
 
 void ElementResize(ui_element_t *e){
-  e->bounds.x = e->bounds.y = 0;
   float centerx = VECTOR2_CENTER_SCREEN.x;
   float centery = VECTOR2_CENTER_SCREEN.y;
-  float xinc =0,yinc = 0;
+  float xinc = e->bounds.x;
+  float yinc = e->bounds.y;
 
+  e->bounds.x = e->bounds.y = 0;
   float omarginx = e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_LEFT];
   float omarginy = e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_TOP];
 
+  float paddingx = 0;
+  float paddingy = 0;
   float owidth = omarginx;
   float oheight = omarginy; 
   float cwidths =0, cheights= 0;
 
+
   for(int i = 0; i<e->num_children; i++){
-    switch(e->layout){
-      case LAYOUT_VERTICAL:
-        oheight+=ElementGetHeightSum(e->children[i]);
-        if(ElementGetWidthSum(e->children[i]) > cwidths)
-          cwidths = ElementGetWidthSum(e->children[i]);
-        break;
-      case LAYOUT_HORIZONTAL:
-        //owidth += ElementGetWidthSum(e->children[i]);
-        if(e->children[i]->height > cheights)
-          cheights = e->children[i]->height;
-        break;
-      case LAYOUT_GRID:
-        cwidths = 0;//ElementGetWidthSum(e->children[i]);
-        cheights = 0;//ElementGetHeightSum(e->children[i]);
-        break;
-      default:
-        if(e->children[i]->height > cheights)
-          cheights = e->children[i]->height;
-        if(e->children[i]->width > cwidths)
-          cwidths = e->children[i]->width;
-        break;
+    if(e->children[i]->align & ALIGN_OVER){
+      DO_NOTHING();
+    }
+    else{
+      switch(e->layout){
+        case LAYOUT_VERTICAL:
+          oheight+=ElementGetHeightSum(e->children[i]);
+          if(ElementGetWidthSum(e->children[i]) > cwidths)
+            cwidths = ElementGetWidthSum(e->children[i]);
+          break;
+        case LAYOUT_HORIZONTAL:
+          //owidth += ElementGetWidthSum(e->children[i]);
+          if(e->children[i]->height > cheights)
+            cheights = e->children[i]->height;
+          break;
+        case LAYOUT_GRID:
+          cwidths = 0;//ElementGetWidthSum(e->children[i]);
+          cheights = 0;//ElementGetHeightSum(e->children[i]);
+          break;
+        case LAYOUT_FREE:
+          int widths = ElementGetWidthSum(e->children[i]);
+          if (widths > e->bounds.width)
+            cwidths = widths;
+          break;
+        default:
+          if(e->children[i]->height > cheights)
+            cheights = e->children[i]->height;
+          if(e->children[i]->width > cwidths)
+            cwidths = e->children[i]->width;
+          break;
+      }
     }
   }
 
@@ -275,31 +324,42 @@ void ElementResize(ui_element_t *e){
     xinc = centerx-e->bounds.width/2;
   if(align & ALIGN_MID)
     yinc = centery- e->bounds.height/2;
- 
-  
-  xinc += omarginx;
-  yinc += omarginy;
+  if(align & ALIGN_LEFT)
+  e->bounds.x = 0;
+  if(align & ALIGN_RIGHT)
+    e->bounds.x = e->owner->bounds.x + e->owner->bounds.width - e->bounds.width;
+  //xinc += omarginx;
+  //yinc += omarginy;
 
   UILayout layout = e->layout;
-  if(e->owner)
+  if(e->owner){
     layout = e->owner->layout;
+      paddingx = e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_LEFT];
+      paddingy = e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_TOP];
+  }
 
   Rectangle prior = RectPos(Vector2XY(xinc/ScreenSized(SIZE_SCALE),yinc),RECT_ZERO);
   if(e->index > 0){
     prior = e->owner->children[e->index-1]->bounds;
+    paddingx += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_RIGHT];
+    paddingy += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_BOT];
 
-    omarginx = e->owner->spacing[UI_MARGIN] + e->owner->spacing[UI_MARGIN_LEFT];
-    omarginy = e->owner->spacing[UI_MARGIN] + e->owner->spacing[UI_MARGIN_TOP];
   }
 
   switch(layout){
     case LAYOUT_VERTICAL:
       if(e->index > 0)
         yinc = omarginy+prior.y + prior.height;
+      else
+        yinc += paddingy;
       break;
     case LAYOUT_HORIZONTAL:
-      if(e->index > 0)
+      if(e->index > 0 )
         xinc = omarginx + prior.x + prior.width;
+      else if(e->type == UI_TOOL_TIP)
+        xinc += e->owner->width + omarginx;
+      else
+        xinc += paddingx;
       break;
     case LAYOUT_GRID:
       if(!e->owner)
@@ -319,6 +379,11 @@ void ElementResize(ui_element_t *e){
       }
       break;
     default:
+      xinc += omarginx + paddingx;
+      yinc += omarginy + paddingy;
+      if(e->align & ALIGN_RIGHT)
+        xinc *= -1;//omarginx;
+
       break;
   }
 
@@ -329,6 +394,7 @@ void ElementResize(ui_element_t *e){
 }
 
 void UISync(FetchRate poll){
+  ScreenApplyContext(ui.contexts);
   for(int i = 0; i < MENU_DONE; i++){
     if(IsKeyPressed(ui.menu_key[i]))
       MenuSetState(&ui.menus[i],MENU_OPENED);
@@ -359,19 +425,24 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
   if(e->state < ELEMENT_IDLE)
     return;
 
+  int state = 0;
   int clicked = 0,toggle = 0,focused = 0;
   if(e->sync_val){
     e->sync_val(e,poll);
-
-    switch(e->value->type){
-      case VAL_CHAR:
-        strcpy(e->text, e->value->c);
-        break;
-      case VAL_INT:
-        strcpy(e->text,TextFormat("%i",*e->value->i));
-        break;
-      default:
-        break;
+    if(e->value){
+      switch(e->value->type){
+        case VAL_CHAR:
+          strcpy(e->text, e->value->c);
+          break;
+        case VAL_INT:
+          strcpy(e->text,TextFormat("%i",*e->value->i));
+          break;
+        case VAL_LN:
+          strcpy(e->text, PrintElementValue(e->value, e->spacing));
+          break;
+        default:
+          break;
+      }
     }
   }
 
@@ -380,13 +451,18 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
 
   switch(e->type){
     case UI_BUTTON:
-      clicked = GuiButton(e->bounds,e->text);
+      state = clicked = GuiButton(e->bounds,e->text);
       break;
     case UI_PANEL:
-      GuiPanel(e->bounds, e->text);
+      state = GuiPanel(e->bounds, e->text);
       break;
     case UI_LABEL:
-      GuiLabel(e->bounds,e->text);
+      state = GuiLabel(e->bounds,e->text);
+      break;
+    case UI_TOOL_TIP:
+      active_tooltip = e;
+      GuiSetTooltip(e->text);
+      GuiTooltip(e->bounds);
       break;
     case UI_BOX:
       GuiGroupBox(e->bounds,NULL);//e->text);
@@ -399,8 +475,18 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
       break;
   }
 
-   if(clicked>0)
-    ElementSetState(e,ELEMENT_ACTIVATE);
+  switch(state){
+    case STATE_FOCUSED:
+      ElementSetState(e,ELEMENT_FOCUSED);
+      break;
+    case STATE_PRESSED:
+      ElementSetState(e,ELEMENT_ACTIVATE);
+      break;
+    default:
+      if(e->type != UI_TOOL_TIP)
+      ElementSetState(e,ELEMENT_TOGGLE);
+      break;
+  }
 
   for(int i = 0; i<e->num_children; i++)
     UISyncElement(e->children[i], poll);
@@ -455,12 +541,57 @@ bool UITransitionScreen(ui_element_t* e){
   return true; 
 }
 
+bool ElementSetTooltip(ui_element_t* e){
+  GuiEnableTooltip();
+}
+
+
+bool ElementToggleTip(ui_element_t* e){
+  return true;
+}
+
+bool ElementToggle(ui_element_t* e){
+  for(int i = 0; i < e->num_children; i++)
+    ElementSetState(e->children[i], ELEMENT_TOGGLE);
+
+  return true;
+}
+
+bool ElementShowTooltip(ui_element_t* e){
+  for(int i = 0; i < e->num_children; i++){
+    ui_element_t* c = e->children[i];
+    if(c->type != UI_TOOL_TIP)
+      continue;
+
+    TraceLog(LOG_INFO, "TOOLTIP TOGGLE ON");
+    if(ElementSetState(c, ELEMENT_SHOW))
+      ElementSetState(c, ELEMENT_FOCUSED);
+  }
+}
+
+bool ElementSyncOwnerContext(ui_element_t* e){
+  e->ctx = e->owner->ctx;
+  e->set_val(e, e->ctx);
+}
+
+bool ElementLoadChildren(ui_element_t* e){
+  for (int i = 0; i < e->num_children; i++)
+    ElementSetState(e->children[i], ELEMENT_LOAD);
+}
+
 bool ElementActivateChildren(ui_element_t* e){
   for (int i = 0; i < e->num_children; i++)
     ElementSetState(e->children[i], ELEMENT_IDLE);
 }
+
+bool ElementShowChildren(ui_element_t* e){
+  for (int i = 0; i < e->num_children; i++)
+    ElementSetState(e->children[i], ELEMENT_SHOW);
+}
+
 bool MenuActivateChildren(ui_menu_t* m){
-  ElementSetState(m->element, ELEMENT_IDLE);
+  if(ElementSetState(m->element, ELEMENT_IDLE))
+  ElementSetState(m->element, ELEMENT_SHOW);
 }
 
 void MenuOnStateChanged(ui_menu_t*m, MenuState old, MenuState s){
@@ -519,6 +650,10 @@ bool ElementCanChangeState(ElementState old, ElementState s){
   if(old == s)
     return false;
 
+  state_change_requirement_t *req = &ELEM_STATE_REQ[s];
+  return req->can(old, req->required);
+
+
   return true;
 }
 
@@ -540,7 +675,7 @@ bool ElementSetState(ui_element_t* e, ElementState s){
     return false;
   
   e->state = s;
-  if(e->cb[s](e))
+  if(e->cb[s] && e->cb[s](e))
     ElementStepState(e,s);
 
   return true;
@@ -552,17 +687,50 @@ void ElementSyncVal(ui_element_t* e, FetchRate poll){
   if(!e->ctx || !ev || poll != ev->rate)
     return;
 
-  e->value = e->set_val(e, e->ctx);
-
+  switch(ev->type){
+    case VAL_LN:
+      for( int i = 0; i < ev->num_ln; i++)
+        PrintSyncLine(ev->l[i], poll);
+      break;
+    default:
+      e->value = e->set_val(e, e->ctx);
+      break;
+  }
 }
 
 
-bool ElementSetContext(ui_element_t* e){
+bool ElementSyncContext(ui_element_t* e){
   if(e->get_ctx){
-    e->ctx = e->get_ctx();
+    e->ctx = e->get_ctx(e);
 
+    for (int i = 0; i < e->num_children; i++)
+      ElementSetState(e->children[i], ELEMENT_HIDDEN);
+
+    return ElementSetState(e, ELEMENT_SHOW);
+  }
+
+  return false;
+}
+
+bool ElementShowContext(ui_element_t* e){
+  if(e->set_val){
     e->value = e->set_val(e, e->ctx);
     e->sync_val = ElementSyncVal;
+  }
+
+  return (e->ctx == NULL);
+
+}
+
+bool ElementSetContext(ui_element_t* e){
+  if(e->get_ctx){
+    e->ctx = e->get_ctx(e);
+
+    if(e->set_val){
+      e->value = e->set_val(e, e->ctx);
+      e->sync_val = ElementSyncVal;
+    }
+
   }
   return (e->ctx == NULL);
 
@@ -579,14 +747,141 @@ element_value_t GetDisplayHealth(ui_element_t* e){
   return ev;
 }
 
-element_value_t* GetStatSheet(ui_element_t* e, void* context){
+void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
+  bool resize = false;
+  ev->text_hei = 0;
+  for(int i = 0; i < ev->num_ln; i++){
+    ev->text_hei += ev->l[i]->r_hei;
+    if(ev->l[i]->r_len > ev->text_len){
+      ev->text_len = ev->l[i]->r_len;
+      if(e->width >= ev->l[i]->r_wid)
+        continue;
+
+      e->width = ev->l[i]->r_wid;
+      resize = true;
+    }
+  }
+
+  if(ev->text_hei > e->height){
+    e->height = ev->text_hei;
+    resize = true;
+  }
+
+  if(resize && e->owner)
+    ElementResize(e->owner);
+
+}
+
+
+element_value_t* GetContextStat(ui_element_t* e, void* context){
+  if(context == NULL)
+    return NULL;
+  
   local_ctx_t* ctx = context;
   element_value_t *ev = calloc(1,sizeof(element_value_t));
   ev->rate = FETCH_TURN;
 
-  ev->type = VAL_CHAR;
-  ent_t* ectx = ParamReadEnt(&ctx->other);
-  int num_lines = PrintStatSheet(ectx, ev->lines);
+  for(int i = 0; i < MAX_LINE_ITEMS; i++){
+    ev->l[i] = calloc(1,sizeof(line_item_t));
+    ev->l[i]->des_len = e->owner->width;
+  }
+
+  ev->type = VAL_LN;
+
+  char fmt[PARAM_ALL][MAX_NAME_LEN];
+  memset(fmt, 0, sizeof(fmt));
+
+  for(int i = 0; i < e->num_params; i++)
+    strcpy(fmt[e->params[i]], "%S:%V");
+
+  ev->num_ln = SetCtxParams(ctx, ev->l, fmt, e->spacing, false);
+
+  ElementValueSyncSize(e, ev);
 
   return ev;
+
+}
+
+element_value_t* GetContextDetails(ui_element_t* e, void* context){
+  if(context == NULL)
+    return NULL;
+    
+  local_ctx_t* ctx = context;
+  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  ev->rate = FETCH_ACTIVE;
+    
+  for(int i = 0; i < MAX_LINE_ITEMS; i++){
+    ev->l[i] = calloc(1,sizeof(line_item_t));
+    ev->l[i]->des_len = e->owner->width;
+  }
+
+  ev->type = VAL_LN;
+
+  char fmt[PARAM_ALL][MAX_NAME_LEN];
+  memset(fmt, 0, sizeof(fmt));
+
+  for(int i = 0; i < e->num_params; i++)
+    strcpy(fmt[e->params[i]], "%s");
+
+  ev->num_ln = SetCtxDetails(ctx, ev->l, fmt, e->spacing, false);
+    
+  ElementValueSyncSize(e, ev);
+
+  return ev;
+
+}
+
+element_value_t* GetContextName(ui_element_t* e, void* context){
+  if(context == NULL)
+    return NULL;
+  
+  local_ctx_t* ctx = context;
+  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  ev->rate = FETCH_TURN;
+
+  for(int i = 0; i < MAX_LINE_ITEMS; i++){
+    ev->l[i] = calloc(1,sizeof(line_item_t));
+    ev->l[i]->des_len = e->owner->width;
+  }
+
+  ev->type = VAL_LN;
+
+  char fmt[PARAM_ALL][MAX_NAME_LEN];
+  memset(fmt, 0, sizeof(fmt));
+
+  for(int i = 0; i < e->num_params; i++)
+    strcpy(fmt[e->params[i]], "%S");
+
+  ev->num_ln = SetCtxParams(ctx, ev->l, fmt, e->spacing, false);
+
+  ElementValueSyncSize(e, ev);
+
+  return ev;
+}
+
+bool ElementScreenContext(ui_element_t* e){
+  WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
+
+  return ui.contexts[SCREEN_CTX_HOVER];
+}
+
+local_ctx_t* ElementGetOwnerContext(void* p){
+  ui_element_t* c = p; 
+
+  if(!c->owner)
+    return NULL;
+
+  if(c->type == UI_TOOL_TIP){
+    c->num_params = c->owner->num_params;
+    memcpy(c->params, c->owner->params, sizeof(c->owner->params));
+  }
+  return c->owner->ctx;
+}
+
+
+local_ctx_t* ElementGetScreenSelection(void* p){
+   ui_element_t* e = p;
+
+  return ui.contexts[SCREEN_CTX_HOVER];
+
 }

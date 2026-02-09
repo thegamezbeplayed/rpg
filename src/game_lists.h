@@ -2,6 +2,8 @@
 #define __GAME_LIST__
 #include "game_define.h"
 
+
+
 static faction_t FACTION_DEFS[3] = {
   {"Dark Legion",
     SPEC_GOBLINOID | SPEC_ORC | SPEC_SULKING,
@@ -191,7 +193,7 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
 };
 
 static skill_name_t SKILL_STRING[SKILL_DONE] = {
-  {SKILL_LVL, "Level"},
+  [SKILL_LVL] = {SKILL_LVL, "Level"},
 };
 
 static define_skill_rate_t  SKILL_RATES[RATE_DONE]={

@@ -28,11 +28,13 @@ bool ScreenCameraSetView(Cell v);
 void ScreenCameraSetBounds(Cell b);
 Rectangle ScreenGetCameraView(void);
 
+local_ctx_t* ScreenPlayerContext(void*);
+local_ctx_t* ScreenSelectContext(void*);
+
 typedef struct{
   bool    is_dragging;
   Vector2 offset,pos;
-  ent_t   *target;
-  ent_t   *hover;
+  local_ctx_t   *ctx[SCREEN_CTX_ALL];
 }mouse_controller_t;
 
 typedef void (*SelectionCallback)(ent_t* e, ActionType a, local_ctx_t* selection);
@@ -69,6 +71,7 @@ typedef struct{
   sprite_t*      screen_icons[ELEMENT_COUNT];
 }play_area_t;
 
+void ScreenApplyContext(local_ctx_t* ctx[SCREEN_CTX_ALL]);
 float GetApproxDPIScale(void);
 void InitPlayArea(void);
 void ScreenCalcAreas(void);

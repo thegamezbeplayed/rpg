@@ -79,6 +79,7 @@ ent_t* InitEntByRace(mob_define_t def){
   e->facing = CELL_UNSET;
   e->sprite = InitSpriteByID(e->type,SHEET_ENT);
   e->sprite->owner = e;
+
   e->events = InitEvents();
 
   e->control = InitController(e);
@@ -1171,6 +1172,7 @@ void EntInitOnce(ent_t* e){
   WorldTargetSubscribe(EVENT_AGGRO, PriorityEvent, e->control->priorities, e->gouid);
   WorldTargetSubscribe(EVENT_DAMAGE_TAKEN, DamageEvent, e, e->gouid);
 
+  WorldTargetSubscribe(EVENT_ENT_STEP, LocalSyncPos, e, e->gouid);
   EntBuildAllyTable(e);
 }
 

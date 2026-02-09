@@ -18,21 +18,21 @@ void WorldEvent(EventType type, void* data, uint64_t uid){
     .iuid = uid
   };
 
-  if(world.bus->count)
-    EventEmit(world.bus, &event);
+  if(game_process.bus->count)
+    EventEmit(game_process.bus, &event);
 }
 
 void WorldTargetSubscribe(EventType event, EventCallback cb, void* data, uint64_t iid){
 
-  event_sub_t* sub = EventSubscribe(world.bus, event, cb, data);
+  event_sub_t* sub = EventSubscribe(game_process.bus, event, cb, data);
   sub->uid = iid;
 
 }
 void WorldSubscribe(EventType event, EventCallback cb, void* data){
 
-  EventSubscribe(world.bus, event, cb, data);
+  EventSubscribe(game_process.bus, event, cb, data);
 }
-local_ctx_t* WorldPlayerContext(void){
+local_ctx_t* WorldPlayerContext(void*){
   return WorldGetContext(DATA_ENTITY, player->gouid);
 }
 
@@ -61,27 +61,7 @@ void GameSetState(GameState state){
 void GameReady(void){
   WorldInitOnce();
   game_process.state[SCREEN_GAMEPLAY] = GAME_READY;
-}
-
-void WorldTestPrint(){
-  stat_sheet_t* sb = calloc(1,sizeof(stat_sheet_t));
-  element_value_t* header[2];
-  int title_len = EntGetNamePretty(header, player);
-  
-  sb->ln[sb->lines++] = InfoInitLineItem(header,title_len, "%s %s");
-  
-  element_value_t* base[2];
-  int items = EntGetStatPretty(base, player->stats[STAT_HEALTH]);
-  sb->ln[sb->lines++] = InfoInitLineItem(base,items, "%s: %s");
-
-  items = EntGetStatPretty(base, player->stats[STAT_ARMOR]);
-
-  sb->ln[sb->lines++] = InfoInitLineItem(base,items, "%s: %s");
-
-  for(int i = 0; i < sb->lines; i++){
-    PrintSyncLine(sb->ln[i],FETCH_ONCE);
-    TraceLog(LOG_INFO,"%s\n",TextFormatLineItem(sb->ln[i]));
-  }
+  InitActivities(64);
 }
 
 void AddFloatingText(render_text_t *rt){
@@ -322,7 +302,6 @@ bool RegisterEnt( ent_t *e){
   if(e->type == ENT_PERSON){
     player = e;
     SkillCapOff(player->skills[SKILL_LVL]);
-    WorldTestPrint();
   }
 
   if(e->sprite)
@@ -408,8 +387,13 @@ void OnWorldByGOUID(EventType event, void* data, void* user){
       LocalSyncCtx(table, ctx);
       break;
   }
-
 }
+
+/*
+local_ctx_t* WorldContextAtPos(DataType type, Vector2){
+  map_cell_t* mc = MapGetTile(world.map, 
+}
+*/
 local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid){
   ObjectCategory cat = OBJ_NONE;
   switch(type){
@@ -576,7 +560,6 @@ world_context_t* InitWorldContext(void){
 void PrepareWorldRegistry(void){
   world = (world_t){0};
 
-  world.bus = InitEventBus(256);
   for(int i = 0; i < STEP_DONE; i++){
     world.events[i] = InitEvents();
   }
@@ -645,6 +628,9 @@ void WorldRender(){
 }
 
 void InitGameProcess(){
+  game_process.bus = InitEventBus(256);
+  InitUI();
+
   for(int i = 0; i < BN_COUNT; i++){
     if(room_behaviors[i].id == BN_COUNT)
       break;

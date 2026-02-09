@@ -41,7 +41,6 @@ int main(void)
   InitAudio();
   InitAssetManager();
   InitResources();
-  InitUI();
 
 //  InitShaders();  
   InitPlayArea();

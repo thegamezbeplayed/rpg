@@ -553,6 +553,12 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->gouid = mob->gouid;
       e->resource = MONSTER_MASH[mob->type].has;
       e->pos = mob->pos;
+      e->params[PARAM_NAME] = ParamMake(DATA_STRING, sizeof(mob->name), mob->name);
+      e->params[PARAM_STAT_HEALTH] = ParamMakeObj(DATA_STAT, mob->gouid, mob->stats[STAT_HEALTH]);
+      e->params[PARAM_STAT_ARMOR] = ParamMakeObj(DATA_STAT, mob->gouid, mob->stats[STAT_ARMOR]);
+      e->params[PARAM_STAT_STAMINA] = ParamMakeObj(DATA_STAT, mob->gouid, mob->stats[STAT_STAMINA]);
+      e->params[PARAM_STAT_ENERGY] = ParamMakeObj(DATA_STAT, mob->gouid, mob->stats[STAT_ENERGY]);
+      e->params[PARAM_SKILL_LVL] = ParamMakeObj(DATA_SKILL, mob->gouid, mob->skills[SKILL_LVL]);
       e->dist = cell_distance(pos, mob->pos);
       WorldTargetSubscribe(EVENT_ENT_DEATH, OnWorldByGOUID, s, mob->gouid);
       break;
@@ -943,6 +949,18 @@ bool LocalCheck(local_ctx_t* ctx){
 
   return status;
 
+}
+
+void LocalSyncPos(EventType, void* edat, void* udat){
+  ent_t* e = udat;
+  local_ctx_t* ctx = WorldGetContext(DATA_ENTITY, e->gouid);
+
+  if(!e->sprite)
+    return;
+
+  ctx->v_pos = e->sprite->pos;
+
+  WorldEvent(EVENT_UPDATE_LOCAL_CTX, &e->gouid, e->gouid);
 }
 
 void LocalSyncCtx(local_table_t* s, local_ctx_t* ctx){

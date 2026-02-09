@@ -233,8 +233,21 @@ static inline bool GREATER_THAN(int a, int b){
   return a>b;
 }
 
+static inline bool NOT_EQUAL_TO(int a, int b){
+  return a!=b;
+}
+
+
 static inline bool EQUAL_TO(int a, int b){
   return a==b;
+}
+
+static inline bool ALWAYS(int a, int b){
+  return true;
+}
+
+static inline bool NEVER(int a, int b){
+  return false;
 }
 
 struct attribute_s;
@@ -365,6 +378,7 @@ typedef struct stat_s{
   float         current;
   float         increment;
   int           base;
+  int           bonus;
   dice_roll_t*  die;
   StatFormula   start,lvl;
   ModifierType  modified_by[ATTR_DONE];

@@ -71,7 +71,7 @@ sprite_t* InitSpriteByID(int id, SheetID sid){
     spr->offset = spr->slice->offset;
     //spr->slice->scale = SPRITE_SCALE;
 
-  return spr;
+    return spr;
   }
   return NULL;
 }

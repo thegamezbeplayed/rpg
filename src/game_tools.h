@@ -459,4 +459,14 @@ static Cell float_to_ints(float v) {
     c.y = (int)((v - c.x) * 10); // choose precision
     return c;
 }
+
+static void RepeatChar(char* out, size_t cap, char c, int times)
+{
+    if ((size_t)times + 1 > cap) return;
+
+    for (int i = 0; i < times; i++)
+        out[i] = c;
+
+    out[times] = '\0';
+}
 #endif

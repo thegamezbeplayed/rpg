@@ -1060,7 +1060,7 @@ void FormulaAddAttr(stat_t* self){
     }
   }
 
-  self->max = self->base+modifier;
+  self->max = self->base+modifier+self->bonus;
   self->current = imin(self->max, self->current);
 }
 
@@ -1094,7 +1094,7 @@ void FormulaDieAddAttr(stat_t* self){
   int rolls[self->die->num_die];
   int roll = self->die->roll(self->die, rolls);
   self->base+= roll;
-  self->max+=roll+modifier;
+  self->max+=roll+modifier+self->bonus;
   self->current = imin(self->max, self->current);
 }
 

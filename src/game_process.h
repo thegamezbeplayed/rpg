@@ -126,6 +126,7 @@ typedef struct{
   UpdateFn       prep[SCREEN_DONE];
   UpdateFn       update_steps[SCREEN_DONE][UPDATE_DONE];
   UpdateFn       finish[SCREEN_DONE];
+  event_bus_t*   bus;
 }game_process_t;
 extern game_process_t game_process;
 
@@ -147,8 +148,9 @@ typedef struct{
 }world_context_t;
 void WorldApplyLocalContext(ent_t* e);
 local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid);
+local_ctx_t* WorldContextAtPos(DataType type, Vector2);
 void WorldContextChange(ObjectCategory cat, game_object_uid_i gouid);
-local_ctx_t* WorldPlayerContext(void);
+local_ctx_t* WorldPlayerContext(void*);
 
 typedef struct world_s{
   map_grid_t    *map;
@@ -162,7 +164,6 @@ typedef struct world_s{
   env_t*        envs[MAX_ENVS];
   render_text_t *texts[MAX_EVENTS];
   bool          floatytext_used[MAX_EVENTS];
-  event_bus_t*  bus;
   events_t      *events[STEP_DONE];
   debug_info_t  debug[DEBUG_ALL][MAX_DEBUG_ITEMS];
   world_context_t  *ctx;
@@ -178,7 +179,7 @@ void WorldSubscribe(EventType, EventCallback, void*);
 void WorldTargetSubscribe(EventType event, EventCallback cb, void* data, uint64_t iid);
 void WorldEvent(EventType, void*, uint64_t);
 static void WorldUnsub(uint64_t id){
-  EventRemove(world.bus, id);
+  EventRemove(game_process.bus, id);
 }
 int WorldGetEntSprites(sprite_t** pool);
 Cell GetWorldCoordsFromIntGrid(Cell pos, float len);

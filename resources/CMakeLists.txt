@@ -1,3 +1,4 @@
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/resources")
 # Glob all resource files (e.g., PNG, WAV, etc.)
 file(GLOB_RECURSE RESOURCE_FILES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/*.png
@@ -5,9 +6,13 @@ file(GLOB_RECURSE RESOURCE_FILES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/*.ogg
     ${CMAKE_CURRENT_SOURCE_DIR}/*.vs
     ${CMAKE_CURRENT_SOURCE_DIR}/*.fs
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.ttf
     # Add more patterns as needed
 )
-
+message(STATUS "Found resource files:")
+foreach(f ${RESOURCE_FILES})
+  message(STATUS "  ${f}")
+endforeach()
 # List of all copy commands
 set(COPY_COMMANDS)
 

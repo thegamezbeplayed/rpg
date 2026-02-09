@@ -2,6 +2,33 @@
 
 static combat_system_t COMBAT;
 
+static activity_tracker_t ACT_TRACK;
+
+void ActivityAddEntry(interaction_t* i){
+  ACT_TRACK.entries[ACT_TRACK.head] = *i;
+  ACT_TRACK.head = (ACT_TRACK.head + 1) % ACT_TRACK.cap;
+  
+  if (ACT_TRACK.count < ACT_TRACK.cap)
+    ACT_TRACK.count++;
+  /*
+  entry->uid = i->uid;
+  entry->event = i->event;
+  entry->ctx = i->ctx;
+  */
+}
+
+void OnActivityEvent(EventType event, void* data, void* user){
+
+  interaction_t* i = data;
+
+  ActivityAddEntry(i);
+}
+
+void InitActivities(int cap){
+  ACT_TRACK.cap = cap;
+  WorldTargetSubscribe(EVENT_COMBAT_ACTIVITY, OnActivityEvent, &ACT_TRACK, player->gouid);
+}
+
 void InitCombatSystem(int cap){
 
   COMBAT.cap = cap;
@@ -46,6 +73,14 @@ interaction_t* RegisterCombat(combat_t* c){
   HashPut(&COMBAT.map, i->uid, i);
 
   return i;
+}
+
+void OnCombatStep(interaction_t* i, InteractResult res){
+
+  combat_t *combat = i->ctx;
+  uint64_t agg_id = combat->cctx[IM_AGGR]->ctx[IP_OWNER].gouid;
+  uint64_t tar_id = combat->cctx[IM_TAR]->ctx[IP_OWNER].gouid;
+  WorldEvent(EVENT_COMBAT_ACTIVITY, i, agg_id);
 }
 
 interaction_t* StartCombat(ent_t* agg, ent_t* tar, ability_t* a){
@@ -119,7 +154,6 @@ InteractResult CombatStepPhase(combat_t* c, CombatPhase phase){
     default:
       c->phase++;
       break;
-
   }
 }
 
@@ -129,25 +163,27 @@ InteractResult CombatStep(interaction_t* i, InteractResult res){
     case IR_FAIL:
     case IR_CRITICAL_FAIL:
     case IR_ALMOST:
-      return res;
       break;
     default:
+      combat_t* c = i->ctx;
+      switch(c->phase){
+        case COM_INIT:
+          res = CombatStepPhase(c, COM_BATTLE);
+          break;
+        case COM_BATTLE:
+          res = CombatStepPhase(c, COM_RESPONSE);
+          break;
+        case COM_RESPONSE:
+          res = CombatStepPhase(c, COM_END);
+          break;
+        case COM_END:
+          break;
+
+      }
       break;
   }
 
-  combat_t* c = i->ctx;
-  switch(c->phase){
-    case COM_INIT:
-      return CombatStepPhase(c, COM_BATTLE);
-      break;
-    case COM_BATTLE:
-      return CombatStepPhase(c, COM_RESPONSE);
-      break;
-    case COM_RESPONSE:
-      return CombatStepPhase(c, COM_END);
-      break;
-    case COM_END:
-      break;
+  OnCombatStep(i, res);
 
-  }
+  return res;
 }

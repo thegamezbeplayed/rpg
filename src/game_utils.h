@@ -15,6 +15,10 @@
 #define MAKE_ADAPTER(name, T) \
     static void name##_Adapter(void *p) { name((T)p); }
 
+#define MAKE_EVENT_ADAPTER(name, T)\
+  static void name##_Event(EventType event, void* data, void* user)\
+{name((T)p);}
+
 #define ParamRead(o, T) ((T*)((o)->data))
 
 typedef struct ability_s ability_t;
@@ -304,6 +308,7 @@ struct local_ctx_s{
   int                 scores[SCORE_ALL];
   uint64_t            resource;
   Cell                pos;
+  Vector2             v_pos;
   ActionType          how_to;
   Interactive         method;
   bool                valid, prune;
@@ -328,6 +333,7 @@ typedef struct{
 local_table_t* InitLocals(ent_t* e, int cap);
 local_ctx_t* MakeLocalContext(local_table_t* s, param_t* e, Cell p);
 void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx);
+void LocalSyncPos(EventType, void* e, void* u);
 void LocalSync(local_table_t* s, bool sort);
 void LocalSyncCtx(local_table_t* s, local_ctx_t*);
 bool LocalCheck(local_ctx_t* ctx);
