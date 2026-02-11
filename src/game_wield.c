@@ -689,9 +689,11 @@ bool AbilityCanTarget(ability_t* a, local_ctx_t* target){
 
   ent_t* e = a->stats[STAT_REACH]->owner;
 
-  int res = e->stats[a->resource]->current;
-  if(a->cost > res)
-    return false;
+  if(a->resource != STATE_NONE){
+    int res = e->stats[a->resource]->current;
+    if(a->cost > res)
+      return false;
+  }
 
   if(!HasLOS(e->map, e->pos, target->pos))
     return false;

@@ -124,5 +124,18 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
   },
   {"ACTIVITY_PANEL", UI_PANEL_BOT, FIXED_PANEL_HOR, UI_PANEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL,  ALIGN_LEFT | ALIGN_TOP, NULL,
-  } 
+    NULL, 
+    {
+
+    },
+    .num_children = 1, .kids = {
+      "COMBAT_LOG",
+    },
+  },
+  {"COMBAT_LOG", VECTOR2_ZERO, UI_LOG_HOR, UI_LABEL, ELEMENT_NONE,
+    LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_BOT, GetActivityEntry, NULL,
+    .cb = {
+
+    }
+  }  
 };

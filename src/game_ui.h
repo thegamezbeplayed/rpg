@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "raylib.h"
 #include "game_assets.h"
+#include "game_utils.h"
 
 #define MAX_LINE_ITEMS 12
 #define MAX_LINE_VAL 4
@@ -44,11 +45,14 @@
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
 #define UI_PANEL_BOT (Vector2){0, 1080}
 
+#define UI_LOG_HOR (Vector2){96, 540}
+
 #define LIST_LEFT_HAND_PAD 20
 #define LIST_RIGHT_HAND_PAD 8
 
 typedef struct element_value_s element_value_t;
 typedef struct local_context_s local_context_t;
+typedef struct interaction_s interaction_t;
 
 typedef enum{
   MENU_INACTIVE,
@@ -135,6 +139,7 @@ typedef enum{
 typedef enum{
   FETCH_NONE,
   FETCH_UPDATE,
+  FETCH_EVENT,
   FETCH_TURN,
   FETCH_ONCE,
   FETCH_ACTIVE,
@@ -164,6 +169,7 @@ element_value_t* StatGetPretty(element_value_t* self, void* context);
 element_value_t* SkillGetPretty(element_value_t* self, void* context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
 int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
+int SetActivityLines(line_item_t**, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
 char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]);
 typedef struct ui_element_s ui_element_t;
@@ -197,6 +203,7 @@ typedef local_ctx_t* (*ElementDataContext)(void*);
 local_ctx_t* ElementGetOwnerContext(void*);
 local_ctx_t* ElementGetScreenSelection(void* p);
 bool ElementScreenContext(ui_element_t* e);
+bool ElementActivityContext(ui_element_t* e);
 
 struct ui_element_s{
   uint32_t            hash;
@@ -266,15 +273,18 @@ struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
 element_value_t* GetContextName(ui_element_t* e, void* context);
+element_value_t* GetActivityEntry(ui_element_t* e, void* context);
 element_value_t* GetContextStat(ui_element_t* e, void* context);
 element_value_t* GetContextDetails(ui_element_t* e, void* context);
 
+void UIEventLogEntry(EventType event, void* data, void* user);
 static void UIEventActivate(EventType event, void* data, void* user){
   local_ctx_t* ctx = data;
   ui_element_t* e = user;
   e->ctx = ctx;
   ElementSetState(e, ELEMENT_IDLE);
 }
+
 typedef struct ui_menu_s{
   ui_element_t  *element;
   MenuCallback  cb[MENU_END];
@@ -339,4 +349,19 @@ static state_change_requirement_t ELEM_STATE_REQ[ELEMENT_DONE] = {
   {ELEMENT_TOGGLE, GREATER_THAN, ELEMENT_SHOW},
   {ELEMENT_ACTIVATED, NOT_EQUAL_TO, ELEMENT_HIDDEN}
 };
+
+typedef enum{
+  TOKE_DMG,
+  TOKE_TAR,
+  TOKE_AGG,
+  TOKE_WHO,
+  TOKE_ENV,
+  TOKE_RES_SUFF,
+  TOKE_ALL,
+}ParseToken;
+
+char* ParseActivity(interaction_t* act, char* buffer, size_t buf_size);
+const char* ParseEntityToken(param_t);
+const char* ParseResult(param_t p, InteractResult);
+
 #endif

@@ -193,8 +193,8 @@ ent_t* InitEntByRace(mob_define_t def){
 
   if(e->props->mind > 0){
     for(int i = 0; i < 16; i++){
-      ment_qualities_t w = MIND[i];
-      if((e->props->mind & w.mq) == 0)
+      qualities_benefits_t w = MIND[i];
+      if((e->props->mind & w.qual) == 0)
         continue;
 
       for(int j = 0; j < SKILL_DONE; j++)
@@ -212,8 +212,8 @@ ent_t* InitEntByRace(mob_define_t def){
 
   if(e->props->natural_weaps > 0){
     for(int i = 0; i < 16; i++){
-      natural_weapons_t w = NAT_WEAPS[i];
-      if((e->props->natural_weaps & w.pq) == 0)
+      qualities_benefits_t w = NAT_WEAPS[i];
+      if((e->props->natural_weaps & w.qual) == 0)
         continue;
 
       for(int j = SKILL_RANGE_WEAP.x; j < SKILL_RANGE_WEAP.y; j++)
@@ -228,6 +228,28 @@ ent_t* InitEntByRace(mob_define_t def){
       }
     }
   }
+
+  if(e->props->covering > 0){
+    for(int i = 0; i < 16; i++){
+      qualities_benefits_t w = COVERINGS[i];
+      if((e->props->covering & w.qual) == 0)
+        continue;
+
+      for(int j = SKILL_RANGE_WEAP.x; j < SKILL_RANGE_WEAP.y; j++)
+        if(w.skillup[j]>0)
+        SkillIncreaseUncapped(e->skills[j], w.skillup[j]);
+
+      for(int j = 0; j < w.num_abilities; j++){
+        ability_t* a = InitAbility(e, w.abilities[j]);
+        a->cost--;
+
+        ActionSlotAddAbility(e,a);
+      }
+    }
+  }
+
+
+
 
   uint64_t size = 0; //TODO MAKE BETTERER
   for(int i = 0; i < INV_DONE; i++){
@@ -380,8 +402,8 @@ bool ModifyEnt(ent_t* e, int amnt, MobMod mod){
 
    if(modif.weaps > 0){
     for(int i = 0; i < 16; i++){
-      natural_weapons_t w = NAT_WEAPS[i];
-      if((modif.weaps & w.pq) == 0)
+      qualities_benefits_t w = NAT_WEAPS[i];
+      if((modif.weaps & w.qual) == 0)
         continue;
 
       for(int j = SKILL_RANGE_WEAP.x; j < SKILL_RANGE_WEAP.y; j++)
@@ -399,10 +421,19 @@ bool ModifyEnt(ent_t* e, int amnt, MobMod mod){
 
    if(modif.covering > 0){
     for(int i = 0; i < 16; i++){
-      body_covering_t c = COVERINGS[i];
-      if(!modif.covering & c.pq)
+      qualities_benefits_t c = COVERINGS[i];
+      if(!modif.covering & c.qual)
         continue;
       e->props->traits |= c.traits;
+
+
+      for(int j = 0; j < c.num_abilities; j++){
+        ability_t* a = InitAbility(e, c.abilities[j]);
+        a->cost--;
+
+        ActionSlotAddAbility(e,a);
+
+      }
     } 
   }
 
@@ -847,22 +878,18 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
   mind_result_t mind = GetMindResult(p->mind);
   body_result_t body = GetBodyResult(p->body);
 
-  if(p->natural_weaps > 0){
-    for(int i = 0; i < 16; i++){
-      natural_weapons_t w = NAT_WEAPS[i];
-      if(!p->natural_weaps & w.pq)
-        continue;
-      p->traits |= w.traits;
-    }
+  for(int i = 0; i < 16; i++){
+    qualities_benefits_t w = NAT_WEAPS[i];
+    if(!p->natural_weaps & w.qual)
+      continue;
+    p->traits |= w.traits;
   }
 
-  if(p->covering > 0){
-    for(int i = 0; i < 16; i++){
-      body_covering_t c = COVERINGS[i];
-      if(!p->covering & c.pq)
-        continue;
-      p->traits |= c.traits;
-    }
+  for(int i = 0; i < 16; i++){
+    qualities_benefits_t c = COVERINGS[i];
+    if(!p->covering & c.qual)
+      continue;
+    p->traits |= c.traits;
   }
 
   p->size = GetSizeByFlags(p->body, p->covering);
@@ -1313,64 +1340,6 @@ InteractResult EntMeetNeed(ent_t* e, need_t* n, param_t goal){
   return res;
 }
 
-InteractResult EntTakeDamage(ent_t* e, ent_t* source, ability_t* a, int damage, bool initiated){
-  InteractResult result = IR_FAIL;  
-    if(StatChangeValue(e,e->stats[a->damage_to], damage)){
-      TraceLog(LOG_INFO,"%s level %i hits %s with %i %s damage\n %s %s now %0.0f/%0.0f",
-          source->name, 
-          source->skills[SKILL_LVL]->val,
-          e->name,
-          damage*-1,
-          DAMAGE_STRING[a->school],
-          e->name,
-          STAT_STRING[a->damage_to].name,
-          e->stats[STAT_HEALTH]->current,e->stats[STAT_HEALTH]->max);
-
-      result = IR_SUCCESS;
-      if(StatIsEmpty(e->stats[STAT_HEALTH]))
-        return IR_TOTAL_SUCC;
-
-  
-      EntAddAggro(e, source, damage, source->props->base_diff, initiated);
-      if(initiated)
-        WorldEvent(EVENT_DAMAGE_TAKEN, a, e->gouid);
-   }
-
-   return result; 
-}
-
-InteractResult EntTarget(ent_t* e, ability_t* a, ent_t* source){
-  InteractResult result = IR_NONE;
-  //int base_dmg = a->dc->roll(a->dc);
-  
-
-  ability_sim_t* dummy = a->sim_fn(source, a, e);
-
-  int og_dmg = dummy->final_dmg;
-  ability_t* dr = EntFindAbility(e, ABILITY_ARMOR_DR);
-
-  InteractResult dres = IR_FAIL;
-  if(dr)
-    dres = AbilityUse(e, dr, source, dummy);
-
-  if(dres == IR_TOTAL_SUCC){
-    TraceLog(LOG_INFO,"%s shruggs off the attack..",e->name);
-
-    result = IR_CRITICAL_FAIL;
-  }
-  else{
-    int damage = -1 * dummy->final_dmg; 
-    e->last_hit_by = source; 
-
-    result = EntTakeDamage(e, source, a, damage, true);
-  }
-
-  if(og_dmg<dummy->final_dmg)
-    TraceLog(LOG_INFO,"(%i damage reduction)",og_dmg-dummy->final_dmg);
-
-  return result;
-}
-
 ability_t* EntChoosePreferredAbility(ent_t* e){
   ActionSlot slot_pool[SLOT_ALL];
 
@@ -1491,7 +1460,6 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   bool success = true;
   InteractResult ires = IR_NONE;
 
-  CombatStep(combat, ires);
   int cr = LocalAddAggro(e->local, target, 1, target->props->base_diff, false);
   LocalAddAggro(target->local, e, 1, 1, false);//e->props->base_diff);
 
@@ -1501,28 +1469,8 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
       success = false;
     }
 
-  bool save_roll = false;
-
-  ability_t* save = EntFindAbility(target, ABILITY_ARMOR_SAVE);
-  if(save)
-    save_roll = AbilityUse(target,save, e, a->sim_fn(e,a,target));
-  if(!success || save_roll){
-    EntAddAggro(target, e, a->cost, e->props->base_diff, false);
-    TraceLog(LOG_INFO,"%s misses",e->name);
-    success = false;
-    ires = IR_FAIL;
-  }
-
-  CombatStep(combat, ires);
-
-  if(success){
-    if(a->resource > STAT_NONE)
-      TraceLog(LOG_INFO,"%s now %i",STAT_STRING[a->resource].name, (int)e->stats[a->resource]->current);
-    a->stats[STAT_DAMAGE]->start(a->stats[STAT_DAMAGE]);
-
-    StatMaxOut(a->stats[STAT_DAMAGE]);
-    ires = EntTarget(target, a,e);
-  }
+  while(ires != IR_DONE)
+    ires = CombatStep(combat, ires);
 
   int tiid = target->uid;
 /*
@@ -1530,7 +1478,8 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
     tiid = e->map->id; //Prevents just grinding mobs 
 */
 
-  return ires;
+  combat_t* c = combat->ctx;
+  return c->step[BAT_DMG];
 
 }
 
@@ -1638,13 +1587,13 @@ bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult re
   return true;
 }
 
-bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other){
+InteractResult AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other){
   InteractResult ires = IR_NONE;
   switch(a->type){
     case AT_DMG:
     case AT_HEAL:
       if(a->use_fn == NULL)
-        return false;
+        return IR_FAIL;
 
       ires = a->use_fn(owner, a, target);
       break;
@@ -1672,7 +1621,7 @@ bool AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other)
     a->on_success_cb(owner, a, target, ires);
   
 
-  return ires>=IR_SUCCESS?true:false;
+  return ires;
 }
 
 bool ValueUpdateStat(value_t* v, void* ctx){

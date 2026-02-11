@@ -8,6 +8,10 @@
 #define TREAT_RUN_MASK (TREAT_AVOID | TREAT_FEAR)
 
 typedef enum{
+  ACT_ATTACK,
+}Activity;
+
+typedef enum{
   OBJ_NONE = -1,
   OBJ_ENT,
   OBJ_ENV,
@@ -80,6 +84,7 @@ typedef enum {
   DATA_STRING,
   DATA_ENTITY,
   DATA_ABILITY,
+  DATA_DMG,
   DATA_ENV,
   DATA_MAP_CELL,
   DATA_NEED,
@@ -529,7 +534,6 @@ typedef enum{
 }TurnPhase;
 
 typedef enum{
-  BAT_NONE,
   BAT_HIT,
   BAT_DMG,
   BAT_DONE,
@@ -815,7 +819,8 @@ typedef enum{
   IR_ALMOST,
   IR_SUCCESS,
   IR_TOTAL_SUCC,
-  IR_MAX
+  IR_MAX,
+  IR_DONE
 }InteractResult;
 
 typedef enum{
@@ -830,7 +835,9 @@ typedef enum{
   IP_OWNER,
   IP_ITEM,
   IP_ABILITY,
+  IP_ARMOR,
   IP_ACTION,
+  IP_DMG,
   IP_DONE
 }InteractParams;
 

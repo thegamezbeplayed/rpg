@@ -889,39 +889,15 @@ typedef enum{
 }Trait;
 
 typedef struct{
-  PhysQual      pq;
-  Traits        traits;
-  Feats         feats;
-  AbilityID     abilities[4];
-}phys_qualities_t;
-
-typedef struct{
-  PhysWeapon    pq;
+  uint64_t      qual;
   Traits        traits;
   Feats         feats;
   int           num_abilities;
   AbilityID     abilities[4];
   int           skillup[SKILL_DONE];
-}natural_weapons_t;
+}qualities_benefits_t;
 
-typedef struct{
-  PhysBody      pq;
-  Traits        traits;
-  Feats         feats;
-  AbilityID     abilities[4];
-  int           skillup[SKILL_DONE];
-}body_covering_t;
-
-typedef struct{
-  MentalQual    mq;
-  Traits        traits;
-  Feats         feats;
-  int           num_abilities;
-  AbilityID     abilities[4];
-  int           skillup[SKILL_DONE];
-}ment_qualities_t;
-
-static const ment_qualities_t MIND[25] = {
+static const qualities_benefits_t MIND[25] = {
   {MQ_SIMPLE, TRAIT_ADV_FEAR | TRAIT_ADV_CHARM},
   {MQ_OBLIVIOUS, TRAIT_ADV_CHARM},
   {MQ_ALERT,0,
@@ -931,7 +907,7 @@ static const ment_qualities_t MIND[25] = {
   {MQ_AGGRESSIVE, 0, 0, 1, ABILITY_DASH},
 };
 
-static const natural_weapons_t NAT_WEAPS[17] = {
+static const qualities_benefits_t NAT_WEAPS[17] = {
   {PQ_TEETH, .num_abilities = 1, .abilities = ABILITY_BITE,
     .skillup = {
       [SKILL_WEAP_NONE] = 350
@@ -961,30 +937,32 @@ static const natural_weapons_t NAT_WEAPS[17] = {
 
 };
 
-static const body_covering_t COVERINGS[35] = {
-  {PQ_FUR, .skillup = {[SKILL_ARMOR_NATURAL] = 800}},
+static const qualities_benefits_t COVERINGS[35] = {
+  {PQ_FUR, .skillup = {[SKILL_ARMOR_NATURAL] = 800},
+    .num_abilities = 1, .abilities = ABILITY_ARMOR_SAVE
+  },
   {PQ_THICK_FUR, TRAIT_SLASH_RESIST | TRAIT_COLD_RESIST,
-    .abilities = ABILITY_ARMOR_DR
+    .num_abilities = 1, .abilities = ABILITY_ARMOR_DR
   },
   {PQ_HIDE, .skillup = {[SKILL_ARMOR_NATURAL] = 800}},
   {PQ_THICK_HIDE, TRAIT_FIRE_RESIST | TRAIT_COLD_RESIST | TRAIT_PHYS_RESIST,
-    .abilities = ABILITY_ARMOR_DR,
+    .num_abilities = 1, .abilities = ABILITY_ARMOR_DR,
     .skillup = {[SKILL_ARMOR_NATURAL] = 800}
   },
   {PQ_SCALES, .skillup = {[SKILL_ARMOR_NATURAL] = 800}},
   {PQ_THICK_SCALES, TRAIT_PHYS_RESIST | TRAIT_FIRE_RESIST | TRAIT_ACID_RESIST,
-    .abilities = ABILITY_ARMOR_DR,
+    .num_abilities = 1, .abilities = ABILITY_ARMOR_DR,
     .skillup = {[SKILL_ARMOR_NATURAL] = 800}
   },
   {PQ_THICK_SKIN, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST | TRAIT_FIRE_RESIST | TRAIT_POISON_RESIST,
-    .abilities = ABILITY_ARMOR_DR
+    .num_abilities = 1, .abilities = ABILITY_ARMOR_DR
   },
   {PQ_THICK_FAT, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST,
-    .abilities = ABILITY_ARMOR_DR
+    .num_abilities = 1, .abilities = ABILITY_ARMOR_DR
   },
 };
 
-static const phys_qualities_t BODY[35] = {
+static const qualities_benefits_t BODY[35] = {
   {PQ_HEAVY, TRAIT_FORCE_RESIST},
   {PQ_LARGE_FEET, TRAIT_FORCE_RESIST},
   {PQ_LARGE, TRAIT_FORCE_RESIST},
@@ -1004,7 +982,7 @@ static inline mind_result_t GetMindResult(MentalQual mask) {
   mind_result_t result = {0};
 
   for (int i = 0; i < 25; i++) {
-    if (MIND[i].mq & mask) {         // if this mental quality is present
+    if (MIND[i].qual & mask) {         // if this mental quality is present
       result.traits |= MIND[i].traits;
       result.feats  |= MIND[i].feats;
     }
@@ -1022,7 +1000,7 @@ static inline body_result_t GetBodyResult(MentalQual mask) {
   body_result_t result = {0};
 
   for (int i = 0; i < 25; i++) {
-    if (BODY[i].pq & mask) {         // if this mental quality is present
+    if (BODY[i].qual & mask) {         // if this mental quality is present
       result.traits |= BODY[i].traits;
       result.feats  |= BODY[i].feats;
     }

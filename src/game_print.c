@@ -1,6 +1,7 @@
 #include "game_ui.h"
 #include "game_common.h"
 #include "game_types.h"
+#include "game_systems.h"
 #include <stdio.h>
 
 void StringPrependPadding(char* s, size_t padding){
@@ -412,6 +413,13 @@ int SetCtxDetails(local_ctx_t* ctx , line_item_t** li, const char fmt[PARAM_ALL]
   return count;
 }
 
+int SetActivityLines(line_item_t** li, int pad[UI_POSITIONING]){
+  for (int i = 0; i < MAX_LINE_ITEMS; i++){
+    li[i] = ActivitiesAssignValues(i);
+  }
+
+}
+
 int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool combo){
   int count = 0, num_p = 0;
   
@@ -492,4 +500,9 @@ char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]){
 
   return out;
   
+}
+
+char* ParseActivity(interaction_t* act, char* buffer, size_t buf_size){
+
+
 }

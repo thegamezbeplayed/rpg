@@ -859,6 +859,19 @@ element_value_t* GetContextName(ui_element_t* e, void* context){
   return ev;
 }
 
+element_value_t* GetActivityEntry(ui_element_t* e, void* context){
+  if(context == NULL)
+    return NULL;
+
+  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  ev->rate = FETCH_EVENT;
+
+  ev->type = VAL_LN;
+
+  ev->num_ln = SetActivityLines(ev->l, e->spacing);
+
+}
+
 bool ElementScreenContext(ui_element_t* e){
   WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
 
@@ -883,5 +896,10 @@ local_ctx_t* ElementGetScreenSelection(void* p){
    ui_element_t* e = p;
 
   return ui.contexts[SCREEN_CTX_HOVER];
+
+}
+
+void UIEventLogEntry(EventType event, void* data, void* user){
+  element_value_t* e = user;
 
 }
