@@ -9,6 +9,7 @@
 
 typedef enum{
   ACT_ATTACK,
+  ACT_ALL,
 }Activity;
 
 typedef enum{
@@ -824,7 +825,7 @@ typedef enum{
 }InteractResult;
 
 typedef enum{
-  IM_NONE,
+  IM_NONE = -1,
   IM_AGGR,
   IM_TAR,
   IM_DONE

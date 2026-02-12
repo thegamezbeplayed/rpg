@@ -75,24 +75,6 @@ void PrintSyncLine(line_item_t* ln, FetchRate poll){
     }
 }
 
-const char* PrintLine(line_item_t* ln){
-  for(int i = 0; i < ln->num_val; i++){
-    element_value_t* ev = ln->values[i];
-    /*switch(ev->type){
-   case VAL_INT:
-      *self->i = (int)stat->current;
-      break;
-    case VAL_FLOAT:
-      *self->f = stat->ratio(stat);
-      break;
-    case VAL_CHAR:
-      strcpy(self->c,TextFormat("%i / %i",(int)stat->current,(int)stat->max));
-      break;
-    }
-*/
-  }
-}
-
 char *TextFormatLineItem(line_item_t *item) {
     static char buffer[2048];
     char temp[256];
@@ -226,8 +208,6 @@ int CtxGetSkillDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam
   fill[0] = lbl;
   fill[1] = cur;
   return 2;
-
-
 }
 
 int CtxGetStat(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
@@ -414,10 +394,15 @@ int SetCtxDetails(local_ctx_t* ctx , line_item_t** li, const char fmt[PARAM_ALL]
 }
 
 int SetActivityLines(line_item_t** li, int pad[UI_POSITIONING]){
-  for (int i = 0; i < MAX_LINE_ITEMS; i++){
-    li[i] = ActivitiesAssignValues(i);
+  char* fmt = "%s";
+  int i = 0;
+  for (i; i < MAX_LINE_ITEMS; i++){
+    element_value_t* base[MAX_LINE_VAL];
+    int items = ActivitiesAssignValues(base, i);
+    li[i] = InitLineItem(base, items, fmt);
   }
 
+  return i;
 }
 
 int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool combo){
@@ -502,7 +487,43 @@ char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]){
   
 }
 
-char* ParseActivity(interaction_t* act, char* buffer, size_t buf_size){
+char* ParseActivity(activity_t* act, char* buffer, size_t buf_size){
+  activity_format_t a = ACT_LOG_FMT[act->kind];
+  const char* fmt = a.fmt;
 
+  int j = 0;
+  for (int i = 0; i < a.num_tokens; i++){
+    param_t cat = act->tokens[i];
+    char* str;
 
+    char tmp[16];
+    switch(cat.type_id){
+      case DATA_STRING:
+        str = strdup(ParamReadString(&cat));
+        break;
+      case DATA_INT:
+        int val = ParamReadInt(&cat);
+        snprintf(tmp, sizeof(tmp), "%i", val);
+        str = tmp;
+        break;
+      case DATA_FLOAT:
+        float fval = ParamReadFloat(&cat);
+        snprintf(tmp, sizeof(tmp), "%0.1f", fval);
+        str = tmp;
+        break;
+    }
+    for(j; fmt[j] != 0; j++){
+      if (fmt[i] == '%' && fmt[i+1] != 0 )
+        strcat(buffer, str);
+      else{
+        int len = strlen(buffer);
+        buffer[len] = fmt[i];
+        buffer[len+1] = 0;
+      }
+    }
+  }
+
+  return buffer;
 }
+
+

@@ -1214,4 +1214,13 @@ static feat_t* GetSkillFeat(FeatFlag f, SkillType s){
 
   return NULL;
 }
+static define_natural_armor_t* GetNaturalArmor(uint64_t body){
+  for (int i = 0; i < 13; i++){
+    if(NAT_ARMOR_TEMPLATES[i].body & body)
+      return &NAT_ARMOR_TEMPLATES[i];
+  }
+
+  return NULL;
+}
+
 #endif

@@ -360,6 +360,81 @@ bool ItemApplyStats(struct ent_s* owner, item_t* item){
   }
 }
 
+ability_t* InitAbilitySave(ent_t* owner, AbilityID id, define_natural_armor_t* def){
+  ability_t* a = InitAbility(owner, id);
+
+  a->hit = Die(def->armor_class, 1);
+
+  a->skills[a->num_skills++] = def->skill;
+
+  return a;
+}
+
+ability_t* InitAbilityDR(ent_t* owner, AbilityID id, define_natural_armor_t* def){
+  ability_t* a = InitAbility(owner, id);
+   a->dr = &def->dr;
+
+   a->skills[a->num_skills++] = def->skill;
+    
+   return a;
+
+}
+ability_t* InitAbilityInnate(ent_t* e, AbilityID id, define_natural_armor_t* def){
+  ability_t a = ABILITIES[id];
+
+  switch(a.type){
+    case AT_DMG:
+      return InitAbility(e,id);
+      break;
+    case AT_SAVE:
+      return InitAbilitySave(e, id, def);
+      break;
+    case AT_DR:
+      return InitAbilityDR(e,id, def);
+      break;
+  }
+
+  return NULL;
+}
+
+ability_t* InitAbility(ent_t* owner, AbilityID id){
+  ability_t* a = calloc(1,sizeof(ability_t));
+
+  *a = AbilityLookup(id);
+
+  a->hit = Die(20,1);
+
+  a->dc = Die(a->side,a->die);
+
+  if(a->use_fn == NULL)
+    a->use_fn = EntUseAbility;
+
+  if(a->type == AT_DMG)
+   a->sim_fn = AbilitySimDmg;
+
+  a->on_use_cb = AbilitySkillup;
+
+  a->stats[STAT_REACH] = InitStat(STAT_REACH,1,a->reach,a->reach);
+  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,a->bonus,a->mod);
+
+  for (int i = 0; i < STAT_DONE; i++){
+    if(!a->stats[i])
+      continue;
+    a->stats[i]->owner = owner;
+  }
+
+  for(int i = 0; i < VAL_WORTH; i++){
+    a->values[i] = InitValue(i,0);
+  }
+
+  if(a->chain_id > ABILITY_NONE){
+    a->chain = InitAbility(owner, a->chain_id);
+    a->chain_fn = EntUseAbility;
+  }
+
+  return a;
+}
+
 bool ItemAddAbility(struct ent_s* owner, item_t* item){
   const item_def_t* def = item->def;
 
@@ -685,6 +760,9 @@ bool AbilityCanTarget(ability_t* a, local_ctx_t* target){
     return false;
 
   if(!target)
+    return false;
+
+  if(a->type == SLOT_SAVE)
     return false;
 
   ent_t* e = a->stats[STAT_REACH]->owner;

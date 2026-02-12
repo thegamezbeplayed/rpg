@@ -870,6 +870,13 @@ element_value_t* GetActivityEntry(ui_element_t* e, void* context){
 
   ev->num_ln = SetActivityLines(ev->l, e->spacing);
 
+  return ev;
+}
+
+bool ElementActivityContext(ui_element_t* e){
+  WorldSubscribe(EVENT_COMBAT_ACTIVITY, UIEventActivate, e);
+
+  return true;
 }
 
 bool ElementScreenContext(ui_element_t* e){

@@ -669,10 +669,10 @@ typedef enum {
 
   /* Exotic */
   PQ_STONE_SKIN    = 1ULL << 10,
-  PQ_METALLIC     = 1ULL << 11,
+  PQ_METALLIC      = 1ULL << 11,
 
   /* Future-safe */
-  // PQ_CHITINOUS   = 1ULL << 9,
+   PQ_CHITIN       = 1ULL << 12,
   // PQ_CRYSTALLINE = 1ULL << 10,
 
 } PhysBody;
@@ -938,7 +938,7 @@ static const qualities_benefits_t NAT_WEAPS[17] = {
 };
 
 static const qualities_benefits_t COVERINGS[35] = {
-  {PQ_FUR, .skillup = {[SKILL_ARMOR_NATURAL] = 800},
+  {PQ_FUR, .skillup = {[SKILL_ARMOR_NATURAL] = 600},
     .num_abilities = 1, .abilities = ABILITY_ARMOR_SAVE
   },
   {PQ_THICK_FUR, TRAIT_SLASH_RESIST | TRAIT_COLD_RESIST,
@@ -959,6 +959,9 @@ static const qualities_benefits_t COVERINGS[35] = {
   },
   {PQ_THICK_FAT, TRAIT_BLUNT_RESIST | TRAIT_COLD_RESIST,
     .num_abilities = 1, .abilities = ABILITY_ARMOR_DR
+  },
+  {PQ_CHITIN, .skillup = {[SKILL_ARMOR_NATURAL] = 400},
+    .num_abilities = 1, .abilities = ABILITY_ARMOR_SAVE
   },
 };
 
@@ -2130,4 +2133,15 @@ typedef struct{
   ModifierType  modified_by[ATTR_DONE];
 
 }define_initiative_relate_t;
+
+typedef struct{
+  PhysBody           body;
+  ArmorType          type;
+  int                armor_class;
+  damage_reduction_t dr;
+  AttributeType      mod;
+  int                mod_max;
+  SkillType          skill;
+}define_natural_armor_t;
+extern define_natural_armor_t NAT_ARMOR_TEMPLATES[13];
 #endif

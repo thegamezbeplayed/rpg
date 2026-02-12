@@ -180,6 +180,7 @@ typedef enum {
   VAL_CHAR,
   VAL_LN,
 } ValueType;
+
 typedef element_value_t* (*ElementFetchValue)(element_value_t* e, void* context);
 typedef element_value_t* (*ElementSetValue)(ui_element_t* e, void* context);
 
@@ -192,7 +193,7 @@ struct element_value_s{
         char*  c;
         line_item_t* l[MAX_LINE_ITEMS];
     };
-  size_t            num_ln, text_len, text_hei;
+  size_t            char_len, num_ln, text_len, text_hei;
   void*             context;
   ElementFetchValue get_val;
 };
@@ -357,10 +358,10 @@ typedef enum{
   TOKE_WHO,
   TOKE_ENV,
   TOKE_RES_SUFF,
+  TOKE_SCHOOL,
   TOKE_ALL,
 }ParseToken;
 
-char* ParseActivity(interaction_t* act, char* buffer, size_t buf_size);
 const char* ParseEntityToken(param_t);
 const char* ParseResult(param_t p, InteractResult);
 

@@ -23,6 +23,7 @@ activity_t* InitActivity(EventType event, interaction_t* i){
   param_t params[IM_DONE][IP_DONE];
   switch (event){
     case EVENT_COMBAT:
+    case EVENT_COMBAT_ACTIVITY:
       combat_t* com = i->ctx;
       for(int i = 0; i < IM_DONE; i++)
         for (int j = 0; j < IP_DONE; j++)
@@ -30,11 +31,21 @@ activity_t* InitActivity(EventType event, interaction_t* i){
       break;
   }
 
-  act->tokens[TOKE_AGG] = params[IM_AGGR][IP_OWNER];
-  act->tokens[TOKE_TAR] = params[IM_TAR][IP_OWNER];
+  //act->tokens[TOKE_AGG] = params[IM_AGGR][IP_OWNER];
+  //act->tokens[TOKE_TAR] = params[IM_TAR][IP_OWNER];
+
+  local_ctx_t* a_ctx = ParamReadCtx(&params[IM_AGGR][IP_OWNER]);
+  act->tokens[TOKE_AGG] = a_ctx->params[PARAM_NAME];
+
+  local_ctx_t* t_ctx = ParamReadCtx(&params[IM_TAR][IP_OWNER]);
+  act->tokens[TOKE_TAR] = t_ctx->params[PARAM_NAME];
+
 
   for(int i = 0; i < IM_DONE; i++){
     for (int j = 0;  j < IP_DONE; j++){
+      if (params[i][j].type_id == DATA_NONE)
+        continue;
+
       switch(j){
         case IP_OWNER:
           break;
@@ -42,6 +53,12 @@ activity_t* InitActivity(EventType event, interaction_t* i){
           break;
         case IP_ABILITY:
 
+          break;
+        case IP_DMG:
+          ability_sim_t* sim = ParamRead(&params[i][j],ability_sim_t);
+          char* sch_str = strdup(DAMAGE_STRING[sim->d_type]);
+          act->tokens[TOKE_SCHOOL] = ParamMake(DATA_STRING, sizeof(sch_str), sch_str);
+          act->tokens[TOKE_DMG] = ParamMake(DATA_INT, sizeof(int), &sim->final_dmg);
           break;
         case IP_ACTION: 
           break;
@@ -59,17 +76,44 @@ void OnActivityEvent(EventType event, void* data, void* user){
   activity_t* act = InitActivity(event, i);
 
   ActivityAddEntry(act);
+
+  WorldEvent(EVENT_COMBAT_ACTIVITY, act, i->uid);
+}
+
+activity_t* ActivitiesGetEntryAt(int pos){
+  if (pos < 0 || pos >= ACT_TRACK.count)
+    return NULL;
+
+  int index = ((int)ACT_TRACK.head - 1 - pos + ACT_TRACK.cap) % ACT_TRACK.cap;
+
+  return &ACT_TRACK.entries[index];
+}
+
+element_value_t* ActivitiesFetch(element_value_t* e, void* context){
+  int *pos = context;
+
+  activity_t* act = ActivitiesGetEntryAt(*pos);
+
+  ParseActivity(act, e->c, e->char_len); 
 }
 
 void InitActivities(int cap){
   ACT_TRACK.cap = cap;
-  WorldTargetSubscribe(EVENT_COMBAT_ACTIVITY, OnActivityEvent, &ACT_TRACK, player->gouid);
+  WorldTargetSubscribe(EVENT_COMBAT, OnActivityEvent, &ACT_TRACK, player->gouid);
 }
 
-line_item_t* ActivitiesAssignValues(int){
-  //line_item_t* li = InitLineItem(
+int ActivitiesAssignValues(element_value_t** fill, int pos){
+  element_value_t* ln = calloc(1, sizeof(element_value_t));
 
-  //return li;
+  ln->type = VAL_CHAR;
+  ln->c = calloc(1, sizeof(char)*MAX_LINE_LEN);
+
+  ln->rate = FETCH_EVENT;
+  ln->context = &pos;
+  ln->get_val = ActivitiesFetch;
+
+  fill[0] = ln;
+  return 1;
 }
 
 void InitCombatSystem(int cap){
@@ -133,7 +177,7 @@ void OnCombatStep(interaction_t* i, InteractResult res){
 interaction_t* StartCombat(ent_t* agg, ent_t* tar, ability_t* a){
   combat_t* c = calloc(1,sizeof(combat_t));
 
-  combat_exchange_i exid = CombatMakeExID(agg, tar->gouid, a->id, WorldGetTime());
+  c->exid = CombatMakeExID(agg, tar->gouid, a->id, WorldGetTime());
   c->cctx[IM_AGGR] = CombatContext(agg, IM_AGGR, a);
   
   ability_t* save = EntFindAbility(tar, ABILITY_ARMOR_SAVE);
@@ -187,8 +231,9 @@ InteractResult CombatDamage(combat_t *c, bool init){
     result = IR_SUCCESS;
     if(StatIsEmpty(damaged))
       result = IR_TOTAL_SUCC;
-
-    EntAddAggro(tar, agg, damage, agg->props->base_diff, init);
+    else
+      EntAddAggro(tar, agg, damage, agg->props->base_diff, init);
+    
     if(init)
       WorldEvent(EVENT_DAMAGE_TAKEN, atk, tar->gouid);
 

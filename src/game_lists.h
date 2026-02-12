@@ -331,6 +331,7 @@ static const race_define_t DEFINE_RACE[ 16 ] = {
     PQ_NO_BONES | PQ_TINY | PQ_MANY_EYES | PQ_OCTPED | PQ_LIGHT,
     MQ_SIMPLE | MQ_CAUTIOUS | MQ_ALERT | MQ_HIVE_MIND,
     PB_NONE,
+    PQ_CHITIN,
     0,
     .25
   },

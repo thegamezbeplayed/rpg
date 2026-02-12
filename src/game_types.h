@@ -108,7 +108,7 @@ struct ability_s{
 };
 
 int AbilityAddPB(ent_t* e, ability_t* a, StatType s);
-
+ability_t* InitAbilityInnate(ent_t*, AbilityID, define_natural_armor_t*);
 struct ability_sim_s{
   AbilityID     id;
   AbilityType   type;

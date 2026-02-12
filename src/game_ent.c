@@ -235,21 +235,22 @@ ent_t* InitEntByRace(mob_define_t def){
       if((e->props->covering & w.qual) == 0)
         continue;
 
-      for(int j = SKILL_RANGE_WEAP.x; j < SKILL_RANGE_WEAP.y; j++)
+     for(int j = 0; j < SKILL_DONE; j++)
         if(w.skillup[j]>0)
         SkillIncreaseUncapped(e->skills[j], w.skillup[j]);
 
-      for(int j = 0; j < w.num_abilities; j++){
-        ability_t* a = InitAbility(e, w.abilities[j]);
+      define_natural_armor_t *nat = GetNaturalArmor(e->props->covering);
+      if(nat){
+        ability_t* a = InitAbilityInnate(e, ABILITY_ARMOR_SAVE, nat);
         a->cost--;
 
         ActionSlotAddAbility(e,a);
+        ability_t* dr = InitAbilityInnate(e, ABILITY_ARMOR_DR, nat);
+        ActionSlotAddAbility(e,dr);
+
       }
     }
   }
-
-
-
 
   uint64_t size = 0; //TODO MAKE BETTERER
   for(int i = 0; i < INV_DONE; i++){
@@ -1524,44 +1525,6 @@ controller_t* InitController(ent_t* e){
   return ctrl;
 }
 
-ability_t* InitAbility(ent_t* owner, AbilityID id){
-  ability_t* a = calloc(1,sizeof(ability_t));
-
-  *a = AbilityLookup(id);
-
-  a->hit = Die(20,1);
-
-  a->dc = Die(a->side,a->die);
-
-  if(a->use_fn == NULL)
-    a->use_fn = EntUseAbility;
-
-  if(a->type == AT_DMG)
-   a->sim_fn = AbilitySimDmg;
-
-  a->on_use_cb = AbilitySkillup;
-
-  a->stats[STAT_REACH] = InitStat(STAT_REACH,1,a->reach,a->reach);
-  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,a->bonus,a->mod);
-
-  for (int i = 0; i < STAT_DONE; i++){
-    if(!a->stats[i])
-      continue;
-    a->stats[i]->owner = owner;
-  }
-
-  for(int i = 0; i < VAL_WORTH; i++){
-    a->values[i] = InitValue(i,0);
-  }
-
-  if(a->chain_id > ABILITY_NONE){
-    a->chain = InitAbility(owner, a->chain_id);
-    a->chain_fn = EntUseAbility;
-  }
-
-  return a;
-}
-
 bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result){
   
   aggro_t* e = LocalGetAggro(owner->local,target->gouid);
@@ -1969,7 +1932,7 @@ float EntGetDPR(ent_t* e){
   int damage = 0;
   int num_acts = 1;//e->stats[STAT_ACTIONS]->max;
 
-  for(int i = 0; i < SLOT_ALL; i++){
+  for(int i = 0; i < SLOT_SAVE; i++){
     if(e->slots[i]->count == 0)
       continue;
 
@@ -2007,37 +1970,6 @@ int EntGetDefRating(ent_t* e){
   float ehp = e->stats[STAT_HEALTH]->max * avoid;
 
   return ehp;
-}
-
-Cell EntSimulateBattle(ent_t* e, ent_t* t, int sims){
-  int e_wins = 0;
-  int t_wins = 0;
-  for(int i = 0; i < sims; i++){
-    float e_hp = e->stats[STAT_HEALTH]->max;
-    float t_hp = t->stats[STAT_HEALTH]->max;
-
-    int e_rnds = 0;
-    int t_rnds = 0;
-
-    while(e_hp > 0){
-      t_rnds++;
-      e_hp-=EntGetDPR(t);
-
-    }
-
-    while(t_hp > 0){
-      e_rnds++;
-      t_hp-=EntGetDPR(e);
-
-    }
-    e_wins+= e_rnds<t_rnds?1:0;
-    t_wins+= t_rnds<e_rnds?1:0;
-    //if(e_rnds == t_rnds)
-    //
-      //e_wins++;
-  }
-
-  return CELL_NEW(e_wins,t_wins);
 }
 
 int EntGetChallengeRating(ent_t* e){

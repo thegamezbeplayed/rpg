@@ -143,7 +143,13 @@ static inline need_t* ParamReadNeed(const param_t* o) {
     assert(o->type_id == DATA_NEED);
     return (need_t*)o->data;
 }
-  
+ 
+static inline float ParamReadFloat(const param_t* o) {
+    assert(o->type_id == DATA_FLOAT);
+    assert(o->size == sizeof(float));
+    return *(float*)o->data;
+} 
+
 static inline int ParamReadInt(const param_t* o) {
     assert(o->type_id == DATA_INT);
     assert(o->size == sizeof(int));
