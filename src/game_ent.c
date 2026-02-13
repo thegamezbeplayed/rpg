@@ -1458,6 +1458,9 @@ InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source){
 
 InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
   interaction_t* combat = StartCombat(e, target, a);
+  if(!combat)
+    return IR_NONE;
+
   bool success = true;
   InteractResult ires = IR_NONE;
 
@@ -1472,12 +1475,6 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
 
   while(ires != IR_DONE)
     ires = CombatStep(combat, ires);
-
-  int tiid = target->uid;
-/*
-  if(e->type == ENT_PERSON)
-    tiid = e->map->id; //Prevents just grinding mobs 
-*/
 
   combat_t* c = combat->ctx;
   return c->step[BAT_DMG];

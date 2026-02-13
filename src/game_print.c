@@ -487,43 +487,81 @@ char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]){
   
 }
 
+ParseToken TokenFromString(const char* s)
+{
+  for (int i = 0; i < TOKE_ALL; i++)
+    if (strcmp(s, TOKEN_TABLE[i].name) == 0)
+      return TOKEN_TABLE[i].token;
+
+  return TOKE_ALL; // invalid / fallback
+}
+
+int ReadToken(const char* fmt, int start, char* out, int out_sz)
+{
+  int k = 0;
+  int i = start;
+
+  while (fmt[i] && fmt[i] != '}' && k < out_sz - 1) {
+    out[k++] = fmt[i++];
+  }
+
+  out[k] = 0;
+
+  return (fmt[i] == '}') ? i : -1;
+}
+
 char* ParseActivity(activity_t* act, char* buffer, size_t buf_size){
   activity_format_t a = ACT_LOG_FMT[act->kind];
   const char* fmt = a.fmt;
 
-  int j = 0;
-  for (int i = 0; i < a.num_tokens; i++){
-    param_t cat = act->tokens[i];
-    char* str;
+  size_t out = 0;
+  int token_index = 0;
 
-    char tmp[16];
-    switch(cat.type_id){
-      case DATA_STRING:
-        str = strdup(ParamReadString(&cat));
-        break;
-      case DATA_INT:
-        int val = ParamReadInt(&cat);
-        snprintf(tmp, sizeof(tmp), "%i", val);
-        str = tmp;
-        break;
-      case DATA_FLOAT:
-        float fval = ParamReadFloat(&cat);
-        snprintf(tmp, sizeof(tmp), "%0.1f", fval);
-        str = tmp;
-        break;
-    }
-    for(j; fmt[j] != 0; j++){
-      if (fmt[i] == '%' && fmt[i+1] != 0 )
-        strcat(buffer, str);
-      else{
-        int len = strlen(buffer);
-        buffer[len] = fmt[i];
-        buffer[len+1] = 0;
+  buffer[0] = '\0';
+
+  for (int i = 0; fmt[i] != 0 && out < buf_size - 1; i++)
+  {
+    if (fmt[i] == '{')
+    {
+      char tok[32];
+      int end = ReadToken(fmt, i + 1, tok, sizeof(tok));
+
+      if (end != -1)
+      {
+        ParseToken t = TokenFromString(tok);
+
+        param_t* p = &act->tokens[t];
+
+        char tmp[64];
+        const char* str = "";
+
+        switch (p->type_id)
+        {
+          case DATA_STRING:
+            str = ParamReadString(p);
+            break;
+
+          case DATA_INT:
+            snprintf(tmp, sizeof(tmp), "%i", ParamReadInt(p));
+            str = tmp;
+            break;
+
+          case DATA_FLOAT:
+            snprintf(tmp, sizeof(tmp), "%.1f", ParamReadFloat(p));
+            str = tmp;
+            break;
+        }
+
+        out += snprintf(buffer + out, buf_size - out, "%s", str);
+
+        i = end; // skip past '}'
+        continue;
       }
     }
+
+    buffer[out++] = fmt[i];
+    buffer[out] = 0;
   }
 
   return buffer;
 }
-
-

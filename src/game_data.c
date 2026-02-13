@@ -6,8 +6,10 @@
 
 #include "game_helpers.h"
 ent_t* ParamReadEnt(const param_t* o) {
-    assert(o->type_id == DATA_ENTITY);
+  if(o && o->type_id == DATA_ENTITY)
     return (ent_t*)o->data;
+
+    return NULL;
 }
 env_t* ParamReadEnv(const param_t* o){
     assert(o->type_id == DATA_ENV);

@@ -10,12 +10,16 @@ ui_menu_d MENU_DATA[MENU_DONE] = {
 ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
   {"HUD_MENU_DOM", VECTOR2_ZERO, FIXED_MENU_FULL, UI_PANEL, ELEMENT_NONE, 
     LAYOUT_FREE, ALIGN_LEFT,
-    .spacing = {[UI_MARGIN_TOP] = 48, [UI_MARGIN_LEFT] = 16 },
+    .spacing = {
+      [UI_MARGIN_TOP] = 8, [UI_MARGIN_LEFT] = 6,
+      [UI_PADDING_TOP] = 12, [UI_PADDING_LEFT] = 8
+    },
     .cb = {
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
     },
-    .num_children = 3, .kids= {"PLAYER_PANEL_L", "CONTEXT_PANEL_R", "ACTIVITY_PANEL"}
+    .num_children = 3, .kids= {"PLAYER_PANEL_L", "CONTEXT_PANEL_R", "ACTIVITY_PANEL"},
+    .params = { {PARAM_NONE}, {PARAM_NONE}, {PARAM_NAME }}
   },
   {"PLAYER_PANEL_L", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, WorldPlayerContext,
@@ -23,23 +27,23 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
       [ELEMENT_IDLE] = ElementSetContext,
       [ELEMENT_SHOW] = ElementActivateChildren,
     },
-   .spacing = {[UI_PADDING] = 1},
-   .num_children = 6, .kids={
-     "NAME_LABEL",
-     "SKILL_LABEL_DETAILED",
-     "STAT_LABEL_DETAILED",
-     "STAT_LABEL_DETAILED",
-     "STAT_LABEL_DETAILED",
-     "STAT_LABEL_DETAILED",
-   },
-   .params = {
-     {PARAM_NAME},
-     {PARAM_SKILL_LVL},
-     {PARAM_STAT_HEALTH},
-     {PARAM_STAT_ARMOR},
-     {PARAM_STAT_STAMINA},
-     {PARAM_STAT_ENERGY},
-   }
+    .spacing = {[UI_PADDING] = 1},
+    .num_children = 6, .kids={
+      "NAME_LABEL",
+      "SKILL_LABEL_DETAILED",
+      "STAT_LABEL_DETAILED",
+      "STAT_LABEL_DETAILED",
+      "STAT_LABEL_DETAILED",
+      "STAT_LABEL_DETAILED",
+    },
+    .params = {
+      {PARAM_NAME},
+      {PARAM_SKILL_LVL},
+      {PARAM_STAT_HEALTH},
+      {PARAM_STAT_ARMOR},
+      {PARAM_STAT_STAMINA},
+      {PARAM_STAT_ENERGY},
+    }
   },
   {"NAME_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, GetContextName, ElementGetOwnerContext,
@@ -76,14 +80,14 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     },
     .spacing = {[UI_MARGIN_LEFT] = 54, [UI_MARGIN_TOP] = -28}
   },
-   {"SKILL_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
+  {"SKILL_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
     GetContextStat, ElementGetOwnerContext,
     {
       [ELEMENT_IDLE] = ElementSetContext,
     }
   },
-   {"SKILL_LABEL_DETAILED", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
+  {"SKILL_LABEL_DETAILED", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
     GetContextStat, ElementGetOwnerContext,
     {
@@ -98,7 +102,7 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
   {"CONTEXT_PANEL_R", UI_PANEL_RIGHT, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_RIGHT, NULL, ScreenSelectContext,
     {
-     [ELEMENT_IDLE] = ElementLoadChildren,
+      [ELEMENT_IDLE] = ElementLoadChildren,
     },
     .num_children = 1, .kids = {"CONTEXT_SHEET"},
   },
@@ -116,17 +120,18 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
       "STAT_LABEL"
     },
     .params = {
-     {PARAM_NAME},
-     {PARAM_STAT_HEALTH},
-     {PARAM_STAT_ARMOR},
+      {PARAM_NAME},
+      {PARAM_STAT_HEALTH},
+      {PARAM_STAT_ARMOR},
 
     },
   },
   {"ACTIVITY_PANEL", UI_PANEL_BOT, FIXED_PANEL_HOR, UI_PANEL,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL,  ALIGN_LEFT | ALIGN_TOP, NULL,
-    NULL, 
+    ELEMENT_NONE, LAYOUT_HORIZONTAL,  ALIGN_LEFT | ALIGN_BOT,
+    NULL, NULL, 
     {
-     [ELEMENT_IDLE] = ElementLoadChildren,
+      [ELEMENT_IDLE] = ElementLoadChildren,
+      [ELEMENT_SHOW] = ElementSetContext,
     },
     .num_children = 1, .kids = {
       "COMBAT_LOG",
@@ -136,13 +141,22 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_BOT, GetActivityEntry, NULL,
     .cb = {
       [ELEMENT_LOAD] = ElementActivityContext,
-
+      [ELEMENT_IDLE] = ElementShowContext,
     }
   }  
 };
 
 activity_format_t ACT_LOG_FMT[ACT_ALL] = {
-  {ACT_ATTACK, "%e hits %e for %e %e damage",
-    4, {TOKE_AGG, TOKE_TAR, TOKE_DMG, TOKE_SCHOOL}
+  {ACT_ATTACK, "{AGG} hits {TAR} for {DMG} {SCHOOL} damage",
   }
+};
+
+token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
+  {"AGG",    TOKE_AGG},
+  {"TAR",    TOKE_TAR},
+  {"DMG",    TOKE_DMG},
+  {"WHO",    TOKE_WHO},
+  {"ENV",    TOKE_ENV},
+  {"RES",    TOKE_RES_SUFF},
+  {"SCHOOL", TOKE_SCHOOL},
 };

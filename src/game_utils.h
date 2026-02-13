@@ -54,7 +54,7 @@ static param_t ParamMakeObj(DataType type, game_object_uid_i uid, void* src) {
   return o;
 }
 
-static param_t ParamMake(DataType type, size_t size, void* src) {
+static param_t ParamMake(DataType type, size_t size, const void* src) {
   param_t o;
   o.type_id = type;
   o.size = size;

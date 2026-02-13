@@ -4,7 +4,7 @@ static combat_system_t COMBAT;
 
 static activity_tracker_t ACT_TRACK;
 
-void ActivityAddEntry(activity_t* act){
+int ActivityAddEntry(activity_t* act){
   ACT_TRACK.entries[ACT_TRACK.head] = *act;
   ACT_TRACK.head = (ACT_TRACK.head + 1) % ACT_TRACK.cap;
   
@@ -15,37 +15,28 @@ void ActivityAddEntry(activity_t* act){
   entry->event = i->event;
   entry->ctx = i->ctx;
   */
+
+  return ACT_TRACK.head;
 }
 
-activity_t* InitActivity(EventType event, interaction_t* i){
+activity_t* InitActivity(EventType event, interaction_t* inter){
   activity_t* act = calloc(1, sizeof(activity_t));
 
-  param_t params[IM_DONE][IP_DONE];
-  switch (event){
-    case EVENT_COMBAT:
-    case EVENT_COMBAT_ACTIVITY:
-      combat_t* com = i->ctx;
-      for(int i = 0; i < IM_DONE; i++)
-        for (int j = 0; j < IP_DONE; j++)
-          params[i][j] = com->cctx[i]->ctx[j];
-      break;
-  }
-
-  //act->tokens[TOKE_AGG] = params[IM_AGGR][IP_OWNER];
-  //act->tokens[TOKE_TAR] = params[IM_TAR][IP_OWNER];
-
-  local_ctx_t* a_ctx = ParamReadCtx(&params[IM_AGGR][IP_OWNER]);
+  activity_format_t a = ACT_LOG_FMT[act->kind];
+  combat_t* com = inter->ctx;
+ 
+  act->str_len = strlen(a.fmt);
+  local_ctx_t* a_ctx = ParamReadCtx(&com->cctx[IM_AGGR]->ctx[IP_OWNER]);
   act->tokens[TOKE_AGG] = a_ctx->params[PARAM_NAME];
 
-  local_ctx_t* t_ctx = ParamReadCtx(&params[IM_TAR][IP_OWNER]);
+  act->str_len += a_ctx->params[PARAM_NAME].size;
+  local_ctx_t* t_ctx = ParamReadCtx(&com->cctx[IM_TAR]->ctx[IP_OWNER]);
   act->tokens[TOKE_TAR] = t_ctx->params[PARAM_NAME];
 
 
   for(int i = 0; i < IM_DONE; i++){
-    for (int j = 0;  j < IP_DONE; j++){
-      if (params[i][j].type_id == DATA_NONE)
-        continue;
-
+    for (int j = 0;  j < TOKE_ALL; j++){
+   
       switch(j){
         case IP_OWNER:
           break;
@@ -55,9 +46,11 @@ activity_t* InitActivity(EventType event, interaction_t* i){
 
           break;
         case IP_DMG:
-          ability_sim_t* sim = ParamRead(&params[i][j],ability_sim_t);
-          char* sch_str = strdup(DAMAGE_STRING[sim->d_type]);
-          act->tokens[TOKE_SCHOOL] = ParamMake(DATA_STRING, sizeof(sch_str), sch_str);
+          if(i!=IM_AGGR)
+            continue;
+          ability_sim_t* sim = ParamRead(&com->cctx[i]->ctx[j],ability_sim_t);
+          const char* sch_str = DAMAGE_STRING[sim->d_type];
+          act->tokens[TOKE_SCHOOL] = ParamMake(DATA_STRING, strlen(sch_str)+1, sch_str);
           act->tokens[TOKE_DMG] = ParamMake(DATA_INT, sizeof(int), &sim->final_dmg);
           break;
         case IP_ACTION: 
@@ -75,9 +68,9 @@ void OnActivityEvent(EventType event, void* data, void* user){
 
   activity_t* act = InitActivity(event, i);
 
-  ActivityAddEntry(act);
+  int pos = ActivityAddEntry(act);
 
-  WorldEvent(EVENT_COMBAT_ACTIVITY, act, i->uid);
+  WorldEvent(EVENT_COMBAT_ACTIVITY, act, pos);
 }
 
 activity_t* ActivitiesGetEntryAt(int pos){
@@ -94,6 +87,12 @@ element_value_t* ActivitiesFetch(element_value_t* e, void* context){
 
   activity_t* act = ActivitiesGetEntryAt(*pos);
 
+  if(!act)
+    return NULL;
+
+  if(e->char_len < act->str_len)
+    e->char_len = act->str_len;
+
   ParseActivity(act, e->c, e->char_len); 
 }
 
@@ -108,8 +107,10 @@ int ActivitiesAssignValues(element_value_t** fill, int pos){
   ln->type = VAL_CHAR;
   ln->c = calloc(1, sizeof(char)*MAX_LINE_LEN);
 
-  ln->rate = FETCH_EVENT;
-  ln->context = &pos;
+  ln->rate = FETCH_UPDATE;
+  int* ctx = malloc(sizeof(int));
+  *ctx = pos;
+  ln->context = ctx;
   ln->get_val = ActivitiesFetch;
 
   fill[0] = ln;
@@ -169,12 +170,15 @@ void OnCombatStep(interaction_t* i, InteractResult res){
   combat_t *combat = i->ctx;
   uint64_t agg_id = combat->cctx[IM_AGGR]->ctx[IP_OWNER].gouid;
   uint64_t tar_id = combat->cctx[IM_TAR]->ctx[IP_OWNER].gouid;
-  WorldEvent(EVENT_COMBAT_ACTIVITY, i, agg_id);
+  WorldEvent(EVENT_COMBAT, i, agg_id);
   if(agg_id != tar_id)
-    WorldEvent(EVENT_COMBAT_ACTIVITY, i, tar_id);
+    WorldEvent(EVENT_COMBAT, i, tar_id);
 }
 
 interaction_t* StartCombat(ent_t* agg, ent_t* tar, ability_t* a){
+  if(!CheckEntAvailable(agg) || !CheckEntAvailable(tar))
+    return NULL;
+
   combat_t* c = calloc(1,sizeof(combat_t));
 
   c->exid = CombatMakeExID(agg, tar->gouid, a->id, WorldGetTime());
@@ -361,6 +365,11 @@ InteractResult CombatStepPhase(combat_t* c, CombatPhase phase){
 InteractResult CombatStep(interaction_t* i, InteractResult res){
   combat_t* c = i->ctx;
 
+  for (int i = 0; i < IM_DONE; i++){
+    if(c->cctx[i]->ctx[IP_OWNER].type_id == DATA_NONE)
+      return IR_DONE;
+  }
+
   switch (res){
     case IR_FAIL:
     case IR_CRITICAL_FAIL:
@@ -395,7 +404,8 @@ InteractResult CombatStep(interaction_t* i, InteractResult res){
       break;
   }
 
-  OnCombatStep(i, res);
+  if(c->result == IR_DONE)
+    OnCombatStep(i, res);
 
   return c->result;
 }

@@ -65,7 +65,7 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
       ui_element_t* c = e->children[j];
       for(int k = 0; k < PARAM_ALL; k++){
         if(d.params[j][k] == PARAM_NONE)
-          break;
+          continue;
 
         c->params[c->num_params++] = d.params[j][k];
       }
@@ -312,7 +312,7 @@ void ElementResize(ui_element_t *e){
   e->bounds.height = e->height+ oheight+cheights;
 
   UIAlignment align = e->align;
-  if(e->owner){
+  if(e->owner && e->owner->layout != LAYOUT_FREE){
     xinc = e->owner->bounds.x;
     yinc = e->owner->bounds.y;
     centerx = e->owner->bounds.x + e->owner->bounds.width/2;
@@ -328,6 +328,8 @@ void ElementResize(ui_element_t *e){
   e->bounds.x = 0;
   if(align & ALIGN_RIGHT)
     e->bounds.x = e->owner->bounds.x + e->owner->bounds.width - e->bounds.width;
+  if(align & ALIGN_TOP)
+    DO_NOTHING();
   //xinc += omarginx;
   //yinc += omarginy;
 
@@ -716,6 +718,8 @@ bool ElementShowContext(ui_element_t* e){
   if(e->set_val){
     e->value = e->set_val(e, e->ctx);
     e->sync_val = ElementSyncVal;
+
+    ElementSetState(e, ELEMENT_SHOW);
   }
 
   return (e->ctx == NULL);
@@ -860,12 +864,10 @@ element_value_t* GetContextName(ui_element_t* e, void* context){
 }
 
 element_value_t* GetActivityEntry(ui_element_t* e, void* context){
-  if(context == NULL)
-    return NULL;
-
   element_value_t *ev = calloc(1,sizeof(element_value_t));
   ev->rate = FETCH_EVENT;
 
+  e->ctx = player;
   ev->type = VAL_LN;
 
   ev->num_ln = SetActivityLines(ev->l, e->spacing);
@@ -873,8 +875,17 @@ element_value_t* GetActivityEntry(ui_element_t* e, void* context){
   return ev;
 }
 
+void UILogEvent(EventType event, void* data, void* user){
+  activity_t* act = data;
+  ui_element_t* e = user;
+  //e->ctx = act;
+  if(ElementSetState(e, ELEMENT_IDLE))
+    UISyncElement(e, FETCH_EVENT);
+  
+}
+
 bool ElementActivityContext(ui_element_t* e){
-  WorldSubscribe(EVENT_COMBAT_ACTIVITY, UIEventActivate, e);
+  WorldSubscribe(EVENT_COMBAT_ACTIVITY, UILogEvent, e);
 
   return true;
 }

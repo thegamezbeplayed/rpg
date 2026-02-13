@@ -8,7 +8,7 @@
 
 #define MAX_LINE_ITEMS 12
 #define MAX_LINE_VAL 4
-#define MAX_LINE_LEN 128
+#define MAX_LINE_LEN 256
 #define MAX_SUB_ELE 16
 #define MAX_ELEMENTS 64
 #if defined(PLATFORM_ANDROID)
@@ -43,9 +43,9 @@
 #define FIXED_TOOL_TIP        (Vector2){96, 24}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){0, 1080}
+#define UI_PANEL_BOT (Vector2){48, 910}
 
-#define UI_LOG_HOR (Vector2){96, 540}
+#define UI_LOG_HOR (Vector2){540, 128}
 
 #define LIST_LEFT_HAND_PAD 20
 #define LIST_RIGHT_HAND_PAD 8
@@ -285,6 +285,7 @@ static void UIEventActivate(EventType event, void* data, void* user){
   e->ctx = ctx;
   ElementSetState(e, ELEMENT_IDLE);
 }
+void UILogEvent(EventType event, void* data, void* user);
 
 typedef struct ui_menu_s{
   ui_element_t  *element;
@@ -362,6 +363,12 @@ typedef enum{
   TOKE_ALL,
 }ParseToken;
 
+typedef struct {
+    const char* name;
+    ParseToken  token;
+} token_lookup_t;
+
+extern token_lookup_t TOKEN_TABLE[TOKE_ALL];
 const char* ParseEntityToken(param_t);
 const char* ParseResult(param_t p, InteractResult);
 
