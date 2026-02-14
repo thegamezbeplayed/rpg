@@ -393,16 +393,34 @@ int SetCtxDetails(local_ctx_t* ctx , line_item_t** li, const char fmt[PARAM_ALL]
   return count;
 }
 
-int SetActivityLines(line_item_t** li, int pad[UI_POSITIONING]){
+int SetActivityLines(element_value_t* ev, int pad[UI_POSITIONING]){
   char* fmt = "%s";
-  int i = 0;
-  for (i; i < MAX_LINE_ITEMS; i++){
-    element_value_t* base[MAX_LINE_VAL];
-    int items = ActivitiesAssignValues(base, i);
-    li[i] = InitLineItem(base, items, fmt);
-  }
+  element_value_t* base[MAX_LINE_VAL];
 
-  return i;
+  int *pos = ev->context;
+  int items = ActivitiesAssignValues(base, *pos);
+  ev->l[0] = InitLineItem(base, items, fmt);
+
+  int des_len = 128;
+  int p_left = pad[UI_PADDING_LEFT];
+  int p_right = pad[UI_PADDING_RIGHT];
+
+  PrintSyncLine(ev->l[0],FETCH_ONCE);
+  const char* ln = TextFormatLineItem(ev->l[0]);
+  TraceLog(LOG_INFO, "MEASURE: %s", ln);
+
+  Vector2 size = MeasureTextEx(ui.font, ln, ui.text_size, ui.text_spacing);
+  if(size.x > des_len){
+    int space = size.x - des_len;
+    p_right += space/2;
+    //p_left += space/2;
+
+  }
+  ev->l[0]->r_wid = size.x + p_right;
+  ev->l[0]->r_hei = size.y;
+
+
+  return 1;
 }
 
 int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool combo){
@@ -476,7 +494,12 @@ char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]){
   char end_ln[16];
   RepeatChar(end_ln, sizeof(end_ln), '\n', p_bot);
   RepeatChar(start_ln, sizeof(start_ln), '\n', p_top);
-  for( int i = 0; i < ev->num_ln; i++){
+  for( int n = 0; n < ev->num_ln; n++){
+
+    int i = ev->reverse
+      ? (ev->num_ln - 1 - n)
+      : n;
+
     const char* ln = TextFormatLineItem(ev->l[i]);
     strcat(out,start_ln);
     strcat(out,ln);

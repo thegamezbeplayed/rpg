@@ -166,7 +166,7 @@ void ScreenApplyContext(local_ctx_t* ctx[SCREEN_CTX_ALL]){
       ctx[i] = mousectrl.ctx[i];
 }
 
-local_ctx_t* ScreenSelectContext(void*){
+void* ScreenSelectContext(void*){
   return mousectrl.ctx[SCREEN_CTX_TAR];
 }
 

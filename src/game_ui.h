@@ -43,9 +43,10 @@
 #define FIXED_TOOL_TIP        (Vector2){96, 24}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){48, 910}
+#define UI_PANEL_BOT (Vector2){48, 832}
 
 #define UI_LOG_HOR (Vector2){540, 128}
+#define LABEL_LOG (Vector2){508, 12}
 
 #define LIST_LEFT_HAND_PAD 20
 #define LIST_RIGHT_HAND_PAD 8
@@ -169,7 +170,7 @@ element_value_t* StatGetPretty(element_value_t* self, void* context);
 element_value_t* SkillGetPretty(element_value_t* self, void* context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
 int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
-int SetActivityLines(line_item_t**, int pad[UI_POSITIONING]);
+int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
 char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]);
 typedef struct ui_element_s ui_element_t;
@@ -186,23 +187,25 @@ typedef element_value_t* (*ElementSetValue)(ui_element_t* e, void* context);
 
 struct element_value_s{
   FetchRate   rate;
-    ValueType type;
-    union {
-        int   *i;
-        float *f;
-        char*  c;
-        line_item_t* l[MAX_LINE_ITEMS];
-    };
+  ValueType type;
+  union {
+    int   *i;
+    float *f;
+    char*  c;
+    line_item_t* l[MAX_LINE_ITEMS];
+  };
   size_t            char_len, num_ln, text_len, text_hei;
   void*             context;
+  bool              reverse;
   ElementFetchValue get_val;
 };
 
 typedef void (*ElementValueSync)(ui_element_t* e, FetchRate poll);
 
-typedef local_ctx_t* (*ElementDataContext)(void*);
-local_ctx_t* ElementGetOwnerContext(void*);
-local_ctx_t* ElementGetScreenSelection(void* p);
+typedef void* (*ElementDataContext)(void*);
+void* ElementGetOwnerContext(void*);
+void* ElementGetScreenSelection(void* p);
+void* ElementIndexContext(void* p);
 bool ElementScreenContext(ui_element_t* e);
 bool ElementActivityContext(ui_element_t* e);
 
@@ -353,12 +356,28 @@ static state_change_requirement_t ELEM_STATE_REQ[ELEMENT_DONE] = {
 };
 
 typedef enum{
+  NARRATE_FIRST,
+  NARRATE_SECOND,
+  NARRATE_THIRD,
+}Narrator;
+
+typedef enum{
+  TENSE_PAST,
+  TENSE_PRESENT,
+//  TENSE_FUTURE,
+  TENSE_ALL
+}NarrativeTense;
+
+typedef enum{
+  TOKE_ID,
   TOKE_DMG,
   TOKE_TAR,
   TOKE_AGG,
   TOKE_WHO,
   TOKE_ENV,
   TOKE_RES_SUFF,
+  TOKE_ATK,
+  TOKE_ACT,
   TOKE_SCHOOL,
   TOKE_ALL,
 }ParseToken;

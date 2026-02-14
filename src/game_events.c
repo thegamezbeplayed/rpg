@@ -253,7 +253,7 @@ void EventEmit(event_bus_t* bus, event_t* e){
     if (bus->subs[i].event != e->type)
       continue;
 
-    if (bus->subs[i].uid != 0 
+    if (bus->subs[i].uid != -1 
        && bus->subs[i].uid != e->iuid)
       continue;
 
@@ -1104,6 +1104,17 @@ int LocalAddAggro(local_table_t* table, ent_t* source, int threat_gain, float mu
   WorldEvent(EVENT_AGGRO, source, table->owner->gouid);
 
   return ctx->aggro->challenge;
+}
+
+bool LocalContextCheck(local_ctx_t* ctx){
+  switch(ctx->other.type_id){
+    case DATA_ENTITY:
+      return CheckEntAvailable(ctx->other.data);
+      break;
+    default:
+      return false;
+      break;
+  }
 }
 
 int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_t filter, GameObjectParam type, ParamCompareFn fn){

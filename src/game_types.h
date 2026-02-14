@@ -347,7 +347,9 @@ void EntActionsTaken(stat_t* self, float old, float cur);
 local_ctx_t* EntFindLocation(ent_t* e, local_ctx_t* other, Interactive method);
 
 bool EntCheckRange(ent_t* e, decision_t* d);
-
+static ent_t* EntLastHitBy(ent_t* e){
+  return e->last_hit_by;
+}
 int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]);
 void DamageEvent(EventType ev, void* edata, void* udata);
 void EntRender(ent_t* e);

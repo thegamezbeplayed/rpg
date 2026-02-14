@@ -61,7 +61,13 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
     }
 
     for (int j = 0; j < d.num_children; j++){
-      ElementAddChild(e, InitElementByName(d.kids[j], m, e));
+      const char* c_name;
+      if (d.kids[j][0] =='\0')
+        c_name = d.kids[0];
+      else
+        c_name = d.kids[j];
+
+      ElementAddChild(e, InitElementByName(c_name, m, e));
       ui_element_t* c = e->children[j];
       for(int k = 0; k < PARAM_ALL; k++){
         if(d.params[j][k] == PARAM_NONE)
@@ -207,7 +213,7 @@ void ElementAddChild(ui_element_t *o, ui_element_t* c){
 }
 
 float ElementGetHeightSum(ui_element_t *e){
-  if(e->state < ELEMENT_IDLE)
+  if(e->state < ELEMENT_LOAD)
     return 0;
 
   float height = e->bounds.height;// + e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_TOP];
@@ -272,6 +278,8 @@ void ElementResize(ui_element_t *e){
   float oheight = omarginy; 
   float cwidths =0, cheights= 0;
 
+  if(e->num_children == 12)
+    DO_NOTHING();
 
   for(int i = 0; i<e->num_children; i++){
     if(e->children[i]->align & ALIGN_OVER){
@@ -337,23 +345,20 @@ void ElementResize(ui_element_t *e){
   if(e->owner){
     layout = e->owner->layout;
       paddingx = e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_LEFT];
-      paddingy = e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_TOP];
+    paddingy = (e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_BOT]);
   }
 
   Rectangle prior = RectPos(Vector2XY(xinc/ScreenSized(SIZE_SCALE),yinc),RECT_ZERO);
   if(e->index > 0){
     prior = e->owner->children[e->index-1]->bounds;
     paddingx += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_RIGHT];
-    paddingy += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_BOT];
+    paddingy += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_TOP];
 
   }
 
   switch(layout){
     case LAYOUT_VERTICAL:
-      if(e->index > 0)
-        yinc = omarginy+prior.y + prior.height;
-      else
-        yinc += paddingy;
+        yinc = omarginy+prior.y + prior.height + paddingy;
       break;
     case LAYOUT_HORIZONTAL:
       if(e->index > 0 )
@@ -489,7 +494,7 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
       ElementSetState(e,ELEMENT_TOGGLE);
       break;
   }
-
+  
   for(int i = 0; i<e->num_children; i++)
     UISyncElement(e->children[i], poll);
 }
@@ -579,6 +584,8 @@ bool ElementSyncOwnerContext(ui_element_t* e){
 bool ElementLoadChildren(ui_element_t* e){
   for (int i = 0; i < e->num_children; i++)
     ElementSetState(e->children[i], ELEMENT_LOAD);
+
+  ElementResize(e);
 }
 
 bool ElementActivateChildren(ui_element_t* e){
@@ -715,8 +722,8 @@ bool ElementSyncContext(ui_element_t* e){
 }
 
 bool ElementShowContext(ui_element_t* e){
-  if(e->set_val){
-    e->value = e->set_val(e, e->ctx);
+  if(e->value){
+    //e->value = e->set_val(e, e->ctx);
     e->sync_val = ElementSyncVal;
 
     ElementSetState(e, ELEMENT_SHOW);
@@ -867,10 +874,12 @@ element_value_t* GetActivityEntry(ui_element_t* e, void* context){
   element_value_t *ev = calloc(1,sizeof(element_value_t));
   ev->rate = FETCH_EVENT;
 
-  e->ctx = player;
+  ev->context = e->ctx;
   ev->type = VAL_LN;
 
-  ev->num_ln = SetActivityLines(ev->l, e->spacing);
+  ev->num_ln = SetActivityLines(ev, e->spacing);
+
+  ElementValueSyncSize(e, ev);
 
   return ev;
 }
@@ -878,15 +887,16 @@ element_value_t* GetActivityEntry(ui_element_t* e, void* context){
 void UILogEvent(EventType event, void* data, void* user){
   activity_t* act = data;
   ui_element_t* e = user;
-  //e->ctx = act;
   if(ElementSetState(e, ELEMENT_IDLE))
     UISyncElement(e, FETCH_EVENT);
   
 }
 
 bool ElementActivityContext(ui_element_t* e){
-  WorldSubscribe(EVENT_COMBAT_ACTIVITY, UILogEvent, e);
+  WorldTargetSubscribe(EVENT_COMBAT_ACTIVITY, UILogEvent, e, e->index);
 
+  e->ctx = &e->index;
+  e->value = e->set_val(e, e->ctx);
   return true;
 }
 
@@ -896,7 +906,7 @@ bool ElementScreenContext(ui_element_t* e){
   return ui.contexts[SCREEN_CTX_HOVER];
 }
 
-local_ctx_t* ElementGetOwnerContext(void* p){
+void* ElementGetOwnerContext(void* p){
   ui_element_t* c = p; 
 
   if(!c->owner)
@@ -909,15 +919,16 @@ local_ctx_t* ElementGetOwnerContext(void* p){
   return c->owner->ctx;
 }
 
-
-local_ctx_t* ElementGetScreenSelection(void* p){
+void* ElementIndexContext(void* p){
    ui_element_t* e = p;
 
-  return ui.contexts[SCREEN_CTX_HOVER];
+   return &e->index;
 
 }
 
-void UIEventLogEntry(EventType event, void* data, void* user){
-  element_value_t* e = user;
+void* ElementGetScreenSelection(void* p){
+   ui_element_t* e = p;
+
+  return ui.contexts[SCREEN_CTX_HOVER];
 
 }

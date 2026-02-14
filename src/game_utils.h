@@ -44,6 +44,24 @@ typedef struct{
   param_t   *info;
 }debug_info_t;
 
+static param_t ParamCopyObj(DataType type, game_object_uid_i uid, const void* src, size_t size){
+  param_t o;
+  o.type_id = type;
+  o.size = size;
+  o.gouid = uid;
+
+  if (src && size > 0)
+  {
+    o.data = malloc(size);
+    memcpy(o.data, src, size);
+  }
+  else
+  {
+    o.data = NULL;
+  }
+
+  return o;
+}
 
 static param_t ParamMakeObj(DataType type, game_object_uid_i uid, void* src) {
   param_t o;
@@ -339,6 +357,7 @@ typedef struct{
 local_table_t* InitLocals(ent_t* e, int cap);
 local_ctx_t* MakeLocalContext(local_table_t* s, param_t* e, Cell p);
 void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx);
+bool LocalContextCheck(local_ctx_t* ctx);
 void LocalSyncPos(EventType, void* e, void* u);
 void LocalSync(local_table_t* s, bool sort);
 void LocalSyncCtx(local_table_t* s, local_ctx_t*);

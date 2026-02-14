@@ -8,7 +8,11 @@
 #define TREAT_RUN_MASK (TREAT_AVOID | TREAT_FEAR)
 
 typedef enum{
+  ACT_NONE,
   ACT_ATTACK,
+  ACT_MISS,
+  ACT_KILL,
+  ACT_END,
   ACT_ALL,
 }Activity;
 

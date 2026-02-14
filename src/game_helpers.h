@@ -1222,5 +1222,4 @@ static define_natural_armor_t* GetNaturalArmor(uint64_t body){
 
   return NULL;
 }
-
 #endif

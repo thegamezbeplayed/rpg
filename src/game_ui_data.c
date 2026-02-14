@@ -11,7 +11,7 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
   {"HUD_MENU_DOM", VECTOR2_ZERO, FIXED_MENU_FULL, UI_PANEL, ELEMENT_NONE, 
     LAYOUT_FREE, ALIGN_LEFT,
     .spacing = {
-      [UI_MARGIN_TOP] = 8, [UI_MARGIN_LEFT] = 6,
+      [UI_MARGIN_TOP] = 32, [UI_MARGIN_LEFT] = 6,
       [UI_PADDING_TOP] = 12, [UI_PADDING_LEFT] = 8
     },
     .cb = {
@@ -131,32 +131,53 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     NULL, NULL, 
     {
       [ELEMENT_IDLE] = ElementLoadChildren,
-      [ELEMENT_SHOW] = ElementSetContext,
+      [ELEMENT_SHOW] = ElementShowChildren,
     },
     .num_children = 1, .kids = {
       "COMBAT_LOG",
     },
   },
-  {"COMBAT_LOG", VECTOR2_ZERO, UI_LOG_HOR, UI_LABEL, ELEMENT_NONE,
-    LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_BOT, GetActivityEntry, NULL,
+  {"COMBAT_LOG", VECTOR2_ZERO, UI_LOG_HOR, UI_PANEL, ELEMENT_NONE,
+    LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_BOT, NULL, NULL,
+    .cb = {
+      [ELEMENT_LOAD] = ElementLoadChildren,
+    },
+    .num_children = MAX_SUB_ELE, .kids = {
+        "COMBAT_TEXT",
+    },
+    .spacing = {
+      [UI_PADDING_BOT] = 8
+    }
+  },
+  {"COMBAT_TEXT", VECTOR2_ZERO, LABEL_LOG, UI_LABEL,
+   ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT,
+   GetActivityEntry, ElementIndexContext,
     .cb = {
       [ELEMENT_LOAD] = ElementActivityContext,
       [ELEMENT_IDLE] = ElementShowContext,
     }
-  }  
-};
-
-activity_format_t ACT_LOG_FMT[ACT_ALL] = {
-  {ACT_ATTACK, "{AGG} hits {TAR} for {DMG} {SCHOOL} damage",
   }
 };
 
+activity_format_t ACT_LOG_FMT[ACT_ALL] = {
+  {ACT_NONE},
+  {ACT_ATTACK, NARRATE_FIRST, TENSE_PRESENT,
+    "{AGG} {ACT} {TAR} for {DMG} {SCHOOL} damage"},
+  {ACT_MISS, NARRATE_FIRST, TENSE_PRESENT,
+    "{WHO} {ATK} misses {TAR}"},
+  {ACT_KILL, NARRATE_FIRST, TENSE_PRESENT,
+    "{AGG} has slain {TAR}"}
+};
+
 token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
+  {"ID",     TOKE_ID},
   {"AGG",    TOKE_AGG},
   {"TAR",    TOKE_TAR},
   {"DMG",    TOKE_DMG},
   {"WHO",    TOKE_WHO},
   {"ENV",    TOKE_ENV},
   {"RES",    TOKE_RES_SUFF},
+  {"ATK",    TOKE_ATK},
+  {"ACT",    TOKE_ACT},
   {"SCHOOL", TOKE_SCHOOL},
 };

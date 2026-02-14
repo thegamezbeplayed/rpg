@@ -29,11 +29,8 @@ void WorldTargetSubscribe(EventType event, EventCallback cb, void* data, uint64_
 
 }
 void WorldSubscribe(EventType event, EventCallback cb, void* data){
-
-  EventSubscribe(game_process.bus, event, cb, data);
-}
-local_ctx_t* WorldPlayerContext(void*){
-  return WorldGetContext(DATA_ENTITY, player->gouid);
+  event_sub_t* sub = EventSubscribe(game_process.bus, event, cb, data);
+  sub->uid = -1;
 }
 
 ent_t* WorldPlayer(void){
@@ -61,7 +58,7 @@ void GameSetState(GameState state){
 void GameReady(void){
   WorldInitOnce();
   game_process.state[SCREEN_GAMEPLAY] = GAME_READY;
-  InitActivities(64);
+  InitActivities(MAX_SUB_ELE);
 }
 
 void AddFloatingText(render_text_t *rt){

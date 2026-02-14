@@ -150,7 +150,10 @@ void WorldApplyLocalContext(ent_t* e);
 local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid);
 local_ctx_t* WorldContextAtPos(DataType type, Vector2);
 void WorldContextChange(ObjectCategory cat, game_object_uid_i gouid);
-local_ctx_t* WorldPlayerContext(void*);
+static void* WorldPlayerContext(void*){
+  return WorldGetContext(DATA_ENTITY, player->gouid);
+
+}
 
 typedef struct world_s{
   map_grid_t    *map;
