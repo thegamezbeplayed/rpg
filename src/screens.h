@@ -15,10 +15,11 @@ static float SPRITE_SCALE = 1.0f;
 static float UI_SCALE = 1.0f;
 
 typedef struct{
-  Camera2D  *camera;
-  Cell      size,pos,target;
-  Rectangle view,bounds;
-  bool      mode;
+  Camera2D        *camera;
+  Cell            size,pos,target;
+  Rectangle       view,bounds;
+  bool            mode;
+  RenderTexture2D render;
 }camera_t;
 
 void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target);
@@ -60,15 +61,18 @@ typedef enum{
 typedef enum{
   AREA_PLAY,
   AREA_UI,
+  AREA_SCREEN,
+  AREA_RENDERGL,
   AREA_ALL
 }ScreenArea;
 
 typedef float (*PlaySizeSync)(PlaySizes);
 typedef struct{
-  Rectangle      area[AREA_ALL];
-  float          sizes[SIZE_ALL];
-  PlaySizeSync   get_size;
-  sprite_t*      screen_icons[ELEMENT_COUNT];
+  Rectangle       area[AREA_ALL];
+  float           sizes[SIZE_ALL];
+  PlaySizeSync    get_size;
+  sprite_t*       screen_icons[ELEMENT_COUNT];
+  RenderTexture2D view;
 }play_area_t;
 
 void ScreenApplyContext(local_ctx_t* ctx[SCREEN_CTX_ALL]);

@@ -319,7 +319,7 @@ void ActionPoolRestart(action_pool_t* p){
   p->valid = false;
   for (int i = 0; i < ACT_DONE; i++){
     p->queues[i]->charges = p->queues[i]->allowed;
-    p->queues[i]->status = ACT_STATUS_DONE;
+    p->queues[i]->status = ACT_STATUS_NONE;
   }
 
 }
@@ -536,6 +536,7 @@ action_t* ActionForPhase(action_queue_t* q, TurnPhase phase){
     if(a->status > ACT_STATUS_QUEUED)
       continue;
     q->charges--;
+    q->status = ACT_STATUS_NEXT;
     initiative_t* init = a->owner->control->speed[a->type];
     a->initiative = RollInitiative(init);
     return &q->entries[i];
@@ -588,6 +589,9 @@ ActionStatus AddAction(action_queue_t *q, action_t* t){
 ActionStatus QueueAction(action_pool_t *p, action_t* t){
   action_queue_t* q = p->queues[t->cat];
 
+  if(q->status > ACT_STATUS_QUEUED)
+    return ACT_STATUS_WAIT;
+
   action_t* dupe = ActionFindByID(q,t);
 
   if(dupe){
@@ -600,8 +604,6 @@ ActionStatus QueueAction(action_pool_t *p, action_t* t){
 
   if(!ActionQueueEnsureCap(q))
     return ACT_STATUS_FULL;
-
-
   
   return AddAction(q, t);
 }

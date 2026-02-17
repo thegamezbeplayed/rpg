@@ -565,6 +565,7 @@ typedef enum{
   ACT_STATUS_FULL,
   ACT_STATUS_BAD_ATTACK,
   ACT_STATUS_INVALID,
+  ACT_STATUS_WAIT,
   ACT_STATUS_DONE
 }ActionStatus;
 
@@ -1045,4 +1046,12 @@ typedef enum{
   SOC_HIGH,
   SOC_DONE
 }SocietyType;
+
+typedef enum{
+  ICON_HELM_COM,
+  ICON_MACE_COM,
+  ICON_BAND,
+  ICON_POT_FULL,
+  ICON_ALL,
+}Icons;
 #endif

@@ -4,6 +4,7 @@
 #include "game_tools.h"
 #include "game_process.h"
 #include "game_ui.h"
+#include "game_strings.h"
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
@@ -52,6 +53,8 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
       .height   = d.size.y
     };
 
+    strcpy(e->name ,d.identifier);
+    replace_char(e->name, '_', ' ');
     for (int j = 0; j < UI_POSITIONING; j++)
       e->spacing[j] = d.spacing[j];
 
@@ -124,7 +127,7 @@ void InitUI(void){
   GuiSetStyle(DEFAULT,TEXT_ALIGNMENT_VERTICAL,TEXT_ALIGN_TOP);
   GuiSetStyle(LABEL,TEXT_ALIGNMENT,TEXT_ALIGN_LEFT);
   GuiSetStyle(DEFAULT,BORDER_COLOR_NORMAL,ColorToInt(WHITE));
-  //GuiSetStyle(STATUSBAR,BASE_COLOR_NORMAL,ColorToInt(Fade(WHITE,0.5f)));
+  GuiSetStyle(TEXTBOX,TEXT_SIZE,8);
 
   for (int i = 0; i< MENU_DONE; i++)
     ui.menu_key[i] = KEY_NULL;
@@ -358,15 +361,16 @@ void ElementResize(ui_element_t *e){
 
   switch(layout){
     case LAYOUT_VERTICAL:
-        yinc = omarginy+prior.y + prior.height + paddingy;
+      xinc += omarginx;
+      yinc = omarginy+prior.y + prior.height + paddingy;
       break;
     case LAYOUT_HORIZONTAL:
       if(e->index > 0 )
-        xinc = omarginx + prior.x + prior.width;
+        xinc = paddingx + prior.x + prior.width;
       else if(e->type == UI_TOOL_TIP)
         xinc += e->owner->width + omarginx;
       else
-        xinc += paddingx;
+        xinc += omarginx;
       break;
     case LAYOUT_GRID:
       if(!e->owner)
@@ -458,13 +462,18 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
 
   switch(e->type){
     case UI_BUTTON:
-      state = clicked = GuiButton(e->bounds,e->text);
+      state = GuiButton(e->bounds,e->text);
+      if(state!=0)
+        DO_NOTHING();
       break;
     case UI_PANEL:
       state = GuiPanel(e->bounds, e->text);
       break;
     case UI_LABEL:
       state = GuiLabel(e->bounds,e->text);
+      break;
+    case UI_TEXT:
+      state = GuiTextBox(e->bounds, e->text, 8, false);
       break;
     case UI_TOOL_TIP:
       active_tooltip = e;
@@ -552,12 +561,36 @@ bool ElementSetTooltip(ui_element_t* e){
   GuiEnableTooltip();
 }
 
+bool ElementTabToggle(ui_element_t* e){
+  ElementSetState(e->ctx, ELEMENT_TOGGLE);
+}
 
 bool ElementToggleTip(ui_element_t* e){
   return true;
 }
 
 bool ElementToggle(ui_element_t* e){
+  switch(e->prior){
+    case ELEMENT_HIDDEN:
+      return ElementSetState(e, ELEMENT_ACTIVATE);
+      break;
+    default:
+      return ElementSetState(e, ELEMENT_HIDDEN);
+      break;
+  }
+}
+
+bool ElementHideSiblings(ui_element_t* e){
+  for(int i = 0; i < e->owner->num_children; i++){
+    ui_element_t* c = e->owner->children[i];
+    if(c->hash == e->hash)
+      continue;
+    ElementSetState(c, ELEMENT_HIDDEN);
+
+  }
+}
+
+bool ElementToggleChildren(ui_element_t* e){
   for(int i = 0; i < e->num_children; i++)
     ElementSetState(e->children[i], ELEMENT_TOGGLE);
 
@@ -682,7 +715,8 @@ void ElementStepState(ui_element_t* e, ElementState s){
 bool ElementSetState(ui_element_t* e, ElementState s){
   if(!ElementCanChangeState(e->state, s))
     return false;
-  
+ 
+  e->prior = e->state; 
   e->state = s;
   if(e->cb[s] && e->cb[s](e))
     ElementStepState(e,s);
@@ -835,11 +869,40 @@ element_value_t* GetContextDetails(ui_element_t* e, void* context){
     strcpy(fmt[e->params[i]], "%s");
 
   ev->num_ln = SetCtxDetails(ctx, ev->l, fmt, e->spacing, false);
-    
+
   ElementValueSyncSize(e, ev);
 
   return ev;
 
+}
+
+bool ElementSetActiveTab(ui_element_t* e){
+  for(int i = 0; i < e->num_children; i++){
+    if(!ElementSetState(e->children[i], ELEMENT_LOAD))
+      continue;
+
+    if(!ElementSetState(e->children[i], ELEMENT_IDLE))
+      continue;
+
+    if(e->children[i]->type != UI_TAB_PANEL)
+      continue;
+
+    if(!ElementSetState(e->children[i], ELEMENT_SHOW))
+      continue;
+
+    ElementShowChildren(e->children[i]);
+  }
+
+  return true;
+}
+
+element_value_t* GetElementName(ui_element_t* e, void* context){
+  ui_element_t* other = context;
+
+  strcpy(e->text, other->name);
+
+  return NULL;
+  
 }
 
 element_value_t* GetContextName(ui_element_t* e, void* context){
@@ -884,6 +947,10 @@ element_value_t* GetActivityEntry(ui_element_t* e, void* context){
   return ev;
 }
 
+element_value_t* GetContextIcon(ui_element_t* e, void* context){
+
+}
+
 void UILogEvent(EventType event, void* data, void* user){
   activity_t* act = data;
   ui_element_t* e = user;
@@ -904,6 +971,65 @@ bool ElementScreenContext(ui_element_t* e){
   WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
 
   return ui.contexts[SCREEN_CTX_HOVER];
+}
+
+void* ElementPresetContext(void* p){
+  ui_element_t* e = p; 
+
+  return e->ctx;
+}
+
+void* ElementMatchTab(void* p){
+  ui_element_t* e = p; 
+}
+
+void* ElementOwnerItemContext(void* p){
+  ui_element_t* e = p; 
+  local_ctx_t* ctx = e->owner->ctx;
+}
+
+void* ElementNiblings(void *p){
+  ui_element_t* e = p; 
+  ui_element_t* sib = NULL;
+  for(int i = 0; i < e->owner->num_children; i++){
+    if(e->owner->children[i]->hash == e->hash)
+      continue;
+
+    sib = e->owner->children[i];
+    break; 
+  }
+  if(!sib)
+    return NULL;
+
+  if(ElementSetState(sib, ELEMENT_IDLE))
+    ElementSetState(sib, ELEMENT_SHOW);
+  e->ctx = sib->children;
+
+  int count = imin(e->num_children, sib->num_children);
+  for(int i = 0; i < count; i++){
+    e->children[i]->ctx = sib->children[i];
+    if( ElementSetState(e->children[i], ELEMENT_LOAD) && i == 0)
+      ElementSetState(e->children[i], ELEMENT_ACTIVATE);
+  }
+
+  ElementSetState(e, ELEMENT_IDLE);
+}
+
+void* ElementOwnerChildren(void* p){
+  ui_element_t* e = p;
+  ui_element_t* others[e->owner->num_children - 1];
+
+  int count = 0;
+  for(int i = 0; i < e->owner->num_children; i++){
+    if(e->owner->children[i]->hash == e->hash)
+      continue;
+
+    others[count++] = e->owner->children[i];
+  }
+
+  e->ctx = others;
+  for (int i = 0; i < e->num_children; i++)
+    e->children[i]->ctx = others[i];
 }
 
 void* ElementGetOwnerContext(void* p){

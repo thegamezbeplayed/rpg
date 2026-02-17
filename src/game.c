@@ -9,8 +9,8 @@
 // Gameplay Screen Initialization logic
 void InitGameplayScreen(void){
   //camera.target = player.position;
-  InitCamera(2.0f,0.0f,VECTOR2_CENTER_SCREEN,VECTOR2_CENTER_SCREEN);
-  
+  InitCamera(2.0f,0.0f,Vector2Scale(VECTOR2_CENTER_SCREEN,0.5f),VECTOR2_CENTER_SCREEN);
+  InitPlayArea(); 
   InitGameEvents();
   InitScreenInteractive();
   MenuSetState(&ui.menus[MENU_HUD],MENU_ACTIVE);
@@ -47,6 +47,7 @@ void DrawGameplayScreen(void)
   //  if(game_process.state == GAME_LOADING)
   //  return;
   BeginDrawing();
+  ClearBackground(BLACK);
 
   ScreenCameraToggle();
 

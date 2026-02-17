@@ -1170,6 +1170,8 @@ sense_t* InitSense(ent_t* e, Senses type, int val){
   };
 
   SenseAddAttr(s);
+
+  return s;
 }
 
 skill_event_t* InitSkillEvent(skill_t* s, int cr){
@@ -1200,6 +1202,8 @@ skill_check_t* InitSkillCheck(skill_t* skill){
 
 
   sc->bonus[bonus] = MOD_CBRT;
+
+  return sc;
 }
 
 bool SkillUseSecondary(skill_t* self, int gain, InteractResult result){

@@ -590,6 +590,8 @@ typedef struct{
   int          equip_type;
   ItemProps    props;
   uint64_t     et_props;
+  Color        color;
+  Icons        icon;
 }ItemInstance;
 
 typedef struct trigger_s trigger_t;

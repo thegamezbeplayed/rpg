@@ -247,6 +247,7 @@ typedef enum{
   SHEET_ENT,
   SHEET_ENV,
   SHEET_UI,
+  SHEET_ICON,
   SHEET_ALL
 }SheetID;
 

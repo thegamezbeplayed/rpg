@@ -33,7 +33,7 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
 
   combat_t* com = inter->ctx;
 
-  if(com->current == ACT_NONE)
+  if(com->current == ACT_NONE || com->current == ACT_END)
     return NULL;
 
   act->kind = com->current;
@@ -46,12 +46,12 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
     case NARRATE_FIRST:
       if(a_ctx->gouid == player->gouid){
         const char* agg_str = "I";
-        act->tokens[TOKE_AGG] = ParamMake(DATA_STRING, strlen(agg_str)+1, agg_str);
+        act->tokens[TOKE_AGG] = ParamMakeString(agg_str);
         act->tokens[TOKE_TAR] = t_ctx->params[PARAM_NAME];
       }
       else{
         const char* tar_str = "me";
-        act->tokens[TOKE_TAR] = ParamMake(DATA_STRING, strlen(tar_str)+1, tar_str);
+        act->tokens[TOKE_TAR] = ParamMakeString(tar_str);
 
         act->tokens[TOKE_AGG] = a_ctx->params[PARAM_NAME];
       }
@@ -72,16 +72,22 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
         case IP_ITEM:
           break;
         case IP_ABILITY:
-          ability_t* abi = ParamRead(&com->cctx[i]->ctx[j], ability_t);
-          const char* abi_str = GetAbilityString(abi->id, a.tense);
+          //ability_t* abi = ParamRead(&com->cctx[i]->ctx[j], ability_t);
+          //const char* abi_str = GetAbilityString(abi->id, a.tense);
           break;
         case IP_DMG:
           if(i!=IM_AGGR)
             continue;
           ability_sim_t* sim = ParamRead(&com->cctx[i]->ctx[j],ability_sim_t);
           const char* sch_str = DAMAGE_STRING[sim->d_type];
-          act->tokens[TOKE_SCHOOL] = ParamMake(DATA_STRING, strlen(sch_str)+1, sch_str);
+          act->tokens[TOKE_SCHOOL] = ParamMakeString(sch_str);
           act->tokens[TOKE_DMG] = ParamCopyObj(DATA_INT, sim->final_dmg, &sim->final_dmg, sizeof(int));
+  
+          const char* abi_str = GetAbilityString(sim->id, a.tense);
+          act->tokens[TOKE_ACT] =  ParamMakeString( abi_str);
+          const char* abi_name = GetAbilityName(sim->id);
+
+          act->tokens[TOKE_ATK] = ParamMakeString(abi_name);
           break;
         case IP_ACTION: 
           break;
@@ -89,6 +95,10 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
     }
   }
 
+  for(int i = 0; i < TOKE_PARAM; i++){
+    const char* str = GetTokenString(i, a.perspective, a.tense);
+    act->tokens[i] = ParamMakeString(str);
+  }
   act->tokens[TOKE_ID] = ParamMake(DATA_INT, sizeof(int), &ACT_TRACK.head);
   return act;
 }
@@ -339,7 +349,20 @@ InteractResult CombatCalcHit(combat_t* c){
 
   ability_sim_t* sim = atk->sim_fn(agg,atk,tar);
   c->cctx[IM_AGGR]->ctx[IP_DMG] = ParamCopyObj(DATA_DMG, atk->id, sim, sizeof(ability_sim_t));
-  res = AbilityUse(tar,save, agg, sim);
+  switch(AbilityUse(tar,save, agg, sim)){
+    case IR_FAIL:
+      res = IR_SUCCESS;
+      break;
+    case IR_SUCCESS:
+      res = IR_FAIL;
+      break;
+    case IR_TOTAL_SUCC:
+      res = IR_CRITICAL_FAIL;
+      break;
+    case IR_CRITICAL_FAIL:
+      res = IR_TOTAL_SUCC;
+      break;
+  }
 
   return res;
 }
@@ -365,14 +388,17 @@ InteractResult CombatOnStep(combat_t* c){
   switch(step){
     case BAT_HIT:
       c->step[step] = CombatCalcHit(c);
-      if(c->step[step] < IR_ALMOST)
+      if(c->step[step] < IR_ALMOST){
         c->current = ACT_MISS;      
+        c->result = IR_DONE;
+      }
       break;
     case BAT_DMG:
       c->step[step] = CombatCalcDmg(c);
       break;
     case BAT_DONE:
-      c->step[step] = IR_DONE;
+      c->phase[COM_BATTLE] = IR_DONE;
+      return IR_DONE;
       break;
   }
 
@@ -385,8 +411,6 @@ InteractResult CombatStepPhase(combat_t* c, CombatPhase phase){
   switch(phase){
     case COM_BATTLE:
       res = CombatOnStep(c);
-      if(res == IR_DONE)
-        c->phase[phase] = IR_DONE;
       break;
     default:
       break;

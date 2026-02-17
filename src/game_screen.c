@@ -12,8 +12,6 @@ camera_t* cam;
 key_controller_t keyctrl;
 
 void InitPlayArea(void){
-  float sx = GetScreenWidth()/DESIGN_WIDTH;
-  float sy = GetScreenHeight()/DESIGN_HEIGHT;
   float scale = GetApproxDPIScale();
   SPRITE_SCALE = scale*GetApproxDPIScale();;
   TraceLog(LOG_INFO,"Render Sprite Scaling %0.2f",SPRITE_SCALE);
@@ -22,7 +20,8 @@ void InitPlayArea(void){
   play_area.sizes[SIZE_GRID] = GRID_WIDTH * scale;
   play_area.sizes[SIZE_CELL] = CELL_WIDTH * scale;
 
-  play_area.area[AREA_PLAY] = Rect(0,0,ROOM_WIDTH,ROOM_HEIGHT);
+  play_area.area[AREA_PLAY] = Rect(ROOM_WIDTH/2,ROOM_HEIGHT/2, ROOM_WIDTH, ROOM_HEIGHT);
+  play_area.area[AREA_SCREEN] = Rect(0,0, DESIGN_WIDTH, DESIGN_HEIGHT);
   play_area.area[AREA_UI] = Rect(0,0,DESIGN_WIDTH*scale,DESIGN_HEIGHT * scale);
   for(int i = 0; i < ELEMENT_COUNT; i++)
     play_area.screen_icons[i] = InitSpriteByID(i,SHEET_UI);
@@ -33,26 +32,33 @@ void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target){
   Camera2D* raycam = calloc(1,sizeof(Camera2D));
 
   raycam->offset = offset;
+  raycam->offset.y*=2;
   raycam->rotation = rot;
   raycam->zoom = zoom;
 
   cam->size = CellScale(offset,1/16);
   raycam->target = target;
 
+  float hei_disp = 0;
+  cam->bounds = Rect(offset.x, hei_disp, ROOM_WIDTH, ROOM_HEIGHT);
+  cam->view = Rect(0, 0, ROOM_WIDTH, -ROOM_HEIGHT);
+  cam->render = LoadRenderTexture(cam->bounds.width, cam->bounds.height);
   cam->target = CELL_UNSET;
   cam->camera = raycam;
 }
 
 bool ScreenCameraSetView(Cell v){
+  /*
   int vtop = v.y - cam->size.x/2;
   int vleft = v.x - cam->size.y/2;
   cam->view = Rect(vleft,vtop,cam->size.x,cam->size.y);
   cam->view = clamp_rect_to_bounds(cam->view,cam->bounds);
+  */
   return true;
 }
 
 void ScreenCameraSetBounds(Cell b){
-  cam->bounds = Rect(0,0,b.x,b.y);
+  //cam->bounds = Rect(0,0,b.x,b.y);
 }
 
 Rectangle ScreenGetCameraView(void){
@@ -62,10 +68,17 @@ Rectangle ScreenGetCameraView(void){
 void ScreenCameraToggle(void){
   cam->mode = !cam->mode;
 
-  if(cam->mode)
+  if(cam->mode){
+    BeginTextureMode(cam->render);
+    ClearBackground(BLACK); 
     BeginMode2D(*cam->camera);
-  else
+
+  }
+  else{
     EndMode2D();
+    EndTextureMode();
+    DrawTexturePro(cam->render.texture, cam->view, cam->bounds, VECTOR2_ZERO, 0, WHITE);
+  }
 }
 
 bool ScreenCameraSyncView(Cell target){
@@ -82,9 +95,6 @@ void ScreenCameraSync(Cell target){
     return;
   }
   
-  if(!ScreenCameraSyncView(target))
-    return;
-
   cam->camera->target = Vector2Lerp(cam->camera->target,vpos,0.2);
 
   cam->target = target;

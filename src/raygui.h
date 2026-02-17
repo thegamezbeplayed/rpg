@@ -2022,7 +2022,7 @@ int GuiButton(Rectangle bounds, const char *text)
     if (state == STATE_FOCUSED) GuiTooltip(bounds);
     //------------------------------------------------------------------
 
-    return result;      // Button pressed: result = 1
+    return state;      // Button pressed: result = 1
 }
 
 // Label button control

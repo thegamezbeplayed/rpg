@@ -21,6 +21,16 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(raylib)
 #include_directories(include)         # Your config.h
 add_executable(${PROJECT_NAME})
+
+target_compile_options(${PROJECT_NAME} PRIVATE
+    -fsanitize=address
+    -fno-omit-frame-pointer
+    -g
+)
+
+target_link_options(${PROJECT_NAME} PRIVATE
+    -fsanitize=address
+)
 add_subdirectory(src)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 add_subdirectory(resources)

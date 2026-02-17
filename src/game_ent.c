@@ -1233,11 +1233,12 @@ item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped){
 }
 
 bool EntAddItem(ent_t* e, item_t* item, bool equip){
-  if(InventoryAddItem(e, item)){
+  item_t* added = InventoryAddItem(e, item);
+  if(added){
     event_fuid_i fuid = EventMakeFlexID(e->gouid, 
         (flex_id_t){DATA_INT, .id = item->def->type});
-    item->fuid = fuid;
-    item->equipped = equip;
+    added->fuid = fuid;
+    added->equipped = equip;
     return true;
   }
 
@@ -2116,7 +2117,8 @@ skill_check_t* EntGetSkillPB(SkillType s, ent_t* e, local_ctx_t* ctx, Senses sen
 
   skill_check_t* sc = calloc(1,sizeof(skill_check_t));
 
-  memcpy(sc, e->skills[s]->checks, sizeof(skill_check_t));
+  if(e->skills[s]->checks)
+  *sc = *e->skills[s]->checks;
 
   switch(sen){
     case SEN_SMELL:

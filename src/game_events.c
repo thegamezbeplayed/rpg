@@ -702,9 +702,9 @@ local_ctx_t* LocalAddEnv(local_table_t* s, env_t* e, SpeciesRelate rel){
 
   uint64_t matches = ctx->resource & eats;
 
-  ctx->params[PARAM_RELATE] = ParamMake(DATA_UINT64, sizeof(uint64_t), &rel);
+  ctx->params[PARAM_RELATE] = ParamMake(DATA_UINT64, sizeof(rel), &rel);
 
-  ctx->params[PARAM_RESOURCE] = ParamMake(DATA_UINT64, sizeof(uint64_t), &matches);
+  ctx->params[PARAM_RESOURCE] = ParamMake(DATA_UINT64, sizeof(matches), &matches);
   ctx->aggro = NULL;
   return ctx;
 }
@@ -724,7 +724,7 @@ local_ctx_t* LocalAddEnt(local_table_t* s, ent_t* e, SpeciesRelate rel){
   param_t ent = ParamMakeObj(DATA_ENTITY, e->gouid, e);
   
 
-  ctx->params[PARAM_RELATE] = ParamMake(DATA_UINT64, sizeof(uint64_t), &rel);
+  ctx->params[PARAM_RELATE] = ParamMake(DATA_UINT64, sizeof(rel), &rel);
   ctx->other = ent;
   ctx->aggro = NULL;
   for(int i = 0; i < RES_DONE; i++){
@@ -814,8 +814,8 @@ aggro_t* LocalAggroByCtx(local_ctx_t* ctx){
 void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   ent_t* other = ParamReadEnt(&ctx->other);
 
-  uint64_t rel = *ParamRead(&ctx->params[PARAM_RELATE], uint64_t);
-  if((rel & SPEC_RELATE_POSITIVE) > 0 && ctx->awareness <= 0)
+  SpeciesRelate rel = *ParamRead(&ctx->params[PARAM_RELATE], SpeciesRelate);
+  if(rel == SPEC_RELATE_POSITIVE && ctx->awareness <= 0)
     ctx->awareness = f_safe_divide(1,1+ctx->dist);
 
 

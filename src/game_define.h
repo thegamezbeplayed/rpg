@@ -1859,13 +1859,6 @@ typedef struct{
 }define_race_class_t;
 
 typedef struct{
-  unsigned int  uid;
-  ItemCategory  cat;
-  int           item_id;
-  int           weight,rarity;
-}loot_t;
-
-typedef struct{
   int           ranks;
   Archetype     ladder[MAX_RANKS];
 }define_rankup_t;

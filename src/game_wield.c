@@ -19,6 +19,24 @@ item_t* InitItem(item_def_t* def){
 
   return item;
 }
+void InventoryEnsureCap(inventory_t* t){
+  if(t->count < t->cap)
+    return;
+
+ size_t new_cap = t->cap + 4;
+
+  item_t* new_items =
+    realloc(t->items, new_cap * sizeof(item_t));
+
+  if (!new_items) {
+    // Handle failure explicitly
+    TraceLog(LOG_WARNING,"==== INVENTORY ===\n REALLOC FAILED");
+  }
+
+  t->items = new_items;
+  t->cap = new_cap;
+
+}
 
 item_pool_t* InitItemPool(void) {
     item_pool_t* ip = calloc(1, sizeof(item_pool_t));
@@ -41,6 +59,7 @@ inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit){
   if(def.cap>0)
     a->cap = def.cap;
 
+  //a->cap = next_pow2_int(a->cap);
   for(int i = 0; i < ITEM_DONE; i++){
     a->limits[i] = def.limits[i];
     a->size = def.base_size;
@@ -60,12 +79,12 @@ void InventoryPoll(ent_t* e, ItemSlot id){
     return;
 
   for (int i = 0; i < inv->count; i++){
-    if(!inv->items[i]->equipped)
+    if(!inv->items[i].equipped)
       continue;
 
     for(int j = 0; j < 2; j++)
-    if(inv->items[i]->on_equip[j])
-      inv->items[i]->on_equip[j](e, inv->items[i]);
+    if(inv->items[i].on_equip[j])
+      inv->items[i].on_equip[j](e, &inv->items[i]);
   }
 }
 
@@ -75,13 +94,14 @@ void InventorySetPrefs(inventory_t* inv, uint64_t traits){
 
   choice_pool_t* items = InitChoicePool(inv->count, ChooseBest);
   for(int i = 0; i < inv->count; i++){
-    inv->items[i]->equipped = false;
-    SkillType s = inv->items[i]->def->skills[0];
-    if(!inv->items[i]->owner->skills[s])
+    item_t* item = &inv->items[i];
+    item->equipped = false;
+    SkillType s = item->def->skills[0];
+    if(!item->owner->skills[s])
       continue; 
 
-    int score = inv->items[i]->owner->skills[s]->val;
-    AddChoice(items, i, score, inv->items[i], NULL);
+    int score = item->owner->skills[s]->val;
+    AddChoice(items, i, score, item, NULL);
   }
 
   choice_t* sel = items->choose(items);
@@ -126,6 +146,7 @@ ItemSlot InventoryAddStorage(ent_t* e, item_t* i){
     slot->container = i;
     slot->space = slot->size = i->def->values[VAL_STORAGE]->val;
     slot->cap = i->def->values[VAL_QUANT]->val;
+    slot->items = calloc(slot->cap, sizeof(item_t));
     slot->limit = slot->unburdened = i->def->values[VAL_WEIGHT]->val;
     i->equipped = true;
     i->owner = e;
@@ -136,47 +157,51 @@ ItemSlot InventoryAddStorage(ent_t* e, item_t* i){
   }
 }
 
-bool InventorySlotAddItem(ent_t* e, ItemSlot id, item_t* i){
+int InventorySlotAddItem(ent_t* e, ItemSlot id, item_t* i){
   inventory_t* inv = e->inventory[id];
-  inv->items[inv->count++] = i;
 
-  i->owner = e;
-  i->equipped = inv->method[i->def->pref];
+  InventoryEnsureCap(inv);
+  item_t* item = &inv->items[inv->count++];
+  *item = *i;
 
-  inv->space-= i->def->values[VAL_STORAGE]->val;
-  inv->unburdened-= i->def->values[VAL_WEIGHT]->val;
+  item->owner = e;
+  item->equipped = inv->method[i->def->pref];
 
-  inv->current[i->def->category]++;
+  inv->space-= item->def->values[VAL_STORAGE]->val;
+  inv->unburdened-= item->def->values[VAL_WEIGHT]->val;
 
-  return true;
+  inv->current[item->def->category]++;
+
+  return inv->count-1;
     
 }
 
-bool InventoryAddItem(ent_t* e, item_t* i){
+item_t* InventoryAddItem(ent_t* e, item_t* i){
   int size   = i->def->values[VAL_STORAGE]->val;
   int weight = i->def->values[VAL_WEIGHT]->val;
   ItemSlot slot = INV_NONE;
   switch(i->def->category){
     case ITEM_CONTAINER:
       slot = InventoryAddStorage(e, i);
-      return true;
+      return e->inventory[i->def->type]->container;
       break;
     default:
       slot = InventoryGetAvailable(e, i->def->category, size, weight);
       break;
   }
   if(slot <= INV_NONE)
-    return false;
+    return NULL;
   else if (slot >= INV_DONE)
     DO_NOTHING();
 
-  return InventorySlotAddItem(e, slot, i);
+  int index = InventorySlotAddItem(e, slot, i);
+  return &e->inventory[slot]->items[index];
 }
 
 item_t* InventoryGetEquipped(ent_t* e, ItemSlot id){
   for (int i = 0; i < e->inventory[id]->count; i++){
-    if(e->inventory[id]->items[i]->equipped)
-      return e->inventory[id]->items[i];
+    if(e->inventory[id]->items[i].equipped)
+      return &e->inventory[id]->items[i];
   }
 
   return NULL;
@@ -343,6 +368,8 @@ item_def_t* DefineItem(ItemInstance data){
       break;
   }
 
+  item->sprite = InitSpriteByID(data.icon, SHEET_ICON);
+  item->sprite->slice->color = data.color;
 
   return item;
 }

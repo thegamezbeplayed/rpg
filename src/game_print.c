@@ -26,8 +26,6 @@ void StringAppendPadding(char* s, size_t padding){
   if(len >= padding)
     return;
 
-  for(size_t i = len; i < padding; i++)
-    s[i] = ' ';
 
   s[padding] = '\0';
 }
@@ -89,6 +87,8 @@ char *TextFormatLineItem(line_item_t *item) {
       // Check for '%' format token
       if (fmt[i] == '%' && fmt[i+1] != 0 && arg_index < item->num_val) {
         element_value_t *val = item->values[arg_index];
+        size_t v_len = 0;
+        size_t p_len = 0;
         size_t before = strlen(buffer);
         switch (fmt[i+1]) {
           case 'V':
@@ -102,8 +102,15 @@ char *TextFormatLineItem(line_item_t *item) {
 
           case 'S':
             if (val->type == VAL_CHAR){
-              StringAppendPadding(val->c, LIST_LEFT_HAND_PAD);  
+              v_len = strlen(val->c);
               strcat(buffer, val->c);
+              if(LIST_LEFT_HAND_PAD > v_len){
+                p_len = LIST_LEFT_HAND_PAD - v_len;
+                char l_pad[LIST_LEFT_HAND_PAD];
+                RepeatChar(l_pad, p_len+1, ' ', p_len);
+
+                strcat(buffer, l_pad);
+              }
             }
             else
               strcat(buffer, "<BAD%S>");

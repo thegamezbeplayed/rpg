@@ -130,13 +130,13 @@ typedef struct{
   bool          method[STORE_DONE];
   ent_t*        owner;
   int           count, cap, size, space, unburdened, limit;
-  item_t        **items;
+  item_t        *items;
 }inventory_t;
 
 inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit);
 void InventoryPoll(ent_t*, ItemSlot id);
 void InventorySetPrefs(inventory_t* inv, uint64_t traits);
-bool InventoryAddItem(ent_t* e, item_t* i);
+item_t* InventoryAddItem(ent_t* e, item_t*);
 item_t* InventoryGetEquipped(ent_t* e, ItemSlot id);
 extern ability_t ABILITIES[ABILITY_DONE];
 void AbilityApplyValues(ability_t* self, value_t* v);

@@ -9,7 +9,7 @@
 #define MAX_LINE_ITEMS 12
 #define MAX_LINE_VAL 4
 #define MAX_LINE_LEN 256
-#define MAX_SUB_ELE 16
+#define MAX_SUB_ELE 20
 #define MAX_ELEMENTS 64
 #if defined(PLATFORM_ANDROID)
 #define DEFAULT_MENU_SIZE (Vector2){GetScreenWidth()/2, GetScreenHeight()/2}
@@ -39,14 +39,16 @@
 #define SMALL_PANEL_THIN_SIZE (Vector2){184*UI_SCALE, 32*UI_SCALE}
 #define DEFAULT_LINE_SIZE (Vector2){2 *UI_SCALE, 64*UI_SCALE}
 
+#define FIXED_BUTTON_SIZE     (Vector2){128, 24}
 #define FIXED_LABEL_SIZE      (Vector2){96, 24}
+#define FIXED_BOX_SIZE        (Vector2){32, 32}
 #define FIXED_TOOL_TIP        (Vector2){96, 24}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){48, 832}
+#define UI_PANEL_BOT (Vector2){48, 712}
 
-#define UI_LOG_HOR (Vector2){540, 128}
-#define LABEL_LOG (Vector2){508, 12}
+#define UI_LOG_HOR (Vector2){420, 128}
+#define LABEL_LOG (Vector2){404, 12}
 
 #define LIST_LEFT_HAND_PAD 20
 #define LIST_RIGHT_HAND_PAD 8
@@ -86,8 +88,10 @@ typedef enum{
   UI_STATUSBAR,
   UI_PROGRESSBAR,
   UI_PANEL,
+  UI_TAB_PANEL,
   UI_BOX,
   UI_LINE,
+  UI_TEXT,
   UI_GAME,
   UI_TOOL_TIP,
   UI_BLANK
@@ -204,6 +208,11 @@ typedef void (*ElementValueSync)(ui_element_t* e, FetchRate poll);
 
 typedef void* (*ElementDataContext)(void*);
 void* ElementGetOwnerContext(void*);
+void* ElementMatchTab(void*);
+void* ElementOwnerItemContext(void*);
+void* ElementOwnerChildren(void*);
+void* ElementNiblings(void *);
+void* ElementPresetContext(void*);
 void* ElementGetScreenSelection(void* p);
 void* ElementIndexContext(void* p);
 bool ElementScreenContext(ui_element_t* e);
@@ -211,11 +220,12 @@ bool ElementActivityContext(ui_element_t* e);
 
 struct ui_element_s{
   uint32_t            hash;
+  char                name[MAX_NAME_LEN];
   int                 index;
   struct ui_menu_s    *menu;
   struct ui_element_s *owner;
   ElementType         type;
-  ElementState        state;
+  ElementState        state, prior;
   ElementCallback     cb[ELEMENT_DONE];
   Rectangle           bounds;
   scaling_slice_t     *texture;
@@ -265,18 +275,24 @@ bool UIHideElement(ui_element_t* e);
 bool ElementActivateChildren(ui_element_t*);
 bool ElementLoadChildren(ui_element_t*);
 bool ElementShowChildren(ui_element_t*);
+bool ElementTabToggle(ui_element_t* e);
 bool ElementSetContext(ui_element_t* e);
+bool ElementHideSiblings(ui_element_t* e);
 bool ElementSyncContext(ui_element_t* e);
 bool ElementShowContext(ui_element_t* e);
 bool ElementSyncOwnerContext(ui_element_t* e);
 bool ElementToggleTooltip(ui_element_t* e);
 bool ElementToggle(ui_element_t* e);
+bool ElementToggleChildren(ui_element_t* e);
 bool ElementShowTooltip(ui_element_t* e);
 bool ElementSetTooltip(ui_element_t* e);
+bool ElementSetActiveTab(ui_element_t* e);
 struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
 element_value_t* GetContextName(ui_element_t* e, void* context);
+element_value_t* GetContextIcon(ui_element_t* e, void* context);
+element_value_t* GetElementName(ui_element_t* e, void* context);
 element_value_t* GetActivityEntry(ui_element_t* e, void* context);
 element_value_t* GetContextStat(ui_element_t* e, void* context);
 element_value_t* GetContextDetails(ui_element_t* e, void* context);
@@ -359,6 +375,7 @@ typedef enum{
   NARRATE_FIRST,
   NARRATE_SECOND,
   NARRATE_THIRD,
+  NARRATE_ALL,
 }Narrator;
 
 typedef enum{
@@ -369,6 +386,10 @@ typedef enum{
 }NarrativeTense;
 
 typedef enum{
+  TOKE_SLAIN,
+  TOKE_MISS,
+  TOKE_OWNER,
+  TOKE_PARAM,
   TOKE_ID,
   TOKE_DMG,
   TOKE_TAR,

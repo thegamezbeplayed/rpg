@@ -72,13 +72,15 @@ static param_t ParamMakeObj(DataType type, game_object_uid_i uid, void* src) {
   return o;
 }
 
+
 static param_t ParamMake(DataType type, size_t size, const void* src) {
   param_t o;
   o.type_id = type;
   o.size = size;
+
   o.gouid = -1;
-  o.data = malloc(size);
-  memcpy(o.data, src, size);
+  o.data = malloc(o.size);
+  memcpy(o.data, src, o.size);
   return o;
 }
 
@@ -87,6 +89,11 @@ static inline param_t ParamMakePtr(DataType type, void* ptr){
     .type_id = type,
     .data = ptr
   };
+}
+
+static param_t ParamMakeString(const char* s) {
+  size_t len = strlen(s)+1;
+  return ParamMake(DATA_STRING, len, s);
 }
 
 static param_t ParamClone(const param_t* src) {

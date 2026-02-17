@@ -25,10 +25,71 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, WorldPlayerContext,
     {
       [ELEMENT_IDLE] = ElementSetContext,
-      [ELEMENT_SHOW] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementLoadChildren,
     },
-    .spacing = {[UI_PADDING] = 1},
-    .num_children = 6, .kids={
+    .spacing = {[UI_MARGIN_TOP] = 24, [UI_MARGIN_LEFT] = 20},
+    .num_children = 2, .kids={
+      "PLAYER_PANEL_HEADERS",
+      "PANEL_GROUP",
+    }
+  },
+  {"PLAYER_PANEL_HEADERS", VECTOR2_ZERO, VECTOR2_ZERO, UI_TAB_PANEL,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, NULL, ElementNiblings,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementActivateChildren
+      
+    },
+    .num_children = 2, .kids = {
+      "TAB_BUTTON"
+    },
+    .spacing = {[UI_MARGIN_LEFT] = 36, [UI_PADDING_RIGHT] = 4}
+  },
+  {"PANEL_GROUP", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_FREE, ALIGN_LEFT, NULL, NULL,
+    .cb = {
+      [ELEMENT_LOAD] = ElementLoadChildren,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowChildren,
+    },
+    .num_children = 2, .kids = {
+      "PLAYER_STATS",
+      "INVENTORY"
+    }
+  },
+  {"TAB_BUTTON", VECTOR2_ZERO, FIXED_BUTTON_SIZE, UI_BUTTON,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_CENTER | ALIGN_MID, GetElementName, ElementPresetContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      //[ELEMENT_IDLE] = ElementSetContext,
+      [ELEMENT_ACTIVATE] = ElementTabToggle,
+    }
+  },
+  {"INVENTORY", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
+    {
+      [ELEMENT_TOGGLE]   = ElementToggle,
+      [ELEMENT_ACTIVATE] = ElementHideSiblings
+    },
+    .num_children = INV_DONE -1, .kids = {
+      "ITEM_BOX",
+    }
+  },
+  {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_BOX,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, GetContextIcon,
+    ElementOwnerItemContext, 
+    {
+
+    },
+  },    
+  {"PLAYER_STATS", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, WorldPlayerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowChildren,
+    },
+    .num_children = 6, .kids ={
       "NAME_LABEL",
       "SKILL_LABEL_DETAILED",
       "STAT_LABEL_DETAILED",
@@ -36,7 +97,7 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
       "STAT_LABEL_DETAILED",
       "STAT_LABEL_DETAILED",
     },
-    .params = {
+   .params = {
       {PARAM_NAME},
       {PARAM_SKILL_LVL},
       {PARAM_STAT_HEALTH},
@@ -66,7 +127,7 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     {
       [ELEMENT_IDLE] = ElementSetContext,
       [ELEMENT_FOCUSED] = ElementShowTooltip,
-      [ELEMENT_TOGGLE] = ElementToggle
+      [ELEMENT_TOGGLE] = ElementToggleChildren
     },
     .num_children = 0, .kids ={"STAT_TOOL_TIP"},
   },
@@ -93,7 +154,7 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     {
       [ELEMENT_IDLE] = ElementSetContext,
       [ELEMENT_FOCUSED] = ElementShowTooltip,
-      [ELEMENT_TOGGLE] = ElementToggle
+      [ELEMENT_TOGGLE] = ElementToggleChildren
 
     },
     .num_children = 1, .kids ={"STAT_TOOL_TIP"},
@@ -149,7 +210,7 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
       [UI_PADDING_BOT] = 8
     }
   },
-  {"COMBAT_TEXT", VECTOR2_ZERO, LABEL_LOG, UI_LABEL,
+  {"COMBAT_TEXT", VECTOR2_ZERO, LABEL_LOG, UI_TEXT,
    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT,
    GetActivityEntry, ElementIndexContext,
     .cb = {
@@ -164,15 +225,16 @@ activity_format_t ACT_LOG_FMT[ACT_ALL] = {
   {ACT_ATTACK, NARRATE_FIRST, TENSE_PRESENT,
     "{AGG} {ACT} {TAR} for {DMG} {SCHOOL} damage"},
   {ACT_MISS, NARRATE_FIRST, TENSE_PRESENT,
-    "{WHO} {ATK} misses {TAR}"},
+    "{OWNER} {ATK} {MISS} {TAR}"},
   {ACT_KILL, NARRATE_FIRST, TENSE_PRESENT,
-    "{AGG} has slain {TAR}"}
+    "{AGG} {SLAIN} {TAR}"}
 };
 
 token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
   {"ID",     TOKE_ID},
   {"AGG",    TOKE_AGG},
   {"TAR",    TOKE_TAR},
+  {"OWNER",  TOKE_OWNER},
   {"DMG",    TOKE_DMG},
   {"WHO",    TOKE_WHO},
   {"ENV",    TOKE_ENV},
@@ -180,4 +242,6 @@ token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
   {"ATK",    TOKE_ATK},
   {"ACT",    TOKE_ACT},
   {"SCHOOL", TOKE_SCHOOL},
+  {"MISS",   TOKE_MISS},
+  {"SLAIN",  TOKE_SLAIN},
 };
