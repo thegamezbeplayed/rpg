@@ -90,6 +90,7 @@ typedef enum{
   UI_PANEL,
   UI_TAB_PANEL,
   UI_BOX,
+  UI_ICON,
   UI_LINE,
   UI_TEXT,
   UI_GAME,
@@ -101,6 +102,7 @@ typedef enum{
   LAYOUT_FREE,
   LAYOUT_VERTICAL,
   LAYOUT_HORIZONTAL,
+  LAYOUT_STACK,
   LAYOUT_GRID,
 }UILayout;
 
@@ -169,17 +171,20 @@ char *TextFormatLineItem(line_item_t *item);
 void PrintMobDetail(ent_t* e);
 int EntGetStatPretty(element_value_t **fill, stat_t* stat);
 int EntGetNamePretty(element_value_t **fill, ent_t* e );
+sprite_t* CtxGetIcon(local_ctx_t*, GameObjectParam);
 int CtxGetString(element_value_t **fill, local_ctx_t*, GameObjectParam);
 element_value_t* StatGetPretty(element_value_t* self, void* context);
 element_value_t* SkillGetPretty(element_value_t* self, void* context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
 int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
+sprite_t* SetCtxIcons(local_ctx_t*, GameObjectParam params[4]);
 int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
 char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]);
 typedef struct ui_element_s ui_element_t;
 typedef bool (*ElementCallback)( ui_element_t* self);
 typedef enum {
+  VAL_ICO,
   VAL_INT,
   VAL_FLOAT,
   VAL_CHAR,
@@ -193,10 +198,11 @@ struct element_value_s{
   FetchRate   rate;
   ValueType type;
   union {
-    int   *i;
-    float *f;
-    char*  c;
-    line_item_t* l[MAX_LINE_ITEMS];
+    int           *i;
+    float         *f;
+    char          *c;
+    line_item_t   *l[MAX_LINE_ITEMS];
+    sprite_t      *s;
   };
   size_t            char_len, num_ln, text_len, text_hei;
   void*             context;
@@ -274,7 +280,10 @@ bool UIFreeElement(ui_element_t* e);
 bool UIHideElement(ui_element_t* e);
 bool ElementActivateChildren(ui_element_t*);
 bool ElementLoadChildren(ui_element_t*);
+bool ElementShow(ui_element_t* e);
+bool ElementShowIcon(ui_element_t* e);
 bool ElementShowChildren(ui_element_t*);
+bool ElementShowPrimary(ui_element_t*);
 bool ElementTabToggle(ui_element_t* e);
 bool ElementSetContext(ui_element_t* e);
 bool ElementHideSiblings(ui_element_t* e);
@@ -367,7 +376,7 @@ static state_change_requirement_t ELEM_STATE_REQ[ELEMENT_DONE] = {
   {ELEMENT_SHOW, ALWAYS, ELEMENT_NONE},
   {ELEMENT_FOCUSED, NOT_EQUAL_TO, ELEMENT_HIDDEN},
   {ELEMENT_ACTIVATE, ALWAYS, ELEMENT_NONE},
-  {ELEMENT_TOGGLE, GREATER_THAN, ELEMENT_SHOW},
+  {ELEMENT_TOGGLE, GREATER_THAN, ELEMENT_IDLE},
   {ELEMENT_ACTIVATED, NOT_EQUAL_TO, ELEMENT_HIDDEN}
 };
 

@@ -281,7 +281,7 @@ void ElementResize(ui_element_t *e){
   float oheight = omarginy; 
   float cwidths =0, cheights= 0;
 
-  if(e->num_children == 12)
+  if(e->num_children == 6)
     DO_NOTHING();
 
   for(int i = 0; i<e->num_children; i++){
@@ -451,13 +451,16 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
         case VAL_LN:
           strcpy(e->text, PrintElementValue(e->value, e->spacing));
           break;
+        case VAL_ICO:
+          if(e->type == UI_ICON && e->value->s == NULL)
+            return;
         default:
           break;
       }
     }
   }
 
-    if(e->texture)
+  if(e->texture)
     DrawNineSlice(e->texture,e->bounds);
 
   switch(e->type){
@@ -483,6 +486,11 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
     case UI_BOX:
       GuiGroupBox(e->bounds,NULL);//e->text);
     case UI_PROGRESSBAR:
+      break;
+    case UI_ICON:
+      state = GuiPanel(e->bounds, "word");
+      DrawSpriteAtPos(e->value->s, RectXY(e->bounds));
+
       break;
     case UI_STATUSBAR:
       GuiStatusBar(e->bounds, e->text);
@@ -562,7 +570,21 @@ bool ElementSetTooltip(ui_element_t* e){
 }
 
 bool ElementTabToggle(ui_element_t* e){
-  ElementSetState(e->ctx, ELEMENT_TOGGLE);
+  ui_element_t* p = e->ctx;
+
+  //return ElementSetState(p, ELEMENT_ACTIVATE);
+
+  switch(p->state){
+    case ELEMENT_HIDDEN:
+    case ELEMENT_IDLE:
+    case ELEMENT_TOGGLE:
+      return ElementSetState(p, ELEMENT_ACTIVATE);
+      break;
+    default:
+      return ElementSetState(p, ELEMENT_HIDDEN);
+      break;
+  }
+
 }
 
 bool ElementToggleTip(ui_element_t* e){
@@ -571,11 +593,15 @@ bool ElementToggleTip(ui_element_t* e){
 
 bool ElementToggle(ui_element_t* e){
   switch(e->prior){
-    case ELEMENT_HIDDEN:
-      return ElementSetState(e, ELEMENT_ACTIVATE);
+    case ELEMENT_SHOW:
+    case ELEMENT_ACTIVATE:
+    case ELEMENT_ACTIVATED:
+      TraceLog(LOG_INFO,"===== ELEMENT TOGGLE ====\n hide %s",e->name);
+      return ElementSetState(e, ELEMENT_HIDDEN);
       break;
     default:
-      return ElementSetState(e, ELEMENT_HIDDEN);
+      TraceLog(LOG_INFO,"===== ELEMENT TOGGLE ====\n show %s",e->name);
+      return ElementSetState(e, ELEMENT_ACTIVATE);
       break;
   }
 }
@@ -585,7 +611,9 @@ bool ElementHideSiblings(ui_element_t* e){
     ui_element_t* c = e->owner->children[i];
     if(c->hash == e->hash)
       continue;
-    ElementSetState(c, ELEMENT_HIDDEN);
+    if(ElementSetState(c, ELEMENT_HIDDEN))
+      TraceLog(LOG_INFO,"===== ELEMENT HIDE SIBLINGS ====\n HIDE %s",e->owner->children[i]->name);
+
 
   }
 }
@@ -595,6 +623,13 @@ bool ElementToggleChildren(ui_element_t* e){
     ElementSetState(e->children[i], ELEMENT_TOGGLE);
 
   return true;
+}
+
+bool ElementShowIcon(ui_element_t* e){
+  if(e->value->s == NULL)
+    return false;
+
+  return e->value->s->is_visible = true;
 }
 
 bool ElementShowTooltip(ui_element_t* e){
@@ -622,11 +657,29 @@ bool ElementLoadChildren(ui_element_t* e){
 }
 
 bool ElementActivateChildren(ui_element_t* e){
-  for (int i = 0; i < e->num_children; i++)
+  for (int i = 0; i < e->num_children; i++){
+    ElementSetState(e->children[i], ELEMENT_LOAD);
     ElementSetState(e->children[i], ELEMENT_IDLE);
+  }
+  ElementSetState(e, ELEMENT_SHOW);
+}
+
+bool ElementShowPrimary(ui_element_t* e){
+  for (int i = 0; i < e->num_children; i++){
+    if(i == 0){
+      if(ElementSetState(e->children[i], ELEMENT_SHOW))
+        TraceLog(LOG_INFO,"===== ELEMENT SET PRIMARY ====\n SHOW %s",e->children[i]->name);
+    }
+    else{
+      if(ElementSetState(e->children[i], ELEMENT_HIDDEN))
+        TraceLog(LOG_INFO,"===== ELEMENT SET PRIMARY ====\n HIDE %s",e->children[i]->name);
+    }
+  }
 }
 
 bool ElementShowChildren(ui_element_t* e){
+  if(e->num_children == 6)
+    DO_NOTHING();
   for (int i = 0; i < e->num_children; i++)
     ElementSetState(e->children[i], ELEMENT_SHOW);
 }
@@ -753,6 +806,10 @@ bool ElementSyncContext(ui_element_t* e){
   }
 
   return false;
+}
+
+bool ElementShow(ui_element_t* e){
+  return ElementSetState(e, ELEMENT_SHOW);
 }
 
 bool ElementShowContext(ui_element_t* e){
@@ -948,7 +1005,13 @@ element_value_t* GetActivityEntry(ui_element_t* e, void* context){
 }
 
 element_value_t* GetContextIcon(ui_element_t* e, void* context){
+  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  ev->rate = FETCH_ONCE;
 
+  ev->type = VAL_ICO;
+
+  ev->s = SetCtxIcons(e->ctx, e->params);
+  return ev;
 }
 
 void UILogEvent(EventType event, void* data, void* user){
@@ -1001,16 +1064,11 @@ void* ElementNiblings(void *p){
   if(!sib)
     return NULL;
 
-  if(ElementSetState(sib, ELEMENT_IDLE))
-    ElementSetState(sib, ELEMENT_SHOW);
   e->ctx = sib->children;
 
   int count = imin(e->num_children, sib->num_children);
-  for(int i = 0; i < count; i++){
+  for(int i = 0; i < count; i++)
     e->children[i]->ctx = sib->children[i];
-    if( ElementSetState(e->children[i], ELEMENT_LOAD) && i == 0)
-      ElementSetState(e->children[i], ELEMENT_ACTIVATE);
-  }
 
   ElementSetState(e, ELEMENT_IDLE);
 }
@@ -1042,6 +1100,8 @@ void* ElementGetOwnerContext(void* p){
     c->num_params = c->owner->num_params;
     memcpy(c->params, c->owner->params, sizeof(c->owner->params));
   }
+  //TraceLog(LOG_INFO, "======= GET OWNER CONTEXT ====\n %s ctx set to %s ctx", c->name, c->owner->name);
+
   return c->owner->ctx;
 }
 

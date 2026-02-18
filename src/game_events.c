@@ -559,6 +559,8 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->params[PARAM_STAT_STAMINA] = ParamMakeObj(DATA_STAT, mob->gouid, mob->stats[STAT_STAMINA]);
       e->params[PARAM_STAT_ENERGY] = ParamMakeObj(DATA_STAT, mob->gouid, mob->stats[STAT_ENERGY]);
       e->params[PARAM_SKILL_LVL] = ParamMakeObj(DATA_SKILL, mob->gouid, mob->skills[SKILL_LVL]);
+      e->params[PARAM_INV_HELD] = ParamMakeObj(DATA_INV, mob->gouid, mob->inventory[INV_HELD]);
+      e->params[PARAM_INV_WORN] = ParamMakeObj(DATA_INV, mob->gouid, mob->inventory[INV_WORN]);
       e->dist = cell_distance(pos, mob->pos);
       WorldTargetSubscribe(EVENT_ENT_DEATH, OnWorldByGOUID, s, mob->gouid);
       break;

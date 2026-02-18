@@ -273,8 +273,6 @@ void WorldMapLoaded(map_grid_t* m){
     if(mr->num_mobs < 1)
       continue;
 
-    TraceLog(LOG_INFO,"===== ROOM DUMP ====\n Room %i has %i mobs\n Strongest - %s with %i  total %i avg %i",i, mr->num_mobs, mr->strongest->name, mr->best_cr, mr->total_cr,mr->avg_cr);
-
   }
 }
 

@@ -30,24 +30,20 @@ ent_t* InitEnt(EntityType id,Cell pos){
   e->pos = pos;
   strcpy(e->name, "Michael");
  
-  TraceLog(LOG_INFO,"%s has ====>\n<====STATS=====>",e->name);
   for(int i = 1; i < STAT_ENT_DONE; i++){
     if(e->stats[i] == NULL)
       continue;
     
     int val = e->stats[i]->max;
     const char* sname = STAT_STRING[i].name;
-    TraceLog(LOG_INFO,"%i %s \n",val,sname);
   }
 
-  TraceLog(LOG_INFO,"<=====ATTRIBUTES=====>\n");
   for(int i = 1; i < ATTR_DONE; i++){
     if(e->attribs[i]==NULL)
       continue;
 
     int val = e->attribs[i]->val;
     const char* name = attributes[i].name;
-    TraceLog(LOG_INFO,"%i %s",val,name);
   }
   EntPrepare(e);
   SetState(e,STATE_SPAWN,NULL);
@@ -278,7 +274,6 @@ ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
   ent_t* e = InitEntByRace(def);
-  TraceLog(LOG_INFO,"Make Commoner %s profession %i",e->name, sel->id);
   strcpy(e->props->role_name, sel->soc[def.civ].name);
   strcpy(e->name, TextFormat("%s %s", e->props->race_name, e->props->role_name));
   e->props->prof = sel->id;
@@ -674,7 +669,6 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   if(def.id == ENT_PERSON)
     return 0;
 
-  TraceLog(LOG_INFO,"====Build %s ====\n\n", def.name);
   race_define_t racial = DEFINE_RACE[ __builtin_ctzll(def.race)];
   MobRules spawn = GetMobRulesByMask(rules,MOB_SPAWN_MASK);
   MobRules group = GetMobRulesByMask(rules,MOB_GROUPING_MASK);
@@ -851,11 +845,6 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
 
       //class_choice->filtered = 0;
     }
-
-   if(i == 0)
-    TraceLog(LOG_INFO,"== Ent %s built ===\nLevel %i Mass %i",e->name,
-        e->skills[SKILL_LVL]->val, (int)e->props->mass);
-
 
     EntPrepare(e);    
     pool[count++] = e;

@@ -159,6 +159,18 @@ char *TextFormatLineItem(line_item_t *item) {
     return buffer;
 }
 
+sprite_t* CtxGetIcon(local_ctx_t* c, GameObjectParam p){
+
+  if(c->params[p].type_id == DATA_NONE)
+    return NULL;
+
+  inventory_t* inv = ParamRead(&c->params[p], inventory_t);
+
+  if(!inv || inv->count == 0)
+    return NULL;
+
+  return inv->items[0].def->sprite;
+}
 
 int CtxGetSkill(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   if(ctx->params[p].type_id != DATA_SKILL)
@@ -428,6 +440,23 @@ int SetActivityLines(element_value_t* ev, int pad[UI_POSITIONING]){
 
 
   return 1;
+}
+
+sprite_t* SetCtxIcons(local_ctx_t *ctx, GameObjectParam params[4]){
+
+  for (int i = 0; i < 4; i++){
+    if (params[i] == PARAM_NONE)
+      continue;
+
+
+    switch(ctx->params[params[i]].type_id){
+      case DATA_INV:
+        return CtxGetIcon(ctx, params[i]);
+        break;
+    }
+  }
+
+  return NULL;
 }
 
 int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool combo){

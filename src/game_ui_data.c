@@ -24,8 +24,8 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
   {"PLAYER_PANEL_L", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, WorldPlayerContext,
     {
-      [ELEMENT_IDLE] = ElementSetContext,
-      [ELEMENT_SHOW] = ElementLoadChildren,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowChildren,
     },
     .spacing = {[UI_MARGIN_TOP] = 24, [UI_MARGIN_LEFT] = 20},
     .num_children = 2, .kids={
@@ -46,11 +46,10 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     .spacing = {[UI_MARGIN_LEFT] = 36, [UI_PADDING_RIGHT] = 4}
   },
   {"PANEL_GROUP", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
-    ELEMENT_NONE, LAYOUT_FREE, ALIGN_LEFT, NULL, NULL,
+    ELEMENT_NONE, LAYOUT_STACK, ALIGN_LEFT, NULL, WorldPlayerContext,
     .cb = {
-      [ELEMENT_LOAD] = ElementLoadChildren,
+      [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_IDLE] = ElementActivateChildren,
-      [ELEMENT_SHOW] = ElementShowChildren,
     },
     .num_children = 2, .kids = {
       "PLAYER_STATS",
@@ -68,26 +67,38 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
   {"INVENTORY", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
     {
-      [ELEMENT_TOGGLE]   = ElementToggle,
-      [ELEMENT_ACTIVATE] = ElementHideSiblings
+      [ELEMENT_LOAD]      = ElementSetContext,
+      [ELEMENT_IDLE]      = ElementActivateChildren,
+      [ELEMENT_ACTIVATE]  = ElementHideSiblings,
+      [ELEMENT_ACTIVATED] = ElementShow,
+      [ELEMENT_SHOW]      = ElementShowChildren
     },
     .num_children = INV_DONE -1, .kids = {
       "ITEM_BOX",
+    },
+    .params = {
+      PARAM_INV_HELD,
+      PARAM_INV_WORN,
     }
   },
-  {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_BOX,
+  {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_ICON,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, GetContextIcon,
-    ElementOwnerItemContext, 
+    ElementGetOwnerContext, 
     {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_SHOW] = ElementShowIcon
 
     },
   },    
   {"PLAYER_STATS", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
-    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, WorldPlayerContext,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
     {
       [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
+      //[ELEMENT_ACTIVATE] = ElementToggle,
+      [ELEMENT_ACTIVATE] = ElementHideSiblings,
+
     },
     .num_children = 6, .kids ={
       "NAME_LABEL",
@@ -125,7 +136,7 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
     GetContextStat, ElementGetOwnerContext,
     {
-      [ELEMENT_IDLE] = ElementSetContext,
+      [ELEMENT_SHOW] = ElementSetContext,
       [ELEMENT_FOCUSED] = ElementShowTooltip,
       [ELEMENT_TOGGLE] = ElementToggleChildren
     },
@@ -152,7 +163,7 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
     GetContextStat, ElementGetOwnerContext,
     {
-      [ELEMENT_IDLE] = ElementSetContext,
+      [ELEMENT_SHOW] = ElementSetContext,
       [ELEMENT_FOCUSED] = ElementShowTooltip,
       [ELEMENT_TOGGLE] = ElementToggleChildren
 

@@ -9,7 +9,7 @@
 //                                                                              //
 //////////////////////////////////////////////////////////////////////////////////
 
-#define ICONS_IMAGE_PATH      "ICONS.png"
+#define ICONS_IMAGE_PATH      "asset_icons.png"
 #define ATLAS_ICONS_SPRITE_COUNT    4
 
 

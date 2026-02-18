@@ -96,6 +96,7 @@ typedef enum {
   DATA_STAT,
   DATA_SKILL,
   DATA_ITEM,
+  DATA_INV,
   DATA_LOCAL_CTX,
 } DataType;
 
@@ -598,6 +599,8 @@ typedef enum{
   PARAM_STAT_ARMOR,
   PARAM_STAT_STAMINA,
   PARAM_STAT_ENERGY,
+  PARAM_INV_HELD,
+  PARAM_INV_WORN,
   PARAM_ALL,
   PARAM_WEAP_TYPE,
 }GameObjectParam;
