@@ -52,7 +52,10 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
       .width    = d.size.x,
       .height   = d.size.y
     };
-
+/*
+    if(d.texture > 0)
+      e->texture = InitScalingElement(d.texture); 
+      */
     strcpy(e->name ,d.identifier);
     replace_char(e->name, '_', ' ');
     for (int j = 0; j < UI_POSITIONING; j++)
@@ -375,6 +378,9 @@ void ElementResize(ui_element_t *e){
     case LAYOUT_GRID:
       if(!e->owner)
         break;
+        
+      if(e->index > 0)
+          yinc += paddingy;    
       switch(e->index%GRID_WIDTH){
         case 1:
         case 2:
@@ -488,8 +494,9 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
     case UI_PROGRESSBAR:
       break;
     case UI_ICON:
-      state = GuiPanel(e->bounds, "word");
-      DrawSpriteAtPos(e->value->s, RectXY(e->bounds));
+      DrawRectangleLinesEx(e->bounds, 1.5f,LIGHTGRAY);
+      state = GuiPanel(e->bounds, NULL);
+      DrawSpriteAtPos(e->value->s, e->value->s->pos);
 
       break;
     case UI_STATUSBAR:
@@ -625,8 +632,30 @@ bool ElementToggleChildren(ui_element_t* e){
   return true;
 }
 
+bool ElementDynamicChildren(ui_element_t* e){
+  param_t* params = (param_t*)e->ctx;
+
+  for (int i = 0; i < 4; i++){
+   if(e->params[i] == PARAM_NONE)
+     continue;
+
+   inventory_t* inv = ParamRead(&params[i], inventory_t);
+   for (int j = 0; j < inv->cap; j++){
+     ui_element_t* c = InitElementByName("ITEM_BOX", e->menu, e);
+     c->params[0] = e->params[i];
+     c->ctx = inv;
+
+     ElementAddChild(e,c);
+   }
+
+  }
+
+  return ElementLoadChildren(e);
+
+}
+
 bool ElementShowIcon(ui_element_t* e){
-  if(e->value->s == NULL)
+  if(!e->value || e->value->s == NULL)
     return false;
 
   return e->value->s->is_visible = true;
@@ -788,6 +817,13 @@ void ElementSyncVal(ui_element_t* e, FetchRate poll){
       for( int i = 0; i < ev->num_ln; i++)
         PrintSyncLine(ev->l[i], poll);
       break;
+    case VAL_ICO:
+      ev->get_val(ev, ev->context);
+      if(ev->s){
+        ev->s->pos.x = e->bounds.x + e->spacing[UI_PADDING_TOP];
+        ev->s->pos.y = e->bounds.y + e->spacing[UI_PADDING_LEFT];
+      }
+      break;
     default:
       e->value = e->set_val(e, e->ctx);
       break;
@@ -874,6 +910,24 @@ void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
 
 }
 
+element_value_t* GetContextParams(ui_element_t* e, void* context){
+  int count = 0;
+
+  for (int i = 0; i < 4; i++){
+    if(e->params[i] != PARAM_NONE)
+      count++;
+  }
+
+  local_ctx_t* ctx = context;
+  param_t *ctx_p = calloc(count, sizeof(param_t));
+
+  for(int i = 0; i < count; i++){
+    if(e->params[i] != PARAM_NONE)
+      ctx_p[i] = ctx->params[e->params[i]];
+  }
+
+  e->ctx = ctx_p;
+}
 
 element_value_t* GetContextStat(ui_element_t* e, void* context){
   if(context == NULL)
@@ -1004,13 +1058,12 @@ element_value_t* GetActivityEntry(ui_element_t* e, void* context){
   return ev;
 }
 
-element_value_t* GetContextIcon(ui_element_t* e, void* context){
+element_value_t* GetContextItem(ui_element_t* e, void* context){
   element_value_t *ev = calloc(1,sizeof(element_value_t));
-  ev->rate = FETCH_ONCE;
 
-  ev->type = VAL_ICO;
-
-  ev->s = SetCtxIcons(e->ctx, e->params);
+  ev = SetCtxItems(e->ctx, e->params, e->index);
+  //ev->s->pos.x = e->bounds.x + e->spacing[UI_PADDING_LEFT]; 
+  //ev->s->pos.y = e->bounds.y + e->spacing[UI_PADDING_TOP]; 
   return ev;
 }
 

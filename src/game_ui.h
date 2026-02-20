@@ -11,6 +11,8 @@
 #define MAX_LINE_LEN 256
 #define MAX_SUB_ELE 20
 #define MAX_ELEMENTS 64
+
+#define ELE_COUNT 21
 #if defined(PLATFORM_ANDROID)
 #define DEFAULT_MENU_SIZE (Vector2){GetScreenWidth()/2, GetScreenHeight()/2}
 #define DEFAULT_MENU_THIN_SIZE (Vector2){GetScreenWidth(), 64*UI_SCALE}
@@ -41,7 +43,7 @@
 
 #define FIXED_BUTTON_SIZE     (Vector2){128, 24}
 #define FIXED_LABEL_SIZE      (Vector2){96, 24}
-#define FIXED_BOX_SIZE        (Vector2){32, 32}
+#define FIXED_BOX_SIZE        (Vector2){36, 36}
 #define FIXED_TOOL_TIP        (Vector2){96, 24}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
@@ -171,13 +173,13 @@ char *TextFormatLineItem(line_item_t *item);
 void PrintMobDetail(ent_t* e);
 int EntGetStatPretty(element_value_t **fill, stat_t* stat);
 int EntGetNamePretty(element_value_t **fill, ent_t* e );
-sprite_t* CtxGetIcon(local_ctx_t*, GameObjectParam);
 int CtxGetString(element_value_t **fill, local_ctx_t*, GameObjectParam);
+element_value_t* InventoryGetItem(element_value_t* self, void* context);
 element_value_t* StatGetPretty(element_value_t* self, void* context);
 element_value_t* SkillGetPretty(element_value_t* self, void* context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
 int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
-sprite_t* SetCtxIcons(local_ctx_t*, GameObjectParam params[4]);
+element_value_t* SetCtxItems(void*, GameObjectParam params[4], int);
 int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
 char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]);
@@ -206,6 +208,7 @@ struct element_value_s{
   };
   size_t            char_len, num_ln, text_len, text_hei;
   void*             context;
+  int               index;
   bool              reverse;
   ElementFetchValue get_val;
 };
@@ -265,8 +268,9 @@ typedef struct{
   int                 num_children;
   const char          kids[MAX_SUB_ELE][MAX_NAME_LEN];
   GameObjectParam     params[MAX_SUB_ELE][PARAM_ALL];
+  UiType              texture;
 }ui_element_d;
-extern ui_element_d ELEM_DATA[MAX_SUB_ELE];
+extern ui_element_d ELEM_DATA[ELE_COUNT];
 
 ui_element_t* InitElement(const char* name, ElementType type, Vector2 pos, Vector2 size, UIAlignment align,UILayout layout);
 ui_element_t* GetElement(const char* name);
@@ -293,14 +297,16 @@ bool ElementSyncOwnerContext(ui_element_t* e);
 bool ElementToggleTooltip(ui_element_t* e);
 bool ElementToggle(ui_element_t* e);
 bool ElementToggleChildren(ui_element_t* e);
+bool ElementDynamicChildren(ui_element_t* e);
 bool ElementShowTooltip(ui_element_t* e);
 bool ElementSetTooltip(ui_element_t* e);
 bool ElementSetActiveTab(ui_element_t* e);
 struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
+element_value_t* GetContextParams(ui_element_t* e, void* context);
 element_value_t* GetContextName(ui_element_t* e, void* context);
-element_value_t* GetContextIcon(ui_element_t* e, void* context);
+element_value_t* GetContextItem(ui_element_t* e, void* context);
 element_value_t* GetElementName(ui_element_t* e, void* context);
 element_value_t* GetActivityEntry(ui_element_t* e, void* context);
 element_value_t* GetContextStat(ui_element_t* e, void* context);

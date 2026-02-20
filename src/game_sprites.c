@@ -12,6 +12,8 @@
 asset_manager_t AssMan;
 texture_chain_t TexChain;
 
+static scaling_sprite_data_t uidata;
+
 void InitShaderChainCache(int type,int maxWidth, int maxHeight) {
   if(TexChain.has_chain[type])
     return;
@@ -45,7 +47,7 @@ void InitResources(){
   SHEETS[SHEET_ENV].sprite_sheet = malloc(sizeof(Texture2D));
   SHEETS[SHEET_UI].sprite_sheet = malloc(sizeof(Texture2D));
   SHEETS[SHEET_ICON].sprite_sheet = malloc(sizeof(Texture2D));
-  //uidata.sprite_sheet = malloc(sizeof(Texture2D));
+  uidata.sprite_sheet = malloc(sizeof(Texture2D));
   SpriteLoadSubTextures(ENT_SPRITES,SHEET_ENT,ENT_DONE);
   SpriteLoadSubTextures(ENVIRO_SPRITES,SHEET_ENV,ENV_DONE);
   SpriteLoadSubTextures(UI_SPRITES,SHEET_UI,ELEMENT_COUNT);
@@ -54,7 +56,7 @@ void InitResources(){
   *SHEETS[SHEET_ENV].sprite_sheet = LoadTextureFromImage(tilesImg);
   *SHEETS[SHEET_UI].sprite_sheet = LoadTextureFromImage(uiImg);
   *SHEETS[SHEET_ICON].sprite_sheet = LoadTextureFromImage(icoImg);
-  //*uidata.sprite_sheet = LoadTextureFromImage(uiImg);
+  *uidata.sprite_sheet = LoadTextureFromImage(uiImg);
 
 }
 
@@ -284,7 +286,6 @@ void SpriteLoadSubTextures(sub_texture_t* data, SheetID id, int sheet_cap){
 }
 
 void SpriteLoadSlicedTextures(){
-  /*
   for (int i = 0; i < ELEMENT_COUNT; i++){
     sub_texture_t sprData = UI_SPRITES[i];
 
@@ -321,7 +322,6 @@ void SpriteLoadSlicedTextures(){
       uidata.sprites[i]->scaling[s]=scaling_rules[s].rules;
     }
   }
-  */
 }
 void SpritePreprocessImg(Image *img, Texture2D *out){
   ImageFormat(img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);

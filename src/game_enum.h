@@ -486,6 +486,7 @@ typedef enum{
   UI_SELECTOR_CHOSEN=1,
   UI_SELECTOR_EMPTY,
   UI_SELECTOR_VALID,
+  UI_GRID_CELL,
   UI_ALL,
 }UiType;
 
@@ -601,6 +602,8 @@ typedef enum{
   PARAM_STAT_ENERGY,
   PARAM_INV_HELD,
   PARAM_INV_WORN,
+  PARAM_INV_BELT,
+  PARAM_INV_SLING,
   PARAM_ALL,
   PARAM_WEAP_TYPE,
 }GameObjectParam;
@@ -1052,9 +1055,10 @@ typedef enum{
 
 typedef enum{
   ICON_HELM_COM,
-  ICON_MACE_COM,
-  ICON_BAND,
   ICON_POT_FULL,
+  ICON_MACE_COM,
+  ICON_BELT,
+  ICON_TUNIC_COM,
   ICON_ALL,
 }Icons;
 #endif

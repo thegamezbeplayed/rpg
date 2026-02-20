@@ -159,17 +159,22 @@ char *TextFormatLineItem(line_item_t *item) {
     return buffer;
 }
 
-sprite_t* CtxGetIcon(local_ctx_t* c, GameObjectParam p){
+element_value_t* CtxGetItem(void* c, GameObjectParam p, int index){
 
-  if(c->params[p].type_id == DATA_NONE)
-    return NULL;
-
-  inventory_t* inv = ParamRead(&c->params[p], inventory_t);
+  inventory_t* inv = c;
 
   if(!inv || inv->count == 0)
     return NULL;
 
-  return inv->items[0].def->sprite;
+  element_value_t* ev = calloc(1,sizeof(element_value_t));
+
+  ev->type = VAL_ICO;
+  ev->rate = FETCH_UPDATE;
+  ev->index = index;
+  ev->context = inv;
+  ev->get_val = InventoryGetItem;
+
+  return ev;
 }
 
 int CtxGetSkill(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
@@ -337,6 +342,19 @@ element_value_t* StatGetPretty(element_value_t* self, void* context){
   }
 }
 
+element_value_t* InventoryGetItem(element_value_t* self, void* context){
+  inventory_t* inv = context;
+
+  if(!inv || inv->count < self->index)
+    return NULL;
+
+  item_t* item = &inv->items[self->index];
+  if(!item || !item->def)
+    return NULL;
+
+  self->s = item->def->sprite;
+}
+
 element_value_t* SkillGetPretty(element_value_t* self, void* context){
   skill_t* skill =  context;
 
@@ -442,20 +460,9 @@ int SetActivityLines(element_value_t* ev, int pad[UI_POSITIONING]){
   return 1;
 }
 
-sprite_t* SetCtxIcons(local_ctx_t *ctx, GameObjectParam params[4]){
+element_value_t* SetCtxItems(void *ctx, GameObjectParam params[4], int index){
 
-  for (int i = 0; i < 4; i++){
-    if (params[i] == PARAM_NONE)
-      continue;
-
-
-    switch(ctx->params[params[i]].type_id){
-      case DATA_INV:
-        return CtxGetIcon(ctx, params[i]);
-        break;
-    }
-  }
-
+        return CtxGetItem(ctx, params[0], index);
   return NULL;
 }
 

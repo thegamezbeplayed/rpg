@@ -7,7 +7,7 @@ ui_menu_d MENU_DATA[MENU_DONE] = {
   }
 };
 
-ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
+ui_element_d ELEM_DATA[ELE_COUNT] = {
   {"HUD_MENU_DOM", VECTOR2_ZERO, FIXED_MENU_FULL, UI_PANEL, ELEMENT_NONE, 
     LAYOUT_FREE, ALIGN_LEFT,
     .spacing = {
@@ -50,6 +50,7 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     .cb = {
       [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowPrimary,
     },
     .num_children = 2, .kids = {
       "PLAYER_STATS",
@@ -73,23 +74,38 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
       [ELEMENT_ACTIVATED] = ElementShow,
       [ELEMENT_SHOW]      = ElementShowChildren
     },
-    .num_children = INV_DONE -1, .kids = {
-      "ITEM_BOX",
+    .num_children = 4, .kids = {
+      "ITEM_GRID",
     },
     .params = {
-      PARAM_INV_HELD,
-      PARAM_INV_WORN,
-    }
+      {PARAM_INV_HELD},
+      {PARAM_INV_WORN},
+      {PARAM_INV_BELT},
+      { PARAM_INV_SLING},
+    },
+    .spacing = {[UI_MARGIN_TOP] = 20, [UI_MARGIN_LEFT] = 4},
   },
-  {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_ICON,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, GetContextIcon,
+  {"ITEM_GRID", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_GRID, ALIGN_LEFT, GetContextParams,
     ElementGetOwnerContext, 
     {
       [ELEMENT_LOAD] = ElementSetContext,
-      [ELEMENT_SHOW] = ElementShowIcon
-
+      [ELEMENT_IDLE] = ElementDynamicChildren,
+      [ELEMENT_SHOW] = ElementShowChildren
     },
-  },    
+    .spacing = { [UI_MARGIN_LEFT] = 8, [UI_PADDING] = 4},
+    .kids = {"ITEM_BOX"}
+  },
+  {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_ICON,
+   ELEMENT_NONE, LAYOUT_STACK, ALIGN_MID | ALIGN_CENTER, GetContextItem, ElementPresetContext,
+   {
+      [ELEMENT_LOAD]      = ElementSetContext,
+      [ELEMENT_SHOW]      = ElementShowIcon
+   },
+   .spacing = {[UI_PADDING_TOP] = 18, [UI_PADDING_LEFT] = 18},
+   .texture = UI_GRID_CELL,
+   .num_children = 1, .kids = {"ITEM_TOOL_TIP"}
+  }, 
   {"PLAYER_STATS", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
     {
@@ -171,6 +187,18 @@ ui_element_d ELEM_DATA[MAX_SUB_ELE] = {
     .num_children = 1, .kids ={"STAT_TOOL_TIP"},
     .spacing = {[UI_MARGIN_RIGHT] = 8}
   },
+  {"ITEM_TOOL_TIP", VECTOR2_ZERO, FIXED_TOOL_TIP, UI_TOOL_TIP,
+    ELEMENT_HIDDEN, LAYOUT_VERTICAL, ALIGN_CENTER | ALIGN_TOP | ALIGN_OVER,
+    GetContextDetails, ElementGetOwnerContext,
+    {
+      [ELEMENT_SHOW] = ElementSetContext,
+      [ELEMENT_FOCUSED] = ElementSetTooltip,
+      [ELEMENT_TOGGLE] = UIHideElement
+    },
+    .spacing = {[UI_MARGIN_LEFT] = 54, [UI_MARGIN_TOP] = -28}
+  },
+
+  
   {"CONTEXT_PANEL_R", UI_PANEL_RIGHT, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_RIGHT, NULL, ScreenSelectContext,
     {
