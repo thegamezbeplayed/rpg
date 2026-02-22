@@ -39,13 +39,13 @@ void InventoryEnsureCap(inventory_t* t){
 }
 
 item_pool_t* InitItemPool(void) {
-    item_pool_t* ip = calloc(1, sizeof(item_pool_t));
+    item_pool_t* ip = GameCalloc("InitItemPool", 1, sizeof(item_pool_t));
     ip->size = 0;
     return ip;
 }
 
 inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit){
-  inventory_t* a = calloc(1,sizeof(inventory_t));
+  inventory_t* a = GameCalloc("InitInventory", 1,sizeof(inventory_t));
 
   *a = (inventory_t){
     .id     = id,
@@ -68,7 +68,7 @@ inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit){
   a->space = a->size;
   a->unburdened = a->limit;
 
-  a->items = calloc(a->cap, sizeof(item_t));
+  a->items = GameCalloc("InitInventory items", a->cap, sizeof(item_t));
   return a;
 
 }
@@ -146,7 +146,7 @@ ItemSlot InventoryAddStorage(ent_t* e, item_t* i){
     slot->container = i;
     slot->space = slot->size = i->def->values[VAL_STORAGE]->val;
     slot->cap = i->def->values[VAL_QUANT]->val;
-    slot->items = calloc(slot->cap, sizeof(item_t));
+    slot->items = GameCalloc("InventoryAddStorage", slot->cap, sizeof(item_t));
     slot->limit = slot->unburdened = i->def->values[VAL_WEIGHT]->val;
     i->equipped = true;
     i->owner = e;
@@ -215,11 +215,11 @@ item_def_t* DefineArmor(ItemInstance data){
 }
 
 item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps a){
-  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item_def_t* item = GameCalloc("DefineArmorByType", 1,sizeof(item_def_t));
   item->category = ITEM_ARMOR;
 
   item->type = t;
-  item->dr = calloc(1,sizeof(damage_reduction_t));
+  item->dr = GameCalloc("DefineArmorByType dr",1,sizeof(damage_reduction_t));
 
   item->ability = ABILITY_NONE;
   armor_def_t temp = ARMOR_TEMPLATES[t];
@@ -260,7 +260,7 @@ item_def_t* DefineWeapon(ItemInstance data){
 }
 
 item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_props){
-  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item_def_t* item = GameCalloc("DefineWeaponByType", 1,sizeof(item_def_t));
   item->category = ITEM_WEAPON;
   item->type = t;
   weapon_def_t temp = WEAPON_TEMPLATES[t];
@@ -295,7 +295,7 @@ item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_prop
 }
 
 item_def_t* DefineConsumable(ItemInstance data){
-  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item_def_t* item = GameCalloc("DefineConsumable", 1,sizeof(item_def_t));
   item->id = data.id;
   item->type = data.equip_type; 
   item->category = ITEM_CONSUMABLE;
@@ -324,7 +324,7 @@ item_def_t* DefineConsumable(ItemInstance data){
 }
 
 item_def_t* DefineContainer(ItemInstance data){
-  item_def_t* item = calloc(1,sizeof(item_def_t));
+  item_def_t* item = GameCalloc("DefineContainer", 1,sizeof(item_def_t));
   item->id = data.id;
   item->type = data.equip_type; 
 
@@ -425,7 +425,7 @@ ability_t* InitAbilityInnate(ent_t* e, AbilityID id, define_natural_armor_t* def
 }
 
 ability_t* InitAbility(ent_t* owner, AbilityID id){
-  ability_t* a = calloc(1,sizeof(ability_t));
+  ability_t* a = GameCalloc("InitAbility", 1,sizeof(ability_t));
 
   *a = AbilityLookup(id);
 
@@ -509,6 +509,7 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
     a->weight+=pref;
   
   a->item = item;
+  item->ability = a;
   return ActionSlotAddAbility(owner, a);
 }
 
@@ -723,7 +724,7 @@ int AbilityAddPB(ent_t* e, ability_t* a, StatType s){
 }
 
 ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
-  ability_sim_t* res = calloc(1,sizeof(ability_sim_t));
+  ability_sim_t* res = GameCalloc("AbilitySimDmg", 1,sizeof(ability_sim_t));
 
   res->id = a->id;
   res->type = a->type;
@@ -749,7 +750,7 @@ bool AbilityRankup(ent_t* owner, ability_t* a){
 }
 
 ability_sim_t* AbilitySimMax(ent_t* owner,  ability_t* a){
-  ability_sim_t* res = calloc(1,sizeof(ability_sim_t));
+  ability_sim_t* res = GameCalloc("AbilitySimMax", 1,sizeof(ability_sim_t));
 
   res->id = a->id;
   res->type = a->type;
@@ -819,7 +820,7 @@ void DamageEvent(EventType ev, void* edata, void* udata){
 
 
 trigger_t* InitTriggerAffect(ent_t* e, trigger_t t, affect_t* aff){
-  trigger_t* trig = calloc(1, sizeof(trigger_t));
+  trigger_t* trig = GameCalloc("InitTriggerAffect", 1, sizeof(trigger_t));
    *trig =  t;
    trig->owner = e;
 
@@ -833,7 +834,7 @@ trigger_t* InitTriggerAffect(ent_t* e, trigger_t t, affect_t* aff){
 }
 
 trigger_t* InitTriggerTick(ent_t* e, trigger_t t, affect_t* aff){
-  trigger_t* trig = calloc(1, sizeof(trigger_t));
+  trigger_t* trig = GameCalloc("InitTriggerTick", 1, sizeof(trigger_t));
    *trig =  t;
    trig->owner = e;
 

@@ -604,6 +604,7 @@ typedef enum{
   PARAM_INV_WORN,
   PARAM_INV_BELT,
   PARAM_INV_SLING,
+  PARAM_ITEM,
   PARAM_ALL,
   PARAM_WEAP_TYPE,
 }GameObjectParam;

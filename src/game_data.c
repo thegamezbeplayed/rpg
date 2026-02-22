@@ -705,7 +705,7 @@ Faction RegisterFaction(const char* name){
 }
 
 faction_t* InitFaction(const char* name){
-  faction_t* f = calloc(1, sizeof(faction_t));
+  faction_t* f = GameCalloc("InitFaction", 1, sizeof(faction_t));
 
   Faction id = hash_str_32(name);
 
@@ -723,7 +723,7 @@ const char* Faction_Name(Faction id){
 
 
 dice_roll_t* Die(int side, int num){
-  dice_roll_t* die = malloc(sizeof(dice_roll_t));
+  dice_roll_t* die = GameMalloc("Die", sizeof(dice_roll_t));
 
   *die = (dice_roll_t){
     .sides = side,
@@ -735,7 +735,7 @@ dice_roll_t* Die(int side, int num){
 }
 
 dice_roll_t* InitDie(int side, int num, int adv, DiceRollFunction fn){
-  dice_roll_t* die = malloc(sizeof(dice_roll_t));
+  dice_roll_t* die = GameMalloc("InitDie", sizeof(dice_roll_t));
 
   DiceCompareCallback cb = NULL;
   if(adv > 0)
@@ -780,7 +780,7 @@ int RollDie(dice_roll_t* d, int* results){
 }
 
 attribute_t* InitAttribute(AttributeType type, int val){
-  attribute_t* t = calloc(1,sizeof(attribute_t));
+  attribute_t* t = GameCalloc("InitAttribute", 1,sizeof(attribute_t));
 
   t->type = type;
   t->max = t->min = t->val = val;
@@ -816,7 +816,7 @@ char* GetFileStem(const char* filename) {
     const char* dot = strrchr(filename, '.');
     size_t len = dot ? (size_t)(dot - filename) : strlen(filename);
 
-    char* stem = malloc(len + 1);
+    char* stem = GameMalloc("GetFileStem", len + 1);
     if (!stem) return NULL;
     memcpy(stem, filename, len);
     stem[len] = '\0';
@@ -824,7 +824,7 @@ char* GetFileStem(const char* filename) {
 }
 
 value_t* InitValue(ValueCategory cat, int base){
-  value_t* v = calloc(1,sizeof(value_t));
+  value_t* v = GameCalloc("InitValue", 1,sizeof(value_t));
   value_relate_t rel = VALUE_RELATES[cat];
   *v = (value_t){
     .cat = cat,
@@ -907,7 +907,7 @@ void ValueAddBaseMod(value_t* self, value_affix_t mod){
 }
 
 value_affix_t* InitValueAffixFromMod(value_affix_t mod){
-  value_affix_t* va = calloc(1,sizeof(value_affix_t));
+  value_affix_t* va = GameCalloc("InitValueAffixFromMod", 1,sizeof(value_affix_t));
 
   *va = mod;
   va->affix_mod = AffixBase;
@@ -930,7 +930,7 @@ value_affix_t* InitValueAffixFromMod(value_affix_t mod){
 }
 
 stat_t* InitStatOnMin(StatType attr, float min, float max){
- stat_t* s = calloc(1,sizeof(stat_t));
+ stat_t* s = GameCalloc("InitStatOnMin", 1,sizeof(stat_t));
  *s =(stat_t){
     .type = attr,
       .min = min,
@@ -954,7 +954,7 @@ bool StatIsEmpty(stat_t* s){
 
 stat_t* InitStatEmpty(void){}
 stat_t* InitStat(StatType attr,float min, float max, float amount){
- stat_t* s = malloc(sizeof(stat_t));
+ stat_t* s = GameMalloc("InitStat", sizeof(stat_t));
  stat_attribute_relation_t relate = stat_modifiers[attr];
 
  stat_relate_t tandem = STAT_RELATION[attr];
@@ -1156,7 +1156,7 @@ void SenseAddAttr(sense_t* self){
 }
 
 sense_t* InitSense(ent_t* e, Senses type, int val){
-  sense_t* s = calloc(1,sizeof(sense_t));
+  sense_t* s = GameCalloc("InitSense", 1,sizeof(sense_t));
 
   sense_t base = SENSE_BASE[type];
 
@@ -1175,7 +1175,7 @@ sense_t* InitSense(ent_t* e, Senses type, int val){
 }
 
 skill_event_t* InitSkillEvent(skill_t* s, int cr){
-  skill_event_t* skev = calloc(1,sizeof(skill_event_t));
+  skill_event_t* skev = GameCalloc("InitSkillEvent", 1,sizeof(skill_event_t));
 
   skill_decay_t* decay = SkillEventDecay(s->id, cr);
   *skev = (skill_event_t){
@@ -1186,7 +1186,7 @@ skill_event_t* InitSkillEvent(skill_t* s, int cr){
 }
 
 skill_check_t* InitSkillCheck(skill_t* skill){
-  skill_check_t* sc = calloc(1,sizeof(skill_check_t));
+  skill_check_t* sc = GameCalloc("InitSkillCheck", 1,sizeof(skill_check_t));
 
   skill_proficiency_bonus_t spb = GRANTS_PB[skill->id];
 
@@ -1215,7 +1215,7 @@ bool SkillUse(skill_t* self, uint64_t source, uint64_t target, int gain, Interac
   define_skill_rank_t r = SKILL_RANKS[SkillRankGet(self)];
   gain-=r.penalty;
   
-  int* cr = malloc(sizeof(int));
+  int* cr = GameMalloc("SkillUse", sizeof(int));
   *cr = gain;
   
   param_t data = {
@@ -1291,7 +1291,7 @@ skill_decay_t* SkillEventDecay(SkillType skill, int difficulty){
 
   define_skill_rate_t skr = SKILL_RATES[rating];
 
-  skill_decay_t* decay = calloc(1,sizeof(skill_decay_t));
+  skill_decay_t* decay = GameCalloc("SkillEventDecay", 1,sizeof(skill_decay_t));
 
   *decay = (skill_decay_t){
     .skill = skill,
@@ -1348,7 +1348,7 @@ void SkillRankup(skill_t* self, float old, float cur){
 }
 
 skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
-  skill_t* s = calloc(1,sizeof(skill_t));
+  skill_t* s = GameCalloc("InitSkill", 1,sizeof(skill_t));
 
   *s = (skill_t){
     .id = id,
@@ -1534,7 +1534,7 @@ need_t* InitNeed(Needs id, ent_t* owner){
   uint64_t req = GetNeedReq(id, owner->props->body, owner->props->mind);
   uint64_t res = EntGetResourceByNeed(owner, id);
 
-  need_t* n = calloc(1,sizeof(need_t));
+  need_t* n = GameCalloc("InitNeed", 1,sizeof(need_t));
 
   *n = (need_t){
     .id = id,
@@ -1628,7 +1628,7 @@ void NeedStep(need_t* n){
 }
 
 initiative_t* InitInit(ActionType action, ent_t* e){
-  initiative_t* i  = calloc(1, sizeof(initiative_t));
+  initiative_t* i  = GameCalloc("InitInit", 1, sizeof(initiative_t));
 
   *i = (initiative_t){
     .owner = e,

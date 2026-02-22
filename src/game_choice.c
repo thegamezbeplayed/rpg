@@ -47,7 +47,7 @@ void EndChoice(choice_pool_t* pool, bool reset){
 
 choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
   // Allocate the pool
-  choice_pool_t *pool = calloc(1, sizeof(choice_pool_t));
+  choice_pool_t *pool = GameCalloc("InitChoicePool", 1, sizeof(choice_pool_t));
   if (!pool) return NULL;
 
   // Store selection callback
@@ -61,7 +61,7 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
 
   // Allocate choice entries (NULL-initialized if you prefer lazy allocation)
   for (int i = 0; i < size; i++) {
-    pool->choices[i] = calloc(1, sizeof(choice_t));
+    pool->choices[i] = GameCalloc("InitChoicePool choices", 1, sizeof(choice_t));
   }
 
   return pool;
@@ -99,7 +99,7 @@ bool AddFilter(choice_pool_t *pool, int id, void *ctx){
   if(pool->filtered >= MAX_OPTIONS)
     return false;
 
-  choice_t *c = calloc(1, sizeof(choice_t));
+  choice_t *c = GameCalloc("AddFilter", 1, sizeof(choice_t));
   if (!c) return false;
 
   c->id = id;
@@ -115,7 +115,7 @@ bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, On
     return false;
 
   // Allocate a new choice
-  choice_t *c = calloc(1, sizeof(choice_t));
+  choice_t *c = GameCalloc("AddPurchase", 1, sizeof(choice_t));
   if (!c) return false;
 
   c->score   = score;
@@ -140,7 +140,7 @@ bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn){
         return false;
 
     // Allocate a new choice
-    choice_t *c = calloc(1, sizeof(choice_t));
+    choice_t *c = GameCalloc("AddChoice", 1, sizeof(choice_t));
     if (!c) return false;
 
     c->score   = score;
@@ -358,12 +358,12 @@ void DecisionsEnsureCap(decision_pool_t* t){
 }
 
 decision_pool_t* InitDecisionPool(int size, ent_t* e, EntityState id){
-  decision_pool_t* t = calloc(1,sizeof(decision_pool_t));
+  decision_pool_t* t = GameCalloc("InitDecisionPool", 1,sizeof(decision_pool_t));
   int cap = next_pow2_int(size);
   t->owner = e;
   t->id = id;
   t->cap = cap;
-  t->entries = calloc(size, sizeof(decision_t));
+  t->entries = GameCalloc("InitDecisionPool entries", size, sizeof(decision_t));
   HashInit(&t->map, cap*2);
 
   return t; 

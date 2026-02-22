@@ -32,7 +32,7 @@ behavior_tree_node_t *BuildTreeNode(BehaviorID id,behavior_params_t* parent_para
   if(data.bt_type == BT_LEAF)
     out = room_behaviors[id].func(parent_params);
   else{
-    behavior_tree_node_t **kids = calloc(1,sizeof(*kids) * data.num_children);
+    behavior_tree_node_t **kids = GameCalloc("BuildTreeNode", 1,sizeof(*kids) * data.num_children);
     for (int j = 0; j < data.num_children; ++j)
       kids[j] = BuildTreeNode(data.children[j],parent_params);
 
@@ -407,12 +407,12 @@ BehaviorStatus BehaviorTickLeaf(behavior_tree_node_t *self, void *context) {
 }
 
 behavior_tree_node_t* BehaviorCreateLeaf(BehaviorTreeLeafFunc fn, behavior_params_t* params){
-  behavior_tree_leaf_t *data = calloc(1, sizeof(behavior_tree_leaf_t));
+  behavior_tree_leaf_t *data = GameCalloc("BehaviorCreateLeaf", 1, sizeof(behavior_tree_leaf_t));
 
   data->action = fn;
   data->params = params;
   
-  behavior_tree_node_t* node = calloc(1, sizeof(behavior_tree_node_t));
+  behavior_tree_node_t* node = GameCalloc("BehaviorCreateLeaf node", 1, sizeof(behavior_tree_node_t));
   node->bt_type = BT_LEAF;
   node->tick = BehaviorTickLeaf;
   node->data = data;
@@ -421,12 +421,12 @@ behavior_tree_node_t* BehaviorCreateLeaf(BehaviorTreeLeafFunc fn, behavior_param
 }
 
 behavior_tree_node_t* BehaviorCreateSequence(behavior_tree_node_t **children, int count) {
-    behavior_tree_sequence_t *data = calloc(1,sizeof(behavior_tree_sequence_t));
+    behavior_tree_sequence_t *data = GameCalloc("BehaviorCreateSequence", 1,sizeof(behavior_tree_sequence_t));
     data->children = children;
     data->num_children = count;
     data->current = 0;
 
-    behavior_tree_node_t *node = calloc(1, sizeof(behavior_tree_node_t));
+    behavior_tree_node_t *node = GameCalloc("BehaviorCreateSequence node", 1, sizeof(behavior_tree_node_t));
     node->bt_type = BT_SEQUENCE;
     node->tick = BehaviorTickSequence;
     node->data = data;
@@ -434,12 +434,12 @@ behavior_tree_node_t* BehaviorCreateSequence(behavior_tree_node_t **children, in
 }
 
 behavior_tree_node_t* BehaviorCreateSelector(behavior_tree_node_t **children, int count) {
-    behavior_tree_selector_t *data = calloc(1, sizeof(behavior_tree_selector_t));
+    behavior_tree_selector_t *data = GameCalloc("BehaviorCreateSelector", 1, sizeof(behavior_tree_selector_t));
     data->children = children;
     data->num_children = count;
     data->current = 0;
 
-    behavior_tree_node_t *node = calloc(1, sizeof(behavior_tree_node_t));
+    behavior_tree_node_t *node = GameCalloc("BehaviorCreateSelector node", 1, sizeof(behavior_tree_node_t));
     node->bt_type = BT_SELECTOR;
     node->tick = BehaviorTickSelector;
     node->data = data;
@@ -447,12 +447,12 @@ behavior_tree_node_t* BehaviorCreateSelector(behavior_tree_node_t **children, in
 }
 
 behavior_tree_node_t* BehaviorCreateConcurrent(behavior_tree_node_t **children, int count) {
-    behavior_tree_selector_t *data = calloc(1, sizeof(behavior_tree_selector_t));
+    behavior_tree_selector_t *data = GameCalloc("BehaviorCreateConcurrent", 1, sizeof(behavior_tree_selector_t));
     data->children = children;
     data->num_children = count;
     data->current = 0;
 
-    behavior_tree_node_t *node = calloc(1, sizeof(behavior_tree_node_t));
+    behavior_tree_node_t *node = GameCalloc("BehaviorCreateConcurrent node", 1, sizeof(behavior_tree_node_t));
     node->bt_type = BT_CONCURRENT;
     node->tick = BehaviorTickConcurrent;
     node->data = data;

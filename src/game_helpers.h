@@ -171,7 +171,7 @@ static int SplitBoundsFromRec(Rectangle base, int sect_size,
             chunk_w,
             1
         };
-        node_connector_t *c = calloc(1, sizeof(*c));
+        node_connector_t *c = GameCalloc("SplitBoundsFromRec", 1, sizeof(*c));
         c->range = BoundsFromRec(r);
         c->dir = CELL_UP;
         fill[count++] = c;
@@ -185,7 +185,7 @@ static int SplitBoundsFromRec(Rectangle base, int sect_size,
             chunk_w,
             1
         };
-        node_connector_t *c = calloc(1, sizeof(*c));
+        node_connector_t *c = GameCalloc("SplitBoundsFromRec", 1, sizeof(*c));
         c->range = BoundsFromRec(r);
         c->dir = CELL_DOWN;
         fill[count++] = c;
@@ -199,7 +199,7 @@ static int SplitBoundsFromRec(Rectangle base, int sect_size,
             1,
             chunk_h
         };
-        node_connector_t *c = calloc(1, sizeof(*c));
+        node_connector_t *c = GameCalloc("SplitBoundsFromRec", 1, sizeof(*c));
         c->range = BoundsFromRec(r);
         c->dir = CELL_LEFT;
         fill[count++] = c;
@@ -213,7 +213,7 @@ static int SplitBoundsFromRec(Rectangle base, int sect_size,
             1,
             chunk_h
         };
-        node_connector_t *c = calloc(1, sizeof(*c));
+        node_connector_t *c = GameCalloc("SplitBoundsFromRec", 1, sizeof(*c));
         c->range = BoundsFromRec(r);
         c->dir = CELL_RIGHT;
         fill[count++] = c;
@@ -718,7 +718,7 @@ static inline asi_bonus_t* GetAsiBonus(AttributeType attr,PhysQual mob_pq,
     MentalQual mob_mq,
         AsiEvent event)
 {
-    asi_bonus_t *out = calloc(1,sizeof(asi_bonus_t));
+    asi_bonus_t *out = GameCalloc("GetAsiBonus", 1,sizeof(asi_bonus_t));
 
     const attribute_quality_t *aq = &ATTR_QUAL[attr];
 

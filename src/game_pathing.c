@@ -22,11 +22,11 @@ bool TileBlocksSight(map_cell_t *c) {
 }
 
 path_pool_t* InitPathPool(int cap){
-  path_pool_t* p = calloc(1, sizeof(path_pool_t));
+  path_pool_t* p = GameCalloc("InitPathPool", 1, sizeof(path_pool_t));
 
   *p = (path_pool_t){
     .cap = cap,
-      .entries = calloc(cap, sizeof(path_cache_entry_t))
+      .entries = GameCalloc("InitPathPool entries", cap, sizeof(path_cache_entry_t))
   };
 
   return p;
@@ -461,7 +461,7 @@ int ScorePath(map_grid_t *m, int sx, int sy, int tx, int ty, int depth){
 
 path_result_t* FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *outNextStep, int depth){
 
-  path_result_t *res = calloc(1,sizeof(path_result_t));
+  path_result_t *res = GameCalloc("FindPath", 1,sizeof(path_result_t));
   path_cache_entry_t* cached =
     PathCacheFind(sx, sy, tx, ty);
 

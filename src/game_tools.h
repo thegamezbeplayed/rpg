@@ -53,6 +53,8 @@
 #define CellFlip(c) (Cell){(c.y),(c.x)}
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
+void* GameCalloc(const char* func, int count, size_t size);
+void* GameMalloc(const char* func, size_t size);
 
 typedef uint64_t hash_key_t;
 

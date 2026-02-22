@@ -182,7 +182,8 @@ int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_
 element_value_t* SetCtxItems(void*, GameObjectParam params[4], int);
 int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
-char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]);
+int SetCtxDescription(void* , line_item_t**, GameObjectParam, int pad[UI_POSITIONING]);
+char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING], char* out);
 typedef struct ui_element_s ui_element_t;
 typedef bool (*ElementCallback)( ui_element_t* self);
 typedef enum {
@@ -242,7 +243,7 @@ struct ui_element_s{
   UILayout            layout;
   UIAlignment         align;
   int                 spacing[UI_POSITIONING];
-  char                text[MAX_LINE_LEN];
+  char*               text;
   ElementSetValue     set_val;
   ElementValueSync    sync_val;
   element_value_t        *value;
@@ -311,6 +312,7 @@ element_value_t* GetElementName(ui_element_t* e, void* context);
 element_value_t* GetActivityEntry(ui_element_t* e, void* context);
 element_value_t* GetContextStat(ui_element_t* e, void* context);
 element_value_t* GetContextDetails(ui_element_t* e, void* context);
+element_value_t* GetContextDescription(ui_element_t* e, void* context);
 
 void UIEventLogEntry(EventType event, void* data, void* user);
 static void UIEventActivate(EventType event, void* data, void* user){

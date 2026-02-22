@@ -52,7 +52,7 @@ static param_t ParamCopyObj(DataType type, game_object_uid_i uid, const void* sr
 
   if (src && size > 0)
   {
-    o.data = malloc(size);
+    o.data = GameMalloc("ParamCopyObj", size);
     memcpy(o.data, src, size);
   }
   else
@@ -79,7 +79,7 @@ static param_t ParamMake(DataType type, size_t size, const void* src) {
   o.size = size;
 
   o.gouid = -1;
-  o.data = malloc(o.size);
+  o.data = GameMalloc("ParamMake", o.size);
   memcpy(o.data, src, o.size);
   return o;
 }
@@ -100,7 +100,7 @@ static param_t ParamClone(const param_t* src) {
     param_t p = *src;
 
     if (src->size > 0 && src->data) {
-        p.data = malloc(src->size);
+        p.data = GameMalloc("ParamClone", src->size);
         memcpy(p.data, src->data, src->size);
     }
 

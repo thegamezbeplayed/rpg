@@ -22,7 +22,7 @@ int InitInteractions(){
 }
 
 interaction_t* RegisterInteraction(uint64_t source, uint64_t target, EventType event, int duration, void* ctx, uint16_t ctx_id){
-  interaction_t* inter = malloc(sizeof(interaction_t));
+  interaction_t* inter = GameMalloc("RegisterInteraction",sizeof(interaction_t));
 
   interaction_uid_i uid = InteractionMakeUID(event, ctx_id, source, target);
  *inter = (interaction_t){
@@ -179,10 +179,10 @@ void InteractionStep(){
   }
 }
 event_bus_t* InitEventBus(int cap){
-  event_bus_t* bus = calloc(1,sizeof(event_bus_t));
+  event_bus_t* bus = GameCalloc("InitEventBus",1,sizeof(event_bus_t));
   *bus = (event_bus_t){
     .cap = cap,
-      .subs = calloc(cap, sizeof(event_sub_t))
+      .subs = GameCalloc("InitEventBus", cap, sizeof(event_sub_t))
   };
 
   return bus;
@@ -262,7 +262,7 @@ void EventEmit(event_bus_t* bus, event_t* e){
 }
 
 cooldown_t* InitCooldown(int dur, EventType type, CooldownCallback on_end_callback, void* params){
-  cooldown_t* cd = malloc(sizeof(cooldown_t)); 
+  cooldown_t* cd = GameMalloc("InitCooldown", sizeof(cooldown_t)); 
 
   *cd = (cooldown_t){
     .type = type,
@@ -318,7 +318,7 @@ int AddEvent(events_t* pool, cooldown_t* cd){
 }
 
 events_t* InitEvents(){
-  events_t* ev = malloc(sizeof(events_t));
+  events_t* ev = GameMalloc("InitEvents", sizeof(events_t));
   *ev =  (events_t) { 0 };
 
   for(int i = 0; i < MAX_EVENTS; i++){
@@ -442,7 +442,7 @@ void InitAllyTable(ally_table_t* t, int cap, ent_t* owner){
   t->owner = owner;
   t->count = 0;
   t->cap = cap;
-  t->entries = calloc(t->cap, sizeof(ally_context_t));
+  t->entries = GameCalloc("InitAllyTable", t->cap, sizeof(ally_context_t));
 
   // Create decay event
   cooldown_t* cd = InitCooldown(
@@ -505,14 +505,14 @@ static int LocalCompareDistAsc(const void* a, const void* b) {
 }
 
 local_table_t* InitLocals(ent_t* e, int cap){
-  local_table_t* s = calloc(1,sizeof(local_table_t));
+  local_table_t* s = GameCalloc("InitLocals", 1,sizeof(local_table_t));
 
 
   *s = (local_table_t){
     .owner = e,
       .count = 0,
       .cap = cap,
-      .entries = calloc(cap, sizeof(local_ctx_t)),
+      .entries = GameCalloc("InitLocals entries", cap, sizeof(local_ctx_t)),
   };
 
   HashInit(&s->ctx_by_gouid, 16384);
@@ -799,7 +799,7 @@ aggro_t* LocalAggroByCtx(local_ctx_t* ctx){
   if(ctx->other.type_id != DATA_ENTITY)
     return NULL;
 
-  aggro_t* a = calloc(1, sizeof(aggro_t));
+  aggro_t* a = GameCalloc("LocalAggroByCtx", 1, sizeof(aggro_t));
   ent_t* e = ParamReadEnt(&ctx->other);
   
   float threat_mul = CLAMPF(ctx->awareness,0.05f,0.25f);
@@ -1091,7 +1091,7 @@ int LocalAddAggro(local_table_t* table, ent_t* source, int threat_gain, float mu
 
     float cr = (off*def) /10;
 
-    ctx->aggro = calloc(1,sizeof(aggro_t));
+    ctx->aggro = GameCalloc("LocalAddAggro", 1,sizeof(aggro_t));
 
     ctx->aggro->initiated = init;
     ctx->aggro->last_turn = TURN;

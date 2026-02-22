@@ -1,7 +1,7 @@
 #include "game_process.h"
 
 level_t* InitLevel(map_grid_t* m){
-  level_t* l = calloc(1,sizeof(level_t));
+  level_t* l = GameCalloc("InitLevel", 1,sizeof(level_t));
 
   l->paths = InitPathPool(MAX_ENVS);
   map_gen_t mdef = MAPS[m->id];
@@ -44,7 +44,7 @@ void InitMobGroup(faction_groups_t** f, MobRule size, int index)
 }
 
 faction_groups_t* InitFactionGroups(Faction id, int desired){
-  faction_groups_t* g = calloc(1,sizeof(faction_groups_t));
+  faction_groups_t* g = GameCalloc("InitFactionGroups", 1,sizeof(faction_groups_t));
 
   faction_t* faction = FACTIONS[id];
 

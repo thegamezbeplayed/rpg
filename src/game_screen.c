@@ -28,8 +28,8 @@ void InitPlayArea(void){
 }
 
 void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target){
-  cam = calloc(1,sizeof(camera_t));
-  Camera2D* raycam = calloc(1,sizeof(Camera2D));
+  cam = GameCalloc("InitCamera", 1,sizeof(camera_t));
+  Camera2D* raycam = GameCalloc("InitCamera", 1,sizeof(Camera2D));
 
   raycam->offset = offset;
   raycam->offset.y*=2;

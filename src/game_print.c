@@ -55,7 +55,7 @@ void PrintMobDetail(ent_t* e){
 }
 
 line_item_t* InitLineItem(element_value_t **val, int num_val, const char* format){
-  line_item_t* ln = calloc(1,sizeof(line_item_t));
+  line_item_t* ln = GameCalloc("InitLineItem", 1,sizeof(line_item_t));
 
   for (int i = 0; i < num_val; i++)
     ln->values[ln->num_val++]=val[i];
@@ -166,7 +166,7 @@ element_value_t* CtxGetItem(void* c, GameObjectParam p, int index){
   if(!inv || inv->count == 0)
     return NULL;
 
-  element_value_t* ev = calloc(1,sizeof(element_value_t));
+  element_value_t* ev = GameCalloc("CtxGetItem", 1,sizeof(element_value_t));
 
   ev->type = VAL_ICO;
   ev->rate = FETCH_UPDATE;
@@ -182,7 +182,7 @@ int CtxGetSkill(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
     return 0;
 
   skill_t* skill = ParamRead(&ctx->params[p], skill_t);
-  element_value_t* lbl = calloc(1,sizeof(element_value_t));
+  element_value_t* lbl = GameCalloc("CtxGetSkill", 1,sizeof(element_value_t));
 
   lbl->type = VAL_CHAR;
   lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
@@ -190,7 +190,7 @@ int CtxGetSkill(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
 
   lbl->rate = FETCH_NONE;
 
-  element_value_t* cur = calloc(1,sizeof(element_value_t));
+  element_value_t* cur = GameCalloc("CtxGetSkill", 1,sizeof(element_value_t));
 
   cur->rate = FETCH_TURN;
   cur->context = skill;
@@ -211,7 +211,7 @@ int CtxGetSkillDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam
     return 0;
 
   skill_t* skill = ParamRead(&ctx->params[p], skill_t);
-  element_value_t* lbl = calloc(1,sizeof(element_value_t));
+  element_value_t* lbl = GameCalloc("CtxGetSkillDetails", 1,sizeof(element_value_t));
 
   lbl->type = VAL_INT;
   lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
@@ -220,11 +220,11 @@ int CtxGetSkillDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam
 
   lbl->rate = FETCH_NONE;
 
-  element_value_t* cur = calloc(1,sizeof(element_value_t));
+  element_value_t* cur = GameCalloc("CtxGetSkillDetails", 1,sizeof(element_value_t));
 
   cur->rate = FETCH_TURN;
   cur->context = skill;
-  cur->c = malloc(sizeof(char)*MAX_NAME_LEN);
+  cur->i = GameMalloc("CtxGetSkillDetails", sizeof(int));
    
   cur->type = VAL_INT;
   int *next_lvl = cur->i;
@@ -239,25 +239,86 @@ int CtxGetStat(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
     return 0;
 
   stat_t* stat = ParamRead(&ctx->params[p], stat_t);
-  element_value_t* lbl = calloc(1,sizeof(element_value_t));
+  element_value_t* lbl = GameCalloc("CtxGetStat", 1,sizeof(element_value_t));
 
   lbl->type = VAL_CHAR;
-  lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
+  lbl->c = GameMalloc("CtxGetStat", sizeof(char)*MAX_NAME_LEN);
   strcpy(lbl->c ,STAT_STRING[stat->type].name);
 
   lbl->rate = FETCH_NONE;
 
-  element_value_t* cur = calloc(1,sizeof(element_value_t));
+  element_value_t* cur = GameCalloc("CtxGetStat", 1,sizeof(element_value_t));
   
   cur->type = VAL_CHAR;
   cur->rate = FETCH_TURN;
   cur->get_val = StatGetPretty;
   cur->context = stat;
-  cur->c = malloc(sizeof(char)*MAX_NAME_LEN);
+  cur->c = GameMalloc("CtxGetStat", sizeof(char)*MAX_NAME_LEN);
 
   fill[0] = lbl;
   fill[1] = cur;
   return 2;
+
+}
+
+int GetWeapDesc(element_value_t **fill, item_t* item){
+
+  element_value_t* name = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
+
+  name->type = VAL_CHAR;
+  name->rate = FETCH_ONCE;
+  name->c = strdup(item->def->name);
+
+  element_value_t* min_dmg = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
+  min_dmg->i = malloc(sizeof(int));
+  element_value_t* max_dmg = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
+
+  max_dmg->i = malloc(sizeof(int));
+  min_dmg->type = VAL_INT;
+  min_dmg->rate = FETCH_ONCE;
+  int min_roll = 1 * item->ability->dc->num_die;
+  *min_dmg->i =  min_roll;
+
+  int max_roll = item->ability->dc->sides * item->ability->dc->num_die;
+
+  max_dmg->type = VAL_INT;
+  max_dmg->rate = FETCH_ONCE;
+  *max_dmg->i = max_roll;
+
+  element_value_t* type = GameCalloc("GetWeapDesc",1,sizeof(element_value_t));
+  type->type = VAL_CHAR;
+  type->rate = FETCH_ONCE;
+  type->c = strdup(DAMAGE_STRING[item->def->type]);
+  
+
+  fill[0] = name;
+  fill[1] = min_dmg;
+  fill[2] = max_dmg;
+  fill[3] = type;
+  return 4;
+}
+
+int GetArmorDesc(element_value_t **fill, item_t* item){
+
+}
+
+int CtxGetItemDesc(element_value_t **fill, void* ctx, GameObjectParam p){
+  item_t* item = ctx;
+  int lines = 0;
+  switch(item->def->category){
+
+    case ITEM_WEAPON:
+      break;
+    case ITEM_ARMOR:
+      lines = GetArmorDesc(fill, item);
+      break;
+    case ITEM_CONSUMABLE:
+      break;
+    default:
+      break;
+
+  }
+
 
 }
 
@@ -266,7 +327,7 @@ int CtxGetStatDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam 
     return 0;
 
   stat_t* stat = ParamRead(&ctx->params[p], stat_t);
-  element_value_t* lbl = calloc(1,sizeof(element_value_t));
+  element_value_t* lbl = GameCalloc("CtxGetStatDetails", 1,sizeof(element_value_t));
 
   lbl->type = VAL_CHAR;
   lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
@@ -274,7 +335,7 @@ int CtxGetStatDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam 
 
   lbl->rate = FETCH_NONE;
 
-  element_value_t* cur = calloc(1,sizeof(element_value_t));
+  element_value_t* cur = GameCalloc("CtxGetStatDetails", 1,sizeof(element_value_t));
   
   cur->type = VAL_CHAR;
   cur->rate = FETCH_TURN;
@@ -292,7 +353,7 @@ int CtxGetString(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   if(ctx->params[p].type_id != DATA_STRING)
     return 0;
 
-  element_value_t* txt = calloc(1,sizeof(element_value_t));
+  element_value_t* txt = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
 
   txt->type = VAL_CHAR;
 
@@ -303,27 +364,6 @@ int CtxGetString(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   fill[0] = txt;
 
   return 1;
-}
-
-
-int EntGetSkillPretty(element_value_t **fill, skill_t* skill){
-  element_value_t* lbl = calloc(1,sizeof(element_value_t));
-
-  lbl->type = VAL_CHAR;
-  strcpy(lbl->c ,SKILL_STRING[skill->id].name);
-  lbl->rate = FETCH_NONE;
-
-  element_value_t* cur = calloc(1,sizeof(element_value_t));
-  
-  cur->type = VAL_INT;
-  cur->rate = FETCH_UPDATE;
-  cur->get_val = SkillGetPretty;
-  cur->context = skill;
-
-  fill[0] = lbl;
-  fill[1] = cur;
-  return 2;
-
 }
 
 element_value_t* StatGetPretty(element_value_t* self, void* context){
@@ -402,6 +442,7 @@ int SetCtxDetails(local_ctx_t* ctx , line_item_t** li, const char fmt[PARAM_ALL]
         format = "%i exp till Level %i";
         items = CtxGetSkillDetails(base, ctx, param);
         break;
+      //case DATA
       default:
         continue;
         break;
@@ -428,6 +469,55 @@ int SetCtxDetails(local_ctx_t* ctx , line_item_t** li, const char fmt[PARAM_ALL]
   }
 
   return count;
+}
+
+int SetCtxDescription(void* ctx , line_item_t** li, GameObjectParam p, int pad[UI_POSITIONING]){
+
+  int p_left = pad[UI_PADDING_LEFT];
+  int p_right = pad[UI_PADDING_RIGHT];
+
+  element_value_t* base[MAX_LINE_VAL];
+  int lines = 0;
+  int des_len = li[0]->des_len;
+  char* format = "%s";
+
+  switch (p){
+    case PARAM_ITEM:
+      item_t* item = ctx;
+      switch(item->def->category){
+        case ITEM_WEAPON:
+          format = "[%s] - %i to %i %s damage";
+          lines = GetWeapDesc(base, item);
+          break;
+        case ITEM_ARMOR:
+          lines = GetArmorDesc(base, item);
+          break;
+        case ITEM_CONSUMABLE:
+          break;
+        default:
+          break;
+
+      }
+      break;
+  }
+
+  li[0] = InitLineItem(base, lines, format);
+  PrintSyncLine(li[0],FETCH_ONCE);
+  const char* ln = TextFormatLineItem(li[0]);
+
+  TraceLog(LOG_INFO, "MEASURE: %s", ln);
+
+  Vector2 size = MeasureTextEx(ui.font, ln, ui.text_size, ui.text_spacing);
+  if(size.x > des_len){
+    int space = size.x - des_len;
+      p_right += space/2;
+      //p_left += space/2;
+
+    }
+    li[0]->r_wid = size.x + p_right;
+    li[0]->r_hei = size.y;
+
+    return 1;
 }
 
 int SetActivityLines(element_value_t* ev, int pad[UI_POSITIONING]){
@@ -527,8 +617,8 @@ int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][M
   return count;
 }
 
-char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING]){
-  char* out = calloc(1, 1024);
+char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING], char* out){
+  //char* out = GameCalloc("PrintElementValue", 1, 1024);
 
   int p_top = imax(spacing[UI_PADDING], spacing[UI_PADDING_TOP]);
   int p_bot = 1 + imax(spacing[UI_PADDING], spacing[UI_PADDING_BOT]);

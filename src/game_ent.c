@@ -51,7 +51,7 @@ ent_t* InitEnt(EntityType id,Cell pos){
 }
 
 ent_t* InitMob(EntityType mob, Cell pos){
-  ent_t* e = malloc(sizeof(ent_t));
+  ent_t* e = GameMalloc("InitMob", sizeof(ent_t));
   *e = (ent_t){0};  // zero initialize if needed
   return e;
 }
@@ -59,7 +59,7 @@ ent_t* InitMob(EntityType mob, Cell pos){
 ent_t* InitEntByRace(mob_define_t def){
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
-  ent_t* e = malloc(sizeof(ent_t));
+  ent_t* e = GameMalloc("InitEntByRace", sizeof(ent_t));
   *e = (ent_t){0};
   e->props = InitProperties(racial, def);
   if(racial.base_ent == ENT_NONE){
@@ -89,7 +89,7 @@ ent_t* InitEntByRace(mob_define_t def){
     {TRAIT_RESIST_TAG_MASK, e->props->traits & TRAIT_RESIST_TAG_MASK},
   };
 
-  e->traits = calloc(1,sizeof(traits_t));
+  e->traits = GameCalloc("InitEntByRace traits", 1,sizeof(traits_t));
 
   for (int i = 0; i< 4;i++)
     EntAddTraits(e->traits,res[i].mask, res[i].shift);
@@ -262,7 +262,7 @@ ent_t* InitEntByRace(mob_define_t def){
   e->local = InitLocals(e, MAX_ENTS + MAX_ENVS*2);
   WorldSubscribe(EVENT_ADD_LOCAL_CTX, OnWorldCtx, e->local);
   WorldSubscribe(EVENT_DEL_LOCAL_CTX, OnWorldByGOUID, e->local);
-  e->allies = calloc(1,sizeof(ally_table_t));
+  e->allies = GameCalloc("InitEntByRace allies", 1,sizeof(ally_table_t));
   InitAllyTable(e->allies, 8, e);
 
 
@@ -857,7 +857,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
 }
 
 properties_t* InitProperties(race_define_t racials, mob_define_t m){
-  properties_t* p = calloc(1,sizeof(properties_t));
+  properties_t* p = GameCalloc("InitProperties", 1,sizeof(properties_t));
 
   p->race = racials.race;
   p->base_diff = racials.base_challenge;
@@ -893,7 +893,7 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
     Resource r = res & -res;
     res &= res -1;
 
-    resource_t* resource = calloc(1,sizeof(resource_t));
+    resource_t* resource = GameCalloc("InitProperties resources", 1,sizeof(resource_t));
     resource->type = r;
     define_resource_t* def = GetResourceDef(r);
     resource->name = def->name;
@@ -949,7 +949,7 @@ env_t* InitEnvFromEnt(ent_t* e){
 
     empty = false;
 
-    resource_t *res = calloc(1,sizeof(resource_t));
+    resource_t *res = GameCalloc("InitEnvFromEnt", 1,sizeof(resource_t));
 
     *res = (resource_t){
       .type = tmp->type,
@@ -969,7 +969,7 @@ env_t* InitEnvFromEnt(ent_t* e){
 }
 
 env_t* InitEnv(EnvTile t,Cell pos){
-  env_t* e = malloc(sizeof(ent_t));
+  env_t* e = GameMalloc("InitMob",sizeof(ent_t));
   *e = (env_t){0};  // zero initialize if needed
   e->type = t;
 
@@ -1488,7 +1488,7 @@ bool FreeEnt(ent_t* e){
 }
 
 controller_t* InitController(ent_t* e){
-  controller_t* ctrl = calloc(1,sizeof(controller_t));
+  controller_t* ctrl = GameCalloc("InitController", 1,sizeof(controller_t));
 
   ctrl->actions = InitActionPool(e);
 
@@ -2104,7 +2104,7 @@ int EntGetTrackDist(ent_t* e, local_ctx_t* tar){
 skill_check_t* EntGetSkillPB(SkillType s, ent_t* e, local_ctx_t* ctx, Senses sen){
   ent_t* other = ParamReadEnt(&ctx->other);
 
-  skill_check_t* sc = calloc(1,sizeof(skill_check_t));
+  skill_check_t* sc = GameCalloc("EntGetSkillPB", 1,sizeof(skill_check_t));
 
   if(e->skills[s]->checks)
   *sc = *e->skills[s]->checks;

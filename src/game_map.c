@@ -228,7 +228,7 @@ void MapRoomSpawn(map_grid_t* m, EntityType data, int room){
 }
 
 map_room_t* InitMapRoom(map_context_t* ctx, room_t* r){
-  map_room_t *mr = calloc(1,sizeof(map_room_t));  
+  map_room_t *mr = GameCalloc("InitMapRoom", 1,sizeof(map_room_t));  
 
   mr->center = r->center;
   mr->bounds = r->bounds; 
@@ -358,7 +358,7 @@ room_t* ConvertNodeToRoom(map_context_t* ctx, room_node_t* node){
   if(node->applied)
     return NULL;
 
-  room_t* r = calloc(1,sizeof(room_t));
+  room_t* r = GameCalloc("ConvertNodeToRoom", 1,sizeof(room_t));
 
   r->flags = node->flags;
   r->bounds = node->bounds;
@@ -373,7 +373,7 @@ room_t* ConvertNodeToRoom(map_context_t* ctx, room_node_t* node){
   node->col.a*=.33;
 
   for(int i = 0; i < node->max_children; i++){
-    r->openings[i] = calloc(1,sizeof(room_opening_t));
+    r->openings[i] = GameCalloc("ConvertNodeToRoom", 1,sizeof(room_opening_t));
     r->openings[i]->dir = node->children[i]->dir;
     r->openings[i]->pos = node->children[i]->pos;
     cell_bounds_t range = node->children[i]->range;
@@ -390,7 +390,7 @@ room_t* ConvertNodeToRoom(map_context_t* ctx, room_node_t* node){
     if(to)
       ctx->rooms[ctx->num_rooms++]= to;
 
-    ctx->connections[ctx->num_conn] = calloc(1,sizeof(room_connection_t));
+    ctx->connections[ctx->num_conn] = GameCalloc("ConvertNodeToRoom", 1,sizeof(room_connection_t));
 
     room_connection_t* r_conn = ctx->connections[ctx->num_conn++];
 
@@ -595,7 +595,7 @@ Cell MapApplyContext(map_grid_t* m){
   Cell out = CELL_UNSET;
 
   for(int x = 0; x < world_map.width; x++){
-    m->tiles[x] = calloc(m->height, sizeof(map_cell_t));
+    m->tiles[x] = GameCalloc("MapApplyContext", m->height, sizeof(map_cell_t));
     for(int y = 0; y < world_map.height; y++){
       map_cell_t* mc = RegisterMapCell(x,y);
 
@@ -895,7 +895,7 @@ env_t* MapSpawn(TileFlags flags, int x, int y){
   
   for (int i = 0; i < RES_DONE; i++){
     define_resource_t* temp = GetResourceByCatFlags(BIT64(i), OBJ_ENV, tflags);
-    resource_t *res = calloc(1,sizeof(resource_t));
+    resource_t *res = GameCalloc("MapSpawn", 1,sizeof(resource_t));
     env->resources[i] = res;
     if(!temp)
       continue;
@@ -1581,7 +1581,6 @@ bool MapAddNodeToConnector(node_connector_t* conn, room_node_t* node){
 }
 
 bool MapAddNode(room_node_t* root, room_node_t* child){
-  //root->children[root->num_children] = calloc(1,sizeof(room_node_t));
 
   for(int i = 0; i < root->max_children; i++){
     if(root->children[i]->used)
@@ -1627,7 +1626,7 @@ bool MapAddSubNode(room_node_t* root, room_node_t* child){
 }
 
 room_node_t* MapBuildNode(RoomFlags flags, Cell pos){
-  room_node_t* node = calloc(1,sizeof(room_node_t));
+  room_node_t* node = GameCalloc("MapBuildNode", 1,sizeof(room_node_t));
 
   *node = (room_node_t){
     .center = pos,
@@ -1943,7 +1942,7 @@ void NodeGetUsedConnections(room_node_t* node, node_connector_t **conn_pool, int
       continue;
     
     if(conn->enter || conn->used || conn->room){
-      conn_pool[*count] = calloc(1,sizeof(node_connector_t));
+      conn_pool[*count] = GameCalloc("NodeGetUsedConnections", 1,sizeof(node_connector_t));
       conn_pool[(*count)++] = conn;
     }
 
@@ -1977,7 +1976,7 @@ void RoomSetExit(map_context_t* ctx, room_node_t* r){
     best_mid = count /2;
 
   if(r->children[indexes[best_mid]]){
-    map_exit_t *exit = calloc(1,sizeof(map_exit_t));
+    map_exit_t *exit = GameCalloc("RoomSetExit", 1,sizeof(map_exit_t));
     exit->tile = TILEFLAG_EXIT;
     exit->room = r;
     exit->conn = r->children[indexes[best_mid]];  
@@ -2752,7 +2751,8 @@ MapNodeResult MapAllocateTiles(map_context_t *ctx, map_node_t *node)
         return MAP_NODE_FAILURE;
 
     for (int x = 0; x < ctx->width; x++) {
-        ctx->tiles[x] = calloc(ctx->height, sizeof(TileFlags));
+        ctx->tiles[x] = GameCalloc("MapAllocateTiles",
+            ctx->height, sizeof(TileFlags));
         if (!ctx->tiles[x])
             return MAP_NODE_FAILURE;
     }
@@ -2780,6 +2780,9 @@ MapNodeResult MapFillWalls(map_context_t *ctx, map_node_t *node){
   for(int x = 0; x<ctx->width; x++){
     for (int y = 0; y < ctx->height; y++){
       TileFlags *tile = &ctx->tiles[x][y];
+
+      if(!tile)
+        continue;
 
       if (!TileHasFlag(*tile, TILEFLAG_EMPTY) || !TileHasFlag(*tile,TILEFLAG_FLOOR))
         continue;

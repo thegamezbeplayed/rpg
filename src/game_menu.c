@@ -31,12 +31,12 @@ int GuiLabel(Rectangle bounds, const char *text)
 ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o){
   ui_element_d d;
 
-  for (int i = 0; i < MAX_SUB_ELE; i++){
+  for (int i = 0; i < ELE_COUNT; i++){
     if(strcmp(name, ELEM_DATA[i].identifier) != 0)
       continue;
 
     ui_element_d d = ELEM_DATA[i];
-    ui_element_t *e = calloc(1,sizeof(ui_element_t));
+    ui_element_t *e = GameCalloc("InitElementByName", 1,sizeof(ui_element_t));
 
     *e = (ui_element_t){
       .hash     = hash_str_32(d.identifier),
@@ -52,8 +52,13 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
       .width    = d.size.x,
       .height   = d.size.y
     };
+
+
+    e->text = GameCalloc("InitElementByName",1, MAX_LINE_LEN);
+    e->text[0] = '\0';
 /*
-    if(d.texture > 0)
+
+   if(d.texture > 0)
       e->texture = InitScalingElement(d.texture); 
       */
     strcpy(e->name ,d.identifier);
@@ -73,11 +78,14 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
       else
         c_name = d.kids[j];
 
-      ElementAddChild(e, InitElementByName(c_name, m, e));
-      ui_element_t* c = e->children[j];
+      ui_element_t* c = InitElementByName(c_name, m, e);
+      if(!c)
+        continue;
+
+      ElementAddChild(e, c);
       for(int k = 0; k < PARAM_ALL; k++){
         if(d.params[j][k] == PARAM_NONE)
-          continue;
+          break;
 
         c->params[c->num_params++] = d.params[j][k];
       }
@@ -186,7 +194,7 @@ ui_element_t* GetElement(const char* name){
 }
 
 ui_element_t* InitElement(const char* name, ElementType type, Vector2 pos, Vector2 size, UIAlignment align,UILayout layout){
-  ui_element_t* u = malloc(sizeof(ui_element_t));
+  ui_element_t* u = GameMalloc("game_menu: InitElement", sizeof(ui_element_t));
   *u = (ui_element_t) {0};
 
   u->hash = hash_str_32(name);
@@ -197,6 +205,9 @@ ui_element_t* InitElement(const char* name, ElementType type, Vector2 pos, Vecto
   u->bounds = Rect(pos.x,pos.y,size.x,size.y);
   u->width = size.x;
   u->height = size.y;
+  u->text = GameCalloc("InitElement",1, MAX_LINE_LEN);
+  u->text[0] = '\0';
+
   //strcpy(u->text,name);
   for(int i = 0; i < ELEMENT_DONE; i++)
     u->cb[i] = UI_BOOL_DO_NOTHING;
@@ -446,7 +457,7 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
   int clicked = 0,toggle = 0,focused = 0;
   if(e->sync_val){
     e->sync_val(e,poll);
-    if(e->value){
+    if(e->text[0] == '\0' && e->value){
       switch(e->value->type){
         case VAL_CHAR:
           strcpy(e->text, e->value->c);
@@ -455,7 +466,8 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
           strcpy(e->text,TextFormat("%i",*e->value->i));
           break;
         case VAL_LN:
-          strcpy(e->text, PrintElementValue(e->value, e->spacing));
+          if(e->text)
+          PrintElementValue(e->value, e->spacing, e->text);
           break;
         case VAL_ICO:
           if(e->type == UI_ICON && e->value->s == NULL)
@@ -491,11 +503,12 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
       break;
     case UI_BOX:
       GuiGroupBox(e->bounds,NULL);//e->text);
+      break;
     case UI_PROGRESSBAR:
       break;
     case UI_ICON:
       DrawRectangleLinesEx(e->bounds, 1.5f,LIGHTGRAY);
-      state = GuiPanel(e->bounds, NULL);
+      state = GuiLabel(e->bounds, NULL);
       DrawSpriteAtPos(e->value->s, e->value->s->pos);
 
       break;
@@ -873,18 +886,6 @@ bool ElementSetContext(ui_element_t* e){
   return (e->ctx == NULL);
 
 }
-
-element_value_t GetDisplayHealth(ui_element_t* e){
-  element_value_t ev = {0}; 
-  ev.type = VAL_FLOAT;
-  ev.f = malloc(sizeof(float));
-  if(player->stats[STAT_HEALTH]->ratio ==NULL)
-    *ev.f = 0.0f;
-  else
-    *ev.f = RATIO(player->stats[STAT_HEALTH]);
-  return ev;
-}
-
 void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
   bool resize = false;
   ev->text_hei = 0;
@@ -919,7 +920,7 @@ element_value_t* GetContextParams(ui_element_t* e, void* context){
   }
 
   local_ctx_t* ctx = context;
-  param_t *ctx_p = calloc(count, sizeof(param_t));
+  param_t *ctx_p = GameCalloc("game_menu: GetContextParams",count, sizeof(param_t));
 
   for(int i = 0; i < count; i++){
     if(e->params[i] != PARAM_NONE)
@@ -934,11 +935,11 @@ element_value_t* GetContextStat(ui_element_t* e, void* context){
     return NULL;
   
   local_ctx_t* ctx = context;
-  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  element_value_t *ev = GameCalloc("game_menu: GetContextStat", 1,sizeof(element_value_t));
   ev->rate = FETCH_TURN;
 
   for(int i = 0; i < MAX_LINE_ITEMS; i++){
-    ev->l[i] = calloc(1,sizeof(line_item_t));
+    ev->l[i] = GameCalloc("game_menu: GetContextStat",1,sizeof(line_item_t));
     ev->l[i]->des_len = e->owner->width;
   }
 
@@ -957,17 +958,38 @@ element_value_t* GetContextStat(ui_element_t* e, void* context){
   return ev;
 
 }
+element_value_t* GetContextDescription(ui_element_t* e, void* context){
+  if(context == NULL)
+    return NULL;
+
+  element_value_t *ev = GameCalloc("game_menu: GetContextDescription", 1,sizeof(element_value_t));
+  ev->rate = FETCH_TURN;
+
+  for(int i = 0; i < MAX_LINE_ITEMS; i++){
+    ev->l[i] = GameCalloc("game_menu: GetContextDescript", 1,sizeof(line_item_t));
+    ev->l[i]->des_len = e->owner->width;
+  }
+
+  ev->type = VAL_LN;
+  ev->num_ln = SetCtxDescription(context, ev->l, e->params[0], e->spacing);
+  
+  ElementValueSyncSize(e, ev);
+
+  return ev;
+
+
+}
 
 element_value_t* GetContextDetails(ui_element_t* e, void* context){
   if(context == NULL)
     return NULL;
     
   local_ctx_t* ctx = context;
-  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  element_value_t *ev = GameCalloc("game_menu: GetContextDetails", 1,sizeof(element_value_t));
   ev->rate = FETCH_ACTIVE;
     
   for(int i = 0; i < MAX_LINE_ITEMS; i++){
-    ev->l[i] = calloc(1,sizeof(line_item_t));
+    ev->l[i] = GameCalloc("game_menu: GetContextDetails", 1,sizeof(line_item_t));
     ev->l[i]->des_len = e->owner->width;
   }
 
@@ -1021,11 +1043,11 @@ element_value_t* GetContextName(ui_element_t* e, void* context){
     return NULL;
   
   local_ctx_t* ctx = context;
-  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_value_t));
   ev->rate = FETCH_TURN;
 
   for(int i = 0; i < MAX_LINE_ITEMS; i++){
-    ev->l[i] = calloc(1,sizeof(line_item_t));
+    ev->l[i] = GameCalloc(" game_menu: GetContextName", 1,sizeof(line_item_t));
     ev->l[i]->des_len = e->owner->width;
   }
 
@@ -1045,7 +1067,7 @@ element_value_t* GetContextName(ui_element_t* e, void* context){
 }
 
 element_value_t* GetActivityEntry(ui_element_t* e, void* context){
-  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  element_value_t *ev = GameCalloc("game_menu: GetActivityEntry", 1,sizeof(element_value_t));
   ev->rate = FETCH_EVENT;
 
   ev->context = e->ctx;
@@ -1059,7 +1081,7 @@ element_value_t* GetActivityEntry(ui_element_t* e, void* context){
 }
 
 element_value_t* GetContextItem(ui_element_t* e, void* context){
-  element_value_t *ev = calloc(1,sizeof(element_value_t));
+  element_value_t *ev = GameCalloc("game_menu: GetContextItem",  1,sizeof(element_value_t));
 
   ev = SetCtxItems(e->ctx, e->params, e->index);
   //ev->s->pos.x = e->bounds.x + e->spacing[UI_PADDING_LEFT]; 
@@ -1101,7 +1123,9 @@ void* ElementMatchTab(void* p){
 
 void* ElementOwnerItemContext(void* p){
   ui_element_t* e = p; 
-  local_ctx_t* ctx = e->owner->ctx;
+  inventory_t* inv = e->owner->ctx;
+
+  return &inv->items[e->owner->index];
 }
 
 void* ElementNiblings(void *p){

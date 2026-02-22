@@ -97,14 +97,17 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     .kids = {"ITEM_BOX"}
   },
   {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_ICON,
-   ELEMENT_NONE, LAYOUT_STACK, ALIGN_MID | ALIGN_CENTER, GetContextItem, ElementPresetContext,
+   ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_MID | ALIGN_LEFT, GetContextItem, ElementPresetContext,
    {
       [ELEMENT_LOAD]      = ElementSetContext,
+      [ELEMENT_FOCUSED]   = ElementShowTooltip,
+      [ELEMENT_TOGGLE]    = ElementToggleChildren,
       [ELEMENT_SHOW]      = ElementShowIcon
    },
-   .spacing = {[UI_PADDING_TOP] = 18, [UI_PADDING_LEFT] = 18},
+   .spacing = {[UI_PADDING_TOP] = 18, [UI_PADDING_LEFT] = 18, [UI_MARGIN_RIGHT] = 18},
    .texture = UI_GRID_CELL,
-   .num_children = 1, .kids = {"ITEM_TOOL_TIP"}
+   .num_children = 1, .kids = {"ITEM_TOOL_TIP"},
+   .params = {PARAM_ITEM}
   }, 
   {"PLAYER_STATS", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
@@ -188,16 +191,15 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     .spacing = {[UI_MARGIN_RIGHT] = 8}
   },
   {"ITEM_TOOL_TIP", VECTOR2_ZERO, FIXED_TOOL_TIP, UI_TOOL_TIP,
-    ELEMENT_HIDDEN, LAYOUT_VERTICAL, ALIGN_CENTER | ALIGN_TOP | ALIGN_OVER,
-    GetContextDetails, ElementGetOwnerContext,
+    ELEMENT_HIDDEN, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_TOP | ALIGN_OVER,
+    GetContextDescription, ElementOwnerItemContext,
     {
       [ELEMENT_SHOW] = ElementSetContext,
       [ELEMENT_FOCUSED] = ElementSetTooltip,
       [ELEMENT_TOGGLE] = UIHideElement
     },
-    .spacing = {[UI_MARGIN_LEFT] = 54, [UI_MARGIN_TOP] = -28}
+    .spacing = {[UI_MARGIN_LEFT] = 8, [UI_MARGIN_TOP] = -20}
   },
-
   
   {"CONTEXT_PANEL_R", UI_PANEL_RIGHT, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_RIGHT, NULL, ScreenSelectContext,

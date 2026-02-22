@@ -322,10 +322,10 @@ bool RegisterEnt( ent_t *e){
 }
 
 map_cell_t* RegisterMapCell(int x, int y){
-  map_cell_t* out = calloc(1,sizeof(map_cell_t));
+  map_cell_t* out = GameCalloc("RegisterMapCell", 1,sizeof(map_cell_t));
   int index = IntGridIndex(x, y);
   out->index = index;
-  out->props = calloc(1,sizeof(site_properties_t));
+  out->props = GameCalloc("RegisterMapCell props", 1,sizeof(site_properties_t));
 
   const char *cat = "OBJ_MAP_CELL";
 
@@ -540,7 +540,7 @@ void WorldTurnUpdate(void* context){
 }
 
 world_context_t* InitWorldContext(void){
-  world_context_t *ctx = calloc(1,sizeof(world_context_t));
+  world_context_t *ctx = GameCalloc("InitWorldContext", 1,sizeof(world_context_t));
 
   ctx->time = InitStatOnMin(STAT_TIME,0,180);
   ctx->time->on_stat_full = StatReverse; 
@@ -783,14 +783,4 @@ bool WorldDebugInsert(debug_info_t d){
 
 void WorldDebugCell(Cell c, Color col){
   return;
-  param_t* info = calloc(1, sizeof(param_t));
-  *info = ParamMake(DATA_CELL, sizeof(Cell), &c);
-
-  debug_info_t d = (debug_info_t){
-    .type = DEBUG_CELL,
-    .color = col,
-    .info = info
-  };
-
-  WorldDebugInsert(d);
 }

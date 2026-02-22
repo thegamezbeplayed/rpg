@@ -29,7 +29,7 @@ int ActivityAddEntry(activity_t* act){
 }
 
 activity_t* InitActivity(EventType event, interaction_t* inter){
-  activity_t* act = calloc(1, sizeof(activity_t));
+  activity_t* act = GameCalloc("InitActivity", 1, sizeof(activity_t));
 
   combat_t* com = inter->ctx;
 
@@ -146,13 +146,13 @@ void InitActivities(int cap){
 }
 
 int ActivitiesAssignValues(element_value_t** fill, int pos){
-  element_value_t* ln = calloc(1, sizeof(element_value_t));
+  element_value_t* ln = GameCalloc("ActivitiesAssignValues", 1, sizeof(element_value_t));
 
   ln->type = VAL_CHAR;
-  ln->c = calloc(1, sizeof(char)*MAX_LINE_LEN);
+  ln->c = GameCalloc("ActivitiesAssignValues char", 1, sizeof(char)*MAX_LINE_LEN);
 
   ln->rate = FETCH_EVENT;
-  int* ctx = malloc(sizeof(int));
+  int* ctx = GameMalloc("InitActivities", sizeof(int));
   *ctx = pos;
   ln->context = ctx;
   ln->get_val = ActivitiesFetch;
@@ -164,7 +164,7 @@ int ActivitiesAssignValues(element_value_t** fill, int pos){
 void InitCombatSystem(int cap){
 
   COMBAT.cap = cap;
-  COMBAT.entries = calloc(cap,sizeof(interaction_t));
+  COMBAT.entries = GameCalloc("InitCombatSystem", cap,sizeof(interaction_t));
   HashInit(&COMBAT.map, cap*2);
 }
 
@@ -223,7 +223,7 @@ interaction_t* StartCombat(ent_t* agg, ent_t* tar, ability_t* a){
   if(!CheckEntAvailable(agg) || !CheckEntAvailable(tar))
     return NULL;
 
-  combat_t* c = calloc(1,sizeof(combat_t));
+  combat_t* c = GameCalloc("StartCombat", 1,sizeof(combat_t));
 
   c->exid = CombatMakeExID(agg, tar->gouid, a->id, WorldGetTime());
   c->cctx[IM_AGGR] = CombatContext(agg, IM_AGGR, a);
@@ -238,7 +238,7 @@ interaction_t* StartCombat(ent_t* agg, ent_t* tar, ability_t* a){
 }
 
 combat_context_t* CombatContext(ent_t* e, InteractMember type, ability_t* a){
-  combat_context_t* c = calloc(1, sizeof(combat_context_t));
+  combat_context_t* c = GameCalloc("CombatContext", 1, sizeof(combat_context_t));
 
   ability_t* dr = EntFindAbility(e, ABILITY_ARMOR_DR);
   c->type = type;

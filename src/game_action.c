@@ -391,7 +391,7 @@ void ActionManagerSync(void){
 }
 
 action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, uint64_t gouid, int weight){
-  action_t* a = calloc(1, sizeof(action_t));
+  action_t* a = GameCalloc("InitAction", 1, sizeof(action_t));
 
   uint64_t id = GameObjectMakeUID(e->name, 
       10*ActionMan.turn + ActionMan.phase,
@@ -511,7 +511,7 @@ BehaviorStatus ActionExecute(ActionType t, action_t* a){
 
 action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap){
 
-  action_queue_t* q = calloc(1, sizeof(action_queue_t));
+  action_queue_t* q = GameCalloc("InitActionQueue", 1, sizeof(action_queue_t));
 
   int charges = (cat == ACT_MAIN)?1:0;
   *q = (action_queue_t) {
@@ -522,7 +522,7 @@ action_queue_t* InitActionQueue(ent_t* e, ActionCategory cat, int cap){
     .allowed = charges
   };
 
-  q->entries = calloc(q->cap, sizeof(action_t));
+  q->entries = GameCalloc("InitActionQueue entries", q->cap, sizeof(action_t));
 
   return q;
 }
@@ -547,7 +547,7 @@ action_t* ActionForPhase(action_queue_t* q, TurnPhase phase){
 
 action_pool_t* InitActionPool(ent_t* e){
 
-  action_pool_t* p = calloc(1, sizeof(action_pool_t));
+  action_pool_t* p = GameCalloc("InitActionPool", 1, sizeof(action_pool_t));
 
   p->options[TURN_MAIN] = true;
   for(int i = 0; i < ACT_DONE; i++)
@@ -675,7 +675,7 @@ void OnPlayerAction(EventType event, void* data, void* user){
 }
 
 action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap){
-  action_slot_t* a = calloc(1,sizeof(action_slot_t));
+  action_slot_t* a = GameCalloc("InitActionSlot", 1,sizeof(action_slot_t));
 
   *a = (action_slot_t){
     .id     = id,
@@ -690,7 +690,7 @@ action_slot_t* InitActionSlot(ActionSlot id, ent_t* owner, int rank, int cap){
     a->allowed[i] = def.allowed[i];
 
   a->resource = def.resource;
-  a->abilities = calloc(a->cap, sizeof(ability_t));
+  a->abilities = GameCalloc("InitActionSlot entries", a->cap, sizeof(ability_t));
   return a;
 }
 
@@ -761,12 +761,12 @@ void ActionSlotSortByPref(ent_t* owner, int *pool, int count){
 }
 
 priorities_t* InitPriorities(ent_t* e, int cap){
-  priorities_t* p = calloc(1,sizeof(priorities_t));
+  priorities_t* p = GameCalloc("InitPriorities", 1,sizeof(priorities_t));
 
   *p = (priorities_t){
     .owner = e,
       .cap = cap,
-      .entries = calloc(cap, sizeof(priority_t))
+      .entries = GameCalloc("InitPriorities entries", cap, sizeof(priority_t))
   };
 
   return p;
