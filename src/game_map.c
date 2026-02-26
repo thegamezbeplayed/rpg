@@ -258,7 +258,10 @@ void MapRoomRunSpawner(map_room_t* r, spawner_t* s){
     TraceLog(LOG_INFO,
         "===== LEVEL SPAWN ROOM  %i MOB COUNT %i=====\n", r->id, r->num_mobs);
 
+    if(r->num_mobs < MOB_ROOM_MAX)
     r->mobs[r->num_mobs++] = InitMob(mob, pos);
+    else
+      DO_NOTHING();
   }
 
   for (int i = 0; i < r->num_mobs; i++){

@@ -68,6 +68,9 @@ void OnLevelReady(EventType event, void* data, void* user){
   switch(event){
     case EVENT_ROOM_READY:
       map_room_t* r = data;
+      if(r->num_mobs > 0)
+        return;
+
       AssignFaction(r);
       break;
   }

@@ -47,7 +47,7 @@
 #define FIXED_TOOL_TIP        (Vector2){96, 24}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){48, 640}
+#define UI_PANEL_BOT (Vector2){48, 624}
 
 #define UI_LOG_HOR (Vector2){480, 128}
 #define LABEL_LOG (Vector2){464, 12}
