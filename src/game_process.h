@@ -105,17 +105,33 @@ typedef struct{
 }child_process_t;
 
 typedef struct{
+  int           num_mobs, cap;
+  mob_t*        pool;
+  map_room_t*   room;
+}spawner_t;
+
+typedef struct{
+  int       cap, count;
+  spawner_t *entries;
+}spawn_pool_t;
+
+spawn_pool_t* InitSpawnPool(int cap);
+
+typedef struct{
+  spawn_pool_t*    spawns;
   path_pool_t*     paths;
+  choice_pool_t*   assignments;
   int              num_factions;
   faction_groups_t *factions[MAX_FACTIONS];
 }level_t;
-level_t* InitLevel(map_grid_t*);
+extern level_t Level;
+
+level_t* InitLevel(void);
 void LevelBury(game_object_uid_i gouid);
 void LevelReady(map_grid_t* m);
 
 typedef struct{
   GameScreen     screen;
-  level_t*       level;
   int            game_frames;
   child_process_t children[SCREEN_DONE];
   GameScreen     next[SCREEN_DONE];

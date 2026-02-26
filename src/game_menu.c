@@ -457,7 +457,7 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
   int clicked = 0,toggle = 0,focused = 0;
   if(e->sync_val){
     e->sync_val(e,poll);
-    if(e->text[0] == '\0' && e->value){
+    if(e->value){
       switch(e->value->type){
         case VAL_CHAR:
           strcpy(e->text, e->value->c);
@@ -1098,7 +1098,7 @@ void UILogEvent(EventType event, void* data, void* user){
 }
 
 bool ElementActivityContext(ui_element_t* e){
-  WorldTargetSubscribe(EVENT_COMBAT_ACTIVITY, UILogEvent, e, e->index);
+  WorldTargetSubscribe(EVENT_LOG_ACTIVITY, UILogEvent, e, e->index);
 
   e->ctx = &e->index;
   e->value = e->set_val(e, e->ctx);

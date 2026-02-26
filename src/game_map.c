@@ -39,7 +39,7 @@ Cell PLAYER_SPAWN(void){
 }
 
 map_grid_t* InitMapGrid(void){
-  map_grid_t* m = malloc(sizeof(map_grid_t));
+  map_grid_t* m = GameMalloc("InitMapGrid", sizeof(map_grid_t));
 
   *m = (map_grid_t){0};
 
@@ -169,7 +169,7 @@ GenStatus MapGetStatus(void){
 bool InitMap(void){
   map_context_t* ctx =&world_map;
   memset(ctx, 0, sizeof(*ctx));
-  ctx->map_rules = malloc(sizeof(map_gen_t));
+  ctx->map_rules = GameMalloc("InitMap", sizeof(map_gen_t));
   *ctx->map_rules = MAPS[DARK_FOREST];
 
   mark_spr[markers++] = InitSpriteByID(ENV_WALL_DUNGEON, SHEET_ENV);
@@ -193,31 +193,48 @@ bool InitMap(void){
   return gen;
 }
 
+map_cell_t* MapRoomPlacement(map_room_t* r){
+  if(!r)
+    return NULL;
+
+  map_grid_t* m = r->map;
+  if(!m)
+    return NULL;
+
+  Rectangle bounds = RecFromBounds(&r->bounds);
+  int area = bounds.width * bounds.height;
+  bool running = false;
+  choice_pool_t* picker = StartChoice(&r->placements, area,ChooseByWeight, &running);
+
+  if(!running){
+    for (int x = r->bounds.min.x; x < r->bounds.max.x; x++){
+      for (int y = r->bounds.min.y; y < r->bounds.max.y; y++){
+        map_cell_t* c = &m->tiles[x][y];
+        if(c->status!= TILE_EMPTY)
+          continue;
+
+        int dist = 1 + cell_distance(r->center, c->coords);
+
+        AddChoice(picker, x*1000+y, area/dist, c, DiscardChoice);
+      }
+    }
+  }
+
+  choice_t* sel = picker->choose(picker);
+  if(!sel || sel->context == NULL)
+    return NULL;
+
+  return sel->context;
+}
+
 void MapRoomSpawn(map_grid_t* m, EntityType data, int room){
   map_room_t* r = m->rooms[room];
   if(!r)
     return;
 
-  Rectangle bounds = RecFromBounds(&r->bounds);
-  int area = bounds.width * bounds.height;
-  choice_pool_t* picker = InitChoicePool(area,ChooseByWeight);
-
-  for (int x = r->bounds.min.x; x < r->bounds.max.x; x++){
-    for (int y = r->bounds.min.y; y < r->bounds.max.y; y++){
-      map_cell_t* c = &m->tiles[x][y];
-      if(c->status!= TILE_EMPTY)
-        continue;
-
-      int dist = 1 + cell_distance(r->center, c->coords);
-
-      AddChoice(picker, x*1000+y, area/dist, c, DiscardChoice);
-    }
-  }
-
   ent_t* e = InitEntByRace(MONSTER_MASH[data]);
-  
-  choice_t* sel = picker->choose(picker);
-  map_cell_t* c = sel->context;
+
+  map_cell_t* c = MapRoomPlacement(r);
   e->pos = c->coords;
   if(RegisterEnt(e)){
     e->map = m;
@@ -227,52 +244,139 @@ void MapRoomSpawn(map_grid_t* m, EntityType data, int room){
 
 }
 
+void MapRoomRunSpawner(map_room_t* r, spawner_t* s){
+  Rectangle bounds = RecFromBounds(&r->bounds);
+  int area = bounds.width * bounds.height;
+  choice_pool_t* picker = InitChoicePool(area,ChooseByWeight);
+
+
+  for (int i = 0; i < s->num_mobs; i++){
+    mob_t* mob = &s->pool[i];
+    map_cell_t* c = MapRoomPlacement(r);
+
+    Cell pos = c->coords;
+    TraceLog(LOG_INFO,
+        "===== LEVEL SPAWN ROOM  %i MOB COUNT %i=====\n", r->id, r->num_mobs);
+
+    r->mobs[r->num_mobs++] = InitMob(mob, pos);
+  }
+
+  for (int i = 0; i < r->num_mobs; i++){
+    ent_t* e = r->mobs[i];
+    if(!RegisterEnt(e))
+      continue;
+    e->map = r->map;
+    EntPrepare(e);
+    if(SetState(e,STATE_SPAWN,NULL))
+      TraceLog(LOG_INFO,
+          "===== LEVEL SPAWN ROOM  %i at (%i, %i) =====\n %i: %s",
+          r->id, e->pos.x, e->pos.y, i, e->name);
+
+  }
+}
+
+void OnTurnMapRoom(EventType event, void* data, void* user){
+  map_room_t* r = user;
+
+  if(r->respawn_factor == 0)
+    return;
+
+  int roll = RandRange(0, r->respawn_factor);
+
+  if(roll <= r->map->num_mobs)
+    return;
+
+  DO_NOTHING();
+}
+
+void OnRoomMobEvent(EventType event, void* data, void* user){
+  map_room_t* r = user;
+
+
+  switch(event){
+    case EVENT_ENT_DEATH:
+      ent_t* e = data;
+      int index = -1;
+      for (int i = 0; i < r->num_mobs; i++)
+      {
+        if(e->gouid == r->mobs[i]->gouid){
+          index = i;
+          break;
+        }
+      }
+
+      if(index == -1)
+        return;
+
+      if(index == r->num_mobs-1)
+        r->mobs[index] = NULL;
+      else
+        r->mobs[index] = r->mobs[r->num_mobs-1];
+
+      r->num_mobs--;
+      r->map->num_mobs--;
+      mob_define_t def = MONSTER_MASH[e->type];
+      MobRule respawn = def.rules&MOB_RESPAWN_MASK;
+      switch(respawn){
+        case MOB_RESPAWN_LOW:
+          r->respawn_factor += r->num_mobs;
+          break;
+        case MOB_RESPAWN_AVG:
+          r->respawn_factor += 1.5 * r->num_mobs;
+          break;
+        case MOB_RESPAWN_HIGH:
+          r->respawn_factor += 2 * r->num_mobs;
+          break;
+      }
+      if(r->num_mobs > 0)
+        return;
+
+      WorldSubscribe(EVENT_TURN_END, OnTurnMapRoom, r);
+
+      break;
+    case EVENT_LEVEL_SPAWNER_READY:
+      spawner_t* s = data;
+      MapRoomRunSpawner(r, s);
+      break;
+  }
+
+}
+
+
+
 map_room_t* InitMapRoom(map_context_t* ctx, room_t* r){
   map_room_t *mr = GameCalloc("InitMapRoom", 1,sizeof(map_room_t));  
 
   mr->center = r->center;
   mr->bounds = r->bounds; 
-  mr->purpose = r->flags & ROOM_PURPOSE_MASK; 
+  mr->purpose = r->flags & ROOM_PURPOSE_MASK;
+  mr->flags = r->flags; 
   if(r->num_mobs > 0){
     qsort(r->mobs, r->num_mobs, sizeof(ent_t*), CompareEntByCR);
-
-    mr->strongest = r->mobs[0];
-    mr->best_cr = mr->strongest->props->cr;
     for(int i = 0; i < r->num_mobs; i++){
       mr->mobs[mr->num_mobs++] = r->mobs[i];
-      mr->total_cr+=r->mobs[i]->props->cr;
+      WorldTargetSubscribe(EVENT_ENT_DEATH, OnRoomMobEvent, mr, r->mobs[i]->gouid);
     }
-
-    mr->avg_cr = mr->total_cr/mr->num_mobs;
   }
+  else{
+    uint64_t mask = ROOM_PURPOSE_LEVEL_EVENT_MASK;
+    if((mr->purpose & mask)>0 && (mr->purpose & ROOM_PURPOSE_START) == 0){
+      WorldEvent(EVENT_ROOM_READY, mr, mr->id);
+    WorldTargetSubscribe(EVENT_LEVEL_SPAWNER_READY, OnRoomMobEvent, mr, mr->id);
+  }
+  }
+  
   return mr;
 }
 
 void WorldMapLoaded(map_grid_t* m){
   for(int i = 0; i < world_map.num_rooms; i++){
     map_room_t* mr = InitMapRoom(&world_map,world_map.rooms[i]);
+  
+    mr->id = GameObjectMakeUID("MAP_ROOM", i, WorldGetTime());
     m->rooms[m->num_rooms++] = mr;
-
-    if(highest_room == NULL || highest_room->total_cr < mr->total_cr)
-      highest_room = mr;
-
-
-    if(best_room == NULL || best_room->best_cr < mr->best_cr)
-      best_room = mr;
-
-    if((mr->purpose & ROOM_PURPOSE_MASK) ==  ROOM_PURPOSE_CHALLENGE){
-      if(best_challenge == NULL || best_challenge->best_cr < mr->best_cr)
-        best_challenge = mr;
-    }
-    if((mr->purpose & ROOM_PURPOSE_MASK) ==  ROOM_PURPOSE_LAIR){
-      if(best_lair == NULL || best_lair->best_cr < mr->best_cr)
-        best_lair = mr;
-    }
-
-
-    if(mr->num_mobs < 1)
-      continue;
-
+    mr->map = m;
+    m->num_mobs += mr->num_mobs;
   }
 }
 
@@ -559,7 +663,7 @@ map_node_t* MapBuildNodeRules(MapNodeType id){
   if(data.type == MAP_NODE_LEAF)
     return data.fn(id);
 
-  map_node_t **kids = malloc(sizeof(kids)*data.num_children);
+  map_node_t **kids = GameMalloc("MapBuildNodeRules", sizeof(kids)*data.num_children);
   for(int i = 0; i < data.num_children; ++i)
     kids[i] = MapBuildNodeRules(data.children[i]);
 
@@ -567,7 +671,7 @@ map_node_t* MapBuildNodeRules(MapNodeType id){
 }
 
 map_node_t* MapCreateLeafNode(MapNodeFn fn, MapNodeID id){  
-  map_node_t* node = malloc(sizeof(map_node_t));
+  map_node_t* node = GameMalloc("MapCreateLeafNode",sizeof(map_node_t));
   node->run = fn;
   node->id = id;
   node->type = MAP_NODE_LEAF;
@@ -576,7 +680,7 @@ map_node_t* MapCreateLeafNode(MapNodeFn fn, MapNodeID id){
 }
 
 map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count){  
-  map_node_t* node = malloc(sizeof(map_node_t));
+  map_node_t* node = GameMalloc("MapCreateSequence", sizeof(map_node_t));
   node->num_children = count;
   node->children = children;
   node->run = MapNodeRunSequence;
@@ -589,7 +693,7 @@ map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count){
 
 Cell MapApplyContext(map_grid_t* m){
   m->id = world_map.map_rules->id;
-  m->tiles = malloc(world_map.width * sizeof(map_cell_t*));
+  m->tiles = GameMalloc("MapApplyContext", world_map.width * sizeof(map_cell_t*));
   m->width = world_map.width;
   m->height = world_map.height;
   Cell out = CELL_UNSET;
@@ -1631,7 +1735,7 @@ room_node_t* MapBuildNode(RoomFlags flags, Cell pos){
   *node = (room_node_t){
     .center = pos,
     .flags = flags,
-    .children = malloc(sizeof(room_node_t)),
+    .children = GameMalloc("MapBuildNode", sizeof(room_node_t)),
     .entrance_index = -1
   };
 
@@ -2746,7 +2850,7 @@ MapNodeResult MapAllocateTiles(map_context_t *ctx, map_node_t *node)
     }
 
     // --- Allocate new tile grid ---
-    ctx->tiles = malloc(ctx->width * sizeof(TileFlags*));
+    ctx->tiles = GameMalloc("MapAllocateTiles", ctx->width * sizeof(TileFlags*));
     if (!ctx->tiles)
         return MAP_NODE_FAILURE;
 
@@ -2781,10 +2885,7 @@ MapNodeResult MapFillWalls(map_context_t *ctx, map_node_t *node){
     for (int y = 0; y < ctx->height; y++){
       TileFlags *tile = &ctx->tiles[x][y];
 
-      if(!tile)
-        continue;
-
-      if (!TileHasFlag(*tile, TILEFLAG_EMPTY) || !TileHasFlag(*tile,TILEFLAG_FLOOR))
+      if (!TileFlagHas(*tile, TILEFLAG_EMPTY| TILEFLAG_FLOOR))
         continue;
 
       for(int nx = x-1; nx < x+1; nx++){

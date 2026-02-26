@@ -26,10 +26,12 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     -fsanitize=address
     -fno-omit-frame-pointer
     -g
+    -rdynamic
 )
 
 target_link_options(${PROJECT_NAME} PRIVATE
     -fsanitize=address
+    -rdynamic
 )
 add_subdirectory(src)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

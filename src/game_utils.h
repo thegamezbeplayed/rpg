@@ -1,6 +1,6 @@
 #ifndef __GAME_UTIL__
 #define __GAME_UTIL__
-
+#include <execinfo.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,6 +72,22 @@ static param_t ParamMakeObj(DataType type, game_object_uid_i uid, void* src) {
   return o;
 }
 
+static void ParamUpdate(param_t* p, DataType type, size_t size, const void* src)
+{
+  if (!p) return;
+
+  p->type_id = type;
+
+  // If size changed, reallocate
+  if (p->size != size)
+  {
+    GameFree("ParamUpdate", p->data);              // must exist in your allocator
+    p->data = GameMalloc("ParamUpdate", size);
+    p->size = size;
+  }
+
+  memcpy(p->data, src, size);
+}
 
 static param_t ParamMake(DataType type, size_t size, const void* src) {
   param_t o;
@@ -200,8 +216,8 @@ env_t* ParamReadEnv(const param_t* o);
 map_cell_t* ParamReadMapCell(const param_t* o);
 //ability_t* ParamReadAbility(const param_t* o);
 static void ParamFree(param_t* o) {
-    free(o->data);
-    o->data = NULL;
+  if(o->size > 0)  
+  GameFree("ParamFree", o);
 }
 
 //====FILE & STRINGS====>
@@ -223,6 +239,7 @@ typedef choice_t* (*ChoiceFn)(choice_pool_t *pool);
 choice_t* ChooseBest(choice_pool_t* pool);
 choice_t* ChooseByWeight(choice_pool_t* pool);
 choice_t* ChooseByBudget(choice_pool_t* pool);
+choice_t* ChooseBestFitByFlags(choice_pool_t* pool);
 choice_t* ChooseByWeightInBudget(choice_pool_t* pool);
 choice_t* ChooseCheapest(choice_pool_t* pool);
 void ChoiceReduceScore(choice_pool_t* pool, choice_t* self);
@@ -231,6 +248,7 @@ struct choice_s{
   unsigned int id;
   int          score, orig_score, cost;
   void*        context;
+  uint64_t     flags;
   OnChosen     cb;
 };
 
@@ -238,9 +256,10 @@ choice_t* ChoiceById(choice_pool_t* pool, int id);
 
 struct choice_pool_s{
   unsigned int  id;
-  int           count,budget,filtered, total;
+  int           cap, desired, count,budget,filtered, total;
+  uint64_t      flags;
   ChoiceFn      choose;
-  choice_t      *choices[MAX_OPTIONS];
+  choice_t      *choices;
   choice_t      *filter[MAX_OPTIONS];
 };
 
@@ -261,6 +280,7 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn);
 bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn);
 bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, OnChosen fn);
 bool AddFilter(choice_pool_t *pool, int id, void *ctx);
+bool AddPurchaseFlags(choice_pool_t *pool, int id, int cost, void *ctx, uint64_t flags, OnChosen fn);
 
 void PriorityEvent(EventType, void* e, void* u);
 

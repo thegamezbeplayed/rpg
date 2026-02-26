@@ -50,12 +50,6 @@ ent_t* InitEnt(EntityType id,Cell pos){
   return e;
 }
 
-ent_t* InitMob(EntityType mob, Cell pos){
-  ent_t* e = GameMalloc("InitMob", sizeof(ent_t));
-  *e = (ent_t){0};  // zero initialize if needed
-  return e;
-}
-
 ent_t* InitEntByRace(mob_define_t def){
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
@@ -269,11 +263,17 @@ ent_t* InitEntByRace(mob_define_t def){
   return e;
 }
 
-ent_t* IntEntCommoner(mob_define_t def, MobRules rules, define_prof_t* sel){
+ent_t* InitEntCommoner(mob_define_t def, define_prof_t* sel){
     
   race_define_t racial = DEFINE_RACE[__builtin_ctzll(def.race)];
 
   ent_t* e = InitEntByRace(def);
+  if(!sel )
+    return NULL;
+
+  if (!sel->soc[def.civ].name || sel->soc[def.civ].name[0] == '\0')
+    return NULL;
+
   strcpy(e->props->role_name, sel->soc[def.civ].name);
   strcpy(e->name, TextFormat("%s %s", e->props->race_name, e->props->role_name));
   e->props->prof = sel->id;
@@ -351,6 +351,19 @@ int PromoteEntClass(ent_t* e, int ranks){
   e->props->rank++;
 
   return 1;
+}
+
+ent_t* InitMob(mob_t* mob, Cell pos){
+  mob_define_t def = MONSTER_MASH[mob->type];
+  define_prof_t prof = DEFINE_PROF[mob->prof];
+
+  ent_t* e = InitEntCommoner(def, &prof);
+  e->pos = pos;
+  race_define_t rdef = GetRaceByFlag(e->props->race);
+  if(mob->def)
+    GrantEntClass(e, rdef, mob->def);
+
+  return e;
 }
 
 bool ModifyEnt(ent_t* e, int amnt, MobMod mod){
@@ -822,7 +835,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
 
     define_prof_t* sel = chosen->context;
 
-    ent_t* e = IntEntCommoner(def,rules, sel);
+    ent_t* e = InitEntCommoner(def, sel);
     if(e == NULL)
       continue;
 
@@ -969,7 +982,7 @@ env_t* InitEnvFromEnt(ent_t* e){
 }
 
 env_t* InitEnv(EnvTile t,Cell pos){
-  env_t* e = GameMalloc("InitMob",sizeof(ent_t));
+  env_t* e = GameMalloc("InitEnv",sizeof(ent_t));
   *e = (env_t){0};  // zero initialize if needed
   e->type = t;
 
@@ -1126,7 +1139,7 @@ void EntRestoreResource(stat_t* self, float old, float cur){
     return;
 
   if(StatChangeValue(self->owner, self->owner->stats[resource], amount))
-    TraceLog(LOG_INFO,"====Restore %s by %i====\n, %s now %i",STAT_STRING[resource].name, amount, STAT_STRING[resource].name, (int)self->owner->stats[resource]->current);
+    WorldEvent(EVENT_STAT_RESTORE, self, rstat->owner->gouid);
 }
 
 void EntKill(stat_t* self, float old, float cur){
@@ -1662,6 +1675,9 @@ void EntTurnSync(ent_t* e){
       continue;
 
     if(e->stats[i]->on_turn){
+      if(e->type == ENT_PERSON)
+        DO_NOTHING();
+
       e->stats[i]->on_turn(e->stats[i],0,0);
     }
   }
@@ -1682,9 +1698,6 @@ TileStatus EntGridStep(ent_t *e, Cell step){
   
   TileStatus status = MapSetOccupant(e->map,e,newPos);
 
-  if(cell_compare(newPos,e->pos))
-    DO_NOTHING();
-
   if(status < TILE_ISSUES){
     map_cell_t* mc = &e->map->tiles[newPos.x][newPos.y];
     if(mc){
@@ -1697,6 +1710,7 @@ TileStatus EntGridStep(ent_t *e, Cell step){
     e->pos = newPos;
     e->old_pos = oldPos;
     e->facing = CellInc(e->pos,step);
+    e->local->valid = false;
     WorldEvent(EVENT_UPDATE_LOCAL_CTX, &e->gouid, e->gouid);
     WorldEvent(EVENT_ENT_STEP, e, e->gouid);
     //WorldContextChange(OBJ_ENT, e->gouid);
@@ -1728,14 +1742,17 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
   
   e->control->phase = phase;
   e->control->turn = turn;
-
-  /*
-  if(ActionHasStatus(e->control->actions, ACT_STATUS_QUEUED))
-    return;
-*/
   LocalSync(e->local, false);
+
   if(e->type == ENT_PERSON)
     return;
+
+  if(ActionHasStatus(e->control->actions, ACT_STATUS_QUEUED))
+    return;
+
+  if(ActionHasStatus(e->control->actions, ACT_STATUS_NEXT))
+    return;  
+
 
   if(!e->control->bt || !e->control->bt[e->state])
     return;
@@ -1743,9 +1760,6 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
 
   PrioritiesSync(e->control->priorities);
   behavior_tree_node_t* current = e->control->bt[e->state];
-
-  if(e->state > STATE_SPAWN && e->type == ENT_DEER)
-    DO_NOTHING();
 
   current->tick(current, e);
 }

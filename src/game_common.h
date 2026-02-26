@@ -416,8 +416,8 @@ static stat_attribute_relation_t stat_modifiers[STAT_ENT_DONE]={
   [STAT_STAMINA]= {STAT_STAMINA,{[ATTR_CON]=MOD_ADD,MOD_ADD,[ATTR_STR]=MOD_ADD},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_STAMINA_REGEN] = {STAT_STAMINA_REGEN,{[ATTR_CON]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
   [STAT_ENERGY_REGEN] = {STAT_ENERGY_REGEN,{[ATTR_WIS]=MOD_SQRT},FormulaDieAddAttr,FormulaDieAddAttr},
-  [STAT_STAMINA_REGEN_RATE] = {STAT_STAMINA_REGEN_RATE,{[ATTR_CON]=MOD_NEG_SQRT},FormulaDieAddAttr,FormulaDieAddAttr, true},
-  [STAT_ENERGY_REGEN_RATE] = {STAT_ENERGY_REGEN_RATE,{[ATTR_WIS]=MOD_NEG_SQRT},FormulaDieAddAttr,FormulaDieAddAttr,true},
+  [STAT_STAMINA_REGEN_RATE] = {STAT_STAMINA_REGEN_RATE,{[ATTR_CON]=MOD_NEG_SQRT},FormulaAddAttr,FormulaAddAttr, true},
+  [STAT_ENERGY_REGEN_RATE] = {STAT_ENERGY_REGEN_RATE,{[ATTR_WIS]=MOD_NEG_SQRT},FormulaAddAttr,FormulaAddAttr,true},
   [STAT_RAGE] = {.init = FormulaNothing, .lvl = FormulaNothing},
   [STAT_ENDURANCE] = {STAT_ENDURANCE,
     {

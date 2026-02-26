@@ -274,7 +274,7 @@ struct ent_s{
 
 ent_t* InitEntByRace(mob_define_t def);
 ent_t* InitEnt(EntityType id, Cell pos);
-ent_t* InitMob(EntityType mob, Cell pos);
+ent_t* InitMob(mob_t* m, Cell pos);
 ent_t* InitEntByRaceClass(uint64_t class_id, SpeciesType race);
 void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class);
 int EnhanceEnts(ent_t** pool, MobRules rule, int num_count);

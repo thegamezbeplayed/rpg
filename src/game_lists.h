@@ -18,7 +18,7 @@ static faction_t FACTION_DEFS[3] = {
   {"Forest Tribe Oak",
     SPEC_SULKING,
     {[BIO_FOREST] = 100},
-    {[ENT_BUGBEAR] = 25,[ENT_TROLL] = 5}
+    {[ENT_BUGBEAR] = 15,[ENT_KOBOLD] = 25}
   },
   {"Solensted",
     SPEC_HUMAN,
@@ -155,22 +155,22 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
     [SC_MAX]     = 6
   },
   [STAT_STAMINA_REGEN_RATE] = {
-    [SC_MAX]    = 4,
-    [SC_SUPER]  = 6,
-    [SC_ABOVE]  = 8,
-    [SC_AVERAGE]= 10,
-    [SC_BELOW]  = 12,
-    [SC_INFER]  = 14,
-    [SC_MIN]    = 16
+    [SC_MAX]    = 5,
+    [SC_SUPER]  = 7,
+    [SC_ABOVE]  = 9,
+    [SC_AVERAGE]= 11,
+    [SC_BELOW]  = 13,
+    [SC_INFER]  = 15,
+    [SC_MIN]    = 17
   },
   [STAT_ENERGY_REGEN_RATE] = {
     [SC_MAX]      = 5,
-    [SC_SUPER]    = 7,
-    [SC_ABOVE]    = 9,
-    [SC_AVERAGE]  = 11,
-    [SC_BELOW]    = 13,
-    [SC_INFER]    = 15,
-    [SC_MIN]      = 17
+    [SC_SUPER]    = 8,
+    [SC_ABOVE]    = 11,
+    [SC_AVERAGE]  = 14,
+    [SC_BELOW]    = 17,
+    [SC_INFER]    = 20,
+    [SC_MIN]      = 23
   },
   [STAT_HEALTH_REGEN] = {
     [SC_MIN]      = 0,
@@ -183,12 +183,12 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
   },
   [STAT_HEALTH_REGEN_RATE] = {
     [SC_MAX]      = 5,
-    [SC_SUPER]    = 7,
-    [SC_ABOVE]    = 9,
+    [SC_SUPER]    = 6,
+    [SC_ABOVE]    = 8,
     [SC_AVERAGE]  = 11,
-    [SC_BELOW]    = 13,
-    [SC_INFER]    = 15,
-    [SC_MIN]      = 17
+    [SC_BELOW]    = 15,
+    [SC_INFER]    = 20,
+    [SC_MIN]      = 26
   },
 };
 
@@ -1261,7 +1261,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     MOB_MOD_ENLARGE | MOB_LOC_FOREST |
     MOB_THEME_GAME | MOB_FREQ_COMMON |
     MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP |MOB_GROUPING_CREW |
-    MOB_GROUPING_SQUAD,
+    MOB_GROUPING_SQUAD | MOB_RESPAWN_AVG,
     SPEC_RUMINANT,
     {60,0}, 2,
     0.375,
@@ -1273,7 +1273,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     MOB_MOD_WEAPON | MOB_LOC_FOREST | MOB_LOC_CAVE |
       MOB_THEME_CRITTER | MOB_THEME_PRIMITIVE |
       MOB_FREQ_UNCOMMON | MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP |
-      MOB_GROUPING_CREW | MOB_GROUPING_PARTY,
+      MOB_GROUPING_CREW | MOB_GROUPING_PARTY |
+      MOB_RESPAWN_HIGH,
     SPEC_SULKING,
     {69,24}, 1,
     0.375,

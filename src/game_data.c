@@ -1215,14 +1215,11 @@ bool SkillUse(skill_t* self, uint64_t source, uint64_t target, int gain, Interac
   define_skill_rank_t r = SKILL_RANKS[SkillRankGet(self)];
   gain-=r.penalty;
   
-  int* cr = GameMalloc("SkillUse", sizeof(int));
-  *cr = gain;
+//  int* cr = GameMalloc("SkillUse", sizeof(int));
+  //*cr = gain;
   
-  param_t data = {
-    .type_id  = DATA_INT,
-    .data     = cr,
-    .size = sizeof(int)
-  };
+  
+  param_t data = ParamMake(DATA_INT, sizeof(int), &gain);
  
   interaction_t* iter = StartInteraction(source,target,EVENT_SKILL, 9, self, self->id, data, RegisterSkillEvent, UpdateSkillEvent, true);
 
@@ -1261,7 +1258,6 @@ interaction_uid_i RegisterSkillEvent(interaction_t* self, void* ctx, param_t pay
   int cr = 0;
   if(payload.type_id == DATA_INT){
     cr = ParamReadInt(&payload);
-    ParamFree(&payload); 
   }
 
   skill_event_t* skev = InitSkillEvent(skill, cr);

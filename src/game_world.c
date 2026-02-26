@@ -452,6 +452,7 @@ void WorldContextInitOnce(void){
 }
 
 void WorldInitOnce(){
+  LevelReady(world.map);
   WorldMapLoaded(world.map);
   //MapRoomSpawn(world.map, ENT_DEER, 5);
   //MapRoomSpawn(world.map, ENT_BEAR, 3);
@@ -467,7 +468,6 @@ void WorldInitOnce(){
 
   InitInput(player);
   WorldValidateContext();
-  LevelReady(world.map);
   WorldEvent(EVENT_ENT_STEP, player, player->gouid);
 }
 
@@ -579,9 +579,12 @@ void PrepareWorldRegistry(void){
     RegisterFaction(FACTION_DEFS[i].name);
     FACTIONS[i]->species = FACTION_DEFS[i].species;
     FACTIONS[i]->rules = FACTION_DEFS[i].rules;
-    for(int j = 0; j < ENT_DONE; j++)
+    for(int j = 0; j < ENT_DONE; j++){
       FACTIONS[i]->member_ratio[j] = FACTION_DEFS[i].member_ratio[j];
+      if( FACTIONS[i]->member_ratio[j] > 0)
+        FACTIONS[i]->num_variation++;
 
+    }
     for(int j = 0; j < BIO_DONE; j++){
       if(FACTION_DEFS[i].bio_pref[j] == 0)
         continue; 
@@ -592,6 +595,7 @@ void PrepareWorldRegistry(void){
 
 void InitWorld(void){
   if(MapGetStatus()==GEN_DONE){
+    world.level = InitLevel();
     world.map =  InitMapGrid();
     Cell player_pos = MapApplyContext(world.map);
     
@@ -600,7 +604,6 @@ void InitWorld(void){
     GameReady(); 
     ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
 
-    world.level = InitLevel(world.map);
   }
 }
 

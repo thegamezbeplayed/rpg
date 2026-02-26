@@ -268,7 +268,9 @@ activity_format_t ACT_LOG_FMT[ACT_ALL] = {
   {ACT_MISS, NARRATE_FIRST, TENSE_PRESENT,
     "{OWNER} {ATK} {MISS} {TAR}"},
   {ACT_KILL, NARRATE_FIRST, TENSE_PRESENT,
-    "{AGG} {SLAIN} {TAR}"}
+    "{AGG} {SLAIN} {TAR}"},
+  {ACT_STAT_RESTORE, NARRATE_FIRST, TENSE_PRESENT,
+    "{WHO} {RESTORE} {AMNT} {STAT}"}
 };
 
 token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
@@ -284,5 +286,8 @@ token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
   {"ACT",    TOKE_ACT},
   {"SCHOOL", TOKE_SCHOOL},
   {"MISS",   TOKE_MISS},
+  {"RESTORE",TOKE_REST},
   {"SLAIN",  TOKE_SLAIN},
+  {"AMNT",   TOKE_AMNT},
+  {"STAT",   TOKE_STAT}
 };

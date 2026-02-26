@@ -6,6 +6,17 @@ MAKE_ADAPTER(StepState, ent_t*);
 
 turn_action_manager_t ActionMan;
 
+void ActionFree(action_t* a){
+  for(int i = 0; i < ACT_PARAM_ALL; i++){
+    if(a->params[i].type_id == DATA_NONE)
+      continue;
+
+    ParamFree(&a->params[i]);
+  }
+
+  GameFree("ActionFree", a);
+}
+
 int ActionCompareImpDsc(const void* a, const void* b){
   const action_t* A = (const action_t*)a;
   const action_t* B = (const action_t*)b;
@@ -331,7 +342,7 @@ void ActionManagerEndRound(TurnPhase phase){
     return;
   for(int i = 0; i < count; i++){
     action_t* a =ActionMan.round[phase].entries[i];
-    if(CheckEntAvailable(a->owner))
+    if(a && a->owner && CheckEntAvailable(a->owner))
       ActionPoolRestart(a->owner->control->actions);
 
   }
@@ -343,7 +354,7 @@ void ActionManagerEndTurn(){
   for(int i = 0; i < TURN_ALL; i++)
     ActionManagerEndRound(i);
 
-
+  WorldEvent(EVENT_TURN_END, &ActionMan, ActionMan.turn);
   ActionMan.turn++;
 }
 
@@ -391,12 +402,12 @@ void ActionManagerSync(void){
 }
 
 action_t* InitAction(ent_t* e, ActionType type, ActionCategory cat, uint64_t gouid, int weight){
-  action_t* a = GameCalloc("InitAction", 1, sizeof(action_t));
 
   uint64_t id = GameObjectMakeUID(e->name, 
       10*ActionMan.turn + ActionMan.phase,
-      WorldGetTime());
+      e->gouid);
 
+  action_t* a = GameCalloc("InitAction", 1, sizeof(action_t));
   *a = (action_t) {
     .owner = e,
       .id = id,
@@ -563,9 +574,9 @@ bool ActionQueueEnsureCap(action_queue_t *q){
   if(q->cap >= MAX_ACTIONS)
     return false;
 
-  q->cap++;
+  q->cap+=4;
 
-  q->entries = realloc(q->entries, q->cap * sizeof(action_t));
+  q->entries = GameRealloc("ActionQueueEnsureCap", q->entries, q->cap * sizeof(action_t));
 
   return true;
 }
@@ -589,7 +600,7 @@ ActionStatus AddAction(action_queue_t *q, action_t* t){
 ActionStatus QueueAction(action_pool_t *p, action_t* t){
   action_queue_t* q = p->queues[t->cat];
 
-  if(q->status > ACT_STATUS_QUEUED)
+  if(q->status >= ACT_STATUS_QUEUED)
     return ACT_STATUS_WAIT;
 
   action_t* dupe = ActionFindByID(q,t);
@@ -699,7 +710,7 @@ void ActionSlotEnsureCapacity(action_slot_t* t){
     return;
   
   t->cap *= 2;
-  t->abilities = realloc(t->abilities,
+  t->abilities = GameRealloc("ActionSlotEnsureCapacity", t->abilities,
       t->cap * sizeof(ability_t*));
 } 
 
@@ -780,7 +791,7 @@ void PrioritiesEnsureCap(priorities_t* t){
   size_t new_cap = t->cap + 2;
 
   priority_t* new_entries =
-    realloc(t->entries, new_cap * sizeof(priority_t));
+    GameRealloc("PrioritiesEnsureCap", t->entries, new_cap * sizeof(priority_t));
 
   if (!new_entries) {
     // Handle failure explicitly

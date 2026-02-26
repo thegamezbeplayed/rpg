@@ -53,9 +53,12 @@
 #define CellFlip(c) (Cell){(c.y),(c.x)}
 
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
+typedef bool (*CompareFn)(int a, int b);
+
 void* GameCalloc(const char* func, int count, size_t size);
 void* GameMalloc(const char* func, size_t size);
-
+void* GameRealloc(const char* func, void* ptr, size_t new_size);
+void GameFree(const char* func, void* ptr);
 typedef uint64_t hash_key_t;
 
 typedef struct {
@@ -470,5 +473,20 @@ static void RepeatChar(char* out, size_t cap, char c, int times)
         out[i] = c;
 
     out[times] = '\0';
+}
+
+static void CopyIf(int* dst, const int* src, size_t count, size_t cap, CompareFn cmp)
+{
+
+  int dst_size = 0;
+  for (size_t i = 0; i < count; i++)
+  {
+    if (cmp(src[i], dst[dst_size])){
+      dst[dst_size++] = i;
+      if(dst_size >= cap)
+        return;
+    }
+  }
+
 }
 #endif

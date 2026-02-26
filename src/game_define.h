@@ -97,6 +97,7 @@ typedef enum{
   SPEC_DONE       = BIT64(16),
 }SpeciesType;
 
+typedef uint64_t Species;
 typedef enum{
   SPEC_RELATE_NONE = 0,
   SPEC_FEAR        = BIT64(0),
@@ -211,11 +212,12 @@ extern species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)];
 typedef uint32_t Faction;
 typedef struct{
   const char  *name;
-  SpeciesType species;
+  Species     species;
   int         bio_pref[BIO_DONE];
   int         member_ratio[ENT_DONE];
   Faction     id;
   MobRules    rules;
+  int         num_variation;
 }faction_t;
 
 extern faction_t* FACTIONS[MAX_FACTIONS];
@@ -242,20 +244,19 @@ static inline faction_t* GetFactionByID(Faction id){
 
   return NULL;
 }
+
 typedef struct{
-  MobRule     party;
-  SpeciesType species;
-  int         prof_ratio[PROF_END];
+  MobRule        party;
+  Species        species;
+  choice_pool_t* party_builder;
 }mob_group_t;
 
 typedef struct{
   Faction        faction;
-  mob_group_t    groups[8];
-  choice_pool_t* choices;
+  mob_group_t    *groups[8];
 }faction_groups_t;
 faction_groups_t* InitFactionGroups(Faction id, int desired);
 
-void InitMobGroup(faction_groups_t** f, MobRule size, int index);
 typedef enum{
   RES_NONE = -1,
   RES_VEG  = BIT64(0),
@@ -1431,7 +1432,7 @@ static const define_prof_t DEFINE_PROF[PROF_END]= {
   [PROF_MAGICIAN] = {
     PROF_MAGICIAN,
     {
-      [SOC_PRIMITIVE] = SOC_W(0),
+      [SOC_PRIMITIVE] = SOC_N(12, "Magician"),
       [SOC_MARTIAL]   = SOC_N(17,"Magician"),
       [SOC_CIVIL]     = SOC_N(17,"Magician"),
       [SOC_HIGH]      = SOC_N(20,"Magician"),
@@ -1857,6 +1858,12 @@ typedef struct{
   int           count;
   race_class_t  classes[10];
 }define_race_class_t;
+
+typedef struct{
+  EntityType    type;
+  Profession    prof;
+  race_class_t  *def;
+}mob_t;
 
 typedef struct{
   int           ranks;

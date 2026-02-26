@@ -47,10 +47,10 @@
 #define FIXED_TOOL_TIP        (Vector2){96, 24}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){48, 712}
+#define UI_PANEL_BOT (Vector2){48, 640}
 
-#define UI_LOG_HOR (Vector2){420, 128}
-#define LABEL_LOG (Vector2){404, 12}
+#define UI_LOG_HOR (Vector2){480, 128}
+#define LABEL_LOG (Vector2){464, 12}
 
 #define LIST_LEFT_HAND_PAD 20
 #define LIST_RIGHT_HAND_PAD 8
@@ -406,17 +406,20 @@ typedef enum{
   TOKE_SLAIN,
   TOKE_MISS,
   TOKE_OWNER,
+  TOKE_WHO,
+  TOKE_REST,
   TOKE_PARAM,
   TOKE_ID,
   TOKE_DMG,
   TOKE_TAR,
   TOKE_AGG,
-  TOKE_WHO,
   TOKE_ENV,
   TOKE_RES_SUFF,
   TOKE_ATK,
   TOKE_ACT,
   TOKE_SCHOOL,
+  TOKE_AMNT,
+  TOKE_STAT,
   TOKE_ALL,
 }ParseToken;
 

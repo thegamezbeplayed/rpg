@@ -13,7 +13,7 @@ void InitGameplayScreen(void){
   InitPlayArea(); 
   InitGameEvents();
   InitScreenInteractive();
-//  MenuSetState(&ui.menus[MENU_HUD],MENU_ACTIVE);
+  MenuSetState(&ui.menus[MENU_HUD],MENU_ACTIVE);
 }
 
 void PreUpdate(void){

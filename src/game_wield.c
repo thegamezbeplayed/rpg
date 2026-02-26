@@ -3,7 +3,7 @@
 #include "game_process.h"
 
 item_t* InitItem(item_def_t* def){
-  item_t* item = malloc(sizeof(item_t));
+  item_t* item = GameMalloc("InitItem", sizeof(item_t));
   game_object_uid_i gouid = GameObjectMakeUID(def->name, def->id, WorldGetTime());
   *item = (item_t){
     .gouid = gouid,
@@ -26,7 +26,7 @@ void InventoryEnsureCap(inventory_t* t){
  size_t new_cap = t->cap + 4;
 
   item_t* new_items =
-    realloc(t->items, new_cap * sizeof(item_t));
+    GameRealloc("InventoryEnsureCap", t->items, new_cap * sizeof(item_t));
 
   if (!new_items) {
     // Handle failure explicitly

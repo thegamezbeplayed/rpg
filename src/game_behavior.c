@@ -288,6 +288,9 @@ BehaviorStatus BehaviorExecuteDecision(behavior_params_t *params){
     WorldTargetSubscribe(EVENT_ACT_TAKEN, OnActionSuccess, e->control->decider[e->control->next], a->id);
     WorldTargetSubscribe(EVENT_ACT_STATUS, OnDecisionAction, sel, a->id);
   }
+  else{
+    ActionFree(a);
+  }
   return res;
 }
 

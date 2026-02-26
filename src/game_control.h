@@ -74,6 +74,7 @@ typedef struct{
 }action_queue_t;
 
 typedef struct{
+  ActionStatus   status;
   bool           valid;
   bool           options[TURN_ALL];
   action_queue_t *queues[ACT_DONE];
@@ -106,6 +107,8 @@ ActionStatus QueueAction(action_pool_t *p, action_t* t);
 action_t* ActionForPhase(action_queue_t* q, TurnPhase phase);
 void ActionPoolSync(action_pool_t* p);
 action_pool_t* InitActionPool(ent_t* e);
+
+void ActionFree(action_t* a);
 
 void ActionManagerSync(void);
 action_turn_t* InitActionTurn(ActionType t, DesignationType targeting, TakeActionCallback fn, OnActionCallback cb);

@@ -31,7 +31,13 @@
     TILEFLAG_SIZE_XL  |\
     TILEFLAG_SIZE_MAX )
 
+#define ROOM_PURPOSE_LEVEL_EVENT_MASK (\
+    ROOM_PURPOSE_SECRET | ROOM_PURPOSE_TREASURE |\
+    ROOM_PURPOSE_CHALLENGE | ROOM_PURPOSE_LAIR |\
+    ROOM_PURPOSE_CAMP)
 
+#define GROUPING_SHIFT (__builtin_ctzll(MOB_GROUPING_MASK))
+typedef struct map_grid_s map_grid_t;
 typedef struct choice_pool_s choice_pool_t;
 typedef struct local_ctx_s local_ctx_t;
 typedef struct ent_s ent_t;
@@ -268,7 +274,13 @@ typedef enum{
   MOB_GROUPING_SQUAD  = BIT64(45),
   MOB_GROUPING_WARBAND= BIT64(46),
   MOB_GROUPING_SWARM  = BIT64(47),
-  MOB_GROUPING_MASK   = 0xFFULL << 40
+  MOB_GROUPING_MASK   = 0xFFULL << 40,
+
+  MOB_RESPAWN_NEVER   = BIT64(48),
+  MOB_RESPAWN_LOW     = BIT64(49),
+  MOB_RESPAWN_AVG     = BIT64(50),
+  MOB_RESPAWN_HIGH    = BIT64(51),
+  MOB_RESPAWN_MASK    = 0xFFULL << 48,
 }MobRule;
 
 typedef struct{
@@ -619,18 +631,20 @@ typedef struct{
 }map_cell_t;
 
 typedef struct{
-  int             id;
+  map_grid_t*     map;
+  uint64_t        id;
   Cell            center;
   cell_bounds_t   bounds;
-  RoomFlags       purpose;
+  RoomFlags       purpose, flags;
+  int             respawn_factor;
   int             num_mobs, total_cr, avg_cr, best_cr;
+  choice_pool_t*  placements;
   ent_t           *mobs[MOB_ROOM_MAX];
-  ent_t           *strongest;
 }map_room_t;
 
 map_room_t* InitMapRoom(map_context_t* ctx, room_t* r);
 
-typedef struct{
+struct map_grid_s{
   MapID        id;
   int          num_rooms;
   map_room_t   *rooms[MAX_ROOMS];
@@ -639,9 +653,10 @@ typedef struct{
   map_cell_t   *changes[128];
   int          x,y,width,height;
   int          step_size;
+  int          num_mobs;
   Color        floor;
   bool         updates;
-}map_grid_t;
+};
 
 bool InitMap(void);
 void WorldMapLoaded(map_grid_t* m);
@@ -768,7 +783,9 @@ bool IsDiagBlocked(map_grid_t* m, map_cell_t* cc, map_cell_t* nc, TileBlock fn);
 static int PathCost(int tx, int ty) {
     return nodes[tx][ty].gCost;
 }
-
+static bool TileFlagHas(TileFlags f, TileFlags has){
+  return ((f & has) > 0);
+}
 static bool TileFlagHasAccess(TileFlags f) {
 
   return (f & TILEFLAG_DOOR) || (f & TILEFLAG_FLOOR) || (f & TILEFLAG_EMPTY);

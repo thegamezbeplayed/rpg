@@ -1222,4 +1222,27 @@ static define_natural_armor_t* GetNaturalArmor(uint64_t body){
 
   return NULL;
 }
+
+static int GetPartySize(uint64_t flags)
+{
+    uint64_t grouping = (flags & MOB_GROUPING_MASK) >> GROUPING_SHIFT;
+
+    if (!grouping)
+        return 1;
+
+    int index = __builtin_ctzll(grouping);
+
+    static const int sizes[8] = {
+        1,  // SOLO
+        2,  // PAIRS
+        3,  // TROOP
+        4,  // PARTY
+        5,  // CREW
+        7,  // SQUAD
+        9, // WARBAND
+        12  // SWARM
+    };
+
+    return sizes[index];
+}
 #endif

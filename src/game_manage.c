@@ -7,7 +7,7 @@ static activity_tracker_t ACT_TRACK;
 
 void ActivitySyncValues(void){
   for (int i = 0; i < ACT_TRACK.count; i++)
-    WorldEvent(EVENT_COMBAT_ACTIVITY, &ACT_TRACK.entries[i], i);
+    WorldEvent(EVENT_LOG_ACTIVITY, &ACT_TRACK.entries[i], i);
 
 }
 
@@ -28,9 +28,9 @@ int ActivityAddEntry(activity_t* act){
   return ACT_TRACK.head - 1;
 }
 
-activity_t* InitActivity(EventType event, interaction_t* inter){
+activity_t* InitCombatActivity(interaction_t* inter){
   activity_t* act = GameCalloc("InitActivity", 1, sizeof(activity_t));
-
+  
   combat_t* com = inter->ctx;
 
   if(com->current == ACT_NONE || com->current == ACT_END)
@@ -38,7 +38,7 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
 
   act->kind = com->current;
   activity_format_t a = ACT_LOG_FMT[act->kind];
-  act->str_len = strlen(a.fmt);
+
   local_ctx_t* a_ctx = ParamReadCtx(&com->cctx[IM_AGGR]->ctx[IP_OWNER]);
   local_ctx_t* t_ctx = ParamReadCtx(&com->cctx[IM_TAR]->ctx[IP_OWNER]);
 
@@ -65,7 +65,6 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
 
   for(int i = 0; i < IM_DONE; i++){
     for (int j = 0;  j < TOKE_ALL; j++){
-   
       switch(j){
         case IP_OWNER:
           break;
@@ -94,16 +93,64 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
       };
     }
   }
+  return act;
+}
+ 
+activity_t* InitActivity(EventType event, interaction_t* inter){
+  activity_t* act = NULL;
+  switch(event){
+    case EVENT_COMBAT:
+      act =  InitCombatActivity(inter);
+      break;
+    case EVENT_STAT_RESTORE:
+      act = GameCalloc("InitActivity", 1, sizeof(activity_t));
+      act->kind = ACT_STAT_RESTORE;
+      stat_t* stat = inter->ctx;
+      param_t name = ParamMakeString(stat->owner->name);
 
+      act->tokens[TOKE_OWNER] = name;
+      act->tokens[TOKE_AGG] = name;
+      act->tokens[TOKE_STAT] = ParamMakeString(STAT_STRING[stat->related].name);
+      act->tokens[TOKE_AMNT] = ParamMake(DATA_INT, sizeof(int), &stat->current);
+      break;
+  }
+  if(!act)
+    return NULL;
+
+  activity_format_t a = ACT_LOG_FMT[act->kind];
+
+  act->str_len += strlen(a.fmt);
   for(int i = 0; i < TOKE_PARAM; i++){
     const char* str = GetTokenString(i, a.perspective, a.tense);
     act->tokens[i] = ParamMakeString(str);
   }
   act->tokens[TOKE_ID] = ParamMake(DATA_INT, sizeof(int), &ACT_TRACK.head);
+
   return act;
 }
 
 void OnActivityEvent(EventType event, void* data, void* user){
+  switch(event){
+    case EVENT_STAT_RESTORE:
+      stat_t* stat = data;
+      interaction_t* inter = calloc(1,sizeof(interaction_t));
+      inter->uid = stat->owner->gouid;
+      inter->ctx = stat;
+      inter->event = EVENT_STAT_RESTORE;
+      activity_t* act = InitActivity(event, inter);
+      if(!act)
+        return;
+
+      int pos = ActivityAddEntry(act);
+
+      WorldEvent(EVENT_LOG_ACTIVITY, act, pos);
+
+      break;
+  }
+
+}
+
+void OnActivityCombat(EventType event, void* data, void* user){
 
   interaction_t* i = data;
 
@@ -114,7 +161,7 @@ void OnActivityEvent(EventType event, void* data, void* user){
 
   int pos = ActivityAddEntry(act);
 
-  WorldEvent(EVENT_COMBAT_ACTIVITY, act, pos);
+  WorldEvent(EVENT_LOG_ACTIVITY, act, pos);
 }
 
 activity_t* ActivitiesGetEntryAt(int pos){
@@ -142,7 +189,8 @@ element_value_t* ActivitiesFetch(element_value_t* e, void* context){
 
 void InitActivities(int cap){
   ACT_TRACK.cap = cap;
-  WorldTargetSubscribe(EVENT_COMBAT, OnActivityEvent, &ACT_TRACK, player->gouid);
+  WorldTargetSubscribe(EVENT_COMBAT, OnActivityCombat, &ACT_TRACK, player->gouid);
+  WorldTargetSubscribe(EVENT_STAT_RESTORE, OnActivityEvent, &ACT_TRACK, player->gouid);
 }
 
 int ActivitiesAssignValues(element_value_t** fill, int pos){
@@ -178,7 +226,7 @@ void CombatEnsureCap(void){
 
   size_t new_cap = COMBAT.cap + 64;
 
-  interaction_t* new_entries = realloc(COMBAT.entries, new_cap * sizeof(interaction_t));
+  interaction_t* new_entries = GameRealloc("CombatEnsureCap", COMBAT.entries, new_cap * sizeof(interaction_t));
 
   if (!new_entries) {
     TraceLog(LOG_WARNING,"==== COMBAT SYSTEM ERROR ===\n REALLOC FAILED");

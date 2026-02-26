@@ -21,22 +21,37 @@ choice_t* ChoiceById(choice_pool_t* pool, int id){
     return NULL;
 
   for (int i = 0; i < pool->count; i++){
-    if(pool->choices[i]->id == id)
-      return pool->choices[i];
+    if(pool->choices[i].id == id)
+      return &pool->choices[i];
   }
 
   return NULL;
 }
 
+bool ChoiceEnsureCap(choice_pool_t* p){
+  if(p->count < p->cap)
+    return true;
+
+  if(p->cap >= MAX_OPTIONS)
+    return false;
+
+  int new_cap = p->cap + 4;
+
+  p->choices = GameRealloc("ChoiceEnsureCap", p->choices, new_cap * sizeof(choice_t));
+  p->cap = new_cap;
+
+  return true;
+}
+
 void EndChoice(choice_pool_t* pool, bool reset){
   pool->total = 0;
   for(int i = 0; i < pool->count; i++)
-    pool->total+= pool->choices[i]->score;
+    pool->total+= pool->choices[i].score;
 
   if(pool->total < pool->count || reset){
     pool->total = 0;
     for(int i = 0; i < pool->count; i++){
-      choice_t* c = pool->choices[i];
+      choice_t* c = &pool->choices[i];
       c->score = c->orig_score;
       pool->total+=c->score;
     }
@@ -60,9 +75,7 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
   if (size > MAX_OPTIONS) size = MAX_OPTIONS;
 
   // Allocate choice entries (NULL-initialized if you prefer lazy allocation)
-  for (int i = 0; i < size; i++) {
-    pool->choices[i] = GameCalloc("InitChoicePool choices", 1, sizeof(choice_t));
-  }
+  pool->choices = GameCalloc("InitChoicePool choices", size, sizeof(choice_t));
 
   return pool;
 }
@@ -72,13 +85,9 @@ void DiscardChoice(choice_pool_t* pool, choice_t* self){
     return;
 
   for (int i = 0; i < pool->count; i++) {
-    if (pool->choices[i]->id == self->id) {
+    if (pool->choices[i].id == self->id) {
       // Remove from choices by swapping last element
-      pool->choices[i] = pool->choices[pool->count - 1];
-      pool->choices[pool->count - 1] = NULL;
-
-      pool->count--;
-
+      pool->choices[i] = pool->choices[--pool->count];
       return;
     }
   }
@@ -107,16 +116,44 @@ bool AddFilter(choice_pool_t *pool, int id, void *ctx){
   return true;
 }
 
+bool AddPurchaseFlags(choice_pool_t *pool, int id, int cost, void *ctx, uint64_t flags, OnChosen fn){
+    if (!pool) return false;
+
+  // Ensure we do not exceed capacity
+  if (!ChoiceEnsureCap(pool))
+    return false;
+
+  // Allocate a new choice
+  choice_t *c = &pool->choices[pool->count++];
+
+  uint64_t matches = pool->flags & flags;
+  int score = __builtin_popcountll(matches);
+
+  c->score   = score;
+  c->orig_score   = score;
+  c->cost    = cost;
+  c->context = ctx;
+  c->id = id;
+  c->cb = fn;
+  c->flags = flags;
+
+  // Store in pool
+  pool->total+= score;
+  return true;
+
+
+}
+
 bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, OnChosen fn){
   if (!pool) return false;
 
   // Ensure we do not exceed capacity
-  if (pool->count >= MAX_OPTIONS)
+
+  if (!ChoiceEnsureCap(pool))
     return false;
 
   // Allocate a new choice
-  choice_t *c = GameCalloc("AddPurchase", 1, sizeof(choice_t));
-  if (!c) return false;
+  choice_t *c = &pool->choices[pool->count++];
 
   c->score   = score;
   c->orig_score   = score;
@@ -126,22 +163,21 @@ bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, On
   c->cb = fn;
   
   // Store in pool
-  pool->choices[pool->count++] = c;
   pool->total+= score;
   return true;
 
 }
 
 bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn){
-    if (!pool) return false;
+  if (!pool) return false;
 
-    // Ensure we do not exceed capacity
-    if (pool->count >= MAX_OPTIONS)
-        return false;
+  // Ensure we do not exceed capacity
 
-    // Allocate a new choice
-    choice_t *c = GameCalloc("AddChoice", 1, sizeof(choice_t));
-    if (!c) return false;
+  if (!ChoiceEnsureCap(pool))
+    return false;
+
+  // Allocate a new choice
+    choice_t *c = &pool->choices[pool->count++];
 
     c->score   = score;
     c->orig_score   = score;
@@ -149,7 +185,6 @@ bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn){
     c->id = id;
     c->cb = fn;
     // Store in pool
-    pool->choices[pool->count++] = c;
     pool->total+= score;
     return true;
 }
@@ -163,7 +198,7 @@ choice_t* ChooseCheapest(choice_pool_t* pool){
   int best_index = -1;
 
   for (int i = 0; i < pool->count; i++){
-    choice_t* c = pool->choices[i];
+    choice_t* c = &pool->choices[i];
     if(!ChoiceAllowed(pool, c))
       continue;
 
@@ -178,12 +213,32 @@ choice_t* ChooseCheapest(choice_pool_t* pool){
     best = c->score;
   }
 
-  choice_t* out = pool->choices[best_index];
-  if(pool->choices[best_index]->cb)
-    pool->choices[best_index]->cb(pool,pool->choices[best_index]);
+  choice_t* out = &pool->choices[best_index];
+  if(pool->choices[best_index].cb)
+    pool->choices[best_index].cb(pool,&pool->choices[best_index]);
   return out;
 
 
+}
+
+choice_t* ChooseBestFitByFlags(choice_pool_t* pool){
+ if(pool->count == 0)
+    return NULL;
+  
+  int best = -1;
+  int best_index = -1;
+  
+  for (int i = 0; i < pool->count; i++){
+    choice_t* c = &pool->choices[i];
+
+    uint64_t matches = pool->flags & c->flags;
+    int count = __builtin_popcountll(matches);
+    if(count < best)
+      continue;
+
+    best = count;
+    best_index = i;
+  }
 }
 
 choice_t* ChooseBest(choice_pool_t* pool){
@@ -194,7 +249,7 @@ choice_t* ChooseBest(choice_pool_t* pool){
   int best_index = -1;
 
   for (int i = 0; i < pool->count; i++){
-    choice_t* c = pool->choices[i];
+    choice_t* c = &pool->choices[i];
     if(!ChoiceAllowed(pool, c))
       continue;
     
@@ -208,9 +263,9 @@ choice_t* ChooseBest(choice_pool_t* pool){
   if(best_index < 0)
     return NULL;
   
-  choice_t* out = pool->choices[best_index];
-  if(pool->choices[best_index]->cb)
-    pool->choices[best_index]->cb(pool,pool->choices[best_index]);
+  choice_t* out = &pool->choices[best_index];
+  if(pool->choices[best_index].cb)
+    pool->choices[best_index].cb(pool,&pool->choices[best_index]);
   return out;
 
 }
@@ -222,7 +277,7 @@ choice_t* ChooseByWeight(choice_pool_t* pool){
   // 1. Compute total weight
   int total = 0;
   for (int i = 0; i < pool->count; i++) {
-    choice_t* c = pool->choices[i];
+    choice_t* c = &pool->choices[i];
     if(!ChoiceAllowed(pool, c))
       continue;
 
@@ -239,19 +294,19 @@ choice_t* ChooseByWeight(choice_pool_t* pool){
   // 3. Find the weighted entry
   int running = 0;
   for (int i = 0; i < pool->count; i++) {
-    if(!ChoiceAllowed(pool, pool->choices[i]))
+    if(!ChoiceAllowed(pool, &pool->choices[i]))
       continue;
 
-    int w = pool->choices[i]->score;
+    int w = pool->choices[i].score;
     if (w <= 0) continue;
 
     running += w;
     if (r >= running)
       continue;
 
-    choice_t* out = pool->choices[i];
-    if(pool->choices[i]->cb)
-      pool->choices[i]->cb(pool,pool->choices[i]);
+    choice_t* out = &pool->choices[i];
+    if(pool->choices[i].cb)
+      pool->choices[i].cb(pool,&pool->choices[i]);
     return out;
   }
 
@@ -264,7 +319,7 @@ choice_t* ChooseByBudget(choice_pool_t* pool){
 
   int total = 0;
   for (int i = 0; i < pool->count; i++) {
-    choice_t* c = pool->choices[i];
+    choice_t* c = &pool->choices[i];
     if(!ChoiceAllowed(pool, c))
       continue;
 
@@ -276,15 +331,15 @@ choice_t* ChooseByBudget(choice_pool_t* pool){
     return NULL; // all weights were zero or negative
 
   for (int i = 0; i < pool->count; i++) {
-    int w = pool->choices[i]->score;
+    int w = pool->choices[i].score;
     if (w <= 0) continue;
     if(w > pool->budget)
       continue;
 
-    if(pool->choices[i]->cb)
-      pool->choices[i]->cb(pool,pool->choices[i]);
+    if(pool->choices[i].cb)
+      pool->choices[i].cb(pool,&pool->choices[i]);
 
-    return pool->choices[i];
+    return &pool->choices[i];
   }
 
   return NULL;
@@ -297,7 +352,7 @@ choice_t* ChooseByWeightInBudget(choice_pool_t* pool){
 
   int total = 0;
   for (int i = 0; i < pool->count; i++) {
-    choice_t* c = pool->choices[i];
+    choice_t* c = &pool->choices[i];
     if(!ChoiceAllowed(pool, c))
       continue;
 
@@ -313,7 +368,7 @@ choice_t* ChooseByWeightInBudget(choice_pool_t* pool){
 
   int running = 0;
   for (int i = 0; i < pool->count; i++) {
-    choice_t* c = pool->choices[i];
+    choice_t* c = &pool->choices[i];
     if(!ChoiceAllowed(pool,c))
       continue;
 
@@ -343,7 +398,7 @@ void DecisionsEnsureCap(decision_pool_t* t){
   size_t new_cap = next_pow2_int(t->cap + 1);
 
   decision_t* new_entries =
-    realloc(t->entries, new_cap * sizeof(decision_t));
+    GameRealloc("DecisionsEnsureCap", t->entries, new_cap * sizeof(decision_t));
 
   if (!new_entries) {
     // Handle failure explicitly
@@ -376,7 +431,7 @@ decision_pool_t* StartDecision(decision_pool_t** pool, int size, ent_t* e, Entit
     *result = false;
   }
   else{
-    *result = (*pool)->cap != size;
+    *result = true;//(*pool)->cap != size;
   }
   return *pool;
 

@@ -193,7 +193,7 @@ void EventBusEnsureCap(event_bus_t* bus){
     return;
 
   int new_cap = bus->cap + 64;
-  bus->subs = realloc(bus->subs, new_cap * sizeof(event_sub_t));
+  bus->subs = GameRealloc("EventBusEnsureCap", bus->subs, new_cap * sizeof(event_sub_t));
   bus->cap = new_cap;
 }
 
@@ -461,7 +461,7 @@ static void AllyEnsureCapacity(ally_table_t* t){
     return;
 
   t->cap *= 2;
-  t->entries = realloc(t->entries,
+  t->entries = GameRealloc("AllyEnsureCapacity", t->entries,
       t->cap * sizeof(ally_context_t));
 }
 
@@ -526,7 +526,7 @@ void LocalEnsureCap(local_table_t* t){
   size_t new_cap = t->cap + 64;
 
   local_ctx_t* new_entries =
-    realloc(t->entries, new_cap * sizeof(local_ctx_t));
+    GameRealloc("LocalEnsureCap", t->entries, new_cap * sizeof(local_ctx_t));
 
   if (!new_entries) {
     // Handle failure explicitly
@@ -977,9 +977,6 @@ void LocalSync(local_table_t* s, bool sort){
   LocalPrune(s);
   int dist_change = 0;
 
-  bool this_changed = !cell_compare(s->owner->pos ,s->owner->old_pos);
-  if(this_changed)
-    s->valid = false;
 
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
@@ -989,7 +986,7 @@ void LocalSync(local_table_t* s, bool sort){
     if(!wctx)
       continue;
 
-    if(!this_changed && wctx->ctx_revision == ctx->ctx_revision)
+    if(s->valid && wctx->ctx_revision == ctx->ctx_revision)
       continue;
 
     ctx->ctx_revision = wctx->ctx_revision;
@@ -1021,18 +1018,16 @@ void LocalSync(local_table_t* s, bool sort){
       ctx->last_update = WorldGetTurn();
     }
 
-    param_t pos = ParamMake(DATA_CELL, sizeof(Cell), &ctx->pos);
-    ctx->params[PARAM_POS] = pos;
-    param_t res = ParamMake(DATA_UINT64, sizeof(uint64_t), &ctx->resource);
-    ctx->params[PARAM_RESOURCE] = res;
+    ParamUpdate(&ctx->params[PARAM_POS],DATA_CELL, sizeof(Cell), &ctx->pos);
+
+    ParamUpdate(&ctx->params[PARAM_RESOURCE], DATA_UINT64, sizeof(ctx->resource), &ctx->resource);
   }
 
-  if(s->valid && !this_changed){
-    s->valid = true;
+  if(s->valid)
     return;
-  }
 
   LocalSortByDist(s);
+  s->valid = true;
 }
 
 local_ctx_t* LocalGetThreat(local_table_t* t){

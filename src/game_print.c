@@ -620,6 +620,7 @@ int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][M
 char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING], char* out){
   //char* out = GameCalloc("PrintElementValue", 1, 1024);
 
+  out[0] = '\0';
   int p_top = imax(spacing[UI_PADDING], spacing[UI_PADDING_TOP]);
   int p_bot = 1 + imax(spacing[UI_PADDING], spacing[UI_PADDING_BOT]);
 

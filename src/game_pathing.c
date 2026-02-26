@@ -39,7 +39,7 @@ void PathsEnsureCap(path_pool_t* t){
   size_t new_cap = t->cap + 64;
 
   path_cache_entry_t* new_entries =
-    realloc(t->entries, new_cap * sizeof(path_cache_entry_t));
+    GameRealloc("PathsEnsureCap", t->entries, new_cap * sizeof(path_cache_entry_t));
 
   if (!new_entries) {
     // Handle failure explicitly
@@ -467,7 +467,7 @@ path_result_t* FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *out
 
   if(cached == NULL){
     if(ScorePath(m, sx, sy, tx, ty, depth) < 0){
-      free(res);
+      GameFree("FindPath", res);
       return false;
     }
 
@@ -482,7 +482,7 @@ path_result_t* FindPath(map_grid_t *m, int sx, int sy, int tx, int ty, Cell *out
     
     while (!(node->x == sx && node->y == sy)) {
       if (node->parentX < 0 || node->parentY < 0){
-        free(res);
+        GameFree("FindPath", res);
         return NULL;
       }
       path[len++] = CELL_NEW(node->x, node->y);
