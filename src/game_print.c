@@ -2,57 +2,9 @@
 #include "game_common.h"
 #include "game_types.h"
 #include "game_systems.h"
+#include "game_strings.h"
+
 #include <stdio.h>
-
-void StringPrependPadding(char* s, size_t padding){
-    size_t len = strlen(s);
-
-    if (len >= padding)
-        return;
-
-    size_t pad = padding - len;
-
-    /* shift existing text right */
-    memmove(s + pad, s, len + 1);   // +1 to move the '\0'
-
-    /* fill the front with spaces */
-    for (size_t i = 0; i < pad; i++)
-        s[i] = ' ';
-}
-
-void StringAppendPadding(char* s, size_t padding){
-  size_t len = strlen(s);
-
-  if(len >= padding)
-    return;
-
-
-  s[padding] = '\0';
-}
-
-void PrintMobDetail(ent_t* e){
-  faction_t* f = GetFactionByID(e->team);
-  char* team = "";
-  if(f)
-    team = strdup(f->name);
-  TraceLog(LOG_INFO,"%s lvl %i\n %s\n",e->name, e->skills[SKILL_LVL]->val,
-      team);
-
-  stat_t* health = e->stats[STAT_HEALTH];
-
-  char* stat_str = strdup(STAT_STRING[STAT_HEALTH].name);
-  TraceLog(LOG_INFO,"%s: [%i/%i] \n", stat_str, (int)health->current,(int)health->max);
-
-   TraceLog(LOG_INFO,"<=====ATTRIBUTES=====>\n");
-  for(int i = 0; i < ATTR_DONE; i++){
-    if(e->attribs[i]==NULL)
-      continue;
-
-    int val = e->attribs[i]->val;
-    const char* name = attributes[i].name;
-    TraceLog(LOG_INFO,"%i %s",val,name);
-  }
-}
 
 line_item_t* InitLineItem(element_value_t **val, int num_val, const char* format){
   line_item_t* ln = GameCalloc("InitLineItem", 1,sizeof(line_item_t));
@@ -103,14 +55,9 @@ char *TextFormatLineItem(line_item_t *item) {
           case 'S':
             if (val->type == VAL_CHAR){
               v_len = strlen(val->c);
+              StringAppendPadding(val->c, LIST_LEFT_HAND_PAD);
               strcat(buffer, val->c);
-              if(LIST_LEFT_HAND_PAD > v_len){
-                p_len = LIST_LEFT_HAND_PAD - v_len;
-                char l_pad[LIST_LEFT_HAND_PAD];
-                RepeatChar(l_pad, p_len+1, ' ', p_len);
-
-                strcat(buffer, l_pad);
-              }
+              
             }
             else
               strcat(buffer, "<BAD%S>");
@@ -234,6 +181,33 @@ int CtxGetSkillDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam
   return 2;
 }
 
+int CtxGetAttr(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
+  if(ctx->params[p].type_id != DATA_ATTR)
+    return 0;
+      
+  attribute_t* attribute = ParamRead(&ctx->params[p], attribute_t);
+  element_value_t* lbl = GameCalloc("CtxGetAttr", 1,sizeof(element_value_t)); 
+
+  lbl->type = VAL_CHAR;
+  lbl->c = GameMalloc("CtxGetAttr", sizeof(char)*MAX_NAME_LEN);
+  strcpy(lbl->c ,ATTR_STRING[attribute->type].name);
+    
+  lbl->rate = FETCH_NONE;
+    
+  element_value_t* cur = GameCalloc("CtxGetAttr", 1,sizeof(element_value_t));
+ 
+  cur->type = VAL_CHAR;
+  cur->rate = FETCH_TURN;
+  cur->get_val = AttrGetPretty;
+  cur->context = attribute;
+  cur->c = GameMalloc("CtxGetAttr", sizeof(char)*MAX_NAME_LEN);
+        
+  fill[0] = lbl;
+  fill[1] = cur;
+  return 2;
+
+}
+
 int CtxGetStat(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   if(ctx->params[p].type_id != DATA_STAT)
     return 0;
@@ -241,6 +215,7 @@ int CtxGetStat(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   stat_t* stat = ParamRead(&ctx->params[p], stat_t);
   element_value_t* lbl = GameCalloc("CtxGetStat", 1,sizeof(element_value_t));
 
+  lbl->context = stat;
   lbl->type = VAL_CHAR;
   lbl->c = GameMalloc("CtxGetStat", sizeof(char)*MAX_NAME_LEN);
   strcpy(lbl->c ,STAT_STRING[stat->type].name);
@@ -288,7 +263,7 @@ int GetWeapDesc(element_value_t **fill, item_t* item){
   element_value_t* type = GameCalloc("GetWeapDesc",1,sizeof(element_value_t));
   type->type = VAL_CHAR;
   type->rate = FETCH_ONCE;
-  type->c = strdup(DAMAGE_STRING[item->def->type]);
+  type->c = strdup(DAMAGE_STRING[item->ability->school]);
   
 
   fill[0] = name;
@@ -330,7 +305,7 @@ int CtxGetStatDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam 
   element_value_t* lbl = GameCalloc("CtxGetStatDetails", 1,sizeof(element_value_t));
 
   lbl->type = VAL_CHAR;
-  lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
+  lbl->c = GameMalloc("CtxGetStatDetails", sizeof(char)*MAX_NAME_LEN);
   strcpy(lbl->c ,STAT_STRING[stat->type].name);
 
   lbl->rate = FETCH_NONE;
@@ -341,7 +316,7 @@ int CtxGetStatDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam 
   cur->rate = FETCH_TURN;
   cur->get_val = StatGetPretty;
   cur->context = stat;
-  cur->c = malloc(sizeof(char)*MAX_NAME_LEN);
+  cur->c = GameMalloc("CtxGetStatDetails",sizeof(char)*MAX_NAME_LEN);
 
   fill[0] = lbl;
   fill[1] = cur;
@@ -357,13 +332,31 @@ int CtxGetString(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
 
   txt->type = VAL_CHAR;
 
-  
-  txt->c = strdup(ParamReadString(&ctx->params[p]));
+ 
+  txt->c = GameCalloc("CtxGetString", MAX_NAME_LEN, sizeof(char)); 
+  strncpy(txt->c, ParamReadString(&ctx->params[p]), MAX_NAME_LEN -1);
+  txt->c[MAX_NAME_LEN-1] = '\0';
   txt->rate = FETCH_NONE;
 
   fill[0] = txt;
 
   return 1;
+}
+
+element_value_t* AttrGetPretty(element_value_t* self, void* context){
+  attribute_t* attribute =  context;
+
+  switch(self->type){
+    case VAL_INT:
+      *self->i = (int)attribute->val;
+      break;
+    case VAL_FLOAT:
+      break;
+    case VAL_CHAR:
+      strcpy(self->c,TextFormat("%i",(int)attribute->val));
+      break;
+  }
+
 }
 
 element_value_t* StatGetPretty(element_value_t* self, void* context){
@@ -590,6 +583,9 @@ int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][M
         break;
       case DATA_SKILL:
         items = CtxGetSkill(base, ctx, param);
+        break;
+      case DATA_ATTR:
+        items = CtxGetAttr(base, ctx, param);
         break;
       default:
         continue;

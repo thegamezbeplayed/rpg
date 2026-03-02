@@ -43,7 +43,6 @@ ent_t* InitEnt(EntityType id,Cell pos){
       continue;
 
     int val = e->attribs[i]->val;
-    const char* name = attributes[i].name;
   }
   EntPrepare(e);
   SetState(e,STATE_SPAWN,NULL);

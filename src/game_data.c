@@ -808,7 +808,6 @@ bool AttributeScoreIncrease(attribute_t* a){
   float new = a->max+a->rollover;
   a->rollover = new - (int)new;
   a->max = a->val = (int)new;
-  TraceLog(LOG_INFO,"===== ATTRIBUTE %s ====\n increased to %i",attributes[a->type].name, a->val);
   return true;
 }
 // Allocates a copy of the filename without extension
@@ -1223,7 +1222,7 @@ bool SkillUse(skill_t* self, uint64_t source, uint64_t target, int gain, Interac
  
   interaction_t* iter = StartInteraction(source,target,EVENT_SKILL, 9, self, self->id, data, RegisterSkillEvent, UpdateSkillEvent, true);
 
-  if (gain < 1)
+  if (!iter || gain < 1)
     return false;
 
 
@@ -1643,4 +1642,17 @@ int RollInitiative(initiative_t* i){
 
   int res[1];
   return i->die->roll(i->die, res);
+}
+
+loot_item_t* InitLoot(param_t params[LOOT_PARAM_END]){
+  loot_item_t* li = GameCalloc("InitLoot", 1, sizeof(loot_item_t));
+
+  for (int i = 0; i < LOOT_PARAM_END; i++)
+    li->params[i] = params[i];
+
+  li->ref = GenerateItem(li->params);
+}
+
+item_def_t* GenerateItemDef(LootParams params[LOOT_PARAM_END]){
+
 }

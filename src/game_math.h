@@ -139,4 +139,12 @@ static inline float f_safe_divide(int a, int b){
   float bf = b*1.0f;
   return (float)(af/bf);
 }
+
+static inline int iround(float num){
+  if(num < 0)
+    return (int)(num - 0.5);
+  else
+    return (int)(num + 0.5);
+}
+
 #endif

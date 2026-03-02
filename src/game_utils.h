@@ -242,6 +242,7 @@ choice_t* ChooseByBudget(choice_pool_t* pool);
 choice_t* ChooseBestFitByFlags(choice_pool_t* pool);
 choice_t* ChooseByWeightInBudget(choice_pool_t* pool);
 choice_t* ChooseCheapest(choice_pool_t* pool);
+choice_t* PurchaseByWeight(choice_pool_t* pool);
 void ChoiceReduceScore(choice_pool_t* pool, choice_t* self);
 
 struct choice_s{
@@ -511,7 +512,30 @@ static inline behavior_tree_node_t* LeafSeekResource(behavior_params_t *params) 
 static inline behavior_tree_node_t* LeafExecuteDecision(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorExecuteDecision,params); }
 static inline behavior_tree_node_t* LeafActionDecision(behavior_params_t *params)  { return BehaviorCreateLeaf(BehaviorActionDecision,params); }
 
+typedef struct{
+  int   dungeon_lvl;
+  int   enemy_cr;
+  Biome biome;
+  int   luck;
+  int   seed;
+} loot_ctx_t;
 
+typedef struct{
+  param_t      params[LOOT_PARAM_END];
+  item_def_t    *ref;
+  int          max, weight;
+}loot_item_t;
 
+loot_item_t* InitLoot(param_t params[LOOT_PARAM_END]);
 
+item_def_t* GenerateItem(param_t params[LOOT_PARAM_END]);
+
+typedef struct{
+  int           count;
+  loot_ctx_t*   rules;
+  loot_item_t*  loots;
+  choice_pool_t *flags, drops;
+}loot_pool_t;
+
+loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx);
 #endif

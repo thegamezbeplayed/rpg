@@ -557,6 +557,7 @@ world_context_t* InitWorldContext(void){
 void PrepareWorldRegistry(void){
   world = (world_t){0};
 
+  world.seed = GenerateSeed();
   for(int i = 0; i < STEP_DONE; i++){
     world.events[i] = InitEvents();
   }

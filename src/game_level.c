@@ -1,7 +1,6 @@
 #include "game_process.h"
 #include "game_helpers.h"
 
-
 level_t Level;
 
 spawn_pool_t* InitSpawnPool(int cap){
@@ -77,6 +76,9 @@ void OnLevelReady(EventType event, void* data, void* user){
 }
 
 level_t* InitLevel(void){
+  uint64_t addr = (uint64_t)&Level;
+  Level.seed = hash_combine_64(WorldSeed(), addr);
+  InitRng(&Level.rng, Level.seed);
   Level.paths = InitPathPool(MAX_ENVS);
 
   WorldSubscribe(EVENT_ROOM_READY, OnLevelReady, &Level);
@@ -113,6 +115,15 @@ void LevelReady(map_grid_t* m){
     }
   }
 
+  map_gen_t mgen = MAPS[m->id];
+  loot_ctx_t *ctx = GameCalloc("LevelReady", 1, sizeof(loot_ctx_t));
+  
+  ctx->dungeon_lvl = iround(mgen.max_diff);
+  ctx->biome = mgen.biome;
+  ctx->luck = -1;
+  ctx->enemy_cr = iround(mgen.diff);
+  ctx->seed = hash_combine_64(Level.seed, mgen.biome);
+  Level.loot = GenerateLootPool(64, ctx);
 }
 
 mob_group_t* InitMobGroup(faction_t* f, MobRule size)
@@ -173,4 +184,86 @@ faction_groups_t* InitFactionGroups(Faction id, int desired){
 void LevelBury(game_object_uid_i gouid){
 
 
+}
+
+loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
+
+  loot_pool_t* lp = GameCalloc("GenerateLootPool", 1, sizeof(loot_pool_t));
+
+  lp->count = count;
+  lp->rules = ctx;
+
+  bool result = false;
+  choice_pool_t *cp = StartChoice(&lp->flags, count * 2, ChooseByWeight, &result);
+
+  if(!result){
+    cp->desired = count;
+    while(cp->count < cp->cap){
+      param_t p[LOOT_PARAM_END] = {0};
+
+      int cat = RngRoll(Level.rng, ITEM_WEAPON, ITEM_DONE);
+      p[LOOT_PARAM_CATEGORY] = ParamMake(DATA_INT, sizeof(int),&cat);
+      int start = 0, end = 0;
+      int type_prop_end = -1;
+      LootParams type_param = -1;
+      switch (cat){
+        case ITEM_WEAPON:
+          start = WEAP_MACE;
+          end =  WEAP_DONE-1;
+          type_prop_end = 9;
+          type_param = LOOT_PARAM_WEAP;
+          break;
+        case ITEM_ARMOR:
+          start = ARMOR_NATURAL;
+          end = ARMOR_DONE-1;
+          type_prop_end = 0;
+          type_param = LOOT_PARAM_ARMOR;
+          break;
+        case ITEM_CONSUMABLE:
+          start = CONS_POT; 
+          end = CONS_DONE-1;
+          type_prop_end = 0;
+          type_param = LOOT_PARAM_CONS;
+          break;
+          break;
+        default:
+          continue;
+          break;
+
+      }
+
+      int type = RngRoll(Level.rng, start, end);
+      uint64_t type_props = RngRollUID(Level.rng, 0, type_prop_end);
+
+      p[LOOT_PARAM_TYPE] = ParamMake(DATA_INT, sizeof(int), &type);
+      p[type_param] = ParamMake(DATA_UINT64, sizeof(uint64_t), &type_props);
+
+      uint64_t qual = RngRollUID(Level.rng, QUAL_BIT_START, QUAL_BIT_START+QUAL_BIT_COUNT);
+      uint64_t mat = RngRollUID(Level.rng, MAT_BIT_START, MAT_BIT_START+MAT_BIT_COUNT);
+     
+      uint64_t props = qual | mat;
+      p[LOOT_PARAM_PROPS] = ParamMake(DATA_UINT64, sizeof(uint64_t), &props);
+      int amnt = RngRoll(Level.rng, 1, 4);
+
+      p[LOOT_PARAM_AMNT] = ParamMake(DATA_INT, sizeof(int), &amnt);
+
+      item_def_t* item = GenerateItem(p);
+
+      AddPurchase(cp, cp->count, 1, 1, item, ChoiceReduceScore);
+    }
+  }
+  lp->loots = GameCalloc("GenerateLootPool", count, sizeof(loot_item_t));
+
+  while(count > 0){
+    choice_t* draw = cp->choose(cp);
+    if(!draw || draw->context == NULL)
+      continue;
+
+    item_def_t* idef = draw->context;
+    if(!ItemCurate(idef))
+      continue;
+
+    count--;
+
+  }
 }

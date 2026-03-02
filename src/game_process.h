@@ -10,6 +10,7 @@ extern void moncontrol(int);
 #include "screens.h"
 #include "room_data.h"
 #include "game_systems.h"
+#include "game_noise.h"
 
 #define MAX_SUBS 1024
 #define MAX_INTERACTIONS 2048
@@ -118,7 +119,10 @@ typedef struct{
 spawn_pool_t* InitSpawnPool(int cap);
 
 typedef struct{
+  run_seed         seed;
+  rng_t            *rng;
   spawn_pool_t*    spawns;
+  loot_pool_t*     loot;
   path_pool_t*     paths;
   choice_pool_t*   assignments;
   int              num_factions;
@@ -172,23 +176,27 @@ static void* WorldPlayerContext(void*){
 }
 
 typedef struct world_s{
-  map_grid_t    *map;
-  level_t*      level;
-  ent_t*        ents[MAX_ENTS];
-  unsigned int  num_ent;
-  sprite_t*     sprs[MAX_ENTS];
-  unsigned int  num_spr;
-  item_pool_t   *items;
-  unsigned int  num_env;
-  env_t*        envs[MAX_ENVS];
-  render_text_t *texts[MAX_EVENTS];
-  bool          floatytext_used[MAX_EVENTS];
-  events_t      *events[STEP_DONE];
-  debug_info_t  debug[DEBUG_ALL][MAX_DEBUG_ITEMS];
-  world_context_t  *ctx;
+  run_seed        seed;
+  map_grid_t      *map;
+  level_t*        level;
+  ent_t*          ents[MAX_ENTS];
+  unsigned int    num_ent;
+  sprite_t*       sprs[MAX_ENTS];
+  unsigned int    num_spr;
+  item_pool_t     *items;
+  unsigned int    num_env;
+  env_t*          envs[MAX_ENVS];
+  render_text_t   *texts[MAX_EVENTS];
+  bool            floatytext_used[MAX_EVENTS];
+  events_t        *events[STEP_DONE];
+  debug_info_t    debug[DEBUG_ALL][MAX_DEBUG_ITEMS];
+  world_context_t *ctx;
 } world_t;
 extern world_t world;
 
+static const run_seed WorldSeed(void){
+  return world.seed;
+}
 void PrepareWorldRegistry(void);
 ent_t* WorldGetEnt(const char* name);
 ent_t* WorldGetEntById(unsigned int uid);

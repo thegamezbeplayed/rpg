@@ -1,6 +1,7 @@
 #include "game_types.h"
 #include "game_helpers.h"
 #include "game_process.h"
+#include "game_strings.h"
 
 item_t* InitItem(item_def_t* def){
   item_t* item = GameMalloc("InitItem", sizeof(item_t));
@@ -207,6 +208,17 @@ item_t* InventoryGetEquipped(ent_t* e, ItemSlot id){
   return NULL;
 }
 
+char* ItemGenerateName(item_def_t* def){
+
+  ItemProps mat = def->props & MAT_MASK;
+  ItemProps qual = def->props & QUAL_MASK;
+
+  material_def_t str_def = ITEM_DEF_STRINGS[def->category][BCTZL(mat)];
+
+  const char* format = "{QUAL} {MATERIAL} {NAME}";
+
+}
+
 item_def_t* DefineArmor(ItemInstance data){
   item_def_t* item = DefineArmorByType(data.equip_type, data.props, data.et_props);
   item->id = data.id;
@@ -218,6 +230,8 @@ item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps a){
   item_def_t* item = GameCalloc("DefineArmorByType", 1,sizeof(item_def_t));
   item->category = ITEM_ARMOR;
 
+  item->props = p;
+  item->a_props = a;
   item->type = t;
   item->dr = GameCalloc("DefineArmorByType dr",1,sizeof(damage_reduction_t));
 
@@ -263,6 +277,8 @@ item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_prop
   item_def_t* item = GameCalloc("DefineWeaponByType", 1,sizeof(item_def_t));
   item->category = ITEM_WEAPON;
   item->type = t;
+  item->props = props;
+  item->w_props = w_props;
   weapon_def_t temp = WEAPON_TEMPLATES[t];
 
   //TODO CHANGE TO VALUE_T
@@ -625,16 +641,15 @@ WeaponProps GetWeaponPropsByRaceProp(RaceProp prop){
   }
 }
 
-item_def_t* BuildArmor(SkillType skill, ItemProps props, ArmorProps w_props){
+item_def_t* BuildArmor(ArmorType type, ItemProps props, ArmorProps w_props){
 
-  ArmorType type = GetArmorTypeBySkill(skill);
 
   item_def_t* item = DefineArmorByType(type, props, w_props);
   item->pref = INV_WORN;
   return item;
 }
 
-item_def_t* BuildArmorForMob(ent_t* e, RaceProps props,SkillType sk){
+item_def_t* BuildArmorForMob(ent_t* e, RaceProps props,ArmorType type){
   RaceProps r_props = props & RACE_ARMOR_MASK;
   r_props |= props & RACE_BUILD_MASK;
 
@@ -650,7 +665,7 @@ item_def_t* BuildArmorForMob(ent_t* e, RaceProps props,SkillType sk){
     qual_props += GetItemQualByRaceProp(rprop);
   }
 
-  return BuildArmor(sk, qual_props | mat_props, a_props);
+  return BuildArmor(type, qual_props | mat_props, a_props);
 
 }
 
@@ -659,7 +674,23 @@ item_def_t* BuildSpecialForMob(ent_t* e, RaceProps props){
 
 }
 
-item_def_t* BuildWeaponForMob(ent_t* e, RaceProps props, SkillType sk){
+item_def_t* GenerateConsume(ConsumeType type, ItemProps props, ConsumeProps c_props, param_t params[LOOT_PARAM_END]){
+
+}
+item_def_t* GenerateArmor(ArmorType type, ItemProps props, ArmorProps a_props, param_t params[LOOT_PARAM_END]){
+
+  return BuildArmor(type, props, a_props);
+
+}
+
+
+item_def_t* GenerateWeapon(WeaponType type, ItemProps props, WeaponProps w_props, param_t params[LOOT_PARAM_END]){
+
+  return BuildWeapon(type, props, w_props);
+
+}
+
+item_def_t* BuildWeaponForMob(ent_t* e, RaceProps props, WeaponType type){
   RaceProps a_props = props & RACE_ARMS_MASK;
   a_props |= props & RACE_BUILD_MASK;
   ItemProps qual_props = 0;//PROP_QUAL_TRASH;
@@ -674,7 +705,7 @@ item_def_t* BuildWeaponForMob(ent_t* e, RaceProps props, SkillType sk){
     qual_props += GetItemQualByRaceProp(rprop);
   }
 
-  return BuildWeapon(sk, qual_props | mat_props, w_props);
+  return BuildWeapon(type, qual_props | mat_props, w_props);
 }
 
 item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s){
@@ -683,10 +714,12 @@ item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s){
 
   switch(cat){
     case ITEM_WEAPON:
-    item = BuildWeaponForMob(e, r_props, s);
+    WeaponType w = GetWeapTypeBySkill(s);
+    item = BuildWeaponForMob(e, r_props, w);
     break;
     case ITEM_ARMOR:
-    item = BuildArmorForMob(e, r_props, s);
+    ArmorType a = GetArmorTypeBySkill(s);
+    item = BuildArmorForMob(e, r_props, a);
     break;
     case ITEM_CONSUMABLE:
     item = BuildSpecialForMob(e, r_props);
@@ -696,9 +729,42 @@ item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s){
   return item;
 }
 
-item_def_t* BuildWeapon(SkillType skill, ItemProps props, WeaponProps w_props){
+item_def_t* GenerateItem(param_t params[LOOT_PARAM_END]){
+ item_def_t* item = GameCalloc("GenerateItem", 1, sizeof(item_def_t));
 
-  WeaponType type = GetWeapTypeBySkill(skill);
+ ItemCategory cat = *ParamRead(&params[LOOT_PARAM_CATEGORY], int);
+ ItemProps props = *ParamRead(&params[LOOT_PARAM_PROPS], uint64_t);
+ int type = *ParamRead(&params[LOOT_PARAM_TYPE], int);
+ switch(cat){
+   case ITEM_WEAPON:
+    WeaponProps weap_p = *ParamRead(&params[LOOT_PARAM_WEAP], uint64_t);
+
+    item = GenerateWeapon(type, props, weap_p, params);
+    break;
+    case ITEM_ARMOR:
+    ArmorProps arm_p = *ParamRead(&params[LOOT_PARAM_ARMOR], uint64_t);
+
+    item = GenerateArmor(type, props, arm_p, params);
+    break;
+    case ITEM_CONSUMABLE:
+    ConsumeProps con_p = *ParamRead(&params[LOOT_PARAM_CONS], uint64_t);
+    item = GenerateConsume(type, props, con_p, params);
+    break;
+  }
+
+
+ return item;
+}
+
+bool ItemCurate(item_def_t *def){
+  if(!def)
+    return false;
+
+  return true;
+}
+
+item_def_t* BuildWeapon(WeaponType type, ItemProps props, WeaponProps w_props){
+
 
   item_def_t* item = DefineWeaponByType(type, props, w_props);
 

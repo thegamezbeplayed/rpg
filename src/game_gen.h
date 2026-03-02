@@ -43,6 +43,8 @@ typedef struct local_ctx_s local_ctx_t;
 typedef struct ent_s ent_t;
 typedef struct env_s env_t;
 
+typedef uint64_t run_seed;
+extern run_seed RUN_SEED;
 //#include "game_utils.h"
 typedef enum{
   GEN_NONE,

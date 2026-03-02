@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <time.h>
 #define UID_INVALID ((game_object_uid_i)0)
 #define BAD_INDEX   -1337
 
@@ -78,6 +79,10 @@ void* HashGet(hash_map_t* m, hash_key_t key);
 void HashPut(hash_map_t* m, hash_key_t key, void* value);
 void HashRemove(hash_map_t* m, hash_key_t key);
 void HashExpand(hash_map_t* m);
+
+static uint64_t GenerateSeed() {
+    return (uint64_t)time(NULL);
+}
 
 static inline uint64_t Hash64(uint64_t x) {
     x ^= x >> 33;
@@ -463,16 +468,6 @@ static Cell float_to_ints(float v) {
     c.x = (int)v;
     c.y = (int)((v - c.x) * 10); // choose precision
     return c;
-}
-
-static void RepeatChar(char* out, size_t cap, char c, int times)
-{
-    if ((size_t)times + 1 > cap) return;
-
-    for (int i = 0; i < times; i++)
-        out[i] = c;
-
-    out[times] = '\0';
 }
 
 static void CopyIf(int* dst, const int* src, size_t count, size_t cap, CompareFn cmp)

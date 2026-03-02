@@ -2,12 +2,60 @@
 #include "game_process.h"
 
 ui_menu_d MENU_DATA[MENU_DONE] = {
+  [MENU_MAIN] = {MENU_MAIN, "TITLE_MENU_DOM", ELEMENT_NONE, false,
+    {[MENU_ACTIVE] = MenuActivateChildren}
+  },
   [MENU_HUD] = {MENU_HUD, "HUD_MENU_DOM", ELEMENT_NONE, false,
     {[MENU_ACTIVE] = MenuActivateChildren}
   }
 };
 
 ui_element_d ELEM_DATA[ELE_COUNT] = {
+  {"TITLE_MENU_DOM", VECTOR2_ZERO, FIXED_MENU_FULL, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_MID | ALIGN_CENTER,
+    .cb = {
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowChildren,
+    },
+    {
+      [UI_MARGIN_TOP] = 8, [UI_MARGIN_LEFT] = 6,
+      [UI_PADDING_TOP] = 4, [UI_PADDING_LEFT] = 8 
+    },
+    2, {
+      "TITLE_PANEL",
+      "PLAY_BTN"
+    }
+
+  },
+  {"TITLE_PANEL", VECTOR2_ZERO, VECTOR2_ZERO, UI_BOX,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_CENTER | ALIGN_MID ,
+    .cb = {
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowChildren,
+    },
+    {
+      [UI_MARGIN_TOP] = 32, [UI_MARGIN_LEFT] = 6,
+      [UI_PADDING_TOP] = 12, [UI_PADDING_LEFT] = 8
+    },
+    7, {"HEADER_CHAR_SPR"},
+    .text = "PARAGON"
+  },
+  {"PLAY_BTN", VECTOR2_ZERO, FIXED_BUTTON_SIZE, UI_BUTTON,
+    ELEMENT_NONE, 0, ALIGN_CENTER | ALIGN_MID,
+    .cb = {
+      [ELEMENT_ACTIVATE] = UITransitionScreen
+    },
+    .text = "PLAY"
+  },
+  {"HEADER_CHAR_SPR", VECTOR2_ZERO, FIXED_TITLE_CHAR, UI_CHAR_SPR,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_TOP,
+    GetTextSprite, ElementOwnerTextAt,
+    .cb = {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_SHOW] = ElementShowIcon
+
+    },
+  },
   {"HUD_MENU_DOM", VECTOR2_ZERO, FIXED_MENU_FULL, UI_PANEL, ELEMENT_NONE, 
     LAYOUT_FREE, ALIGN_LEFT,
     .spacing = {
@@ -53,7 +101,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_SHOW] = ElementShowPrimary,
     },
     .num_children = 2, .kids = {
-      "PLAYER_STATS",
+      "CHARACTER_SHEET",
       "INVENTORY"
     }
   },
@@ -63,7 +111,8 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_LOAD] = ElementSetContext,
       //[ELEMENT_IDLE] = ElementSetContext,
       [ELEMENT_ACTIVATE] = ElementTabToggle,
-    }
+    },
+    .delimiter = ' '
   },
   {"INVENTORY", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
@@ -109,23 +158,37 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
    .num_children = 1, .kids = {"ITEM_TOOL_TIP"},
    .params = {PARAM_ITEM}
   }, 
-  {"PLAYER_STATS", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
+  {"CHARACTER_SHEET", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
-    {
+   {
       [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
       //[ELEMENT_ACTIVATE] = ElementToggle,
       [ELEMENT_ACTIVATE] = ElementHideSiblings,
+    },
+   .spacing = {[UI_PADDING_TOP] = 8, [UI_PADDING_BOT] = 8},
+   .num_children = 2, .kids = {
+     "CHARACTER_STATS",
+     "CHARACTER_ATTR"
+   }
+  },
+  {"CHARACTER_STATS", VECTOR2_ZERO, VECTOR2_ZERO, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_SHOW] = ElementShowChildren,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      //[ELEMENT_ACTIVATE] = ElementToggle,
 
     },
     .num_children = 6, .kids ={
       "NAME_LABEL",
-      "SKILL_LABEL_DETAILED",
-      "STAT_LABEL_DETAILED",
-      "STAT_LABEL_DETAILED",
-      "STAT_LABEL_DETAILED",
-      "STAT_LABEL_DETAILED",
+      "CHARACTER_LINE_NAME_VAL",
+      "CHARACTER_LINE_NAME_VAL",
+      "CHARACTER_LINE_NAME_VAL",
+      "CHARACTER_LINE_NAME_VAL",
+      "CHARACTER_LINE_NAME_VAL",
     },
    .params = {
       {PARAM_NAME},
@@ -136,20 +199,59 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       {PARAM_STAT_ENERGY},
     }
   },
+  {"VALUE_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_MID | ALIGN_CENTER,
+    GetContextVal, ElementGetOwnerContext,
+    {
+      [ELEMENT_IDLE] = ElementSetContext,
+    },
+
+  },
+  {"CHARACTER_ATTR", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowChildren,
+      //[ELEMENT_ACTIVATE] = ElementToggle,
+
+    },
+    .num_children = 6, .kids ={
+      "STAT_LABEL_DETAILED",
+    },
+   .params = {
+     {PARAM_ATTR_CON},
+     {PARAM_ATTR_STR},
+     {PARAM_ATTR_DEX},
+     {PARAM_ATTR_INT},
+     {PARAM_ATTR_WIS},
+     {PARAM_ATTR_CHAR},
+   }
+  },
   {"NAME_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, GetContextName, ElementGetOwnerContext,
     {
       [ELEMENT_IDLE] = ElementSetContext,
-      [ELEMENT_SHOW] = ElementSetContext,
     },
   },
-  {"STAT_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
-    GetContextStat, ElementGetOwnerContext,
+  {"VALUE_NAME_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, GetContextValueName, ElementGetOwnerContext,
     {
       [ELEMENT_IDLE] = ElementSetContext,
-      [ELEMENT_SHOW] = ElementSetContext,
     },
+  },
+  {"CHARACTER_LINE_NAME_VAL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_BOX,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
+    NULL, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      //[ELEMENT_IDLE] = ElementAssignValues,
+      [ELEMENT_SHOW] = ElementActivateChildren,
+    },
+    .num_children = 2, .kids = {
+      "VALUE_NAME_LABEL",
+      "VALUE_LABEL"
+    }
   },
   {"STAT_LABEL_DETAILED", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 

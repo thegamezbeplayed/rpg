@@ -36,6 +36,7 @@ typedef struct{
 }flex_val_t;
 
 
+
 static inline bool RaceHasAbility(AbilityID id, SpeciesType race){
   return (CLASS_ABILITIES[id].racial & race) !=0;
 }
@@ -288,12 +289,14 @@ static AsiEvent GetAsiEventForLevel(int lvl) {
 attribute_t* InitAttribute(AttributeType type, int val);
 
 typedef struct sub_texture_s {
-  int   tag;
-  int   originX, originY;
-  int   positionX, positionY;
-  int   sourceWidth, sourceHeight;
-  Color color;
-  int colliderPosX, colliderPosY, colliderSizeX, colliderSizeY;
+  int       tag;
+  int       originX, originY;
+  int       positionX, positionY;
+  int       sourceWidth, sourceHeight;
+  Color     color;
+  int       colliderPosX, colliderPosY, colliderSizeX, colliderSizeY;
+  const char name[10];      
+  uint32_t  hash;
 } sub_texture_t;
 
 typedef struct{

@@ -68,6 +68,7 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
   // Store selection callback
   pool->choose = fn;
 
+  pool->cap = size;
   // Ensure count starts at zero
   pool->count = 0;
 
@@ -311,6 +312,10 @@ choice_t* ChooseByWeight(choice_pool_t* pool){
   }
 
   return NULL;
+}
+
+choice_t* PurchaseByWeight(choice_pool_t* pool){
+
 }
 
 choice_t* ChooseByBudget(choice_pool_t* pool){

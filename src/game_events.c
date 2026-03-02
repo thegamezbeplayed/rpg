@@ -563,6 +563,13 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->params[PARAM_INV_WORN] = ParamMakeObj(DATA_INV, mob->gouid, mob->inventory[INV_WORN]);
       e->params[PARAM_INV_BELT] = ParamMakeObj(DATA_INV, mob->gouid, mob->inventory[INV_BELT]);
       e->params[PARAM_INV_SLING] = ParamMakeObj(DATA_INV, mob->gouid, mob->inventory[INV_SLING]);
+      
+      e->params[PARAM_ATTR_CON] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_CON]);
+      e->params[PARAM_ATTR_STR] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_STR]);
+      e->params[PARAM_ATTR_DEX] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_DEX]);
+      e->params[PARAM_ATTR_INT] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_INT]);
+      e->params[PARAM_ATTR_CHAR] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_CHAR]);
+      e->params[PARAM_ATTR_WIS] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_WIS]);
       e->dist = cell_distance(pos, mob->pos);
       WorldTargetSubscribe(EVENT_ENT_DEATH, OnWorldByGOUID, s, mob->gouid);
       break;

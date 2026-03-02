@@ -70,11 +70,20 @@
     PQ_LONG_LIMB | PQ_SHORT_LIMB | PQ_LARGE_HANDS | PQ_LARGE_HEAD |\
     PQ_LARGE_FEET | PQ_TINY_HEAD | PQ_SMALL_HEAD | PQ_WIDE |\
     PQ_DENSE_MUSCLE)
-  
+
+#define QUAL_BIT_START 0
+#define QUAL_BIT_COUNT 9
+
+#define MAT_BIT_START  9
+#define MAT_BIT_COUNT  7
+
+#define QUAL_MASK  (((1ULL << QUAL_BIT_COUNT) - 1) << QUAL_BIT_START)
+#define MAT_MASK   (((1ULL << MAT_BIT_COUNT) - 1) << MAT_BIT_START)
 #define MAX_FACTIONS 20
 //__builtin_ctzll
 #define BCTZL(uint) (int){__builtin_ctzll(uint)}  
 
+typedef struct item_def_s item_def_t;
 extern int NUM_FACTIONS;
 
 typedef enum{
@@ -1891,6 +1900,15 @@ typedef enum{
   PROP_MAT_LIQUID     = BIT64(15), 
 }ItemProp;
 
+static int QualityIndex(uint64_t props) {
+    uint64_t q = props & 0x1FFULL; // bits 0-8
+    return __builtin_ctzll(q);     // index of set bit
+}
+
+static int MaterialIndex(uint64_t props) {
+    uint64_t m = (props >> 9) & 0x7F; 
+    return __builtin_ctzll(m);
+}
 typedef enum{
   PROP_WEAP_NONE        = 0,
   PROP_WEAP_LIGHT       = BIT64(0),
@@ -1978,7 +1996,6 @@ extern armor_def_t ARMOR_TEMPLATES[ARMOR_DONE];
 extern weapon_def_t WEAPON_TEMPLATES[WEAP_DONE];
 extern consume_def_t CONSUME_TEMPLATES[CONS_DONE];
 extern container_def_t CONTAINER_TEMPLATES[INV_DONE];
-
 
 typedef struct value_affix_s value_affix_t;
 typedef float (*AffixFn)(value_affix_t* self, int val);

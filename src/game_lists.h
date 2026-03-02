@@ -256,7 +256,7 @@ static skill_rate_relation_t SKILLRATE_LOOKUP[RATE_DONE]={
   },
 };
 
-static attribute_name_t attributes[ATTR_DONE]={
+static attribute_name_t ATTR_STRING[ATTR_DONE]={
   {ATTR_NONE, "N/A"},
   {ATTR_CON,"CONSTITUTION"},
   {ATTR_STR,"STRENGTH"},

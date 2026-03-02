@@ -163,6 +163,9 @@ typedef struct item_def_s{
   SkillType           skills[3];
   StorageMethod       pref;
   bool                allowed[STORE_DONE];
+  ItemProps           props;
+  WeaponProps         w_props;
+  ArmorProps          a_props;
   sprite_t            *sprite;     // icon
 }item_def_t;
 
@@ -322,19 +325,7 @@ skill_check_t* EntGetSkillPB(SkillType, ent_t*, local_ctx_t*, Senses);
 static bool CheckEntAlive(ent_t* e){
   return (e->status != ENT_STATUS_DEAD);
 }
-bool CheckEntAvailable(ent_t* e);
-bool EnvSetStatus(env_t* e, EnvStatus s);
-bool CheckEnvAvailable(env_t* e);
-bool CheckEntPosition(ent_t* e, Vector2 pos);
-bool SetState(ent_t *e, EntityState s,StateChangeCallback callback);
-void StepState(ent_t *e);
-void OnStateChange(ent_t *e, EntityState old, EntityState s);
-bool CanChangeState(EntityState old, EntityState s);
-void ApplyItemProps(item_def_t * w, ItemProps props, uint64_t e_props);
-int GetWeaponByTrait(Traits t, weapon_def_t *arms);
-item_def_t* BuildWeapon(SkillType skill, ItemProps props, WeaponProps w_props);
-item_def_t* BuildItem(GearID id, ItemProps props, WeaponProps w_props);
-item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s);
+
 bool EntSyncSight(ent_t* e, ActionType a);
 void EntComputeFOV(ent_t* e);
 char* EntGetClassNamePretty(ent_t* e);
@@ -353,6 +344,24 @@ static ent_t* EntLastHitBy(ent_t* e){
 int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]);
 void DamageEvent(EventType ev, void* edata, void* udata);
 void EntRender(ent_t* e);
+
+
+bool CheckEntAvailable(ent_t* e);
+bool EnvSetStatus(env_t* e, EnvStatus s);
+bool CheckEnvAvailable(env_t* e);
+bool CheckEntPosition(ent_t* e, Vector2 pos);
+bool SetState(ent_t *e, EntityState s,StateChangeCallback callback);
+void StepState(ent_t *e);
+void OnStateChange(ent_t *e, EntityState old, EntityState s);
+bool CanChangeState(EntityState old, EntityState s);
+void ApplyItemProps(item_def_t * w, ItemProps props, uint64_t e_props);
+int GetWeaponByTrait(Traits t, weapon_def_t *arms);
+item_def_t* BuildWeapon(WeaponType, ItemProps, WeaponProps);
+item_def_t* BuildItem(GearID id, ItemProps props, WeaponProps w_props);
+item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s);
+
+bool ItemCurate(item_def_t*);
+
 struct env_s{
   game_object_uid_i     gouid;
   int         uid;

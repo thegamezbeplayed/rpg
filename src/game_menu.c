@@ -7,6 +7,7 @@
 #include "game_strings.h"
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
+#include "asset_chars.h"
 
 static ui_element_t* active_tooltip = NULL;
 
@@ -50,12 +51,16 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
       .owner    = o,
       .bounds   = Rect(d.pos.x,d.pos.y,d.size.x,d.size.y),
       .width    = d.size.x,
-      .height   = d.size.y
+      .height   = d.size.y,
+      .delimiter = d.delimiter
     };
 
 
     e->text = GameCalloc("InitElementByName",1, MAX_LINE_LEN);
-    e->text[0] = '\0';
+    if(d.text[0] == '\0')
+      e->text[0] = '\0';
+    else
+      strcpy( e->text, d.text);
 /*
 
    if(d.texture > 0)
@@ -70,6 +75,9 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
       if(d.cb[j])
         e->cb[j] = d.cb[j];
     }
+
+    if(d.num_children == 6)
+      DO_NOTHING();
 
     for (int j = 0; j < d.num_children; j++){
       const char* c_name;
@@ -131,6 +139,12 @@ void InitUI(void){
   GuiSetStyle(DEFAULT,TEXT_SIZE,20*UI_SCALE);
 #endif
 
+  for (int i = 0; i < CHAR_ALL; i++){
+    if(CHAR_SPRITES[i].name[0] == '\0')
+      continue;
+
+    CHAR_SPRITES[i].hash = hash_str_32(CHAR_SPRITES[i].name);
+  }
   ui.text_size = GuiGetStyle(DEFAULT, TEXT_SIZE);
   ui.text_spacing = GuiGetStyle(DEFAULT, TEXT_SPACING);
   SetTextureFilter(font.texture, TEXTURE_FILTER_POINT);
@@ -144,13 +158,6 @@ void InitUI(void){
     ui.menu_key[i] = KEY_NULL;
 
 
-  ui.menus[MENU_MAIN] = InitMenu(MENU_MAIN,VECTOR2_ZERO,DEFAULT_MENU_SIZE,ALIGN_CENTER|ALIGN_MID,LAYOUT_VERTICAL,false);
-
-  ui_element_t *playBtn = InitElement("PLAY_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,ALIGN_CENTER|ALIGN_MID,0); 
-  strcpy(playBtn->text, "PLAY");
-  playBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
-  ElementAddChild(ui.menus[MENU_MAIN].element,playBtn);
-
   ui_element_t *continueBtn = InitElement("CONTINUE_BTN",UI_BUTTON,VECTOR2_ZERO,DEFAULT_BUTTON_SIZE,ALIGN_CENTER|ALIGN_MID,0); 
   strcpy(continueBtn->text, "CONTINUE");
   continueBtn->cb[ELEMENT_ACTIVATE] = UITransitionScreen;
@@ -160,6 +167,7 @@ void InitUI(void){
   ui.menus[MENU_HUD] = InitMenu(MENU_HUD, VECTOR2_ZERO, VECTOR2_ZERO, ALIGN_CENTER, LAYOUT_HORIZONTAL, false);
 
 
+  InitMenuById(MENU_MAIN);
   InitMenuById(MENU_HUD);
 }
 
@@ -460,6 +468,8 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
     if(e->value){
       switch(e->value->type){
         case VAL_CHAR:
+          if(!e->value->c || e->value->c[0] == '\0')
+            return;
           strcpy(e->text, e->value->c);
           break;
         case VAL_INT:
@@ -510,17 +520,23 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
       DrawRectangleLinesEx(e->bounds, 1.5f,LIGHTGRAY);
       state = GuiLabel(e->bounds, NULL);
       DrawSpriteAtPos(e->value->s, e->value->s->pos);
-
       break;
     case UI_STATUSBAR:
       GuiStatusBar(e->bounds, e->text);
+      break;
+    case UI_CHAR_SPR:
+      if(!e->value)
+        return;
+
+      TraceLog(LOG_INFO,"Draw Character %s", e->text);
+      DrawSprite(e->value->s);
       break;
     default:
       break;
   }
 
   switch(state){
-    case STATE_FOCUSED:
+    case STATE_FOCUSED:      
       ElementSetState(e,ELEMENT_FOCUSED);
       break;
     case STATE_PRESSED:
@@ -546,7 +562,14 @@ bool UIFreeElement(ui_element_t* e){
 }
 
 bool UIHideElement(ui_element_t* e){
-  return ElementSetState(e,ELEMENT_HIDDEN);
+  if(ElementSetState(e,ELEMENT_HIDDEN)){
+    if(e->type == UI_TOOL_TIP)
+        GuiDisableTooltip();
+
+    return true;
+
+
+  }
 }
 
 bool UICloseOwner(ui_element_t* e){
@@ -572,7 +595,7 @@ bool UIClearElements(ui_menu_t* m){
 
 bool UIGetPlayerAttributeName(ui_element_t* e){
 
-  strcpy(e->text,attributes[e->index+1].name);
+  strcpy(e->text,ATTR_STRING[e->index+1].name);
 
   return true;
 }
@@ -670,6 +693,9 @@ bool ElementDynamicChildren(ui_element_t* e){
 bool ElementShowIcon(ui_element_t* e){
   if(!e->value || e->value->s == NULL)
     return false;
+
+  if(e->owner && e->index >= e->owner->num_children - 1)
+    ElementResize(e->owner);
 
   return e->value->s->is_visible = true;
 }
@@ -1029,13 +1055,120 @@ bool ElementSetActiveTab(ui_element_t* e){
   return true;
 }
 
+element_value_t* GetTextSprite(ui_element_t* e, void* context){
+   if(e->text[0] == '\0')
+     return NULL;
+
+   CharacterStrings char_spr = StringGetCharEnum(e->text);
+
+   element_value_t *ev = GameCalloc("GetTextSprite", 1,sizeof(element_value_t));
+
+   e->ctx = e->text;
+   ev->rate = FETCH_ONCE;
+   ev->type = VAL_ICO;
+   ev->s = InitSpriteByID(char_spr, SHEET_CHARS);
+
+   ev->s->slice->scale =  e->bounds.height / ev->s->slice->bounds.width;
+   ElementValueSyncSize(e, ev);
+
+   return ev;
+}
+
 element_value_t* GetElementName(ui_element_t* e, void* context){
   ui_element_t* other = context;
 
+  if(e->delimiter != '\0')
+    e->text = StringSplit(other->name, e->delimiter);
+  else
   strcpy(e->text, other->name);
 
   return NULL;
   
+}
+
+element_value_t* GetContextVal(ui_element_t* e, void* context){
+  GameObjectParam p = e->owner->params[0];
+  local_ctx_t* ctx = context;
+
+  element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_value_t));
+
+  ev->type = VAL_CHAR;
+  ev->rate = FETCH_TURN;
+  ev->c = GameCalloc("GetContextVal", MAX_NAME_LEN, sizeof(char));
+  switch(p){
+    case PARAM_ATTR_CON:
+    case PARAM_ATTR_STR:
+    case PARAM_ATTR_DEX:
+    case PARAM_ATTR_INT:
+    case PARAM_ATTR_WIS:
+    case PARAM_ATTR_CHAR:
+      attribute_t* attribute = ParamRead(&ctx->params[p], attribute_t);
+      ev->get_val = AttrGetPretty;
+      ev->context = attribute;
+      break;
+    case PARAM_STAT_HEALTH:
+    case PARAM_STAT_ARMOR:
+    case PARAM_STAT_STAMINA:
+    case PARAM_STAT_ENERGY:
+      stat_t* stat = ParamRead(&ctx->params[p], stat_t);
+      ev->context = stat;
+      ev->get_val = StatGetPretty;
+      break;
+    case PARAM_SKILL_LVL:
+      skill_t* skill = ParamRead(&ctx->params[p], skill_t);
+      ev->context = skill;
+      ev->get_val = SkillGetPretty;
+      break;
+    default:
+      return NULL;
+  }
+
+  e->sync_val = ElementSyncVal;
+
+  return ev;
+}
+
+element_value_t* GetContextValueName(ui_element_t* e, void* context){
+
+  GameObjectParam p = e->owner->params[0];
+
+element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_value_t));
+
+  ev->rate = FETCH_TURN;
+
+  ev->type = VAL_CHAR;
+
+  local_ctx_t* ctx = context;
+  ev->c = GameMalloc("GetContextVal", sizeof(char)*MAX_NAME_LEN);
+
+  switch(p){
+    case PARAM_ATTR_CON:
+    case PARAM_ATTR_STR:
+    case PARAM_ATTR_DEX:
+    case PARAM_ATTR_INT:
+    case PARAM_ATTR_WIS:
+    case PARAM_ATTR_CHAR:
+      attribute_t* attribute = ParamRead(&ctx->params[p], attribute_t);
+      strcpy(ev->c, ATTR_STRING[attribute->type].name);
+      break;
+    case PARAM_SKILL_LVL:
+      skill_t* skill = ParamRead(&ctx->params[p], skill_t);
+      ev->type = VAL_CHAR;
+      strcpy(ev->c ,SKILL_STRING[skill->id].name);
+      break;
+    case PARAM_STAT_HEALTH:
+    case PARAM_STAT_ARMOR:
+    case PARAM_STAT_STAMINA:
+    case PARAM_STAT_ENERGY:
+      stat_t* stat = ParamRead(&ctx->params[p], stat_t);
+      strcpy(ev->c ,STAT_STRING[stat->type].name);
+      break;
+  } 
+
+  e->sync_val = ElementSyncVal;
+
+  return ev;
+
 }
 
 element_value_t* GetContextName(ui_element_t* e, void* context){
@@ -1089,6 +1222,30 @@ element_value_t* GetContextItem(ui_element_t* e, void* context){
   return ev;
 }
 
+bool ElementAssignValues(ui_element_t* e){
+  if(!e->value)
+    return false;
+
+  for (int i = 0; i < e->value->l[0]->num_val; i++){
+    element_value_t *val = e->value->l[0]->values[i];
+    switch(val->type){
+      case VAL_CHAR:
+        e->value->c = GameMalloc("ElementAssignValues",sizeof(char)*MAX_NAME_LEN);
+        e->value->c = val->c;
+        break;
+      case VAL_INT:
+        e->value->i = GameMalloc("ElementAssignValues",sizeof(int));
+        e->value->i = val->i;
+        break;
+      case VAL_FLOAT:
+        e->value->f = GameMalloc("ElementAssignValues",sizeof(float));
+        e->value->f = val->f;
+        break;
+    }
+  }
+  return true;
+}
+
 void UILogEvent(EventType event, void* data, void* user){
   activity_t* act = data;
   ui_element_t* e = user;
@@ -1126,6 +1283,19 @@ void* ElementOwnerItemContext(void* p){
   inventory_t* inv = e->owner->ctx;
 
   return &inv->items[e->owner->index];
+}
+
+void* ElementOwnerTextAt(void* p){
+  ui_element_t* c = p;
+  ui_element_t* o = c->owner;
+  if (!o || o->text[0] =='\0')
+    return NULL;
+
+  if( strlen( o->text ) < c->index)
+    return NULL;
+
+  strcpy(c->text ,&o->text[c->index]);
+  c->text[1] = '\0';
 }
 
 void* ElementNiblings(void *p){

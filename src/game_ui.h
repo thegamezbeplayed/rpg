@@ -12,7 +12,7 @@
 #define MAX_SUB_ELE 20
 #define MAX_ELEMENTS 64
 
-#define ELE_COUNT 21
+#define ELE_COUNT 29
 #if defined(PLATFORM_ANDROID)
 #define DEFAULT_MENU_SIZE (Vector2){GetScreenWidth()/2, GetScreenHeight()/2}
 #define DEFAULT_MENU_THIN_SIZE (Vector2){GetScreenWidth(), 64*UI_SCALE}
@@ -40,11 +40,11 @@
 #define SMALL_PANEL_SIZE (Vector2){192*UI_SCALE, 64*UI_SCALE}
 #define SMALL_PANEL_THIN_SIZE (Vector2){184*UI_SCALE, 32*UI_SCALE}
 #define DEFAULT_LINE_SIZE (Vector2){2 *UI_SCALE, 64*UI_SCALE}
-
 #define FIXED_BUTTON_SIZE     (Vector2){128, 24}
-#define FIXED_LABEL_SIZE      (Vector2){96, 24}
+#define FIXED_LABEL_SIZE      (Vector2){128, 24}
 #define FIXED_BOX_SIZE        (Vector2){36, 36}
 #define FIXED_TOOL_TIP        (Vector2){96, 24}
+#define FIXED_TITLE_CHAR      (Vector2){32, 48}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
 #define UI_PANEL_BOT (Vector2){48, 624}
@@ -52,7 +52,7 @@
 #define UI_LOG_HOR (Vector2){480, 128}
 #define LABEL_LOG (Vector2){464, 12}
 
-#define LIST_LEFT_HAND_PAD 20
+#define LIST_LEFT_HAND_PAD 18
 #define LIST_RIGHT_HAND_PAD 8
 
 typedef struct element_value_s element_value_t;
@@ -97,6 +97,7 @@ typedef enum{
   UI_TEXT,
   UI_GAME,
   UI_TOOL_TIP,
+  UI_CHAR_SPR,
   UI_BLANK
 }ElementType;
 
@@ -175,6 +176,7 @@ int EntGetStatPretty(element_value_t **fill, stat_t* stat);
 int EntGetNamePretty(element_value_t **fill, ent_t* e );
 int CtxGetString(element_value_t **fill, local_ctx_t*, GameObjectParam);
 element_value_t* InventoryGetItem(element_value_t* self, void* context);
+element_value_t* AttrGetPretty(element_value_t* self, void* context);
 element_value_t* StatGetPretty(element_value_t* self, void* context);
 element_value_t* SkillGetPretty(element_value_t* self, void* context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
@@ -222,6 +224,7 @@ void* ElementMatchTab(void*);
 void* ElementOwnerItemContext(void*);
 void* ElementOwnerChildren(void*);
 void* ElementNiblings(void *);
+void* ElementOwnerTextAt(void*);
 void* ElementPresetContext(void*);
 void* ElementGetScreenSelection(void* p);
 void* ElementIndexContext(void* p);
@@ -246,12 +249,13 @@ struct ui_element_s{
   char*               text;
   ElementSetValue     set_val;
   ElementValueSync    sync_val;
-  element_value_t        *value;
+  element_value_t     *value;
   int                 num_children, num_params;
   ui_element_t*       children[MAX_SUB_ELE];
   ElementDataContext  get_ctx;
   GameObjectParam     params[4];
   void*               ctx;
+  char                delimiter; 
 };
 
 typedef struct{
@@ -270,6 +274,9 @@ typedef struct{
   const char          kids[MAX_SUB_ELE][MAX_NAME_LEN];
   GameObjectParam     params[MAX_SUB_ELE][PARAM_ALL];
   UiType              texture;
+  char                text[MAX_NAME_LEN];
+  const char          format;
+  const char          delimiter; 
 }ui_element_d;
 extern ui_element_d ELEM_DATA[ELE_COUNT];
 
@@ -290,6 +297,7 @@ bool ElementShowIcon(ui_element_t* e);
 bool ElementShowChildren(ui_element_t*);
 bool ElementShowPrimary(ui_element_t*);
 bool ElementTabToggle(ui_element_t* e);
+bool ElementAssignValues(ui_element_t* e);
 bool ElementSetContext(ui_element_t* e);
 bool ElementHideSiblings(ui_element_t* e);
 bool ElementSyncContext(ui_element_t* e);
@@ -306,8 +314,11 @@ struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
 element_value_t* GetContextParams(ui_element_t* e, void* context);
+element_value_t* GetContextVal(ui_element_t* e, void* context);
 element_value_t* GetContextName(ui_element_t* e, void* context);
+element_value_t* GetContextValueName(ui_element_t* e, void* context);
 element_value_t* GetContextItem(ui_element_t* e, void* context);
+element_value_t* GetTextSprite(ui_element_t* e, void* context);
 element_value_t* GetElementName(ui_element_t* e, void* context);
 element_value_t* GetActivityEntry(ui_element_t* e, void* context);
 element_value_t* GetContextStat(ui_element_t* e, void* context);
@@ -420,6 +431,9 @@ typedef enum{
   TOKE_SCHOOL,
   TOKE_AMNT,
   TOKE_STAT,
+  TOKE_MAT,
+  TOKE_QUAL,
+  TOKE_NAME,
   TOKE_ALL,
 }ParseToken;
 
