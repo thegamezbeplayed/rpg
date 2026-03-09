@@ -122,6 +122,7 @@ typedef struct{
   run_seed         seed;
   rng_t            *rng;
   spawn_pool_t*    spawns;
+  item_gen_pool    *item_defs;
   loot_pool_t*     loot;
   path_pool_t*     paths;
   choice_pool_t*   assignments;

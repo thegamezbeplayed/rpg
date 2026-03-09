@@ -83,6 +83,18 @@ level_t* InitLevel(void){
 
   WorldSubscribe(EVENT_ROOM_READY, OnLevelReady, &Level);
 
+  Level.item_defs = InitItemGenPool(ABILITY_DONE + SKILL_DONE);
+
+  for(int i = 0; i < ABILITY_DONE; i++){
+    if(CLASS_ABILITIES[i].tome)
+      ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_TOME));     
+    if(CLASS_ABILITIES[i].scroll)
+      ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_SCROLL));     
+  }
+
+  for (int i = 1; i < SKILL_DONE; i++)
+      ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_SKILLUP));     
+
   return &Level;
 }
 
@@ -123,7 +135,7 @@ void LevelReady(map_grid_t* m){
   ctx->luck = -1;
   ctx->enemy_cr = iround(mgen.diff);
   ctx->seed = hash_combine_64(Level.seed, mgen.biome);
-  Level.loot = GenerateLootPool(64, ctx);
+  Level.loot = GenerateLootPool(64 + Level.item_defs->count, ctx);
 }
 
 mob_group_t* InitMobGroup(faction_t* f, MobRule size)
@@ -190,15 +202,23 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
 
   loot_pool_t* lp = GameCalloc("GenerateLootPool", 1, sizeof(loot_pool_t));
 
-  lp->count = count;
   lp->rules = ctx;
 
   bool result = false;
   choice_pool_t *cp = StartChoice(&lp->flags, count * 2, ChooseByWeight, &result);
 
   if(!result){
+    for (int i = 0; i < Level.item_defs->count; i++){
+      item_type_d* item = &Level.item_defs->entries[i];
+
+      item_def_t* def = DefineConsumableByDef(&item->data.cons);
+      
+      AddPurchase(cp, def->id, 1, 5, def, ChoiceReduceScore);
+
+    }
     cp->desired = count;
-    while(cp->count < cp->cap){
+    /*
+    while(cp->count > cp->cap){
       param_t p[LOOT_PARAM_END] = {0};
 
       int cat = RngRoll(Level.rng, ITEM_WEAPON, ITEM_DONE);
@@ -220,12 +240,7 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
           type_param = LOOT_PARAM_ARMOR;
           break;
         case ITEM_CONSUMABLE:
-          start = CONS_POT; 
-          end = CONS_DONE-1;
-          type_prop_end = 0;
-          type_param = LOOT_PARAM_CONS;
-          break;
-          break;
+          continue;
         default:
           continue;
           break;
@@ -251,10 +266,15 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
 
       AddPurchase(cp, cp->count, 1, 1, item, ChoiceReduceScore);
     }
+    */
   }
-  lp->loots = GameCalloc("GenerateLootPool", count, sizeof(loot_item_t));
 
-  while(count > 0){
+
+  bool ready = false;
+  choice_pool_t* dp = StartChoice(&lp->drops, count, ChooseByWeightInBudget, &ready);
+  cp->budget = 10;
+  dp->budget = 20;
+  while(count > 0 && cp->budget > 0){
     choice_t* draw = cp->choose(cp);
     if(!draw || draw->context == NULL)
       continue;
@@ -263,7 +283,26 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
     if(!ItemCurate(idef))
       continue;
 
+    AddPurchase(dp, count, 1, 2, idef, ChoiceReduceScore);
+    //loot_item_t* loot = &lp->loots[lp->count++];
+    //loot->ref = GameCalloc("GenerateLootPool", 1, sizeof(item_def_t));
+    //loot->ref =idef;
     count--;
 
   }
+
+  return lp;
+}
+
+void LootDraw(ent_t* e, int amnt){
+  for(int i = 0; i < amnt; i++){
+    choice_t* choice = Level.loot->drops->choose(Level.loot->drops);
+
+    if(!choice || !choice->context)
+      continue;
+
+    item_def_t* def = choice->context;
+    EntAddItem(e, InitItem(def), false);
+  }
+
 }

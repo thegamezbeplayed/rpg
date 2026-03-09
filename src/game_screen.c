@@ -294,14 +294,18 @@ bool ScreenMouseFindContext(void){
   else if (mc->tile)
     tar = WorldGetContext(DATA_ENV, mc->tile->gouid);
 */
- return SetHoverContext(tar); 
+ 
+  if(!tar)
+    return false;
+  return SetHoverContext(tar); 
 
 }
 
 void ScreenSyncMouse(void){
 
+  //TODO TURN BACK ON AND FIX
   mousectrl.pos = GetMousePosition();
-  ScreenMouseFindContext();
+  //ScreenMouseFindContext();
   /*
   if(!mousectrl.target && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
 

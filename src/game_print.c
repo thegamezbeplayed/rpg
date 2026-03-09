@@ -3,6 +3,7 @@
 #include "game_types.h"
 #include "game_systems.h"
 #include "game_strings.h"
+#include "game_helpers.h"
 
 #include <stdio.h>
 
@@ -110,13 +111,13 @@ element_value_t* CtxGetItem(void* c, GameObjectParam p, int index){
 
   inventory_t* inv = c;
 
-  if(!inv || inv->count == 0)
+  if(!inv)
     return NULL;
 
   element_value_t* ev = GameCalloc("CtxGetItem", 1,sizeof(element_value_t));
 
   ev->type = VAL_ICO;
-  ev->rate = FETCH_UPDATE;
+  ev->rate = FETCH_EVENT;
   ev->index = index;
   ev->context = inv;
   ev->get_val = InventoryGetItem;
@@ -133,7 +134,7 @@ int CtxGetSkill(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
 
   lbl->type = VAL_CHAR;
   lbl->c = malloc(sizeof(char)*MAX_NAME_LEN);
-  strcpy(lbl->c ,SKILL_STRING[skill->id].name);
+  strcpy(lbl->c ,SKILL_NAMES[skill->id]);
 
   lbl->rate = FETCH_NONE;
 
@@ -178,6 +179,31 @@ int CtxGetSkillDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam
   *next_lvl = skill->val+1;
   fill[0] = lbl;
   fill[1] = cur;
+  return 2;
+}
+
+int GetInventoryDetails(element_value_t **fill, param_t p){
+
+  element_value_t* name = GameCalloc("GetInventoryDetails", 1,sizeof(element_value_t));
+
+  inventory_t* inv = ParamRead(&p, inventory_t);
+  name->type = VAL_CHAR;
+  name->c = GameCalloc("GetInventoryDetails", 1,sizeof(element_value_t));
+
+  strcpy(name->c, INV_STRINGS[inv->id]);
+
+  name->rate = FETCH_ONCE;
+
+  element_value_t* amnt = GameCalloc("GetInventoryDetails", 1,sizeof(element_value_t));
+
+
+  amnt->type = VAL_INT;
+  amnt->rate = FETCH_EVENT;
+  amnt->i = &inv->count;
+
+  fill[0] = name;
+  fill[1] = amnt;
+
   return 2;
 }
 
@@ -236,13 +262,101 @@ int CtxGetStat(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
 
 }
 
-int GetWeapDesc(element_value_t **fill, item_t* item){
-
-  element_value_t* name = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
-
+int GetConsumeDesc(line_item_t** li, item_t* item){
+  element_value_t* name = GameCalloc("GetConsumeDesc", 1,sizeof(element_value_t));
+  element_value_t* base[MAX_LINE_VAL];
+    
+  int count = 0;
   name->type = VAL_CHAR;
   name->rate = FETCH_ONCE;
   name->c = strdup(item->def->name);
+  name->get_val = NULL;
+  base[0] = name;
+  li[count++] = InitLineItem(base, 1, "%s");
+  
+  detail_format_t fmt = ITEM_FORMAT[ITEM_CONSUMABLE][item->def->type]; 
+
+  DataType dtype = -1;
+  for (int i = 0; i < fmt.num_lines; i++){
+    char str[MAX_NAME_LEN] = {0}; 
+    int ival = -1;
+    int num_tokens = 0;
+    param_t token_params[TOKE_ALL];
+    for (int j = 0; j < TOKE_ALL; j++){
+      param_t token;
+      ParseToken t = fmt.tokens[i][j];
+      switch(t){
+        case TOKE_DMG:
+          break;
+        case TOKE_RESOURCE:
+          dtype = DATA_STRING;
+          strcpy(str, GetPropNameByTypeProps(item->def->category, item->def->t_props, PROP_CONS_RESOURCE_MASK));
+          break;
+        case TOKE_RES_SUFF:
+          break;
+        case TOKE_ATK:
+          break;
+        case TOKE_ACT:
+          break;
+        case TOKE_SCHOOL:
+          break;
+        case TOKE_AMNT:
+          dtype = DATA_INT;
+          ival = item->def->values[VAL_DMG]->val;
+          break;
+        case TOKE_STAT:
+          break;
+        case TOKE_DOES:
+          dtype = DATA_STRING;
+          switch(item->def->type){
+            case CONS_POT:
+              strcpy(str, "Restores\0");
+              break;
+          };
+          break;
+        case TOKE_USES:
+         dtype = DATA_INT;
+         ival = item->def->values[VAL_QUANT]->val;
+         break;
+        case TOKE_NAME:
+          break;
+        default:
+          continue;
+
+      };
+
+      switch(dtype){
+        case DATA_STRING:
+          str[strlen(str)+1] = '\0';
+          token_params[t] = ParamMake(DATA_STRING, strlen(str)+1, str);
+          break;
+        case DATA_INT:
+          token_params[t] = ParamMake(DATA_INT, sizeof(int), &ival);
+          break;
+      };
+    }
+    num_tokens++;
+
+    li[count++] = StringDetailsFormat(fmt.fmt[i], num_tokens, token_params);
+  }
+
+  return count;
+
+
+}
+
+int GetWeapDesc(line_item_t** li, item_t* item){
+
+  element_value_t* name = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
+  element_value_t* base[MAX_LINE_VAL];
+
+  int count = 0;
+  name->type = VAL_CHAR;
+  name->rate = FETCH_ONCE;
+  name->c = strdup(item->def->name);
+
+  base[0] = name;
+  li[count++] = InitLineItem(base, 1, "%s");
 
   element_value_t* min_dmg = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
   min_dmg->i = malloc(sizeof(int));
@@ -265,15 +379,65 @@ int GetWeapDesc(element_value_t **fill, item_t* item){
   type->rate = FETCH_ONCE;
   type->c = strdup(DAMAGE_STRING[item->ability->school]);
   
+  element_value_t* dmg[MAX_LINE_VAL];
+  element_value_t* hit[MAX_LINE_VAL];
 
-  fill[0] = name;
-  fill[1] = min_dmg;
-  fill[2] = max_dmg;
-  fill[3] = type;
-  return 4;
+  dmg[0] = min_dmg;
+  dmg[1] = max_dmg;
+  dmg[2] = type;
+  li[count++] = InitLineItem(dmg, 3, "Deals %i to %i %s Damage");
+  return count;
 }
 
-int GetArmorDesc(element_value_t **fill, item_t* item){
+int GetArmorDesc(line_item_t** li, item_t* item){
+  element_value_t* name = GameCalloc("GetArmorDesc", 1,sizeof(element_value_t));
+  element_value_t* base[1];
+  
+  int count = 0;
+  name->type = VAL_CHAR;
+  name->rate = FETCH_ONCE;
+  name->c = strdup(item->def->name);
+
+  base[0] = name;
+  li[count++] = InitLineItem(base, 1, "%s");
+
+  
+  element_value_t* ac = GameCalloc("GetArmorDesc", 1,sizeof(element_value_t));
+
+  ac->type = VAL_INT;
+  ac->rate = FETCH_ONCE;
+  ac->i = GameMalloc("GetArmorDesc", sizeof(int));
+
+  
+  *ac->i = item->def->values[VAL_SAVE]->val;
+  element_value_t* base_ac[1];
+ 
+  base_ac[0] = ac;
+  li[count++] = InitLineItem(base_ac, 1, "Armor Class: %i");
+
+ 
+  for (int i = 0; i < DMG_DONE; i++){
+    element_value_t* fill[MAX_LINE_VAL];
+
+    if (item->def->dr->resist_types[i] < 1)
+      continue;
+    element_value_t* tag = GameCalloc("GetArmorDesc", 1,sizeof(element_value_t));
+    tag->c = strdup(DAMAGE_STRING[i]);
+    tag->type = VAL_CHAR;
+    
+    element_value_t* dr = GameCalloc("GetArmorDesc", 1,sizeof(element_value_t));
+
+    dr->type = VAL_INT;
+    dr->rate = FETCH_ONCE;
+    dr->i = GameMalloc("GetArmorDesc", sizeof(int));
+    *dr->i = item->def->dr->resist_types[i];
+    fill[0] = tag;
+    fill[1] = dr;
+    li[count++] = InitLineItem(fill, 2, "%s Damage Reduction: %i");
+  }
+
+  return count;
+
 
 }
 
@@ -285,7 +449,8 @@ int CtxGetItemDesc(element_value_t **fill, void* ctx, GameObjectParam p){
     case ITEM_WEAPON:
       break;
     case ITEM_ARMOR:
-      lines = GetArmorDesc(fill, item);
+      //lines = GetArmorDesc(fill, item);
+      
       break;
     case ITEM_CONSUMABLE:
       break;
@@ -378,7 +543,7 @@ element_value_t* StatGetPretty(element_value_t* self, void* context){
 element_value_t* InventoryGetItem(element_value_t* self, void* context){
   inventory_t* inv = context;
 
-  if(!inv || inv->count < self->index)
+  if(!inv || inv->count <= self->index)
     return NULL;
 
   item_t* item = &inv->items[self->index];
@@ -479,13 +644,14 @@ int SetCtxDescription(void* ctx , line_item_t** li, GameObjectParam p, int pad[U
       item_t* item = ctx;
       switch(item->def->category){
         case ITEM_WEAPON:
-          format = "[%s] - %i to %i %s damage";
-          lines = GetWeapDesc(base, item);
+          lines = GetWeapDesc(li, item);
           break;
         case ITEM_ARMOR:
-          lines = GetArmorDesc(base, item);
+          lines = GetArmorDesc(li, item);
+
           break;
         case ITEM_CONSUMABLE:
+          lines = GetConsumeDesc(li, item);
           break;
         default:
           break;
@@ -494,23 +660,23 @@ int SetCtxDescription(void* ctx , line_item_t** li, GameObjectParam p, int pad[U
       break;
   }
 
-  li[0] = InitLineItem(base, lines, format);
-  PrintSyncLine(li[0],FETCH_ONCE);
-  const char* ln = TextFormatLineItem(li[0]);
+  for(int i = 0; i < lines; i++){
+    PrintSyncLine(li[i],FETCH_ONCE);
+    const char* ln = TextFormatLineItem(li[i]);
 
-  TraceLog(LOG_INFO, "MEASURE: %s", ln);
+    TraceLog(LOG_INFO, "MEASURE: %s", ln);
 
-  Vector2 size = MeasureTextEx(ui.font, ln, ui.text_size, ui.text_spacing);
-  if(size.x > des_len){
-    int space = size.x - des_len;
+    Vector2 size = MeasureTextEx(ui.font, ln, ui.text_size, ui.text_spacing);
+    if(size.x > des_len){
+      int space = size.x - des_len;
       p_right += space/2;
       //p_left += space/2;
 
     }
-    li[0]->r_wid = size.x + p_right;
-    li[0]->r_hei = size.y;
-
-    return 1;
+    li[i]->r_wid = size.x + p_right;
+    li[i]->r_hei = size.y;
+  }
+  return lines;
 }
 
 int SetActivityLines(element_value_t* ev, int pad[UI_POSITIONING]){
@@ -547,6 +713,31 @@ element_value_t* SetCtxItems(void *ctx, GameObjectParam params[4], int index){
 
         return CtxGetItem(ctx, params[0], index);
   return NULL;
+}
+
+int SetParamDescription(line_item_t** li, int count, param_t param){
+
+  int lines = 0;
+  element_value_t* base[MAX_LINE_ITEMS];
+  switch(param.type_id){
+    case DATA_INV:
+      lines = GetInventoryDetails(base, param);
+
+      li[count] = InitLineItem(base,lines,"%s: %i");
+      PrintSyncLine(li[count],FETCH_ONCE);
+      const char* ln = TextFormatLineItem(li[count]);
+      TraceLog(LOG_INFO, "MEASURE: %s", ln);
+
+      Vector2 size = MeasureTextEx(ui.font, ln, ui.text_size, ui.text_spacing);
+      li[count]->r_wid = size.x;
+      li[count]->r_hei = size.y;
+      break;
+    default:
+      return 0;
+      break;
+  }
+
+  return 1;
 }
 
 int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool combo){
@@ -640,29 +831,6 @@ char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING], char* 
   
 }
 
-ParseToken TokenFromString(const char* s)
-{
-  for (int i = 0; i < TOKE_ALL; i++)
-    if (strcmp(s, TOKEN_TABLE[i].name) == 0)
-      return TOKEN_TABLE[i].token;
-
-  return TOKE_ALL; // invalid / fallback
-}
-
-int ReadToken(const char* fmt, int start, char* out, int out_sz)
-{
-  int k = 0;
-  int i = start;
-
-  while (fmt[i] && fmt[i] != '}' && k < out_sz - 1) {
-    out[k++] = fmt[i++];
-  }
-
-  out[k] = 0;
-
-  return (fmt[i] == '}') ? i : -1;
-}
-
 char* ParseActivity(activity_t* act, char* buffer, size_t buf_size){
   activity_format_t a = ACT_LOG_FMT[act->kind];
   const char* fmt = a.fmt;
@@ -718,3 +886,4 @@ char* ParseActivity(activity_t* act, char* buffer, size_t buf_size){
 
   return buffer;
 }
+

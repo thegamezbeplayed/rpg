@@ -140,137 +140,7 @@
 *       #define RAYGUI_DEBUG_TEXT_BOUNDS
 *           Draw text bounds rectangles for debug
 *
-*   VERSIONS HISTORY:
-*       5.0-dev (2025)    Current dev version...
-*                         ADDED: guiControlExclusiveMode and guiControlExclusiveRec for exclusive modes
-*                         ADDED: GuiValueBoxFloat()
-*                         ADDED: GuiDropdonwBox() properties: DROPDOWN_ARROW_HIDDEN, DROPDOWN_ROLL_UP
-*                         ADDED: GuiListView() property: LIST_ITEMS_BORDER_WIDTH
-*                         ADDED: GuiLoadIconsFromMemory()
-*                         ADDED: Multiple new icons
-*                         REMOVED: GuiSpinner() from controls list, using BUTTON + VALUEBOX properties
-*                         REMOVED: GuiSliderPro(), functionality was redundant
-*                         REVIEWED: Controls using text labels to use LABEL properties
-*                         REVIEWED: Replaced sprintf() by snprintf() for more safety
-*                         REVIEWED: GuiTabBar(), close tab with mouse middle button
-*                         REVIEWED: GuiScrollPanel(), scroll speed proportional to content
-*                         REVIEWED: GuiDropdownBox(), support roll up and hidden arrow
-*                         REVIEWED: GuiTextBox(), cursor position initialization
-*                         REVIEWED: GuiSliderPro(), control value change check
-*                         REVIEWED: GuiGrid(), simplified implementation
-*                         REVIEWED: GuiIconText(), increase buffer size and reviewed padding
-*                         REVIEWED: GuiDrawText(), improved wrap mode drawing
-*                         REVIEWED: GuiScrollBar(), minor tweaks
-*                         REVIEWED: GuiProgressBar(), improved borders computing
-*                         REVIEWED: GuiTextBox(), multiple improvements: autocursor and more
-*                         REVIEWED: Functions descriptions, removed wrong return value reference
-*                         REDESIGNED: GuiColorPanel(), improved HSV <-> RGBA convertion
-*
-*       4.0 (12-Sep-2023) ADDED: GuiToggleSlider()
-*                         ADDED: GuiColorPickerHSV() and GuiColorPanelHSV()
-*                         ADDED: Multiple new icons, mostly compiler related
-*                         ADDED: New DEFAULT properties: TEXT_LINE_SPACING, TEXT_ALIGNMENT_VERTICAL, TEXT_WRAP_MODE
-*                         ADDED: New enum values: GuiTextAlignment, GuiTextAlignmentVertical, GuiTextWrapMode
-*                         ADDED: Support loading styles with custom font charset from external file
-*                         REDESIGNED: GuiTextBox(), support mouse cursor positioning
-*                         REDESIGNED: GuiDrawText(), support multiline and word-wrap modes (read only)
-*                         REDESIGNED: GuiProgressBar() to be more visual, progress affects border color
-*                         REDESIGNED: Global alpha consideration moved to GuiDrawRectangle() and GuiDrawText()
-*                         REDESIGNED: GuiScrollPanel(), get parameters by reference and return result value
-*                         REDESIGNED: GuiToggleGroup(), get parameters by reference and return result value
-*                         REDESIGNED: GuiComboBox(), get parameters by reference and return result value
-*                         REDESIGNED: GuiCheckBox(), get parameters by reference and return result value
-*                         REDESIGNED: GuiSlider(), get parameters by reference and return result value
-*                         REDESIGNED: GuiSliderBar(), get parameters by reference and return result value
-*                         REDESIGNED: GuiProgressBar(), get parameters by reference and return result value
-*                         REDESIGNED: GuiListView(), get parameters by reference and return result value
-*                         REDESIGNED: GuiColorPicker(), get parameters by reference and return result value
-*                         REDESIGNED: GuiColorPanel(), get parameters by reference and return result value
-*                         REDESIGNED: GuiColorBarAlpha(), get parameters by reference and return result value
-*                         REDESIGNED: GuiColorBarHue(), get parameters by reference and return result value
-*                         REDESIGNED: GuiGrid(), get parameters by reference and return result value
-*                         REDESIGNED: GuiGrid(), added extra parameter
-*                         REDESIGNED: GuiListViewEx(), change parameters order
-*                         REDESIGNED: All controls return result as int value
-*                         REVIEWED: GuiScrollPanel() to avoid smallish scroll-bars
-*                         REVIEWED: All examples and specially controls_test_suite
-*                         RENAMED: gui_file_dialog module to gui_window_file_dialog
-*                         UPDATED: All styles to include ISO-8859-15 charset (as much as possible)
-*
-*       3.6 (10-May-2023) ADDED: New icon: SAND_TIMER
-*                         ADDED: GuiLoadStyleFromMemory() (binary only)
-*                         REVIEWED: GuiScrollBar() horizontal movement key
-*                         REVIEWED: GuiTextBox() crash on cursor movement
-*                         REVIEWED: GuiTextBox(), additional inputs support
-*                         REVIEWED: GuiLabelButton(), avoid text cut
-*                         REVIEWED: GuiTextInputBox(), password input
-*                         REVIEWED: Local GetCodepointNext(), aligned with raylib
-*                         REDESIGNED: GuiSlider*()/GuiScrollBar() to support out-of-bounds
-*
-*       3.5 (20-Apr-2023) ADDED: GuiTabBar(), based on GuiToggle()
-*                         ADDED: Helper functions to split text in separate lines
-*                         ADDED: Multiple new icons, useful for code editing tools
-*                         REMOVED: Unneeded icon editing functions
-*                         REMOVED: GuiTextBoxMulti(), very limited and broken
-*                         REMOVED: MeasureTextEx() dependency, logic directly implemented
-*                         REMOVED: DrawTextEx() dependency, logic directly implemented
-*                         REVIEWED: GuiScrollBar(), improve mouse-click behaviour
-*                         REVIEWED: Library header info, more info, better organized
-*                         REDESIGNED: GuiTextBox() to support cursor movement
-*                         REDESIGNED: GuiDrawText() to divide drawing by lines
-*
-*       3.2 (22-May-2022) RENAMED: Some enum values, for unification, avoiding prefixes
-*                         REMOVED: GuiScrollBar(), only internal
-*                         REDESIGNED: GuiPanel() to support text parameter
-*                         REDESIGNED: GuiScrollPanel() to support text parameter
-*                         REDESIGNED: GuiColorPicker() to support text parameter
-*                         REDESIGNED: GuiColorPanel() to support text parameter
-*                         REDESIGNED: GuiColorBarAlpha() to support text parameter
-*                         REDESIGNED: GuiColorBarHue() to support text parameter
-*                         REDESIGNED: GuiTextInputBox() to support password
-*
-*       3.1 (12-Jan-2022) REVIEWED: Default style for consistency (aligned with rGuiLayout v2.5 tool)
-*                         REVIEWED: GuiLoadStyle() to support compressed font atlas image data and unload previous textures
-*                         REVIEWED: External icons usage logic
-*                         REVIEWED: GuiLine() for centered alignment when including text
-*                         RENAMED: Multiple controls properties definitions to prepend RAYGUI_
-*                         RENAMED: RICON_ references to RAYGUI_ICON_ for library consistency
-*                         Projects updated and multiple tweaks
-*
-*       3.0 (04-Nov-2021) Integrated ricons data to avoid external file
-*                         REDESIGNED: GuiTextBoxMulti()
-*                         REMOVED: GuiImageButton*()
-*                         Multiple minor tweaks and bugs corrected
-*
-*       2.9 (17-Mar-2021) REMOVED: Tooltip API
-*       2.8 (03-May-2020) Centralized rectangles drawing to GuiDrawRectangle()
-*       2.7 (20-Feb-2020) ADDED: Possible tooltips API
-*       2.6 (09-Sep-2019) ADDED: GuiTextInputBox()
-*                         REDESIGNED: GuiListView*(), GuiDropdownBox(), GuiSlider*(), GuiProgressBar(), GuiMessageBox()
-*                         REVIEWED: GuiTextBox(), GuiSpinner(), GuiValueBox(), GuiLoadStyle()
-*                         Replaced property INNER_PADDING by TEXT_PADDING, renamed some properties
-*                         ADDED: 8 new custom styles ready to use
-*                         Multiple minor tweaks and bugs corrected
-*
-*       2.5 (28-May-2019) Implemented extended GuiTextBox(), GuiValueBox(), GuiSpinner()
-*       2.3 (29-Apr-2019) ADDED: rIcons auxiliar library and support for it, multiple controls reviewed
-*                         Refactor all controls drawing mechanism to use control state
-*       2.2 (05-Feb-2019) ADDED: GuiScrollBar(), GuiScrollPanel(), reviewed GuiListView(), removed Gui*Ex() controls
-*       2.1 (26-Dec-2018) REDESIGNED: GuiCheckBox(), GuiComboBox(), GuiDropdownBox(), GuiToggleGroup() > Use combined text string
-*                         REDESIGNED: Style system (breaking change)
-*       2.0 (08-Nov-2018) ADDED: Support controls guiLock and custom fonts
-*                         REVIEWED: GuiComboBox(), GuiListView()...
-*       1.9 (09-Oct-2018) REVIEWED: GuiGrid(), GuiTextBox(), GuiTextBoxMulti(), GuiValueBox()...
-*       1.8 (01-May-2018) Lot of rework and redesign to align with rGuiStyler and rGuiLayout
-*       1.5 (21-Jun-2017) Working in an improved styles system
-*       1.4 (15-Jun-2017) Rewritten all GUI functions (removed useless ones)
-*       1.3 (12-Jun-2017) Complete redesign of style system
-*       1.1 (01-Jun-2017) Complete review of the library
-*       1.0 (07-Jun-2016) Converted to header-only by Ramon Santamaria
-*       0.9 (07-Mar-2016) Reviewed and tested by Albert Martos, Ian Eito, Sergio Martinez and Ramon Santamaria
-*       0.8 (27-Aug-2015) Initial release. Implemented by Kevin Gato, Daniel Nicolás and Ramon Santamaria
-*
-*   DEPENDENCIES:
+   DEPENDENCIES:
 *       raylib 5.0  - Inputs reading (keyboard/mouse), shapes drawing, font loading and text drawing
 *
 *   STANDALONE MODE:
@@ -2520,9 +2390,9 @@ int GuiTextBox(Rectangle bounds, char *text, int textSize, bool editMode)
     // NOTE: Position X value should be updated
     Rectangle cursor = {
         textBounds.x + textWidth + GuiGetStyle(DEFAULT, TEXT_SPACING),
-        textBounds.y + textBounds.height/2 - GuiGetStyle(DEFAULT, TEXT_SIZE),
+        textBounds.y + textBounds.height/2 - GuiGetStyle(TEXTBOX, TEXT_SIZE),
         2,
-        (float)GuiGetStyle(DEFAULT, TEXT_SIZE)*2
+        (float)GuiGetStyle(TEXTBOX, TEXT_SIZE)*2
     };
 
     if (cursor.height >= bounds.height) cursor.height = bounds.height - GuiGetStyle(TEXTBOX, BORDER_WIDTH)*2;
@@ -5350,7 +5220,7 @@ static void GuiDrawText(const char *text, Rectangle textBounds, int alignment, C
 }
 
 // Gui draw rectangle using default raygui plain style with borders
-static void CUSTOMGuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color color)
+static void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color color)
 {
     if (color.a > 0)
     {
@@ -5381,15 +5251,8 @@ static void GuiTooltip(Rectangle controlRec)
 
         if ((controlRec.x + textSize.x + 16) > GetScreenWidth()) controlRec.x -= (textSize.x + 16 - controlRec.width);
 
-        GuiPanel(RAYGUI_CLITERAL(Rectangle){ controlRec.x, controlRec.y + controlRec.height + 4, textSize.x + 16, GuiGetStyle(DEFAULT, TEXT_SIZE) + 8.0f }, NULL);
 
-        int textPadding = GuiGetStyle(LABEL, TEXT_PADDING);
-        int textAlignment = GuiGetStyle(LABEL, TEXT_ALIGNMENT);
-        GuiSetStyle(LABEL, TEXT_PADDING, 0);
-        GuiSetStyle(LABEL, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
         GuiLabel(RAYGUI_CLITERAL(Rectangle){ controlRec.x, controlRec.y + controlRec.height + 4, textSize.x + 16, GuiGetStyle(DEFAULT, TEXT_SIZE) + 8.0f }, guiTooltipPtr);
-        GuiSetStyle(LABEL, TEXT_ALIGNMENT, textAlignment);
-        GuiSetStyle(LABEL, TEXT_PADDING, textPadding);
     }
 }
 

@@ -533,9 +533,9 @@ item_def_t* GenerateItem(param_t params[LOOT_PARAM_END]);
 typedef struct{
   int           count;
   loot_ctx_t*   rules;
-  loot_item_t*  loots;
-  choice_pool_t *flags, drops;
+  choice_pool_t *flags, *drops;
 }loot_pool_t;
 
 loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx);
+void LootDraw(ent_t*, int);
 #endif

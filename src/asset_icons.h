@@ -19,4 +19,6 @@ static sub_texture_t ICON_SPRITES[ICON_ALL] = {
     { ICON_MACE_COM,  16, 16, 64, 0, 32, 32},
     { ICON_BELT,      16, 16, 96, 0, 32, 32},
     { ICON_TUNIC_COM, 16, 16, 128, 0, 32, 32},
+    { ICON_SCROLL,    16, 16, 0, 32, 32, 32, BEIGE},
+    { ICON_TOME,      16, 16, 32, 32, 32, 32, RAYWHITE},
 };

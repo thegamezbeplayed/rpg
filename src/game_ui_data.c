@@ -11,7 +11,7 @@ ui_menu_d MENU_DATA[MENU_DONE] = {
 };
 
 ui_element_d ELEM_DATA[ELE_COUNT] = {
-  {"TITLE_MENU_DOM", VECTOR2_ZERO, FIXED_MENU_FULL, UI_PANEL,
+  {"TITLE_MENU_DOM", VECTOR2_ZERO, FIXED_MENU_FULL, UI_CONTAINER,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_MID | ALIGN_CENTER,
     .cb = {
       [ELEMENT_IDLE] = ElementActivateChildren,
@@ -37,7 +37,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [UI_MARGIN_TOP] = 32, [UI_MARGIN_LEFT] = 6,
       [UI_PADDING_TOP] = 12, [UI_PADDING_LEFT] = 8
     },
-    7, {"HEADER_CHAR_SPR"},
+    0, {"HEADER_CHAR_SPR"},
     .text = "PARAGON"
   },
   {"PLAY_BTN", VECTOR2_ZERO, FIXED_BUTTON_SIZE, UI_BUTTON,
@@ -56,7 +56,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
 
     },
   },
-  {"HUD_MENU_DOM", VECTOR2_ZERO, FIXED_MENU_FULL, UI_PANEL, ELEMENT_NONE, 
+  {"HUD_MENU_DOM", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER, ELEMENT_NONE, 
     LAYOUT_FREE, ALIGN_LEFT,
     .spacing = {
       [UI_MARGIN_TOP] = 32, [UI_MARGIN_LEFT] = 6,
@@ -69,13 +69,13 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     .num_children = 3, .kids= {"PLAYER_PANEL_L", "CONTEXT_PANEL_R", "ACTIVITY_PANEL"},
     .params = { {PARAM_NONE}, {PARAM_NONE}, {PARAM_NAME }}
   },
-  {"PLAYER_PANEL_L", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
+  {"PLAYER_PANEL_L", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_CONTAINER,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, WorldPlayerContext,
     {
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
     },
-    .spacing = {[UI_MARGIN_TOP] = 24, [UI_MARGIN_LEFT] = 20},
+    .spacing = {[UI_MARGIN_TOP] = 24, [UI_MARGIN_LEFT] = 8},
     .num_children = 2, .kids={
       "PLAYER_PANEL_HEADERS",
       "PANEL_GROUP",
@@ -93,7 +93,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
     .spacing = {[UI_MARGIN_LEFT] = 36, [UI_PADDING_RIGHT] = 4}
   },
-  {"PANEL_GROUP", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
+  {"PANEL_GROUP", VECTOR2_ZERO, VECTOR2_ZERO, UI_GROUP,
     ELEMENT_NONE, LAYOUT_STACK, ALIGN_LEFT, NULL, WorldPlayerContext,
     .cb = {
       [ELEMENT_LOAD] = ElementSetContext,
@@ -103,7 +103,11 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     .num_children = 2, .kids = {
       "CHARACTER_SHEET",
       "INVENTORY"
-    }
+    },
+    .params = {{PARAM_NAME}},
+
+
+    .spacing ={[UI_PADDING_TOP] = 8, [UI_PADDING_LEFT] = 8}
   },
   {"TAB_BUTTON", VECTOR2_ZERO, FIXED_BUTTON_SIZE, UI_BUTTON,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_CENTER | ALIGN_MID, GetElementName, ElementPresetContext,
@@ -114,7 +118,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
     .delimiter = ' '
   },
-  {"INVENTORY", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
+  {"INVENTORY", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
     {
       [ELEMENT_LOAD]      = ElementSetContext,
@@ -130,36 +134,38 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       {PARAM_INV_HELD},
       {PARAM_INV_WORN},
       {PARAM_INV_BELT},
-      { PARAM_INV_SLING},
+      {PARAM_INV_SLING},
     },
-    .spacing = {[UI_MARGIN_TOP] = 20, [UI_MARGIN_LEFT] = 4},
+    .spacing = {[UI_MARGIN_TOP] = 8, [UI_MARGIN_LEFT] = 4, [UI_PADDING_TOP] = 16},
+    .text = "Inventory"
   },
-  {"ITEM_GRID", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_PANEL,
+  {"ITEM_GRID", VECTOR2_ZERO, FIXED_HEADER_SIZE, UI_PANEL,
     ELEMENT_NONE, LAYOUT_GRID, ALIGN_LEFT, GetContextParams,
     ElementGetOwnerContext, 
     {
-      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_LOAD] = ElementInventoryContext,
       [ELEMENT_IDLE] = ElementDynamicChildren,
       [ELEMENT_SHOW] = ElementShowChildren
     },
-    .spacing = { [UI_MARGIN_LEFT] = 8, [UI_PADDING] = 4},
+    .spacing = { [UI_MARGIN_LEFT] = 8, [UI_PADDING] = 0, [UI_PADDING_BOT] = 0,[UI_MARGIN_TOP] = 18, [UI_PADDING_TOP] = 0},
     .kids = {"ITEM_BOX"}
   },
   {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_ICON,
-   ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_MID | ALIGN_LEFT, GetContextItem, ElementPresetContext,
+   ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT | ALIGN_MID, GetContextItem, ElementPresetContext,
    {
       [ELEMENT_LOAD]      = ElementSetContext,
       [ELEMENT_FOCUSED]   = ElementShowTooltip,
       [ELEMENT_TOGGLE]    = ElementToggleChildren,
-      [ELEMENT_SHOW]      = ElementShowIcon
+      [ELEMENT_SHOW]      = ElementShowIcon,
+      [ELEMENT_ACTIVATED]  = ElementItemUse,
    },
-   .spacing = {[UI_PADDING_TOP] = 18, [UI_PADDING_LEFT] = 18, [UI_MARGIN_RIGHT] = 18},
+   .spacing = {[UI_MARGIN_TOP] = 12, [UI_PADDING_LEFT] = 16, [UI_PADDING_TOP] =  16},
    .texture = UI_GRID_CELL,
    .num_children = 1, .kids = {"ITEM_TOOL_TIP"},
    .params = {PARAM_ITEM}
   }, 
-  {"CHARACTER_SHEET", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
-    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
+  {"CHARACTER_SHEET", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, GetContextName, ElementGetOwnerContext,
    {
       [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_IDLE] = ElementActivateChildren,
@@ -167,14 +173,14 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       //[ELEMENT_ACTIVATE] = ElementToggle,
       [ELEMENT_ACTIVATE] = ElementHideSiblings,
     },
-   .spacing = {[UI_PADDING_TOP] = 8, [UI_PADDING_BOT] = 8},
    .num_children = 2, .kids = {
      "CHARACTER_STATS",
      "CHARACTER_ATTR"
-   }
+   },
+   .spacing = {[UI_MARGIN_TOP] = 16, [UI_MARGIN_LEFT]=0}
   },
-  {"CHARACTER_STATS", VECTOR2_ZERO, VECTOR2_ZERO, UI_PANEL,
-    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
+  {"CHARACTER_STATS", VECTOR2_ZERO, FIXED_HEADER_SIZE, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_TOP | ALIGN_LEFT, NULL, ElementGetOwnerContext,
     {
       [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_SHOW] = ElementShowChildren,
@@ -182,42 +188,40 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       //[ELEMENT_ACTIVATE] = ElementToggle,
 
     },
-    .num_children = 6, .kids ={
-      "NAME_LABEL",
-      "CHARACTER_LINE_NAME_VAL",
-      "CHARACTER_LINE_NAME_VAL",
-      "CHARACTER_LINE_NAME_VAL",
-      "CHARACTER_LINE_NAME_VAL",
+    .num_children = 5, .kids ={
       "CHARACTER_LINE_NAME_VAL",
     },
    .params = {
-      {PARAM_NAME},
       {PARAM_SKILL_LVL},
       {PARAM_STAT_HEALTH},
       {PARAM_STAT_ARMOR},
       {PARAM_STAT_STAMINA},
       {PARAM_STAT_ENERGY},
-    }
+    },
+   .text = "Stats",
+   .spacing = {[UI_PADDING_TOP] = 24},
   },
-  {"VALUE_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
-    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_MID | ALIGN_CENTER,
+  {"VALUE_LABEL", VECTOR2_ZERO, FIXED_VAL_LABEL_SIZE, UI_LABEL,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_MID | ALIGN_RIGHT,
     GetContextVal, ElementGetOwnerContext,
     {
       [ELEMENT_IDLE] = ElementSetContext,
+      [ELEMENT_FOCUSED] = ElementShowTooltip,
+      [ELEMENT_TOGGLE] = ElementToggleChildren
     },
-
+    .num_children = 1, .kids ={"STAT_TOOL_TIP"},
+    .spacing = {[UI_MARGIN_LEFT] = -32, [UI_PADDING_LEFT] = -16}
   },
-  {"CHARACTER_ATTR", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
-    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, ElementGetOwnerContext,
+  {"CHARACTER_ATTR", VECTOR2_ZERO, FIXED_HEADER_SIZE, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_TOP, NULL, ElementGetOwnerContext,
     {
       [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
       //[ELEMENT_ACTIVATE] = ElementToggle,
-
     },
     .num_children = 6, .kids ={
-      "STAT_LABEL_DETAILED",
+      "CHARACTER_LINE_NAME_VAL",
     },
    .params = {
      {PARAM_ATTR_CON},
@@ -226,7 +230,9 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
      {PARAM_ATTR_INT},
      {PARAM_ATTR_WIS},
      {PARAM_ATTR_CHAR},
-   }
+   },
+   .spacing = {[UI_PADDING_TOP] = 24},
+   .text = "Attributes"
   },
   {"NAME_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, GetContextName, ElementGetOwnerContext,
@@ -235,13 +241,13 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
   },
   {"VALUE_NAME_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, GetContextValueName, ElementGetOwnerContext,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_MID | ALIGN_LEFT, GetContextValueName, ElementGetOwnerContext,
     {
       [ELEMENT_IDLE] = ElementSetContext,
     },
   },
-  {"CHARACTER_LINE_NAME_VAL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_BOX,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
+  {"CHARACTER_LINE_NAME_VAL", VECTOR2_ZERO, FIXED_HEADER_SIZE, UI_CONTAINER,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_UNIFORM | ALIGN_LEFT, 
     NULL, ElementGetOwnerContext,
     {
       [ELEMENT_LOAD] = ElementSetContext,
@@ -250,18 +256,9 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
     .num_children = 2, .kids = {
       "VALUE_NAME_LABEL",
-      "VALUE_LABEL"
-    }
-  },
-  {"STAT_LABEL_DETAILED", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
-    GetContextStat, ElementGetOwnerContext,
-    {
-      [ELEMENT_SHOW] = ElementSetContext,
-      [ELEMENT_FOCUSED] = ElementShowTooltip,
-      [ELEMENT_TOGGLE] = ElementToggleChildren
+      "VALUE_LABEL",
     },
-    .num_children = 0, .kids ={"STAT_TOOL_TIP"},
+    .spacing = {[UI_MARGIN_BOT] = -20,[UI_PADDING_LEFT] = 0,[UI_PADDING_RIGHT] = -72, [UI_MARGIN_LEFT] = 8},
   },
   {"STAT_TOOL_TIP", VECTOR2_ZERO, FIXED_TOOL_TIP, UI_TOOL_TIP,
     ELEMENT_HIDDEN, LAYOUT_VERTICAL, ALIGN_CENTER | ALIGN_TOP | ALIGN_OVER,
@@ -271,26 +268,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_FOCUSED] = ElementSetTooltip,
       [ELEMENT_TOGGLE] = UIHideElement
     },
-    .spacing = {[UI_MARGIN_LEFT] = 54, [UI_MARGIN_TOP] = -28}
-  },
-  {"SKILL_LABEL", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
-    GetContextStat, ElementGetOwnerContext,
-    {
-      [ELEMENT_IDLE] = ElementSetContext,
-    }
-  },
-  {"SKILL_LABEL_DETAILED", VECTOR2_ZERO, FIXED_LABEL_SIZE, UI_LABEL,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
-    GetContextStat, ElementGetOwnerContext,
-    {
-      [ELEMENT_SHOW] = ElementSetContext,
-      [ELEMENT_FOCUSED] = ElementShowTooltip,
-      [ELEMENT_TOGGLE] = ElementToggleChildren
-
-    },
-    .num_children = 1, .kids ={"STAT_TOOL_TIP"},
-    .spacing = {[UI_MARGIN_RIGHT] = 8}
+    .spacing = {[UI_MARGIN_LEFT] = -16, [UI_MARGIN_TOP] = -8}
   },
   {"ITEM_TOOL_TIP", VECTOR2_ZERO, FIXED_TOOL_TIP, UI_TOOL_TIP,
     ELEMENT_HIDDEN, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_TOP | ALIGN_OVER,
@@ -300,7 +278,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_FOCUSED] = ElementSetTooltip,
       [ELEMENT_TOGGLE] = UIHideElement
     },
-    .spacing = {[UI_MARGIN_LEFT] = 8, [UI_MARGIN_TOP] = -20}
+    .spacing = {[UI_MARGIN_LEFT] = 8, [UI_MARGIN_TOP] = -8, [UI_PADDING_LEFT] = 4}
   },
   
   {"CONTEXT_PANEL_R", UI_PANEL_RIGHT, STAT_SHEET_PANEL_VER, UI_PANEL,
@@ -310,7 +288,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
     .num_children = 1, .kids = {"CONTEXT_SHEET"},
   },
-  {"CONTEXT_SHEET", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_PANEL,
+  {"CONTEXT_SHEET", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_CONTAINER,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_CENTER, NULL,
     ElementGetScreenSelection, 
     {
@@ -320,8 +298,8 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
     .num_children = 3, .kids = {
       "NAME_LABEL",
-      "STAT_LABEL",
-      "STAT_LABEL"
+      "CHARACTER_LINE_NAME_VAL",
+      "CHARACTER_LINE_NAME_VAL"
     },
     .params = {
       {PARAM_NAME},
@@ -331,7 +309,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
   },
   {"ACTIVITY_PANEL", UI_PANEL_BOT, FIXED_PANEL_HOR, UI_PANEL,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL,  ALIGN_LEFT | ALIGN_BOT,
+    ELEMENT_NONE, LAYOUT_STACK,  ALIGN_LEFT | ALIGN_BOT,
     NULL, NULL, 
     {
       [ELEMENT_IDLE] = ElementLoadChildren,
@@ -340,8 +318,10 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     .num_children = 1, .kids = {
       "COMBAT_LOG",
     },
+    .text = "Activity Log",
+    .spacing = {[UI_PADDING_TOP] = 16, [UI_MARGIN_TOP] = 0}
   },
-  {"COMBAT_LOG", VECTOR2_ZERO, UI_LOG_HOR, UI_PANEL, ELEMENT_NONE,
+  {"COMBAT_LOG", VECTOR2_ZERO, UI_LOG_HOR, UI_CONTAINER, ELEMENT_NONE,
     LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_BOT, NULL, NULL,
     .cb = {
       [ELEMENT_LOAD] = ElementLoadChildren,
@@ -350,11 +330,11 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
         "COMBAT_TEXT",
     },
     .spacing = {
-      [UI_PADDING_BOT] = 8
+      [UI_MARGIN_TOP] = 8
     }
   },
   {"COMBAT_TEXT", VECTOR2_ZERO, LABEL_LOG, UI_TEXT,
-   ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT,
+   ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_TOP | ALIGN_LEFT,
    GetActivityEntry, ElementIndexContext,
     .cb = {
       [ELEMENT_LOAD] = ElementActivityContext,
@@ -383,6 +363,7 @@ token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
   {"DMG",    TOKE_DMG},
   {"WHO",    TOKE_WHO},
   {"ENV",    TOKE_ENV},
+  {"RESOURCE",  TOKE_RESOURCE},
   {"RES",    TOKE_RES_SUFF},
   {"ATK",    TOKE_ATK},
   {"ACT",    TOKE_ACT},
@@ -391,5 +372,7 @@ token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
   {"RESTORE",TOKE_REST},
   {"SLAIN",  TOKE_SLAIN},
   {"AMNT",   TOKE_AMNT},
-  {"STAT",   TOKE_STAT}
+  {"STAT",   TOKE_STAT},
+  {"DOES",   TOKE_DOES},
+  {"USES",   TOKE_USES},
 };

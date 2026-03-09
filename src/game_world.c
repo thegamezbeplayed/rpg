@@ -460,7 +460,8 @@ void WorldInitOnce(){
 
   SetState(player, STATE_IDLE, NULL);
   WorldContextInitOnce();
-  
+ 
+  LootDraw(player,3); 
   InteractionStep();
   
   for(int i = 0; i< world.num_ent; i++)

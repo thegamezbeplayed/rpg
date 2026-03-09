@@ -22,6 +22,9 @@ int GuiLabel(Rectangle bounds, const char *text)
       // Check button state
       if (CheckCollisionPointRec(mousePoint, bounds))
         state = STATE_FOCUSED;
+      // Handle mouse button down
+      if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+        state = STATE_PRESSED;
 
     }
     GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LABEL, TEXT + (state*3))));
@@ -60,7 +63,7 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
     if(d.text[0] == '\0')
       e->text[0] = '\0';
     else
-      strcpy( e->text, d.text);
+      ElementSetText( e, d.text);
 /*
 
    if(d.texture > 0)
@@ -124,7 +127,7 @@ void InitMenuById(MenuId id){
   ui.menus[id] = m;
 }
 
-void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color baseColor) { }
+//void GuiDrawRectangle(Rectangle rec, int borderWidth, Color borderColor, Color baseColor) { }
 ui_manager_t ui;
 void InitUI(void){
   Font font = LoadFontEx("resources/fonts/kenney-pixel-square.ttf", 64, 0, 0);
@@ -136,9 +139,15 @@ void InitUI(void){
 #elif defined(PLATFORM_ANDROID)
   GuiSetStyle(DEFAULT,TEXT_SIZE,58);
 #else
-  GuiSetStyle(DEFAULT,TEXT_SIZE,20*UI_SCALE);
+  GuiSetStyle(DEFAULT,TEXT_SIZE,18);
 #endif
 
+  Color col = DARKBLUE;
+  col.a = 75;
+  GuiSetStyle(DEFAULT, BACKGROUND_COLOR, ColorToInt(col));
+  col.a = 200;
+  GuiSetStyle(DEFAULT, BORDER_COLOR_NORMAL, ColorToInt(col));
+  GuiSetStyle(DEFAULT, BASE_COLOR_NORMAL, ColorToInt(col));
   for (int i = 0; i < CHAR_ALL; i++){
     if(CHAR_SPRITES[i].name[0] == '\0')
       continue;
@@ -149,11 +158,16 @@ void InitUI(void){
   ui.text_spacing = GuiGetStyle(DEFAULT, TEXT_SPACING);
   SetTextureFilter(font.texture, TEXTURE_FILTER_POINT);
   GuiSetStyle(DEFAULT,TEXT_ALIGNMENT,TEXT_ALIGN_LEFT);
+  GuiSetStyle(BUTTON,TEXT_ALIGNMENT,TEXT_ALIGN_MIDDLE);
   GuiSetStyle(DEFAULT,TEXT_ALIGNMENT_VERTICAL,TEXT_ALIGN_TOP);
   GuiSetStyle(LABEL,TEXT_ALIGNMENT,TEXT_ALIGN_LEFT);
-  GuiSetStyle(DEFAULT,BORDER_COLOR_NORMAL,ColorToInt(WHITE));
   GuiSetStyle(TEXTBOX,TEXT_SIZE,8);
 
+  GuiSetStyle(DEFAULT, TEXT_LINE_SPACING, 20);
+  int pstyle = GuiGetStyle(STATUSBAR, TEXT_PADDING);
+  GuiSetStyle(LABEL, TEXT_PADDING, 4);
+  GuiSetStyle(STATUSBAR, TEXT_PADDING, 2);
+  GuiSetStyle(DEFAULT, TEXT_COLOR_NORMAL, ColorToInt(WHITE));
   for (int i = 0; i< MENU_DONE; i++)
     ui.menu_key[i] = KEY_NULL;
 
@@ -241,22 +255,30 @@ float ElementGetHeightSum(ui_element_t *e){
   if(e->state < ELEMENT_LOAD)
     return 0;
 
-  float height = e->bounds.height;// + e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_TOP];
-
+  float height = e->bounds.height;
+  if(e->owner)
+    height += e->owner->spacing[UI_PADDING_TOP];
   float cheight = 0;
   if (e->layout == LAYOUT_GRID){
-      cheight = e->bounds.height * e->owner->num_children / GRID_HEIGHT;
-      return height+cheight;
+    cheight = e->bounds.height * e->owner->num_children / GRID_HEIGHT;
+    return height+cheight;
   }
 
   for(int i = 0; i < e->num_children; i++){
     if(e->children[i]->align & ALIGN_OVER)
       continue;
 
-    if(e->layout == LAYOUT_VERTICAL)
-      cheight += ElementGetHeightSum(e->children[i]);
-    else
-      cheight = (cheight < ElementGetHeightSum(e->children[i]))?ElementGetHeightSum(e->children[i]):cheight;
+    int hei = ElementGetHeightSum(e->children[i]);
+
+    switch(e->layout){
+      case LAYOUT_VERTICAL:
+      case LAYOUT_GRID:
+        cheight += hei; 
+        break;
+      default:
+        cheight = (height < hei)?hei:0;
+        break;
+    }
   }
   return height+cheight;
 }
@@ -266,6 +288,9 @@ float ElementGetWidthSum(ui_element_t *e){
     return 0;
 
   float width = e->bounds.width;// + e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_LEFT];
+
+  if(e->owner)
+  width += e->owner->spacing[UI_PADDING_RIGHT];
 
   float cwidth = 0;
   if (e->layout == LAYOUT_GRID){
@@ -277,10 +302,15 @@ float ElementGetWidthSum(ui_element_t *e){
     if(e->children[i]->align & ALIGN_OVER)
       continue;
 
-    if(e->layout == LAYOUT_HORIZONTAL)
-      cwidth += ElementGetWidthSum(e->children[i]);
-    else
-      cwidth = (cwidth < ElementGetWidthSum(e->children[i]))?ElementGetWidthSum(e->children[i]):cwidth;
+    switch(e->layout){
+      case LAYOUT_HORIZONTAL:
+      case LAYOUT_GRID:
+        cwidth += ElementGetWidthSum(e->children[i]);
+        break;
+      default:
+        cwidth = (width< ElementGetWidthSum(e->children[i]))?ElementGetWidthSum(e->children[i]):0;
+        break;
+    }
   }
 
   return width+cwidth;
@@ -303,33 +333,47 @@ void ElementResize(ui_element_t *e){
   float oheight = omarginy; 
   float cwidths =0, cheights= 0;
 
-  if(e->num_children == 6)
+    if(e->num_children >= 20)
     DO_NOTHING();
 
+  float tallest = e->bounds.height;
+  float widest = e->bounds.width;
   for(int i = 0; i<e->num_children; i++){
     if(e->children[i]->align & ALIGN_OVER){
       DO_NOTHING();
     }
     else{
+      int cwidth = ElementGetWidthSum(e->children[i]);
+      if(cwidth > cwidths)
+        cwidths = cwidth;
+
+      int c_hei = ElementGetHeightSum(e->children[i]);
+      
       switch(e->layout){
         case LAYOUT_VERTICAL:
-          oheight+=ElementGetHeightSum(e->children[i]);
-          if(ElementGetWidthSum(e->children[i]) > cwidths)
-            cwidths = ElementGetWidthSum(e->children[i]);
+          oheight+=c_hei;
           break;
         case LAYOUT_HORIZONTAL:
-          //owidth += ElementGetWidthSum(e->children[i]);
-          if(e->children[i]->height > cheights)
-            cheights = e->children[i]->height;
+          if(c_hei > cheights)
+            cheights = c_hei;
           break;
         case LAYOUT_GRID:
-          cwidths = 0;//ElementGetWidthSum(e->children[i]);
-          cheights = 0;//ElementGetHeightSum(e->children[i]);
+          cwidths = ElementGetWidthSum(e->children[i]);
+          cheights = ElementGetHeightSum(e->children[i]);
           break;
         case LAYOUT_FREE:
           int widths = ElementGetWidthSum(e->children[i]);
           if (widths > e->bounds.width)
             cwidths = widths;
+          break;
+        case LAYOUT_STACK:
+          if(c_hei > tallest)
+            tallest = c_hei;
+          if(cwidth > widest)
+            widest = cwidth;
+         
+          cwidths = widest;
+          cheights = tallest;
           break;
         default:
           if(e->children[i]->height > cheights)
@@ -341,8 +385,10 @@ void ElementResize(ui_element_t *e){
     }
   }
 
-  e->bounds.width = e->width + owidth+cwidths;
-  e->bounds.height = e->height+ oheight+cheights;
+  if( owidth+cwidths > e->bounds.width)
+    e->bounds.width = owidth+cwidths;
+  if( oheight+cheights > e->bounds.height)
+    e->bounds.height =  oheight+cheights;
 
   UIAlignment align = e->align;
   if(e->owner && e->owner->layout != LAYOUT_FREE){
@@ -371,16 +417,15 @@ void ElementResize(ui_element_t *e){
     layout = e->owner->layout;
       paddingx = e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_LEFT];
     paddingy = (e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_BOT]);
-  }
-
-  Rectangle prior = RectPos(Vector2XY(xinc/ScreenSized(SIZE_SCALE),yinc),RECT_ZERO);
-  if(e->index > 0){
-    prior = e->owner->children[e->index-1]->bounds;
     paddingx += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_RIGHT];
     paddingy += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_TOP];
 
   }
-
+  Rectangle prior = RectPos(Vector2XY(xinc/ScreenSized(SIZE_SCALE),yinc),RECT_ZERO);
+  if(e->index > 0){
+    prior = e->owner->children[e->index-1]->bounds;
+    prior.height += e->owner->children[e->index-1]->spacing[UI_MARGIN_BOT];
+  }
   switch(layout){
     case LAYOUT_VERTICAL:
       xinc += omarginx;
@@ -397,10 +442,10 @@ void ElementResize(ui_element_t *e){
     case LAYOUT_GRID:
       if(!e->owner)
         break;
-        
+      yinc += omarginy;
       if(e->index > 0)
           yinc += paddingy;    
-      switch(e->index%GRID_WIDTH){
+      switch(e->index%UI_GRID_WIDTH){
         case 1:
         case 2:
           yinc = omarginy+prior.y + prior.height;
@@ -470,10 +515,10 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
         case VAL_CHAR:
           if(!e->value->c || e->value->c[0] == '\0')
             return;
-          strcpy(e->text, e->value->c);
+          ElementSetText(e, e->value->c);
           break;
         case VAL_INT:
-          strcpy(e->text,TextFormat("%i",*e->value->i));
+          //ElementSetText(e,TextFormat("%i",*e->value->i));
           break;
         case VAL_LN:
           if(e->text)
@@ -504,12 +549,11 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
       state = GuiLabel(e->bounds,e->text);
       break;
     case UI_TEXT:
-      state = GuiTextBox(e->bounds, e->text, 8, false);
-      break;
+       GuiLabel(e->bounds,e->text);
+       break;
     case UI_TOOL_TIP:
       active_tooltip = e;
-      GuiSetTooltip(e->text);
-      GuiTooltip(e->bounds);
+      GuiPanel(e->bounds, e->text);
       break;
     case UI_BOX:
       GuiGroupBox(e->bounds,NULL);//e->text);
@@ -527,9 +571,12 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
     case UI_CHAR_SPR:
       if(!e->value)
         return;
-
-      TraceLog(LOG_INFO,"Draw Character %s", e->text);
       DrawSprite(e->value->s);
+      break;
+    case UI_GROUP:
+      ui_element_t* ac = e->children[e->active];
+
+      GuiPanel(e->bounds, ac->text);
       break;
     default:
       break;
@@ -608,8 +655,37 @@ bool UITransitionScreen(ui_element_t* e){
   return true; 
 }
 
+void ElementSetText(ui_element_t* e, char* str){
+
+  Vector2 size = MeasureTextEx(ui.font, str, ui.text_size, ui.text_spacing);
+
+  if(size.x > e->bounds.width){
+    e->bounds.width = size.x;
+    if(e->owner)
+      ElementResize(e->owner);
+    else
+      ElementResize(e);
+  }
+
+  strcpy(e->text, str);
+}
+
 bool ElementSetTooltip(ui_element_t* e){
   GuiEnableTooltip();
+}
+
+bool ElementItemUse(ui_element_t* e){
+  inventory_t* inv = e->ctx;
+
+  item_t* item = &inv->items[e->index];
+
+  ElementState next = ELEMENT_IDLE;
+  if(!item || !item->on_use)
+    return ElementSetState(e, next);
+
+  InteractResult res = IR_NONE;
+  TraceLog(LOG_INFO, "use item %s", item->def->name);
+  return item->on_use(item->owner, item, res);
 }
 
 bool ElementTabToggle(ui_element_t* e){
@@ -655,9 +731,7 @@ bool ElementHideSiblings(ui_element_t* e){
     if(c->hash == e->hash)
       continue;
     if(ElementSetState(c, ELEMENT_HIDDEN))
-      TraceLog(LOG_INFO,"===== ELEMENT HIDE SIBLINGS ====\n HIDE %s",e->owner->children[i]->name);
-
-
+      e->owner->active = e->index;
   }
 }
 
@@ -676,12 +750,14 @@ bool ElementDynamicChildren(ui_element_t* e){
      continue;
 
    inventory_t* inv = ParamRead(&params[i], inventory_t);
-   for (int j = 0; j < inv->cap; j++){
+   int max = ITEMS_ALLOWED[inv->id].max;
+   for (int j = 0; j < max; j++){
      ui_element_t* c = InitElementByName("ITEM_BOX", e->menu, e);
      c->params[0] = e->params[i];
      c->ctx = inv;
 
      ElementAddChild(e,c);
+     WorldTargetSubscribe(EVENT_ITEM_ACQUIRE, UIItemEvent, c, j);
    }
 
   }
@@ -693,6 +769,9 @@ bool ElementDynamicChildren(ui_element_t* e){
 bool ElementShowIcon(ui_element_t* e){
   if(!e->value || e->value->s == NULL)
     return false;
+        
+  e->value->s->pos.x = e->bounds.x + e->spacing[UI_PADDING_LEFT];
+  e->value->s->pos.y = e->bounds.y + e->spacing[UI_PADDING_TOP];
 
   if(e->owner && e->index >= e->owner->num_children - 1)
     ElementResize(e->owner);
@@ -859,11 +938,16 @@ void ElementSyncVal(ui_element_t* e, FetchRate poll){
     case VAL_ICO:
       ev->get_val(ev, ev->context);
       if(ev->s){
-        ev->s->pos.x = e->bounds.x + e->spacing[UI_PADDING_TOP];
-        ev->s->pos.y = e->bounds.y + e->spacing[UI_PADDING_LEFT];
+        ev->s->pos.x = e->bounds.x + e->spacing[UI_PADDING_LEFT];
+        ev->s->pos.y = e->bounds.y + e->spacing[UI_PADDING_TOP];
       }
       break;
     default:
+
+      if(ev->get_val){
+        ev->get_val(ev, ev->context);
+        return;
+      }
       e->value = e->set_val(e, e->ctx);
       break;
   }
@@ -884,7 +968,7 @@ bool ElementSyncContext(ui_element_t* e){
 }
 
 bool ElementShow(ui_element_t* e){
-  return ElementSetState(e, ELEMENT_SHOW);
+ return ElementSetState(e, ELEMENT_SHOW);
 }
 
 bool ElementShowContext(ui_element_t* e){
@@ -915,20 +999,33 @@ bool ElementSetContext(ui_element_t* e){
 void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
   bool resize = false;
   ev->text_hei = 0;
-  for(int i = 0; i < ev->num_ln; i++){
-    ev->text_hei += ev->l[i]->r_hei;
-    if(ev->l[i]->r_len > ev->text_len){
-      ev->text_len = ev->l[i]->r_len;
-      if(e->width >= ev->l[i]->r_wid)
-        continue;
+  switch(ev->type){
+    case VAL_LN:
+      for(int i = 0; i < ev->num_ln; i++){
+        ev->text_hei += ev->l[i]->r_hei;
+        ev->text_hei += GuiGetStyle(DEFAULT, TEXT_LINE_SPACING)/2;
+        if(ev->l[i]->r_len > ev->text_len){
+          ev->text_len = ev->l[i]->r_len;
+          if(e->bounds.width >= ev->l[i]->r_wid)
+            continue;
 
-      e->width = ev->l[i]->r_wid;
-      resize = true;
-    }
+          e->bounds.width = ev->l[i]->r_wid;
+          resize = true;
+        }
+      }
+      break;
+    case VAL_CHAR:
+       Vector2 size = MeasureTextEx(ui.font, ev->c, ui.text_size, ui.text_spacing); 
+       size.x += GuiGetStyle(LABEL,TEXT_PADDING ) *3;
+       ev->text_len = size.x;
+       if(e->bounds.width < ev->text_len){
+         e->bounds.width = ev->text_len;
+         resize = true;
+       }
+       break;
   }
-
-  if(ev->text_hei > e->height){
-    e->height = ev->text_hei;
+  if(ev->text_hei > e->bounds.height){
+    e->bounds.height = ev->text_hei;
     resize = true;
   }
 
@@ -947,13 +1044,26 @@ element_value_t* GetContextParams(ui_element_t* e, void* context){
 
   local_ctx_t* ctx = context;
   param_t *ctx_p = GameCalloc("game_menu: GetContextParams",count, sizeof(param_t));
+  element_value_t *ev = GameCalloc("game_menu: GetContextStat", 1,sizeof(element_value_t));
 
+  ev->rate = FETCH_EVENT;
+
+  ev->type = VAL_LN;
   for(int i = 0; i < count; i++){
     if(e->params[i] != PARAM_NONE)
       ctx_p[i] = ctx->params[e->params[i]];
+
+    param_t p = ctx->params[e->params[i]];
+    ev->num_ln += SetParamDescription(ev->l, ev->num_ln, p);
   }
 
   e->ctx = ctx_p;
+  if(ev->num_ln == 0)
+    return NULL;
+
+  ElementValueSyncSize(e, ev);
+
+  return ev;
 }
 
 element_value_t* GetContextStat(ui_element_t* e, void* context){
@@ -1078,9 +1188,9 @@ element_value_t* GetElementName(ui_element_t* e, void* context){
   ui_element_t* other = context;
 
   if(e->delimiter != '\0')
-    e->text = StringSplit(other->name, e->delimiter);
+    ElementSetText(e, StringSplit(other->name, e->delimiter));
   else
-  strcpy(e->text, other->name);
+  ElementSetText(e, other->name);
 
   return NULL;
   
@@ -1090,6 +1200,7 @@ element_value_t* GetContextVal(ui_element_t* e, void* context){
   GameObjectParam p = e->owner->params[0];
   local_ctx_t* ctx = context;
 
+  e->params[e->num_params++] = p;
   element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_value_t));
 
   ev->type = VAL_CHAR;
@@ -1125,10 +1236,15 @@ element_value_t* GetContextVal(ui_element_t* e, void* context){
 
   e->sync_val = ElementSyncVal;
 
+  ev->get_val(ev, ev->context);
+  //ElementValueSyncSize(e, ev);
   return ev;
 }
 
 element_value_t* GetContextValueName(ui_element_t* e, void* context){
+
+  if(!context)
+    return NULL;
 
   GameObjectParam p = e->owner->params[0];
 
@@ -1154,7 +1270,7 @@ element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_v
     case PARAM_SKILL_LVL:
       skill_t* skill = ParamRead(&ctx->params[p], skill_t);
       ev->type = VAL_CHAR;
-      strcpy(ev->c ,SKILL_STRING[skill->id].name);
+      strcpy(ev->c ,SKILL_NAMES[skill->id]);
       break;
     case PARAM_STAT_HEALTH:
     case PARAM_STAT_ARMOR:
@@ -1164,11 +1280,9 @@ element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_v
       strcpy(ev->c ,STAT_STRING[stat->type].name);
       break;
   } 
-
-  e->sync_val = ElementSyncVal;
+  ElementValueSyncSize(e, ev);
 
   return ev;
-
 }
 
 element_value_t* GetContextName(ui_element_t* e, void* context){
@@ -1217,8 +1331,12 @@ element_value_t* GetContextItem(ui_element_t* e, void* context){
   element_value_t *ev = GameCalloc("game_menu: GetContextItem",  1,sizeof(element_value_t));
 
   ev = SetCtxItems(e->ctx, e->params, e->index);
-  //ev->s->pos.x = e->bounds.x + e->spacing[UI_PADDING_LEFT]; 
-  //ev->s->pos.y = e->bounds.y + e->spacing[UI_PADDING_TOP]; 
+  e->sync_val = ElementSyncVal;
+  if(!ev)
+    return NULL;
+
+
+  ev->get_val(ev, ev->context);
   return ev;
 }
 
@@ -1262,6 +1380,37 @@ bool ElementActivityContext(ui_element_t* e){
   return true;
 }
 
+void UIItemEvent(EventType event, void* data, void* user){
+  ui_element_t* e = user;
+  switch(event){
+    case EVENT_ITEM_ACQUIRE:
+    case EVENT_ITEM_STORE:
+      UISyncElement(e, FETCH_EVENT);
+      break;
+    case EVENT_ITEM_EQUIP:
+      break;
+  }
+}
+
+bool ElementInventoryContext(ui_element_t* e){
+  for(int i = 0; i < 4; i++){
+    if(e->params[i] == PARAM_NONE)
+      continue;
+    WorldTargetSubscribe(EVENT_ITEM_STORE, UIItemEvent, e, e->params[i]);
+  }
+  
+  if(e->get_ctx){
+    e->ctx = e->get_ctx(e);
+
+    if(e->set_val){ 
+      e->value = e->set_val(e, e->ctx);
+      e->sync_val = ElementSyncVal;
+    }
+
+  }
+  return (e->ctx == NULL);
+}
+
 bool ElementScreenContext(ui_element_t* e){
   WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
 
@@ -1294,7 +1443,7 @@ void* ElementOwnerTextAt(void* p){
   if( strlen( o->text ) < c->index)
     return NULL;
 
-  strcpy(c->text ,&o->text[c->index]);
+  ElementSetText(c ,&o->text[c->index]);
   c->text[1] = '\0';
 }
 

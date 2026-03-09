@@ -3,6 +3,7 @@
 #include "game_helpers.h"
 #include "game_math.h"
 #include "game_process.h"
+#include "game_strings.h"
 
 static choice_pool_t* race_profs[ENT_DONE];
 static choice_pool_t* race_classes[ENT_DONE];

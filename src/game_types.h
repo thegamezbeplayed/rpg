@@ -164,8 +164,7 @@ typedef struct item_def_s{
   StorageMethod       pref;
   bool                allowed[STORE_DONE];
   ItemProps           props;
-  WeaponProps         w_props;
-  ArmorProps          a_props;
+  uint64_t            t_props;
   sprite_t            *sprite;     // icon
 }item_def_t;
 
@@ -209,7 +208,9 @@ item_def_t* DefineArmor(ItemInstance data);
 item_def_t* DefineWeapon(ItemInstance data);
 item_def_t* DefineWeaponByType(WeaponType t, ItemProps p, WeaponProps w);
 item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps w);
+item_def_t* DefineConsumable(ItemInstance data);
 item_t* InitItem(item_def_t* def);
+item_def_t* DefineConsumableByDef(consume_def_t *def);
 
 item_def_t* GetItemDefByID(GearID id);
 

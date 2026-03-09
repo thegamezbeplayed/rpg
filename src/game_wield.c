@@ -171,8 +171,10 @@ int InventorySlotAddItem(ent_t* e, ItemSlot id, item_t* i){
   inv->space-= item->def->values[VAL_STORAGE]->val;
   inv->unburdened-= item->def->values[VAL_WEIGHT]->val;
 
+  WorldEvent(EVENT_ITEM_ACQUIRE, i, inv->current[item->def->category]);
   inv->current[item->def->category]++;
 
+  WorldEvent(EVENT_ITEM_STORE, inv, id);
   return inv->count-1;
     
 }
@@ -185,6 +187,9 @@ item_t* InventoryAddItem(ent_t* e, item_t* i){
     case ITEM_CONTAINER:
       slot = InventoryAddStorage(e, i);
       return e->inventory[i->def->type]->container;
+      break;
+    case ITEM_CONSUMABLE:
+      slot = InventoryGetAvailable(e, i->def->category, size, weight);
       break;
     default:
       slot = InventoryGetAvailable(e, i->def->category, size, weight);
@@ -231,13 +236,14 @@ item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps a){
   item->category = ITEM_ARMOR;
 
   item->props = p;
-  item->a_props = a;
+  item->t_props = a;
   item->type = t;
   item->dr = GameCalloc("DefineArmorByType dr",1,sizeof(damage_reduction_t));
 
   item->ability = ABILITY_NONE;
   armor_def_t temp = ARMOR_TEMPLATES[t];
   //item->stats[STAT_ARMOR] = InitStat(STAT_ARMOR,0,temp.armor_class, temp.armor_class);
+  strcpy(item->name, temp.name);
 
   item->values[VAL_DURI] = InitValue(VAL_DURI,temp.durability);
   item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
@@ -278,7 +284,7 @@ item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_prop
   item->category = ITEM_WEAPON;
   item->type = t;
   item->props = props;
-  item->w_props = w_props;
+  item->t_props = w_props;
   weapon_def_t temp = WEAPON_TEMPLATES[t];
 
   //TODO CHANGE TO VALUE_T
@@ -310,6 +316,52 @@ item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_prop
 
 }
 
+item_def_t* DefineConsumableByDef(consume_def_t *def){
+
+  item_def_t* item = GameCalloc("DefineConsumable", 1,sizeof(item_def_t));
+
+  item->id = def->type;
+
+  strcpy(item->name, def->name);
+
+  item->category = ITEM_CONSUMABLE;
+
+  item->t_props = def->w_props;
+  item->values[VAL_WORTH] = InitValue(VAL_WORTH,def->cost);
+  item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,def->weight);
+  item->values[VAL_DURI] = InitValue(VAL_DURI,def->quanity);
+  item->values[VAL_QUANT] = InitValue(VAL_QUANT,def->quanity);
+  item->values[VAL_EXP] = InitValue(VAL_EXP,def->exp);
+  item->values[VAL_STORAGE] = InitValue(VAL_STORAGE,def->size);
+
+  item->skills[item->num_skills++] = def->skill;
+  item->ability = def->ability;
+
+
+  switch(def->type){
+    case CONS_SCROLL:
+      item->sprite = InitSpriteByID(ICON_SCROLL, SHEET_ICON);
+      break;
+    case CONS_TOME:
+    case CONS_SKILLUP:
+      item->sprite = InitSpriteByID(ICON_TOME, SHEET_ICON);
+      break;
+
+  };
+
+  item->pref = STORE_CONTAINER;
+  item->allowed[STORE_CONTAINER] = true;
+
+  for(int i = 0; i < VAL_ALL; i++){
+    if(!item->values[i])
+      continue;
+
+    item->values[i]->val = ValueRebase(item->values[i]);
+  }
+
+  return item;
+}
+
 item_def_t* DefineConsumable(ItemInstance data){
   item_def_t* item = GameCalloc("DefineConsumable", 1,sizeof(item_def_t));
   item->id = data.id;
@@ -318,14 +370,19 @@ item_def_t* DefineConsumable(ItemInstance data){
 
   consume_def_t temp = CONSUME_TEMPLATES[data.equip_type];
 
+  item->t_props = temp.w_props;
   item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
   item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
   item->values[VAL_DURI] = InitValue(VAL_DURI,temp.quanity);
   item->values[VAL_EXP] = InitValue(VAL_EXP,temp.exp);
   item->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp.size);
- 
+  item->values[VAL_DMG] = InitValue(VAL_DMG,temp.amount);
+  item->values[VAL_QUANT] = InitValue(VAL_QUANT,temp.quanity);
+
   item->skills[item->num_skills++] = temp.skill;
   item->ability = temp.ability;
+
+  strcpy(item->name, strcat(temp.name, ABILITY_STRINGS[temp.ability].name));
 
 
   ApplyItemProps(item, data.props, data.et_props);

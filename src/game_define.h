@@ -70,7 +70,9 @@
     PQ_LONG_LIMB | PQ_SHORT_LIMB | PQ_LARGE_HANDS | PQ_LARGE_HEAD |\
     PQ_LARGE_FEET | PQ_TINY_HEAD | PQ_SMALL_HEAD | PQ_WIDE |\
     PQ_DENSE_MUSCLE)
-
+#define PROP_CONS_RESOURCE_MASK (\
+    PROP_CONS_HEALTH\
+    )
 #define QUAL_BIT_START 0
 #define QUAL_BIT_COUNT 9
 
@@ -1929,7 +1931,10 @@ typedef enum{
 
 typedef enum{
   PROP_CONS_NONE       = 0,
-  PROP_CONS_HEAL       = BIT64(0),
+  PROP_CONS_RESTORE    = BIT64(0),
+  PROP_CONS_LEARN      = BIT64(1),
+  PROP_CONS_SKILLUP    = BIT64(2),
+  PROP_CONS_HEALTH     = BIT64(3)
 }ConsumeProp;
 
 typedef enum{
@@ -1944,6 +1949,7 @@ typedef uint64_t ContainerProps;
 typedef uint64_t WeaponProps;
 typedef struct{
   ArmorType          type;
+  char               name[MAX_NAME_LEN];
   int                armor_class;
   damage_reduction_t dr_base,dr_rarity;
   int                weight,cost,durability;
@@ -1990,7 +1996,30 @@ typedef struct{
   StorageMethod   primary;
   int             prio[STORE_DONE];
   uint16_t        size;
+  char            name[MAX_NAME_LEN];
+  const char*     fmt;
+  int             chain_id;
 }consume_def_t;
+consume_def_t* ConsumeGenerateKnowledge(int id, ConsumeType type);
+
+typedef struct{
+  ItemCategory  cat;
+  union {
+    armor_def_t     armor;
+    container_def_t cont;
+    consume_def_t   cons;
+    weapon_def_t    weap;
+  }data;
+}item_type_d;
+
+typedef struct{
+  int     cap, count;
+  item_type_d  *entries; 
+}item_gen_pool;
+
+item_gen_pool* InitItemGenPool(int cap);
+
+item_type_d* ItemGenAdd(item_gen_pool*, ItemCategory, void*);
 
 extern armor_def_t ARMOR_TEMPLATES[ARMOR_DONE];
 extern weapon_def_t WEAPON_TEMPLATES[WEAP_DONE];
@@ -2136,7 +2165,7 @@ typedef struct{
 typedef struct{
   ItemSlot      id;
   int           limits[ITEM_DONE];
-  int           cap;
+  int           cap, max;
   uint16_t      base_size;
 }define_inventory_t;
 

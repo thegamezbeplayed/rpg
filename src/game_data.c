@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "game_helpers.h"
+#include "game_strings.h"
 ent_t* ParamReadEnt(const param_t* o) {
   if(o && o->type_id == DATA_ENTITY)
     return (ent_t*)o->data;
@@ -262,7 +263,7 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_POISON, AT_DMG, ACTION_NONE, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,STAT_HEALTH, ATTR_CON, ATTR_NONE,
     .skills = SKILL_POISON},
  {ABILITY_MAGIC_MISSLE, AT_DMG, ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SEL_TAR, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .num_skills =1, .skills = SKILL_SPELL_EVO},
-  {ABILITY_ELDRITCH_BLAST,AT_DMG,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TAR, 30, 8, 14, 1, 10,3, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
+  {ABILITY_ELDRITCH_BLAST, AT_DMG,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TAR, 30, 8, 14, 1, 10,3, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
    .skills = SKILL_SPELL_EVO },
   {ABILITY_RESISTANCE,
     .skills = SKILL_SPELL_ABJ
@@ -395,10 +396,10 @@ WeaponType GetWeapTypeBySkill(SkillType s){
 
 armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
   {ARMOR_NONE},
-  {ARMOR_NATURAL, 4,
+  {ARMOR_NATURAL,"", 4,
     .skill = SKILL_ARMOR_NATURAL,
   },
-  {ARMOR_CLOTH, 6,
+  {ARMOR_CLOTH, "Shirt", 6,
     {},
     {},
     1, 5, 50, ATTR_NONE, ATTR_NONE, 0, 0,
@@ -407,7 +408,7 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
     {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
     0x0700 
   },
-  {ARMOR_PADDED, 8,
+  {ARMOR_PADDED, "Shirt", 8,
     {},
     {},
     1, 5, 100, ATTR_DEX,ATTR_NONE,10,0,
@@ -416,7 +417,7 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
     {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
     0x1000
   },
-  {ARMOR_LEATHER, 10, 
+  {ARMOR_LEATHER, "Vest", 10, 
     {{[DMG_SLASH]=1,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
     4,10,200,ATTR_DEX,ATTR_NONE,10,0,
@@ -425,7 +426,7 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
     {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
     0x1000
   },
-  {ARMOR_CHAIN, 12, 
+  {ARMOR_CHAIN, "Mail Shirt", 12, 
     {{[DMG_SLASH]=2,[DMG_PIERCE]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
     8,25,400,ATTR_DEX,ATTR_STR,2,9,
@@ -434,7 +435,7 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
     {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
     0x0800
   },
-  {ARMOR_PLATE, 16,
+  {ARMOR_PLATE, "Curaiss", 16,
     {{[DMG_SLASH]=2,[DMG_PIERCE]=2,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1}},
     20,100,800,ATTR_NONE,ATTR_STR,0,12,
@@ -453,11 +454,42 @@ ArmorType GetArmorTypeBySkill(SkillType s){
 }
 consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
   {CONS_POT, 50, 400, 1, 2, 5,
-    PROP_MAT_LIQUID, PROP_CONS_HEAL,
+    PROP_MAT_LIQUID, PROP_CONS_HEALTH | PROP_CONS_RESTORE,
     ABILITY_ITEM_HEAL, SKILL_ALCH,
     STORE_SPECIAL,
     {[STORE_HELD] = 5, [STORE_CONTAINER] = 1},
-    0x0020
+    0x0020,
+    "Potion of "
+  },
+  {CONS_FOOD},
+  {CONS_DRINK},
+  {CONS_SCROLL,
+    75, 200, 1, 2, 5,
+    PROP_MAT_CLOTH | PROP_QUAL_FINE, 0,
+    ABILITY_ITEM_TOME, SKILL_LING,
+    STORE_SPECIAL,
+    {[STORE_HELD] = 5, [STORE_CONTAINER] = 3},
+    0x0050,
+    "Scroll of "  
+  },
+  {CONS_TOME,
+    250, 1250, 1, 1, 20,
+    PROP_MAT_LEATHER | PROP_QUAL_FINE, 0,
+    ABILITY_ITEM_TOME, SKILL_LING,
+    STORE_SPECIAL,
+    {[STORE_HELD] = 5, [STORE_CONTAINER] = 3},
+    0X2000,
+    "Tome of "
+  },
+  {CONS_SKILLUP,
+     200, 500, 1, 1, 10,
+    PROP_MAT_LEATHER | PROP_QUAL_FINE, 0,
+    ABILITY_ITEM_SKILL, SKILL_LING,
+    STORE_SPECIAL,
+    {[STORE_HELD] = 5, [STORE_CONTAINER] = 3},
+    0X1000,
+    "Manual of "
+  
   }
 };
 
@@ -1656,3 +1688,65 @@ loot_item_t* InitLoot(param_t params[LOOT_PARAM_END]){
 item_def_t* GenerateItemDef(LootParams params[LOOT_PARAM_END]){
 
 }
+
+item_gen_pool* InitItemGenPool(int cap){
+  item_gen_pool *p = GameCalloc("InitItemGenPool", 1, sizeof(item_gen_pool));
+
+  p->cap = cap;
+  p->entries = GameCalloc("InitItemGenPool", cap, sizeof(item_type_d));
+
+  return p;
+}
+
+item_type_d* ItemGenAdd(item_gen_pool* p, ItemCategory cat, void* def){
+  item_type_d* idef = &p->entries[p->count++];
+
+  switch(cat){
+    case ITEM_WEAPON:
+      idef->data.weap = *(weapon_def_t*) def;
+      break;
+    case ITEM_ARMOR:
+      idef->data.armor = *(armor_def_t*) def;
+      break;
+    case ITEM_CONSUMABLE:
+      idef->data.cons = *(consume_def_t*) def;
+      break;
+    case ITEM_CONTAINER:
+      idef->data.cont = *(container_def_t*) def;
+      break;
+    default:
+      return NULL;
+  }
+
+  idef->cat = cat;
+
+  return idef;
+}
+consume_def_t* ConsumeGenerateKnowledge(int id, ConsumeType type){
+
+  consume_def_t* def = GameCalloc("ConsumeGenerateKnowledge", 1, sizeof(consume_def_t));
+
+
+  *def = CONSUME_TEMPLATES[type];
+
+  def->chain_id = id;
+  DataType d_type = -1;
+  switch(type){
+    case CONS_SCROLL:
+    case CONS_TOME:
+      strcat(def->name, GetAbilityName(id));
+      break;
+    case CONS_SKILLUP:
+      d_type = DATA_SKILL;
+      strcat(def->name, SKILL_NAMES[id]);
+      break;
+  }
+
+
+  def->i_props |= PROP_MAT_LEATHER;
+
+  return def;
+}
+
+
+

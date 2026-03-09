@@ -1245,4 +1245,25 @@ static int GetPartySize(uint64_t flags)
 
     return sizes[index];
 }
+
+static const char* GetConsumePropName(uint64_t props, uint64_t mask){
+  if((props & mask) == 0)
+    return NULL;
+
+  switch(props & mask){
+    case PROP_CONS_HEALTH:
+      return "HEALTH\0";
+      break;
+  };
+}
+
+static const char* GetPropNameByTypeProps(ItemCategory cat, uint64_t props, uint64_t mask){
+  switch(cat){
+    case ITEM_CONSUMABLE:
+      return GetConsumePropName(props, mask);
+      break;
+
+  };
+
+}
 #endif

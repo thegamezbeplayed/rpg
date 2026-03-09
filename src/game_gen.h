@@ -6,7 +6,7 @@
 #define MAX_CACHED_PATHS 128
 #define MAX_PATH_LEN    128
 
-#define MAX_OPTIONS 256
+#define MAX_OPTIONS 512
 #define MAX_ROOMS  128
 #define HAS_ANY_IN_CATEGORY(value, mask) ((value) & (mask))
 #define IS_TRAIT(value, mask, trait) (((value) & (mask)) == (trait))

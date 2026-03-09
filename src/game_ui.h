@@ -12,6 +12,7 @@
 #define MAX_SUB_ELE 20
 #define MAX_ELEMENTS 64
 
+#define UI_GRID_WIDTH 3
 #define ELE_COUNT 29
 #if defined(PLATFORM_ANDROID)
 #define DEFAULT_MENU_SIZE (Vector2){GetScreenWidth()/2, GetScreenHeight()/2}
@@ -33,24 +34,27 @@
 #define DEFAULT_BUTTON_WIDE   (Vector2){172*UI_SCALE, 48*UI_SCALE}
 #define DEFAULT_PANEL_SIZE    (Vector2){GetScreenWidth()*UI_SCALE, 64*UI_SCALE}
 #define FIXED_PANEL_HOR       (Vector2){910, 64}
-#define FIXED_PANEL_VER       (Vector2){96, 540}
-#define STAT_SHEET_PANEL_VER  (Vector2){128, 540}
+#define FIXED_PANEL_VER       (Vector2){96, 480}
+#define STAT_SHEET_PANEL_VER  (Vector2){64, 416}
+#define SUB_PANEL_VER  (Vector2){64, 192}
 #define DEFAULT_PANEL_THIN_SIZE (Vector2){224*UI_SCALE, 32*UI_SCALE}
 #define LARGE_PANEL_THIN_SIZE (Vector2){GetScreenWidth()*UI_SCALE, 32*UI_SCALE}
 #define SMALL_PANEL_SIZE (Vector2){192*UI_SCALE, 64*UI_SCALE}
 #define SMALL_PANEL_THIN_SIZE (Vector2){184*UI_SCALE, 32*UI_SCALE}
 #define DEFAULT_LINE_SIZE (Vector2){2 *UI_SCALE, 64*UI_SCALE}
 #define FIXED_BUTTON_SIZE     (Vector2){128, 24}
-#define FIXED_LABEL_SIZE      (Vector2){128, 24}
+#define FIXED_LABEL_SIZE      (Vector2){136, 24}
+#define FIXED_VAL_LABEL_SIZE  (Vector2){88, 24}
+#define FIXED_HEADER_SIZE     (Vector2){160, 24}
 #define FIXED_BOX_SIZE        (Vector2){36, 36}
 #define FIXED_TOOL_TIP        (Vector2){96, 24}
 #define FIXED_TITLE_CHAR      (Vector2){32, 48}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){48, 624}
+#define UI_PANEL_BOT (Vector2){48, 752}
 
-#define UI_LOG_HOR (Vector2){480, 128}
-#define LABEL_LOG (Vector2){464, 12}
+#define UI_LOG_HOR (Vector2){480, 220}
+#define LABEL_LOG (Vector2){464, 18}
 
 #define LIST_LEFT_HAND_PAD 18
 #define LIST_RIGHT_HAND_PAD 8
@@ -90,6 +94,8 @@ typedef enum{
   UI_STATUSBAR,
   UI_PROGRESSBAR,
   UI_PANEL,
+  UI_GROUP,
+  UI_CONTAINER,
   UI_TAB_PANEL,
   UI_BOX,
   UI_ICON,
@@ -117,6 +123,7 @@ typedef enum{
   ALIGN_TOP     = 0x10,
   ALIGN_MID     = 0x20,
   ALIGN_BOT     = 0x40,
+  ALIGN_UNIFORM = 0x200,
   ALIGN_OVER    = 0x100,
 }UIAlignment;
 
@@ -128,6 +135,7 @@ typedef enum{
   UI_PADDING_RIGHT,
   UI_MARGIN,
   UI_MARGIN_TOP,
+  UI_MARGIN_BOT,
   UI_MARGIN_LEFT,
   UI_MARGIN_RIGHT,
   UI_POSITIONING
@@ -180,6 +188,7 @@ element_value_t* AttrGetPretty(element_value_t* self, void* context);
 element_value_t* StatGetPretty(element_value_t* self, void* context);
 element_value_t* SkillGetPretty(element_value_t* self, void* context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
+int SetParamDescription(line_item_t** li, int count, param_t param);
 int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
 element_value_t* SetCtxItems(void*, GameObjectParam params[4], int);
 int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
@@ -217,6 +226,7 @@ struct element_value_s{
 };
 
 typedef void (*ElementValueSync)(ui_element_t* e, FetchRate poll);
+void ElementSetText(ui_element_t* e, char* str);
 
 typedef void* (*ElementDataContext)(void*);
 void* ElementGetOwnerContext(void*);
@@ -230,11 +240,12 @@ void* ElementGetScreenSelection(void* p);
 void* ElementIndexContext(void* p);
 bool ElementScreenContext(ui_element_t* e);
 bool ElementActivityContext(ui_element_t* e);
+bool ElementInventoryContext(ui_element_t* e);
 
 struct ui_element_s{
   uint32_t            hash;
   char                name[MAX_NAME_LEN];
-  int                 index;
+  int                 index,active;
   struct ui_menu_s    *menu;
   struct ui_element_s *owner;
   ElementType         type;
@@ -255,7 +266,7 @@ struct ui_element_s{
   ElementDataContext  get_ctx;
   GameObjectParam     params[4];
   void*               ctx;
-  char                delimiter; 
+  char                delimiter;
 };
 
 typedef struct{
@@ -294,6 +305,7 @@ bool ElementActivateChildren(ui_element_t*);
 bool ElementLoadChildren(ui_element_t*);
 bool ElementShow(ui_element_t* e);
 bool ElementShowIcon(ui_element_t* e);
+bool ElementItemUse(ui_element_t* e);
 bool ElementShowChildren(ui_element_t*);
 bool ElementShowPrimary(ui_element_t*);
 bool ElementTabToggle(ui_element_t* e);
@@ -332,7 +344,9 @@ static void UIEventActivate(EventType event, void* data, void* user){
   e->ctx = ctx;
   ElementSetState(e, ELEMENT_IDLE);
 }
+
 void UILogEvent(EventType event, void* data, void* user);
+void UIItemEvent(EventType event, void* data, void* user);
 
 typedef struct ui_menu_s{
   ui_element_t  *element;
@@ -425,12 +439,15 @@ typedef enum{
   TOKE_TAR,
   TOKE_AGG,
   TOKE_ENV,
+  TOKE_RESOURCE,
   TOKE_RES_SUFF,
   TOKE_ATK,
   TOKE_ACT,
   TOKE_SCHOOL,
   TOKE_AMNT,
   TOKE_STAT,
+  TOKE_DOES,
+  TOKE_USES,
   TOKE_MAT,
   TOKE_QUAL,
   TOKE_NAME,

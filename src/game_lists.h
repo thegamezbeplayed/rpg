@@ -192,10 +192,6 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
   },
 };
 
-static skill_name_t SKILL_STRING[SKILL_DONE] = {
-  [SKILL_LVL] = {SKILL_LVL, "Level"},
-};
-
 static define_skill_rate_t  SKILL_RATES[RATE_DONE]={
   {RATE_NONE},
   {RATE_LINEAR,
@@ -1619,17 +1615,20 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
       [ITEM_ARMOR] = 0, [ITEM_WEAPON] = 2
     },
     2,
+    2,
     0x2000
   },
   {INV_WORN,
     {[ITEM_ARMOR] = 1, [ITEM_RING] = 2, [ITEM_AMULET] = 1 },
     5,
+    6,
     0x3000
   },
   {INV_BACK,
     {
       [ITEM_WEAPON] = 2, [ITEM_CONTAINER] = 1
     },
+    2,
     2,
     0x1000,
   },
@@ -1638,6 +1637,7 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
       [ITEM_CONSUMABLE]=4, [ITEM_CONTAINER]=2, [ITEM_WEAPON] = 2
     },
     0,
+    12,
     0x1000
   },
   {INV_SLING,
@@ -1645,6 +1645,7 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
       [ITEM_AMMO] = 2, [ITEM_CONSUMABLE] = 2
     },
     0,
+    10,
     0x0500
   },
   {INV_QUIVER,
@@ -1652,101 +1653,19 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
       [ITEM_AMMO] = 10
     },
     0,
+    10,
     0x0050
   },
   {INV_PACK,
+    .max = 20,
   },
-  {INV_POUCH},
-  {INV_SCROLL_CASE},
+  {INV_POUCH,
+  .max = 16
+  },
+  {INV_SCROLL_CASE,
+  .max = 12},
 };
 
-static const char* NEED_STRINGS[N_DONE] = {
-  [N_SOC]     = "Socialize",
-  [N_HUNGER]  = "Hungry",
-  [N_SLEEP]   = "Tired",
-  [N_THIRST]  = "Thirsty"
-};
-
-static const char* SKILL_NAMES[SKILL_DONE] = {
-  [SKILL_NONE]              = "None",
-  [SKILL_LVL]               = "Leveling",
-  [SKILL_ACRO]              = "Acrobatics",
-  [SKILL_ALCH]              = "Alchemy",
-  [SKILL_ANIM]              = "Animal Handling",
-  [SKILL_ARCANA]            = "Arcana",
-
-  [SKILL_ARMOR_NATURAL]     = "Natural Armor",
-  [SKILL_ARMOR_PADDED]      = "Padded Armor",
-  [SKILL_ARMOR_LEATHER]     = "Leather Armor",
-  [SKILL_ARMOR_CHAIN]       = "Chain Armor",
-  [SKILL_ARMOR_PLATE]       = "Plate Armor",
-  [SKILL_ARMOR_SHIELD]      = "Shield Use",
-
-  [SKILL_ATH]               = "Athletics",
-  [SKILL_CALL]              = "Calligraphy",
-  [SKILL_CARP]              = "Carpentry",
-  [SKILL_CART]              = "Cartography",
-  [SKILL_COBB]              = "Cobbling",
-  [SKILL_COOK]              = "Cooking",
-
-  [SKILL_DECEPT]            = "Deception",
-  [SKILL_GLASS]             = "Glassworking",
-  [SKILL_HIST]              = "History",
-  [SKILL_HERB]              = "Herbalism",
-  [SKILL_INSIGHT]           = "Insight",
-  [SKILL_INTIM]             = "Intimidation",
-  [SKILL_INVEST]            = "Investigation",
-  [SKILL_JEWL]              = "Jeweling",
-  [SKILL_LW]                = "Leatherworking",
-
-  [SKILL_MASON]             = "Masonry",
-  [SKILL_MED]               = "Medicine",
-  [SKILL_NATURE]            = "Nature",
-  [SKILL_PAINT]             = "Painting",
-  [SKILL_PERCEPT]           = "Perception",
-  [SKILL_PERFORM]           = "Performance",
-  [SKILL_PERSUAD]           = "Persuasion",
-
-  [SKILL_POISON]            = "Poisoncraft",
-  [SKILL_POTT]              = "Pottery",
-  [SKILL_RELIG]             = "Religion",
-  [SKILL_SLEIGHT]           = "Sleight of Hand",
-  [SKILL_SMITH]             = "Smithing",
-
-  [SKILL_SPELL_ABJ]         = "Abjuration",
-  [SKILL_SPELL_CONJ]        = "Conjuration",
-  [SKILL_SPELL_DIV]         = "Divination",
-  [SKILL_SPELL_ENCH]        = "Enchantment",
-  [SKILL_SPELL_EVO]         = "Evocation",
-  [SKILL_SPELL_ILL]         = "Illusion",
-  [SKILL_SPELL_NECRO]       = "Necromancy",
-  [SKILL_SPELL_TRANS]       = "Transmutation",
-
-  [SKILL_STEALTH]           = "Stealth",
-  [SKILL_STONE]             = "Stoneworking",
-  [SKILL_SURV]              = "Survival",
-  [SKILL_TINK]              = "Tinkering",
-  [SKILL_THEFT]             = "Theft",
-  [SKILL_WEAV]              = "Weaving",
-
-  [SKILL_WEAP_SIMP]         = "Simple Weapons",
-  [SKILL_WEAP_MART]         = "Martial Weapons",
-  [SKILL_WEAP_MACE]         = "Maces",
-  [SKILL_WEAP_SHOT]         = "Shooting",
-  [SKILL_WEAP_SWORD]        = "Swords",
-  [SKILL_WEAP_AXE]          = "Axes",
-  [SKILL_WEAP_DAGGER]       = "Daggers",
-  [SKILL_WEAP_BOW]          = "Bows",
-  [SKILL_WEAP_PICK]         = "Picks",
-  [SKILL_WEAP_STAFF]        = "Staves",
-  [SKILL_WEAP_SPEAR]        = "Spears",
-  [SKILL_WEAP_WHIP]         = "Whips",
-  [SKILL_WEAP_NET]          = "Nets",
-  [SKILL_WEAP_GREAT]        = "Two Handed Weapons",
-  [SKILL_WEAP_NONE]         = "Unarmed",
-  [SKILL_WRESTLE]           = "Wrestling",
-  [SKILL_WOOD]              = "Woodworking",
-};
 static define_skill_rank_t SKILL_RANKS[SR_DONE] = {
   [SR_NONE]      = { SR_NONE,      0,  0  },
   [SR_NOVICE]    = { SR_NOVICE,    3,  5  },
