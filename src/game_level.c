@@ -88,13 +88,16 @@ level_t* InitLevel(void){
   for(int i = 0; i < ABILITY_DONE; i++){
     if(CLASS_ABILITIES[i].tome)
       ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_TOME));     
+    /*
     if(CLASS_ABILITIES[i].scroll)
       ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_SCROLL));     
-  }
+  */
+      }
 
+  /*
   for (int i = 1; i < SKILL_DONE; i++)
       ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_SKILLUP));     
-
+*/
   return &Level;
 }
 
@@ -211,9 +214,11 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
     for (int i = 0; i < Level.item_defs->count; i++){
       item_type_d* item = &Level.item_defs->entries[i];
 
+      int weight = 5;
       item_def_t* def = DefineConsumableByDef(&item->data.cons);
-      
-      AddPurchase(cp, def->id, 1, 5, def, ChoiceReduceScore);
+      if(item->data.cons.type == CONS_TOME)
+        weight *=5;
+      AddPurchase(cp, def->id, weight, 1, def, ChoiceReduceScore);
 
     }
     cp->desired = count;

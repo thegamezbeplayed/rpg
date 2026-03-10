@@ -358,7 +358,7 @@ struct value_s{
   value_affix_t* affixes[AFF_DONE];
   AttributeType  attr_aff_by, attr_relates_to;
   StatType       stat_aff_by, stat_relates_to;
-  ValueOnChange  on_change;
+  ValueOnChange  on_change, on_empty;
   void*          context;
 };
 
@@ -366,7 +366,7 @@ value_t* InitValue(ValueCategory cat, int base);
 int ValueRebase(value_t* self);
 int ValueApplyModsToVal(int val, value_affix_t* aff);
 void ValueAddBaseMod(value_t* self, value_affix_t mod);
-
+void ValueDecrease(value_t* self, int amnt);
 struct stat_s;
 typedef void (*StatFormula)(struct stat_s* self);
 

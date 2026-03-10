@@ -400,7 +400,7 @@ typedef enum {
     LISTVIEW,
     COLORPICKER,
     SCROLLBAR,
-    STATUSBAR
+    STATUSBAR,
 } GuiControl;
 
 // Gui base properties for every control

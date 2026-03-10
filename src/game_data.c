@@ -318,7 +318,17 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_ITEM},
   {ABILITY_ITEM_HEAL, AT_HEAL, ACTION_ITEM,
     DMG_RADIANT, STAT_NONE, DES_SELF, 10, 1, 1, 2,4,2,0, STAT_HEALTH, ATTR_NONE, ATTR_NONE,.skills=SKILL_ALCH, .use_fn = AbilityConsume
-  }
+  },
+  {ABILITY_ITEM_SKILL, AT_KNOWLEDGE, ACTION_ITEM,
+  
+  },
+  {ABILITY_ITEM_TOME, AT_KNOWLEDGE, ACTION_ITEM,
+    .skills=SKILL_ARCANA, .use_fn = AbilityLearn
+  },
+  {ABILITY_ITEM_SCROLL, AT_KNOWLEDGE, ACTION_ITEM,
+
+  
+  },
 };
 
 item_fn_t item_funcs[ITEM_DONE] = {
@@ -478,7 +488,7 @@ consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
     ABILITY_ITEM_TOME, SKILL_LING,
     STORE_SPECIAL,
     {[STORE_HELD] = 5, [STORE_CONTAINER] = 3},
-    0X2000,
+    0X1250,
     "Tome of "
   },
   {CONS_SKILLUP,
@@ -867,6 +877,16 @@ value_t* InitValue(ValueCategory cat, int base){
   };
 
   return v;
+}
+
+void ValueDecrease(value_t* self, int amnt){
+  self->val -= amnt;
+
+  if(self->on_change)
+    self->on_change(self, self->context);
+
+  if(self->val <= 0 && self->on_empty)
+    self->on_empty(self, self->context);
 }
 
 float AffixAdd(value_affix_t* self, int val){

@@ -78,6 +78,7 @@ typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, ent_t* target);
 typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a, ent_t* target);
 bool AbilityCanTarget(ability_t* a, local_ctx_t* target);
 InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target);
+InteractResult AbilityLearn(ent_t* owner,  ability_t* a, ent_t* target);
 typedef InteractResult (*AbilitySave)(ent_t* owner,  ability_t* a, ability_sim_t* source);
 bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result);
 struct ability_s{
@@ -155,6 +156,7 @@ typedef struct item_def_s{
   int                 id;
   char                name[32];
   int                 type;
+  void*               type_def;
   ItemCategory        category;        // weapon / armor / potion / scroll
   damage_reduction_t  *dr; //TODO MOVE TO VALUE_T
   value_t             *values[VAL_ALL];
@@ -168,8 +170,10 @@ typedef struct item_def_s{
   sprite_t            *sprite;     // icon
 }item_def_t;
 
-typedef bool (*ItemEquipCallback)(struct ent_s* owner, struct item_s* item);
+typedef bool (*ItemEquipCallback)(struct ent_s* owner, item_t* item);
 typedef bool (*ItemUseCallback)(ent_t* owner, item_t* item, InteractResult res);
+typedef bool (*ItemUseFunction)(item_t*, ent_t*);
+
 
 struct item_s{
   game_object_uid_i gouid;
@@ -177,13 +181,15 @@ struct item_s{
   const item_def_t  *def;
   struct ent_s*     owner;
   bool              equipped;
-  int               durability;
+  int               index;
   StorageMethod     location;
   ability_t         *ability;     
-  ItemEquipCallback on_equip[2];
+  ItemEquipCallback on_equip[2], on_acquire;
   ItemUseCallback   on_use;
+  ItemUseFunction   use_fn;
 };
 
+bool ItemAbilityUse(item_t* i, ent_t* tar);
 bool ItemApplyStats(struct ent_s* owner, item_t* item);
 bool ItemConsume(struct ent_s* owner, item_t* item);
 bool ItemAddAbility(struct ent_s* owner, item_t* item);

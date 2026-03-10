@@ -11,6 +11,24 @@ item_t* InitItem(item_def_t* def){
     .def = def
   };
 
+  for (int i = 0; i < VAL_ALL; i++){
+    if(def->values[i] == NULL)
+      continue;
+
+    def->values[i]->context = item;
+  }
+  if(def->category == ITEM_CONSUMABLE){
+    switch(def->type){
+      case CONS_SCROLL:
+      case CONS_TOME: 
+      case CONS_SKILLUP:
+        item->on_acquire = ItemAddAbility;
+        break;
+      default:
+        break;
+    }
+  }
+
   if(item_funcs[def->category].cat != ITEM_NONE){
     for(int i = 0; i < item_funcs[def->category].num_equip; i++)
       item->on_equip[i] = item_funcs[def->category].on_equip[i];
@@ -157,6 +175,23 @@ ItemSlot InventoryAddStorage(ent_t* e, item_t* i){
     }
   }
 }
+void InventoryItemEvent(EventType ev, void* edata, void* udata){
+  inventory_t* inv = udata;
+  item_t* item = edata;
+
+  switch(ev){
+    case EVENT_ITEM_DESTROY:
+      int index = item->index;
+      inv->items[item->index] = inv->items[inv->count];
+
+      WorldEvent(EVENT_INV_REMOVE, inv, index);
+      GameFree("InventoryItemEvent", item);
+      break;
+    default:
+      break;
+  }
+
+}
 
 int InventorySlotAddItem(ent_t* e, ItemSlot id, item_t* i){
   inventory_t* inv = e->inventory[id];
@@ -168,6 +203,7 @@ int InventorySlotAddItem(ent_t* e, ItemSlot id, item_t* i){
   item->owner = e;
   item->equipped = inv->method[i->def->pref];
 
+  item->index = inv->count-1;
   inv->space-= item->def->values[VAL_STORAGE]->val;
   inv->unburdened-= item->def->values[VAL_WEIGHT]->val;
 
@@ -175,6 +211,7 @@ int InventorySlotAddItem(ent_t* e, ItemSlot id, item_t* i){
   inv->current[item->def->category]++;
 
   WorldEvent(EVENT_ITEM_STORE, inv, id);
+  WorldTargetSubscribe(EVENT_ITEM_DESTROY, InventoryItemEvent, inv, item->gouid);
   return inv->count-1;
     
 }
@@ -202,6 +239,12 @@ item_t* InventoryAddItem(ent_t* e, item_t* i){
 
   int index = InventorySlotAddItem(e, slot, i);
   return &e->inventory[slot]->items[index];
+}
+
+bool ItemAbilityUse(item_t* i, ent_t* tar){
+  i->ability->use_fn(i->owner, i->ability, tar);
+
+  ValueDecrease(i->def->values[VAL_QUANT], 1);
 }
 
 item_t* InventoryGetEquipped(ent_t* e, ItemSlot id){
@@ -316,11 +359,19 @@ item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_prop
 
 }
 
+bool ItemDestroy(value_t* v, void* ctx){
+  if(ctx==NULL)
+    return false;
+
+  item_t* item = ctx;
+  WorldEvent(EVENT_ITEM_DESTROY, item, item->gouid);
+}
+
 item_def_t* DefineConsumableByDef(consume_def_t *def){
 
   item_def_t* item = GameCalloc("DefineConsumable", 1,sizeof(item_def_t));
 
-  item->id = def->type;
+  item->type = def->type;
 
   strcpy(item->name, def->name);
 
@@ -334,9 +385,12 @@ item_def_t* DefineConsumableByDef(consume_def_t *def){
   item->values[VAL_EXP] = InitValue(VAL_EXP,def->exp);
   item->values[VAL_STORAGE] = InitValue(VAL_STORAGE,def->size);
 
+  item->values[VAL_DURI]->on_empty = ItemDestroy;
+  item->values[VAL_QUANT]->on_empty = ItemDestroy;
   item->skills[item->num_skills++] = def->skill;
   item->ability = def->ability;
 
+  item->type_def = def;
 
   switch(def->type){
     case CONS_SCROLL:
@@ -356,6 +410,7 @@ item_def_t* DefineConsumableByDef(consume_def_t *def){
     if(!item->values[i])
       continue;
 
+    item->values[i]->context = item;
     item->values[i]->val = ValueRebase(item->values[i]);
   }
 
@@ -385,6 +440,7 @@ item_def_t* DefineConsumable(ItemInstance data){
   strcpy(item->name, strcat(temp.name, ABILITY_STRINGS[temp.ability].name));
 
 
+  item->type_def = &temp;
   ApplyItemProps(item, data.props, data.et_props);
 
   for(int i = 0; i < VAL_ALL; i++){
@@ -580,9 +636,17 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
   }
   if(a->type != AT_SAVE)
     a->weight+=pref;
-  
+ 
+  if(item->def->category == ITEM_CONSUMABLE && a->type == AT_KNOWLEDGE){
+    if(item->def->type_def){
+      consume_def_t* c_def = item->def->type_def;
+      a->chain_id = c_def->chain_id;
+    }
+  } 
   a->item = item;
   item->ability = a;
+  item->use_fn = ItemAbilityUse;
+
   return ActionSlotAddAbility(owner, a);
 }
 
@@ -595,6 +659,10 @@ bool ItemSkillup(ent_t* owner, item_t* item, InteractResult result){
     SkillUse(owner->skills[item->def->skills[i]],owner->uid,item->def->category,exp,result);
 
   return true;
+}
+
+InteractResult AbilityLearn(ent_t* owner,  ability_t* a, ent_t* target){
+  bool result = ActionSlotAddAbility(target, InitAbility(owner, a->chain_id));
 }
 
 int GetWeaponByTrait(Traits t, weapon_def_t *arms){

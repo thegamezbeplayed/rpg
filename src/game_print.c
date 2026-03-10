@@ -275,7 +275,8 @@ int GetConsumeDesc(line_item_t** li, item_t* item){
   li[count++] = InitLineItem(base, 1, "%s");
   
   detail_format_t fmt = ITEM_FORMAT[ITEM_CONSUMABLE][item->def->type]; 
-
+  consume_def_t *def = item->def->type_def;
+  
   DataType dtype = -1;
   for (int i = 0; i < fmt.num_lines; i++){
     char str[MAX_NAME_LEN] = {0}; 
@@ -292,13 +293,19 @@ int GetConsumeDesc(line_item_t** li, item_t* item){
           dtype = DATA_STRING;
           strcpy(str, GetPropNameByTypeProps(item->def->category, item->def->t_props, PROP_CONS_RESOURCE_MASK));
           break;
-        case TOKE_RES_SUFF:
-          break;
-        case TOKE_ATK:
-          break;
-        case TOKE_ACT:
+        case TOKE_ABILITY:
+          if(!def)
+            continue;
+          dtype = DATA_STRING;
+          strcpy(str, GetAbilityName(def->chain_id));
           break;
         case TOKE_SCHOOL:
+          break;
+        case TOKE_SKILL:
+          if(!def)
+            continue;
+          dtype = DATA_STRING;
+          strcpy(str, SKILL_NAMES[def->chain_id]);
           break;
         case TOKE_AMNT:
           dtype = DATA_INT;

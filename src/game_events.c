@@ -563,6 +563,7 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->params[PARAM_INV_WORN] = ParamMakeObj(DATA_INV, mob->gouid, mob->inventory[INV_WORN]);
       e->params[PARAM_INV_BELT] = ParamMakeObj(DATA_INV, mob->gouid, mob->inventory[INV_BELT]);
       e->params[PARAM_INV_SLING] = ParamMakeObj(DATA_INV, mob->gouid, mob->inventory[INV_SLING]);
+      e->params[PARAM_INV_PACK] = ParamMakeObj(DATA_INV, mob->gouid, mob->inventory[INV_PACK]);
       
       e->params[PARAM_ATTR_CON] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_CON]);
       e->params[PARAM_ATTR_STR] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_STR]);

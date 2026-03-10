@@ -1590,7 +1590,7 @@ static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {
   {SLOT_SAVE, {[ACTION_SAVE]=true}},
 };
 
-static define_burden_t BURDEN_LIMITS[INV_SLING][6] = {
+static define_burden_t BURDEN_LIMITS[INV_DONE][6] = {
   [INV_HELD] = {
     {PQ_TINY, 1250},
     {PQ_SMALL, 2500},
@@ -1606,6 +1606,15 @@ static define_burden_t BURDEN_LIMITS[INV_SLING][6] = {
     {PQ_HUGE, 30000},
     {PQ_GIG, 60000},
     {0, 12000},
+  },
+  [INV_PACK] = {
+    {PQ_TINY, 3000},
+    {PQ_SMALL, 30000},
+    {PQ_LARGE, 30000},
+    {PQ_HUGE, 30000},
+    {PQ_GIG, 30000},
+    {0, 12000},
+
   }
 };
 
@@ -1657,12 +1666,17 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
     0x0050
   },
   {INV_PACK,
-    .max = 20,
+    {[ITEM_CONSUMABLE] = 5},
+    .cap = 10, .max = 20,
+    .base_size = 0xA000
   },
   {INV_POUCH,
   .max = 16
   },
   {INV_SCROLL_CASE,
+    {
+      [ITEM_CONSUMABLE] =12
+    },
   .max = 12},
 };
 

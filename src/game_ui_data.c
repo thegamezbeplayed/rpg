@@ -127,7 +127,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_ACTIVATED] = ElementShow,
       [ELEMENT_SHOW]      = ElementShowChildren
     },
-    .num_children = 4, .kids = {
+    .num_children = 5, .kids = {
       "ITEM_GRID",
     },
     .params = {
@@ -135,6 +135,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       {PARAM_INV_WORN},
       {PARAM_INV_BELT},
       {PARAM_INV_SLING},
+      {PARAM_INV_PACK}
     },
     .spacing = {[UI_MARGIN_TOP] = 8, [UI_MARGIN_LEFT] = 4, [UI_PADDING_TOP] = 16},
     .text = "Inventory"
@@ -147,7 +148,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_IDLE] = ElementDynamicChildren,
       [ELEMENT_SHOW] = ElementShowChildren
     },
-    .spacing = { [UI_MARGIN_LEFT] = 8, [UI_PADDING] = 0, [UI_PADDING_BOT] = 0,[UI_MARGIN_TOP] = 18, [UI_PADDING_TOP] = 0},
+    .spacing = { [UI_MARGIN_LEFT] = 8, [UI_PADDING] = 0, [UI_PADDING_BOT] = -4,[UI_MARGIN_TOP] = 18, [UI_PADDING_TOP] = 0},
     .kids = {"ITEM_BOX"}
   },
   {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_ICON,
@@ -157,7 +158,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_FOCUSED]   = ElementShowTooltip,
       [ELEMENT_TOGGLE]    = ElementToggleChildren,
       [ELEMENT_SHOW]      = ElementShowIcon,
-      [ELEMENT_ACTIVATED]  = ElementItemUse,
+      [ELEMENT_ACTIVATE]  = ElementItemUse,
    },
    .spacing = {[UI_MARGIN_TOP] = 12, [UI_PADDING_LEFT] = 16, [UI_PADDING_TOP] =  16},
    .texture = UI_GRID_CELL,
@@ -278,7 +279,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_FOCUSED] = ElementSetTooltip,
       [ELEMENT_TOGGLE] = UIHideElement
     },
-    .spacing = {[UI_MARGIN_LEFT] = 8, [UI_MARGIN_TOP] = -8, [UI_PADDING_LEFT] = 4}
+    .spacing = {[UI_MARGIN_LEFT] = 16, [UI_MARGIN_TOP] = -8, [UI_PADDING_LEFT] = 4}
   },
   
   {"CONTEXT_PANEL_R", UI_PANEL_RIGHT, STAT_SHEET_PANEL_VER, UI_PANEL,
@@ -367,6 +368,7 @@ token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
   {"RES",    TOKE_RES_SUFF},
   {"ATK",    TOKE_ATK},
   {"ACT",    TOKE_ACT},
+  {"ABILITY", TOKE_ABILITY},
   {"SCHOOL", TOKE_SCHOOL},
   {"MISS",   TOKE_MISS},
   {"RESTORE",TOKE_REST},

@@ -51,7 +51,7 @@
 #define FIXED_TITLE_CHAR      (Vector2){32, 48}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){48, 752}
+#define UI_PANEL_BOT (Vector2){48, 736}
 
 #define UI_LOG_HOR (Vector2){480, 220}
 #define LABEL_LOG (Vector2){464, 18}
@@ -386,8 +386,8 @@ typedef struct{
   //MenuId      open_menu;
   KeyboardKey  menu_key[MENU_DONE];
   ui_menu_t    menus[MENU_DONE];
-  int          num_elements;
-  ui_element_t *elements[MAX_ELEMENTS];
+  int          layer_base, layer_top;
+  ui_element_t *elements[2][MAX_ELEMENTS];
   local_ctx_t*  contexts[SCREEN_CTX_ALL];
 }ui_manager_t;
 
@@ -434,6 +434,7 @@ typedef enum{
   TOKE_WHO,
   TOKE_REST,
   TOKE_PARAM,
+  TOKE_SKILL,
   TOKE_ID,
   TOKE_DMG,
   TOKE_TAR,
@@ -443,6 +444,7 @@ typedef enum{
   TOKE_RES_SUFF,
   TOKE_ATK,
   TOKE_ACT,
+  TOKE_ABILITY,
   TOKE_SCHOOL,
   TOKE_AMNT,
   TOKE_STAT,

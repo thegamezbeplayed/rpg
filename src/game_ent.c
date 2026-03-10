@@ -46,6 +46,7 @@ ent_t* InitEnt(EntityType id,Cell pos){
     int val = e->attribs[i]->val;
   }
   EntPrepare(e);
+  e->inventory[INV_PACK]->active = true;
   SetState(e,STATE_SPAWN,NULL);
   return e;
 }
@@ -1241,6 +1242,8 @@ bool EntAddItem(ent_t* e, item_t* item, bool equip){
         (flex_id_t){DATA_INT, .id = item->def->type});
     added->fuid = fuid;
     added->equipped = equip;
+   if(added->on_acquire)
+     added->on_acquire(e, added);
     return true;
   }
 

@@ -11,22 +11,48 @@
 
 static ui_element_t* active_tooltip = NULL;
 
+int GuiTooltipControl(Rectangle bounds, const char* text){
+    int result = 0;
+    GuiState state = guiState;
+
+    Color col = GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BASE_COLOR_DISABLED : (int)BACKGROUND_COLOR));
+    col.a = 255;
+    col = ColorLerp(col, BLACK, 0.33); 
+    GuiDrawRectangle(bounds, RAYGUI_PANEL_BORDER_WIDTH, GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BORDER_COLOR_DISABLED : (int)LINE_COLOR)), col);
+    //--------------------------------------------------------------------
+
+   
+    // Text will be drawn as a header bar (if provided)
+    Rectangle statusBar = { bounds.x, bounds.y, bounds.width, (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT };
+    if ((text != NULL) && (bounds.height < RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT*2.0f)) bounds.height = RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT*2.0f;
+    
+    if (text != NULL)
+    {
+        // Move panel bounds after the header bar
+        bounds.y += (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
+        bounds.height -= (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
+    }
+    
+    // Draw control
+    if (text != NULL) GuiStatusBar(statusBar, text);  // Draw panel header as status bar
+    return result;
+
+}
+
 int GuiLabel(Rectangle bounds, const char *text)
 {
     GuiState state = guiState;
 
-    if ((state != STATE_DISABLED) && !guiLocked && !guiControlExclusiveMode)
-    {
-      Vector2 mousePoint = GetMousePosition();
+    Vector2 mousePoint = GetMousePosition();
 
-      // Check button state
-      if (CheckCollisionPointRec(mousePoint, bounds))
-        state = STATE_FOCUSED;
-      // Handle mouse button down
-      if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-        state = STATE_PRESSED;
-
+    // Check button state
+    if (CheckCollisionPointRec(mousePoint, bounds)){
+      state = STATE_FOCUSED;
+    // Handle mouse button down
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+      state = STATE_PRESSED;
     }
+
     GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LABEL, TEXT + (state*3))));
     //--------------------------------------------------------------------
     return state;
@@ -143,7 +169,7 @@ void InitUI(void){
 #endif
 
   Color col = DARKBLUE;
-  col.a = 75;
+  col.a = 100;
   GuiSetStyle(DEFAULT, BACKGROUND_COLOR, ColorToInt(col));
   col.a = 200;
   GuiSetStyle(DEFAULT, BORDER_COLOR_NORMAL, ColorToInt(col));
@@ -203,6 +229,7 @@ ui_menu_t InitMenu(MenuId id,Vector2 pos, Vector2 size, UIAlignment align,UILayo
 }
 
 ui_element_t* GetElement(const char* name){
+  /*
   uint32_t hash = hash_str_32(name);
 
   for (int i = 0; i < MAX_ELEMENTS; i++){
@@ -211,7 +238,7 @@ ui_element_t* GetElement(const char* name){
 
     return ui.elements[i];
   }
-
+*/
   return NULL;
 }
 
@@ -239,7 +266,6 @@ ui_element_t* InitElement(const char* name, ElementType type, Vector2 pos, Vecto
 
   u->align = align;
   u->layout= layout;
-  ui.elements[ui.num_elements++] = u;
   return u;
 }
 
@@ -474,64 +500,9 @@ void ElementResize(ui_element_t *e){
     ElementResize(e->children[i]);
 }
 
-void UISync(FetchRate poll){
-  ScreenApplyContext(ui.contexts);
-  for(int i = 0; i < MENU_DONE; i++){
-    if(IsKeyPressed(ui.menu_key[i]))
-      MenuSetState(&ui.menus[i],MENU_OPENED);
-
-    UISyncMenu(&ui.menus[i], poll);
-  }
-}
-
-void UISyncMenu(ui_menu_t* m, FetchRate poll){
-  if(m->state < MENU_ACTIVE)
-    return;
-
-  if(!m->element->menu )
-    m->element->menu = m; 
-
-  UISyncElement(m->element, poll);
-
-  if(IsKeyPressed(KEY_ESCAPE)){
-    if(m->cb[MENU_CLOSE](m))
-      MenuSetState(m,MENU_CLOSE);
-  }
-}
-
-void UISyncElement(ui_element_t* e, FetchRate poll){
-  if(!e->menu && e->owner)
-    e->menu = e->owner->menu;
-
-  if(e->state < ELEMENT_IDLE)
-    return;
-
+void ElementRender(ui_element_t* e){
   int state = 0;
   int clicked = 0,toggle = 0,focused = 0;
-  if(e->sync_val){
-    e->sync_val(e,poll);
-    if(e->value){
-      switch(e->value->type){
-        case VAL_CHAR:
-          if(!e->value->c || e->value->c[0] == '\0')
-            return;
-          ElementSetText(e, e->value->c);
-          break;
-        case VAL_INT:
-          //ElementSetText(e,TextFormat("%i",*e->value->i));
-          break;
-        case VAL_LN:
-          if(e->text)
-          PrintElementValue(e->value, e->spacing, e->text);
-          break;
-        case VAL_ICO:
-          if(e->type == UI_ICON && e->value->s == NULL)
-            return;
-        default:
-          break;
-      }
-    }
-  }
 
   if(e->texture)
     DrawNineSlice(e->texture,e->bounds);
@@ -553,7 +524,7 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
        break;
     case UI_TOOL_TIP:
       active_tooltip = e;
-      GuiPanel(e->bounds, e->text);
+      GuiTooltipControl(e->bounds, e->text);
       break;
     case UI_BOX:
       GuiGroupBox(e->bounds,NULL);//e->text);
@@ -594,7 +565,88 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
       ElementSetState(e,ELEMENT_TOGGLE);
       break;
   }
-  
+ 
+}
+
+void UIRender(void){
+  for (int i = 0; i < ui.layer_base; i++){
+ 
+    ElementRender(ui.elements[0][i]);
+  }
+
+  for (int i = 0; i < ui.layer_top; i++){
+ 
+    ElementRender(ui.elements[1][i]);
+  }
+}
+
+void UISync(FetchRate poll){
+  ui.layer_base = 0;
+  ui.layer_top = 0;
+  ScreenApplyContext(ui.contexts);
+  for(int i = 0; i < MENU_DONE; i++){
+    if(IsKeyPressed(ui.menu_key[i]))
+      MenuSetState(&ui.menus[i],MENU_OPENED);
+
+    UISyncMenu(&ui.menus[i], poll);
+  }
+
+  UIRender();
+}
+
+void UISyncMenu(ui_menu_t* m, FetchRate poll){
+  if(m->state < MENU_ACTIVE)
+    return;
+
+  if(!m->element->menu )
+    m->element->menu = m; 
+
+  UISyncElement(m->element, poll);
+
+  if(IsKeyPressed(KEY_ESCAPE)){
+    if(m->cb[MENU_CLOSE](m))
+      MenuSetState(m,MENU_CLOSE);
+  }
+}
+
+void UISyncElement(ui_element_t* e, FetchRate poll){
+  if(!e->menu && e->owner)
+    e->menu = e->owner->menu;
+
+  if(e->state < ELEMENT_IDLE)
+    return;
+
+   if(e->sync_val){
+    e->sync_val(e,poll);
+    if(e->value){
+      switch(e->value->type){
+        case VAL_CHAR:
+          if(!e->value->c || e->value->c[0] == '\0')
+            return;
+          ElementSetText(e, e->value->c);
+          break;
+        case VAL_INT:
+          //ElementSetText(e,TextFormat("%i",*e->value->i));
+          break;
+        case VAL_LN:
+          if(e->text)
+          PrintElementValue(e->value, e->spacing, e->text);
+          break;
+        case VAL_ICO:
+          if(e->type == UI_ICON && e->value->s == NULL)
+            return;
+        default:
+          break;
+      }
+    }
+  }
+
+  if(e->align & ALIGN_OVER)
+   ui.elements[1][ui.layer_top++] = e;
+  else 
+   ui.elements[0][ui.layer_base++] = e; 
+
+ 
   for(int i = 0; i<e->num_children; i++)
     UISyncElement(e->children[i], poll);
 }
@@ -680,12 +732,12 @@ bool ElementItemUse(ui_element_t* e){
   item_t* item = &inv->items[e->index];
 
   ElementState next = ELEMENT_IDLE;
-  if(!item || !item->on_use)
+  if(!item || !item->use_fn)
     return ElementSetState(e, next);
 
   InteractResult res = IR_NONE;
   TraceLog(LOG_INFO, "use item %s", item->def->name);
-  return item->on_use(item->owner, item, res);
+  return item->use_fn( item, player);
 }
 
 bool ElementTabToggle(ui_element_t* e){
@@ -758,6 +810,7 @@ bool ElementDynamicChildren(ui_element_t* e){
 
      ElementAddChild(e,c);
      WorldTargetSubscribe(EVENT_ITEM_ACQUIRE, UIItemEvent, c, j);
+     WorldTargetSubscribe(EVENT_INV_REMOVE, UIItemEvent, c, j);
    }
 
   }
@@ -901,7 +954,6 @@ bool ElementCanChangeState(ElementState old, ElementState s){
 
 void ElementStepState(ui_element_t* e, ElementState s){
   switch(s){
-    case ELEMENT_TOGGLE:
     case ELEMENT_ACTIVATE:
       ElementSetState(e,ELEMENT_ACTIVATED);
       break;
@@ -1385,6 +1437,8 @@ void UIItemEvent(EventType event, void* data, void* user){
   switch(event){
     case EVENT_ITEM_ACQUIRE:
     case EVENT_ITEM_STORE:
+    case EVENT_INV_REMOVE:
+    case EVENT_ITEM_DESTROY:
       UISyncElement(e, FETCH_EVENT);
       break;
     case EVENT_ITEM_EQUIP:
