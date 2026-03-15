@@ -1754,6 +1754,8 @@ consume_def_t* ConsumeGenerateKnowledge(int id, ConsumeType type){
   switch(type){
     case CONS_SCROLL:
     case CONS_TOME:
+      define_ability_class_t dac = CLASS_ABILITIES[id];
+      def->weight = dac.weight;
       strcat(def->name, GetAbilityName(id));
       break;
     case CONS_SKILLUP:

@@ -129,16 +129,23 @@ bool ActionSlotAddAbility(ent_t* owner, ability_t* a);
 
 typedef struct{
   ent_t*          owner;
+  bool            active;
   int             turn;
   TurnPhase       phase;
+  ability_t*      sel_abi;
   decision_t*     decisions[ACTION_PASSIVE];
   action_key_t    actions[ACTION_DONE];
 }game_input_t;
+extern game_input_t player_input;
 
 void InitInput(ent_t* player);
 void InputSync(TurnPhase phase, int turn);
 bool InputCheck(TurnPhase phase, int turn);
 void InputSetTarget(ent_t* e, ActionType a, local_ctx_t* target);
+
+static void InputToggle(void){
+  player_input.active = !player_input.active;
+}
 
 
 #endif

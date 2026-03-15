@@ -12,7 +12,8 @@
 #define MAX_SUB_ELE 20
 #define MAX_ELEMENTS 64
 
-#define UI_GRID_WIDTH 3
+#define UI_GRID_WIDTH 8
+#define UI_GRID_HEIGHT 3
 #define ELE_COUNT 29
 #if defined(PLATFORM_ANDROID)
 #define DEFAULT_MENU_SIZE (Vector2){GetScreenWidth()/2, GetScreenHeight()/2}
@@ -42,6 +43,7 @@
 #define SMALL_PANEL_SIZE (Vector2){192*UI_SCALE, 64*UI_SCALE}
 #define SMALL_PANEL_THIN_SIZE (Vector2){184*UI_SCALE, 32*UI_SCALE}
 #define DEFAULT_LINE_SIZE (Vector2){2 *UI_SCALE, 64*UI_SCALE}
+#define FIXED_GRID_PANEL      (Vector2){124, 64}
 #define FIXED_BUTTON_SIZE     (Vector2){128, 24}
 #define FIXED_LABEL_SIZE      (Vector2){136, 24}
 #define FIXED_VAL_LABEL_SIZE  (Vector2){88, 24}
@@ -91,6 +93,7 @@ typedef enum{
   UI_MASK,
   UI_BUTTON,
   UI_LABEL,
+  UI_HEADER,
   UI_STATUSBAR,
   UI_PROGRESSBAR,
   UI_PANEL,
@@ -195,6 +198,9 @@ int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
 int SetCtxDescription(void* , line_item_t**, GameObjectParam, int pad[UI_POSITIONING]);
 char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING], char* out);
+
+int GuiTooltipControl(Rectangle bounds, const char* text);
+
 typedef struct ui_element_s ui_element_t;
 typedef bool (*ElementCallback)( ui_element_t* self);
 typedef enum {
@@ -230,6 +236,7 @@ void ElementSetText(ui_element_t* e, char* str);
 
 typedef void* (*ElementDataContext)(void*);
 void* ElementGetOwnerContext(void*);
+void* ElementGetOwnerContextParams(void*);
 void* ElementMatchTab(void*);
 void* ElementOwnerItemContext(void*);
 void* ElementOwnerChildren(void*);
@@ -242,6 +249,31 @@ bool ElementScreenContext(ui_element_t* e);
 bool ElementActivityContext(ui_element_t* e);
 bool ElementInventoryContext(ui_element_t* e);
 
+typedef enum{
+  POINT_X,
+  POINT_Y,
+  POINT_W,
+  POINT_H,
+  POINT_ALL
+}Points;
+
+typedef struct{
+  int       points[POINT_ALL];
+  int       inc[POINT_ALL];
+  int       sum[POINT_ALL];
+  Rectangle bounds;
+  Vector2   pos;
+}ui_bounds_t;
+
+typedef struct{
+  ui_element_t    *root;
+  UILayout        layout;
+  UIAlignment     align;
+  int             num_children;
+  ui_bounds_t     *bounds, *base; 
+}ui_layout_t;
+
+
 struct ui_element_s{
   uint32_t            hash;
   char                name[MAX_NAME_LEN];
@@ -252,12 +284,14 @@ struct ui_element_s{
   ElementState        state, prior;
   ElementCallback     cb[ELEMENT_DONE];
   Rectangle           bounds;
+  ui_bounds_t         *debug;
   scaling_slice_t     *texture;
   float               width,height;
   UILayout            layout;
   UIAlignment         align;
   int                 spacing[UI_POSITIONING];
   char*               text;
+  char*               debug_text;
   ElementSetValue     set_val;
   ElementValueSync    sync_val;
   element_value_t     *value;
@@ -291,6 +325,7 @@ typedef struct{
 }ui_element_d;
 extern ui_element_d ELEM_DATA[ELE_COUNT];
 
+ui_layout_t* LayoutElement(ui_element_t *e,  ui_bounds_t *root);
 ui_element_t* InitElement(const char* name, ElementType type, Vector2 pos, Vector2 size, UIAlignment align,UILayout layout);
 ui_element_t* GetElement(const char* name);
 void ElementStepState(ui_element_t* e, ElementState s);
@@ -311,6 +346,7 @@ bool ElementShowPrimary(ui_element_t*);
 bool ElementTabToggle(ui_element_t* e);
 bool ElementAssignValues(ui_element_t* e);
 bool ElementSetContext(ui_element_t* e);
+bool ElementSetContextParams(ui_element_t* e);
 bool ElementHideSiblings(ui_element_t* e);
 bool ElementSyncContext(ui_element_t* e);
 bool ElementShowContext(ui_element_t* e);
@@ -328,6 +364,8 @@ typedef bool (*MenuCallback)(struct ui_menu_s* self);
 element_value_t* GetContextParams(ui_element_t* e, void* context);
 element_value_t* GetContextVal(ui_element_t* e, void* context);
 element_value_t* GetContextName(ui_element_t* e, void* context);
+element_value_t* GetOwnerValue(ui_element_t* e, void* context);
+element_value_t* GetOwnerText(ui_element_t* e, void* context);
 element_value_t* GetContextValueName(ui_element_t* e, void* context);
 element_value_t* GetContextItem(ui_element_t* e, void* context);
 element_value_t* GetTextSprite(ui_element_t* e, void* context);
@@ -400,6 +438,8 @@ void UIRender(void);
 bool TogglePause(ui_menu_t* m);
 static inline bool UI_BOOL_DO_NOTHING(ui_element_t* self){return false;}
 
+float ElementGetWidthSum(ui_element_t *e);
+float ElementGetHeightSum(ui_element_t *e);
 
 static state_change_requirement_t ELEM_STATE_REQ[ELEMENT_DONE] = {
   {ELEMENT_NONE, NEVER, ELEMENT_NONE},
@@ -465,4 +505,5 @@ extern token_lookup_t TOKEN_TABLE[TOKE_ALL];
 const char* ParseEntityToken(param_t);
 const char* ParseResult(param_t p, InteractResult);
 
+int GuiHeader(Rectangle bounds, const char *text);
 #endif

@@ -86,7 +86,7 @@ level_t* InitLevel(void){
   Level.item_defs = InitItemGenPool(ABILITY_DONE + SKILL_DONE);
 
   for(int i = 0; i < ABILITY_DONE; i++){
-    if(CLASS_ABILITIES[i].tome)
+    if(CLASS_ABILITIES[i].tome && CLASS_ABILITIES[i].lvl == 0)
       ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_TOME));     
     /*
     if(CLASS_ABILITIES[i].scroll)
@@ -214,10 +214,13 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
     for (int i = 0; i < Level.item_defs->count; i++){
       item_type_d* item = &Level.item_defs->entries[i];
 
-      int weight = 5;
       item_def_t* def = DefineConsumableByDef(&item->data.cons);
-      if(item->data.cons.type == CONS_TOME)
-        weight *=5;
+      int weight = 1;
+      switch(item->data.cons.type){
+        case CONS_TOME:
+          weight += item->data.cons.weight;;
+          break;
+      }
       AddPurchase(cp, def->id, weight, 1, def, ChoiceReduceScore);
 
     }

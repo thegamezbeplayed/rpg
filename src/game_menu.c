@@ -11,52 +11,6 @@
 
 static ui_element_t* active_tooltip = NULL;
 
-int GuiTooltipControl(Rectangle bounds, const char* text){
-    int result = 0;
-    GuiState state = guiState;
-
-    Color col = GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BASE_COLOR_DISABLED : (int)BACKGROUND_COLOR));
-    col.a = 255;
-    col = ColorLerp(col, BLACK, 0.33); 
-    GuiDrawRectangle(bounds, RAYGUI_PANEL_BORDER_WIDTH, GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BORDER_COLOR_DISABLED : (int)LINE_COLOR)), col);
-    //--------------------------------------------------------------------
-
-   
-    // Text will be drawn as a header bar (if provided)
-    Rectangle statusBar = { bounds.x, bounds.y, bounds.width, (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT };
-    if ((text != NULL) && (bounds.height < RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT*2.0f)) bounds.height = RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT*2.0f;
-    
-    if (text != NULL)
-    {
-        // Move panel bounds after the header bar
-        bounds.y += (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
-        bounds.height -= (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
-    }
-    
-    // Draw control
-    if (text != NULL) GuiStatusBar(statusBar, text);  // Draw panel header as status bar
-    return result;
-
-}
-
-int GuiLabel(Rectangle bounds, const char *text)
-{
-    GuiState state = guiState;
-
-    Vector2 mousePoint = GetMousePosition();
-
-    // Check button state
-    if (CheckCollisionPointRec(mousePoint, bounds)){
-      state = STATE_FOCUSED;
-    // Handle mouse button down
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-      state = STATE_PRESSED;
-    }
-
-    GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LABEL, TEXT + (state*3))));
-    //--------------------------------------------------------------------
-    return state;
-}
 
 ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o){
   ui_element_d d;
@@ -86,6 +40,8 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
 
 
     e->text = GameCalloc("InitElementByName",1, MAX_LINE_LEN);
+    e->debug_text = GameCalloc("InitElementByName",1, MAX_LINE_LEN);
+
     if(d.text[0] == '\0')
       e->text[0] = '\0';
     else
@@ -108,13 +64,15 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
     if(d.num_children == 6)
       DO_NOTHING();
 
+    char prev_elem[MAX_NAME_LEN];
     for (int j = 0; j < d.num_children; j++){
       const char* c_name;
       if (d.kids[j][0] =='\0')
-        c_name = d.kids[0];
-      else
+        c_name = prev_elem;
+      else{
+        strcpy(prev_elem, d.kids[j]);
         c_name = d.kids[j];
-
+      }
       ui_element_t* c = InitElementByName(c_name, m, e);
       if(!c)
         continue;
@@ -277,74 +235,8 @@ void ElementAddChild(ui_element_t *o, ui_element_t* c){
   o->children[o->num_children++] = c;
 }
 
-float ElementGetHeightSum(ui_element_t *e){
-  if(e->state < ELEMENT_LOAD)
-    return 0;
-
-  float height = e->bounds.height;
-  if(e->owner)
-    height += e->owner->spacing[UI_PADDING_TOP];
-  float cheight = 0;
-  if (e->layout == LAYOUT_GRID){
-    cheight = e->bounds.height * e->owner->num_children / GRID_HEIGHT;
-    return height+cheight;
-  }
-
-  for(int i = 0; i < e->num_children; i++){
-    if(e->children[i]->align & ALIGN_OVER)
-      continue;
-
-    int hei = ElementGetHeightSum(e->children[i]);
-
-    switch(e->layout){
-      case LAYOUT_VERTICAL:
-      case LAYOUT_GRID:
-        cheight += hei; 
-        break;
-      default:
-        cheight = (height < hei)?hei:0;
-        break;
-    }
-  }
-  return height+cheight;
-}
-
-float ElementGetWidthSum(ui_element_t *e){
-  if(e->state < ELEMENT_IDLE)
-    return 0;
-
-  float width = e->bounds.width;// + e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_LEFT];
-
-  if(e->owner)
-  width += e->owner->spacing[UI_PADDING_RIGHT];
-
-  float cwidth = 0;
-  if (e->layout == LAYOUT_GRID){
-    cwidth = e->bounds.width * e->owner->num_children / GRID_WIDTH;
-    return width+cwidth;
-  }
-
-  for(int i = 0; i < e->num_children; i++){
-    if(e->children[i]->align & ALIGN_OVER)
-      continue;
-
-    switch(e->layout){
-      case LAYOUT_HORIZONTAL:
-      case LAYOUT_GRID:
-        cwidth += ElementGetWidthSum(e->children[i]);
-        break;
-      default:
-        cwidth = (width< ElementGetWidthSum(e->children[i]))?ElementGetWidthSum(e->children[i]):0;
-        break;
-    }
-  }
-
-  return width+cwidth;
-}
-
-
 void ElementResize(ui_element_t *e){
-  float centerx = VECTOR2_CENTER_SCREEN.x;
+ float centerx = VECTOR2_CENTER_SCREEN.x;
   float centery = VECTOR2_CENTER_SCREEN.y;
   float xinc = e->bounds.x;
   float yinc = e->bounds.y;
@@ -355,11 +247,9 @@ void ElementResize(ui_element_t *e){
 
   float paddingx = 0;
   float paddingy = 0;
-  float owidth = omarginx;
-  float oheight = omarginy; 
   float cwidths =0, cheights= 0;
 
-    if(e->num_children >= 20)
+    if(e->num_children == 5)
     DO_NOTHING();
 
   float tallest = e->bounds.height;
@@ -369,6 +259,8 @@ void ElementResize(ui_element_t *e){
       DO_NOTHING();
     }
     else{
+      if(e->layout == LAYOUT_STACK)
+        DO_NOTHING();
       int cwidth = ElementGetWidthSum(e->children[i]);
       if(cwidth > cwidths)
         cwidths = cwidth;
@@ -377,15 +269,16 @@ void ElementResize(ui_element_t *e){
       
       switch(e->layout){
         case LAYOUT_VERTICAL:
-          oheight+=c_hei;
+          c_hei += e->spacing[UI_PADDING_TOP];
+          c_hei += e->spacing[UI_PADDING_BOT];
+          cheights+=c_hei;
           break;
         case LAYOUT_HORIZONTAL:
           if(c_hei > cheights)
             cheights = c_hei;
           break;
         case LAYOUT_GRID:
-          cwidths = ElementGetWidthSum(e->children[i]);
-          cheights = ElementGetHeightSum(e->children[i]);
+          cheights = c_hei;
           break;
         case LAYOUT_FREE:
           int widths = ElementGetWidthSum(e->children[i]);
@@ -411,11 +304,13 @@ void ElementResize(ui_element_t *e){
     }
   }
 
-  if( owidth+cwidths > e->bounds.width)
-    e->bounds.width = owidth+cwidths;
-  if( oheight+cheights > e->bounds.height)
-    e->bounds.height =  oheight+cheights;
-
+  int t_wid = cwidths + e->spacing[UI_PADDING_RIGHT];
+  int t_hei = cheights + e->spacing[UI_PADDING_BOT];
+  if( t_wid > e->bounds.width)
+    e->bounds.width = t_wid;
+  if( t_hei > e->bounds.height)
+    e->bounds.height = t_hei;
+  
   UIAlignment align = e->align;
   if(e->owner && e->owner->layout != LAYOUT_FREE){
     xinc = e->owner->bounds.x;
@@ -442,20 +337,22 @@ void ElementResize(ui_element_t *e){
   if(e->owner){
     layout = e->owner->layout;
       paddingx = e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_LEFT];
-    paddingy = (e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_BOT]);
-    paddingx += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_RIGHT];
+    //paddingy = (e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_BOT]);
     paddingy += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_TOP];
 
   }
+
   Rectangle prior = RectPos(Vector2XY(xinc/ScreenSized(SIZE_SCALE),yinc),RECT_ZERO);
   if(e->index > 0){
     prior = e->owner->children[e->index-1]->bounds;
-    prior.height += e->owner->children[e->index-1]->spacing[UI_MARGIN_BOT];
+    //prior.height += e->owner->children[e->index-1]->spacing[UI_MARGIN_BOT];
   }
   switch(layout){
     case LAYOUT_VERTICAL:
       xinc += omarginx;
       yinc = omarginy+prior.y + prior.height + paddingy;
+      if(e->index > 0)
+        yinc += e->owner->spacing[UI_PADDING_BOT];
       break;
     case LAYOUT_HORIZONTAL:
       if(e->index > 0 )
@@ -468,14 +365,14 @@ void ElementResize(ui_element_t *e){
     case LAYOUT_GRID:
       if(!e->owner)
         break;
-      yinc += omarginy;
+      //yinc += omarginy;
       if(e->index > 0)
           yinc += paddingy;    
       switch(e->index%UI_GRID_WIDTH){
         case 1:
         case 2:
-          yinc = omarginy+prior.y + prior.height;
-          xinc = prior.x;
+          xinc = omarginx+prior.x + prior.width;
+          yinc = prior.y;
           break;  
         case 0:
           //yinc = omarginy+prior.y;//height;
@@ -495,7 +392,8 @@ void ElementResize(ui_element_t *e){
   }
 
   e->bounds = RectInc(e->bounds,xinc,yinc);
-  
+ 
+  StringBounds(&e->bounds, e->debug_text); 
   for(int i = 0; i < e->num_children; i++)
     ElementResize(e->children[i]);
 }
@@ -521,6 +419,13 @@ void ElementRender(ui_element_t* e){
       break;
     case UI_TEXT:
        GuiLabel(e->bounds,e->text);
+       break;
+    case UI_HEADER:
+       Rectangle header = e->bounds;
+       if(e->owner && e->owner->bounds.width > header.width)
+         header.width = e->owner->bounds.width;
+
+       GuiHeader(header, e->text);
        break;
     case UI_TOOL_TIP:
       active_tooltip = e;
@@ -552,6 +457,8 @@ void ElementRender(ui_element_t* e){
     default:
       break;
   }
+
+  //DrawText(e->debug_text, e->bounds.x, e->bounds.y, 11, RED);
 
   switch(state){
     case STATE_FOCUSED:      
@@ -591,7 +498,7 @@ void UISync(FetchRate poll){
     UISyncMenu(&ui.menus[i], poll);
   }
 
-  UIRender();
+  //UIRender();
 }
 
 void UISyncMenu(ui_menu_t* m, FetchRate poll){
@@ -1036,6 +943,9 @@ bool ElementShowContext(ui_element_t* e){
 }
 
 bool ElementSetContext(ui_element_t* e){
+  if(e->owner && e->owner->num_children == 6)
+    DO_NOTHING();
+
   if(e->get_ctx){
     e->ctx = e->get_ctx(e);
 
@@ -1045,7 +955,7 @@ bool ElementSetContext(ui_element_t* e){
     }
 
   }
-  return (e->ctx == NULL);
+  return (e->ctx != NULL);
 
 }
 void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
@@ -1061,6 +971,7 @@ void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
           if(e->bounds.width >= ev->l[i]->r_wid)
             continue;
 
+          e->width = ev->l[i]->r_wid;
           e->bounds.width = ev->l[i]->r_wid;
           resize = true;
         }
@@ -1072,12 +983,14 @@ void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
        ev->text_len = size.x;
        if(e->bounds.width < ev->text_len){
          e->bounds.width = ev->text_len;
+         e->width = ev->text_len;
          resize = true;
        }
        break;
   }
   if(ev->text_hei > e->bounds.height){
     e->bounds.height = ev->text_hei;
+    e->height = ev->text_hei;
     resize = true;
   }
 
@@ -1239,6 +1152,9 @@ element_value_t* GetTextSprite(ui_element_t* e, void* context){
 element_value_t* GetElementName(ui_element_t* e, void* context){
   ui_element_t* other = context;
 
+  if(!other || !other->name)
+    return NULL;
+
   if(e->delimiter != '\0')
     ElementSetText(e, StringSplit(other->name, e->delimiter));
   else
@@ -1335,6 +1251,34 @@ element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_v
   ElementValueSyncSize(e, ev);
 
   return ev;
+}
+
+element_value_t* GetOwnerValue(ui_element_t* e, void* context){
+  if(!e->owner || e->owner->value == NULL)
+    return NULL;
+
+  return e->owner->value;
+
+}
+
+element_value_t* GetOwnerText(ui_element_t* e, void* context){
+  if(!e->owner)
+    return NULL;
+
+  if(e->owner->text[0] == '\0')
+    return NULL;
+
+  element_value_t *ev = GameCalloc("GetOwnerText", 1,sizeof(element_value_t));
+
+  ev->type = VAL_CHAR;
+  ev->rate = FETCH_ONCE;
+  ev->c = GameMalloc("GetOwnerText", sizeof(char)*MAX_NAME_LEN);
+
+  strcpy(ev->c, e->owner->text);
+  ElementValueSyncSize(e, ev);
+
+  return ev;
+
 }
 
 element_value_t* GetContextName(ui_element_t* e, void* context){
@@ -1446,6 +1390,19 @@ void UIItemEvent(EventType event, void* data, void* user){
   }
 }
 
+bool ElementSetContextParams(ui_element_t* e){
+  if(!ElementSetContext(e))
+    return false;
+
+  if(e->num_children == 0)
+    return false;
+
+  for (int i = 0; i < 5; i++)
+    e->children[0]->params[i] = e->params[i];
+
+  return true;
+}
+
 bool ElementInventoryContext(ui_element_t* e){
   for(int i = 0; i < 4; i++){
     if(e->params[i] == PARAM_NONE)
@@ -1540,16 +1497,24 @@ void* ElementOwnerChildren(void* p){
     e->children[i]->ctx = others[i];
 }
 
+void* ElementGetOwnerContextParams(void* p){
+  ui_element_t* c = p; 
+
+  if(!c->owner)
+    return NULL;
+
+  c->num_params = c->owner->num_params;
+  memcpy(c->params, c->owner->params, sizeof(c->owner->params));
+
+  return c->owner->ctx;
+}
+
 void* ElementGetOwnerContext(void* p){
   ui_element_t* c = p; 
 
   if(!c->owner)
     return NULL;
 
-  if(c->type == UI_TOOL_TIP){
-    c->num_params = c->owner->num_params;
-    memcpy(c->params, c->owner->params, sizeof(c->owner->params));
-  }
   //TraceLog(LOG_INFO, "======= GET OWNER CONTEXT ====\n %s ctx set to %s ctx", c->name, c->owner->name);
 
   return c->owner->ctx;
@@ -1568,3 +1533,97 @@ void* ElementGetScreenSelection(void* p){
   return ui.contexts[SCREEN_CTX_HOVER];
 
 }
+
+
+
+int GuiTooltipControl(Rectangle bounds, const char* text){
+    int result = 0;
+    GuiState state = guiState;
+
+    Color col = GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BASE_COLOR_DISABLED : (int)BACKGROUND_COLOR));
+    col.a = 255;
+    col = ColorLerp(col, BLACK, 0.33);
+    GuiDrawRectangle(bounds, RAYGUI_PANEL_BORDER_WIDTH, GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BORDER_COLOR_DISABLED : (int)LINE_COLOR)), col);
+    //--------------------------------------------------------------------
+
+
+    // Text will be drawn as a header bar (if provided)
+    Rectangle statusBar = { bounds.x, bounds.y, bounds.width, (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT };
+    if ((text != NULL) && (bounds.height < RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT*2.0f)) bounds.height = RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT*2.0f;
+
+    if (text != NULL)
+    {
+        // Move panel bounds after the header bar
+        bounds.y += (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
+        bounds.height -= (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
+    }
+
+    // Draw control
+    if (text != NULL) GuiStatusBar(statusBar, text);  // Draw panel header as status bar
+    return result;
+
+}
+
+int GuiLabel(Rectangle bounds, const char *text)
+{
+    GuiState state = guiState;
+
+    Vector2 mousePoint = GetMousePosition();
+
+    // Check button state
+    if (CheckCollisionPointRec(mousePoint, bounds)){
+      state = STATE_FOCUSED;
+    // Handle mouse button down
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+      state = STATE_PRESSED;
+    }
+
+    GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LABEL, TEXT + (state*3))));
+    //--------------------------------------------------------------------
+    return state;
+}
+
+int GuiPanel(Rectangle bounds, const char *text)
+{   
+    #if !defined(RAYGUI_PANEL_BORDER_WIDTH)
+        #define RAYGUI_PANEL_BORDER_WIDTH   1
+    #endif
+
+    int result = 0;
+    GuiState state = guiState;
+    
+    // Text will be drawn as a header bar (if provided)
+
+    GuiDrawRectangle(bounds, RAYGUI_PANEL_BORDER_WIDTH, GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BORDER_COLOR_DISABLED : (int)LINE_COLOR)),
+                     GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BASE_COLOR_DISABLED : (int)BACKGROUND_COLOR)));
+    //--------------------------------------------------------------------
+    return result;
+}
+
+int GuiHeader(Rectangle bounds, const char *text){
+#if !defined(RAYGUI_PANEL_BORDER_WIDTH)
+#define RAYGUI_PANEL_BORDER_WIDTH   1
+#endif
+
+  int result = 0;
+  GuiState state = guiState;
+
+  // Text will be drawn as a header bar (if provided)
+  Rectangle statusBar = { bounds.x, bounds.y, bounds.width, (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT };
+  if ((text != NULL) && (bounds.height < RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT*2.0f)) bounds.height = RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT*2.0f;
+
+  if (text != NULL)
+  {
+    // Move panel bounds after the header bar
+    bounds.y += (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
+    bounds.height -= (float)RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT - 1;
+  }
+
+  // Draw control
+  //--------------------------------------------------------------------
+  if (text != NULL) GuiStatusBar(statusBar, text);  // Draw panel header as status bar 
+
+  return result;
+}
+
+

@@ -179,12 +179,15 @@ void InventoryItemEvent(EventType ev, void* edata, void* udata){
   inventory_t* inv = udata;
   item_t* item = edata;
 
+  if(!item)
+    return;
+
   switch(ev){
     case EVENT_ITEM_DESTROY:
       int index = item->index;
       inv->items[item->index] = inv->items[inv->count];
 
-      WorldEvent(EVENT_INV_REMOVE, inv, index);
+      WorldEventOnce(EVENT_INV_REMOVE, inv, index);
       GameFree("InventoryItemEvent", item);
       break;
     default:
@@ -364,7 +367,7 @@ bool ItemDestroy(value_t* v, void* ctx){
     return false;
 
   item_t* item = ctx;
-  WorldEvent(EVENT_ITEM_DESTROY, item, item->gouid);
+  WorldEventOnce(EVENT_ITEM_DESTROY, item, item->gouid);
 }
 
 item_def_t* DefineConsumableByDef(consume_def_t *def){
@@ -996,7 +999,9 @@ bool AbilityCanTarget(ability_t* a, local_ctx_t* target){
     return false;
 
   int reach = a->stats[STAT_REACH]->current;
-  if( target->dist <= reach)
+  int dist = cell_distance(e->pos, target->pos);
+
+  if(dist <= reach)
     return true;
 
   return false;

@@ -259,6 +259,9 @@ void EventEmit(event_bus_t* bus, event_t* e){
 
     bus->subs[i].cb(e->type, e->data, bus->subs[i].user_data);
   }
+
+  if(e->once)
+    EventRemove(bus, e->iuid);
 }
 
 cooldown_t* InitCooldown(int dur, EventType type, CooldownCallback on_end_callback, void* params){
@@ -983,8 +986,6 @@ void LocalSyncCtx(local_table_t* s, local_ctx_t* ctx){
 
 void LocalSync(local_table_t* s, bool sort){
   LocalPrune(s);
-  int dist_change = 0;
-
 
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
@@ -997,10 +998,12 @@ void LocalSync(local_table_t* s, bool sort){
     if(s->valid && wctx->ctx_revision == ctx->ctx_revision)
       continue;
 
+    if(s->owner->gouid == player->gouid)
+      DO_NOTHING();
+
     ctx->ctx_revision = wctx->ctx_revision;
     int dist = cell_distance(s->owner->pos, wctx->pos);
     if(dist != ctx->dist){
-      dist_change += abs(dist - ctx->dist);
       ctx->dist = dist;
       ctx->pos = wctx->pos;
       /*if(this_changed)

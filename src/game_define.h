@@ -1851,7 +1851,7 @@ typedef struct{
   AbilityID     id;
   bool          tome,scroll;
   Archetype     base,has;
-  int           lvl,ranks,priority;
+  int           lvl,ranks,priority,weight;
   SpeciesType   racial;
 }define_ability_class_t;
 

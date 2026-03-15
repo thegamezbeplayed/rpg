@@ -550,8 +550,10 @@ element_value_t* StatGetPretty(element_value_t* self, void* context){
 element_value_t* InventoryGetItem(element_value_t* self, void* context){
   inventory_t* inv = context;
 
-  if(!inv || inv->count <= self->index)
+  if(!inv || inv->count <= self->index){
+    self->s = NULL;
     return NULL;
+  }
 
   item_t* item = &inv->items[self->index];
   if(!item || !item->def)
@@ -629,8 +631,6 @@ int SetCtxDetails(local_ctx_t* ctx , line_item_t** li, const char fmt[PARAM_ALL]
     li[count]->r_hei = size.y;
 
     count++;
-
-  
   }
 
   return count;
@@ -649,6 +649,9 @@ int SetCtxDescription(void* ctx , line_item_t** li, GameObjectParam p, int pad[U
   switch (p){
     case PARAM_ITEM:
       item_t* item = ctx;
+      if(!item || !item->def)
+        return 0;
+
       switch(item->def->category){
         case ITEM_WEAPON:
           lines = GetWeapDesc(li, item);

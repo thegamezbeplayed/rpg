@@ -1714,6 +1714,9 @@ TileStatus EntGridStep(ent_t *e, Cell step){
     e->old_pos = oldPos;
     e->facing = CellInc(e->pos,step);
     e->local->valid = false;
+   if(e->gouid == player->gouid)
+      DO_NOTHING();
+
     WorldEvent(EVENT_UPDATE_LOCAL_CTX, &e->gouid, e->gouid);
     WorldEvent(EVENT_ENT_STEP, e, e->gouid);
     //WorldContextChange(OBJ_ENT, e->gouid);

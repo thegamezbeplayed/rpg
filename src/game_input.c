@@ -1,7 +1,7 @@
 #include "game_types.h"
 #include "game_process.h"
 
-static game_input_t player_input;
+game_input_t player_input;
 
 
 BehaviorStatus InputActionMove(ent_t* e, action_key_t akey, KeyboardKey k){
@@ -58,7 +58,22 @@ BehaviorStatus InputActionMagic(ent_t* e, action_key_t a, KeyboardKey k){
 
 }
 
-void InputSetTarget(ent_t* e, ActionType a, local_ctx_t* target){
+void InputSetTarget(ent_t* e, ActionType a, local_ctx_t* tar){
+  if(!tar || !player_input.sel_abi)
+    return;
+
+  ability_t* abi = player_input.sel_abi;
+
+  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_ABILITY] = ParamMakeObj(DATA_ABILITY, abi->id , abi);
+
+  param_t p = ParamMake(DATA_LOCAL_CTX, sizeof(local_ctx_t), tar);
+  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_TAR] = p;
+
+  action_t* act = InitActionByDecision(player_input.decisions[ACTION_ATTACK], ACTION_ATTACK);
+ 
+  if(ActionExecute(ACTION_ATTACK, act) == BEHAVIOR_SUCCESS)
+    WorldEvent(EVENT_PLAYER_INPUT, act, player->gouid);
+
 
 }
 
@@ -88,6 +103,7 @@ BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
       break;
     case DES_SEL_TAR:
     case DES_MULTI_TAR:
+      player_input.sel_abi = abi;
       ScreenActivateSelector(e->pos, 1, true, InputSetTarget);
       return BEHAVIOR_RUNNING;
       break;
@@ -114,9 +130,12 @@ BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
 
 }
 
+
+
 void InitInput(ent_t* player){
   player_input.owner = player;
 
+  player_input.active = true;
   player->control->decider[STATE_STANDBY] = InitDecisionPool(ACTION_DONE, player, STATE_STANDBY);
 
   for(int i = 0; i < ACTION_PASSIVE; i++){
@@ -146,6 +165,9 @@ void InputSync(TurnPhase phase, int turn){
 bool InputCheck(TurnPhase phase, int turn){
   if(IsKeyDown(KEY_SPACE))
     moncontrol(1);
+
+  if(!player_input.active)
+    return false;
 
   if(!player->control->actions->options[phase])
     return false;

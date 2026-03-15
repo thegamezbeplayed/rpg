@@ -52,6 +52,7 @@ int main(void)
   // Main game loop
   while (!WindowShouldClose() && !wantQuit)    // Detect window close button or ESC key
   {
+    UIRender();
     bool wait = true;
     if (IsKeyPressed(KEY_TAB))// || IsGestureDetected(GESTURE_TAP))
     {

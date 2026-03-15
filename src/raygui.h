@@ -1578,7 +1578,7 @@ int GuiLine(Rectangle bounds, const char *text)
 }
 
 // Panel control
-int GuiPanel(Rectangle bounds, const char *text)
+int CUSTOMGuiPanel(Rectangle bounds, const char *text)
 {
     #if !defined(RAYGUI_PANEL_BORDER_WIDTH)
         #define RAYGUI_PANEL_BORDER_WIDTH   1

@@ -146,6 +146,9 @@ void InitScreenInteractive(void){
 }
 
 void ScreenActivateSelector(Cell pos, int num, bool occupied, SelectionCallback on_select){
+  if(!keyctrl.active)
+    InputToggle();
+
   keyctrl.active = true;
   keyctrl.pos = pos;
   keyctrl.desired = num;
@@ -159,14 +162,13 @@ bool ScreenSelectorInput(void){
     return false;
 
   for(int i = 0; i < ACTION_DONE; i++){
-    ActionType a = selector_keys[i].action;
     ActionKeyCallback fn = selector_keys[i].fn;
     for(int j = 0; j<selector_keys[i].num_keys; j++){
       KeyboardKey k = selector_keys[i].keys[j];
       if(!IsKeyPressed(k))
         continue;
 
-      //return fn(player,a,k,SLOT_NONE);
+      return fn(player,selector_keys[i],k);
     }
   }
 }
@@ -184,7 +186,7 @@ key_controller_t* ScreenGetSelection(void){
   return &keyctrl;
 }
 
-bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k, int binding){
+BehaviorStatus ScreenMakeSelection(struct ent_s* e, action_key_t a, KeyboardKey k){
   map_cell_t* sel = WorldGetTile(keyctrl.pos);
 
   if(keyctrl.occupied && sel->occupant==NULL)
@@ -192,13 +194,13 @@ bool ScreenMakeSelection(struct ent_s* e, ActionType a, KeyboardKey k, int bindi
 
   keyctrl.selections[keyctrl.selected++] = sel;
   if(keyctrl.on_select){
-    local_ctx_t* ctx = WorldGetContext(DATA_MAP_CELL, sel->gouid);
-    keyctrl.on_select(player, a, ctx);
+    local_ctx_t* ctx = WorldGetContext(DATA_ENTITY, sel->occupant->gouid);
+    keyctrl.on_select(player, a.action, ctx);
   }
   return true;
 }
 
-bool ScreenMoveSelector(struct ent_s* e, ActionType a, KeyboardKey k, int binding){
+BehaviorStatus ScreenMoveSelector(struct ent_s* e, action_key_t a, KeyboardKey k){
 
   Cell dir;
 
@@ -335,6 +337,7 @@ void ScreenSyncKey(void){
   if(ScreenSelectorInput())
     if(keyctrl.selected >= keyctrl.desired){
       keyctrl.active = false;
+      InputToggle();
       //ActionType next = ActionGetEntNext(player);
       //action_turn_t* action = player->actions[next];
       //TakeAction(player,action);

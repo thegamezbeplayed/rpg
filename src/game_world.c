@@ -11,6 +11,19 @@ int tree_cache_count = 0;
 ent_t* player = {0};
 world_t world;
 
+void WorldEventOnce(EventType type, void* data, uint64_t uid){
+ event_t event = {
+    .type = type,
+    .data = data,
+    .iuid = uid,
+    .once = true
+  };
+
+  if(game_process.bus->count)
+    EventEmit(game_process.bus, &event);
+
+}
+
 void WorldEvent(EventType type, void* data, uint64_t uid){
   event_t event = {
     .type = type,
@@ -461,7 +474,6 @@ void WorldInitOnce(){
   SetState(player, STATE_IDLE, NULL);
   WorldContextInitOnce();
  
-  LootDraw(player,3); 
   InteractionStep();
   
   for(int i = 0; i< world.num_ent; i++)

@@ -205,6 +205,8 @@ ent_t* WorldPlayer(void);
 env_t* WorldGetEnvById(unsigned int uid);
 void WorldSubscribe(EventType, EventCallback, void*);
 void WorldTargetSubscribe(EventType event, EventCallback cb, void* data, uint64_t iid);
+
+void WorldEventOnce(EventType type, void* data, uint64_t uid);
 void WorldEvent(EventType, void*, uint64_t);
 static void WorldUnsub(uint64_t id){
   EventRemove(game_process.bus, id);
