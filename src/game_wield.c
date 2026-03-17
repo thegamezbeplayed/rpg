@@ -184,6 +184,8 @@ void InventoryItemEvent(EventType ev, void* edata, void* udata){
 
   switch(ev){
     case EVENT_ITEM_DESTROY:
+      TraceLog(LOG_INFO, "Attempt to destroy item in inv:%s", INV_STRINGS[inv->id]);
+      TraceLog(LOG_INFO, "DESTROY ITEM: %s", item->def->name);
       int index = item->index;
       inv->items[item->index] = inv->items[inv->count];
 
@@ -666,6 +668,9 @@ bool ItemSkillup(ent_t* owner, item_t* item, InteractResult result){
 
 InteractResult AbilityLearn(ent_t* owner,  ability_t* a, ent_t* target){
   bool result = ActionSlotAddAbility(target, InitAbility(owner, a->chain_id));
+
+  if(result)
+    WorldEvent(EVENT_LEARN, a, owner->gouid);
 }
 
 int GetWeaponByTrait(Traits t, weapon_def_t *arms){

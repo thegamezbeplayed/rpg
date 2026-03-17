@@ -178,8 +178,9 @@ void ScreenApplyContext(local_ctx_t* ctx[SCREEN_CTX_ALL]){
       ctx[i] = mousectrl.ctx[i];
 }
 
-void* ScreenSelectContext(void*){
-  return mousectrl.ctx[SCREEN_CTX_TAR];
+param_t ScreenSelectContext(void* p){
+  local_ctx_t *ctx = mousectrl.ctx[SCREEN_CTX_TAR];
+  return ParamMakeObj(DATA_LOCAL_CTX, ctx->gouid, ctx);
 }
 
 key_controller_t* ScreenGetSelection(void){

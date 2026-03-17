@@ -80,6 +80,8 @@ typedef enum{
 
 typedef enum {
   DATA_NONE,
+  DATA_ARRAY,
+  DATA_PARAM,
   DATA_INT,
   DATA_FLOAT,
   DATA_BOOL,
@@ -100,6 +102,7 @@ typedef enum {
   DATA_ITEM,
   DATA_INV,
   DATA_LOCAL_CTX,
+  DATA_ELEM,
   DATA_ALL,
 } DataType;
 
@@ -921,6 +924,7 @@ typedef enum{
   EVENT_ENT_ACTIVITY,
   EVENT_COMBAT_ACTIVITY,
   EVENT_STAT_ACTIVITY,
+  EVENT_LEARN,
   EVENT_LOG_ACTIVITY,
   EVENT_TURN_END,
   EVENT_ROOM_READY,

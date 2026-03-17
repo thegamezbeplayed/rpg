@@ -16,7 +16,7 @@ void WorldEventOnce(EventType type, void* data, uint64_t uid){
     .type = type,
     .data = data,
     .iuid = uid,
-    .once = true
+    .max  = 1
   };
 
   if(game_process.bus->count)
@@ -480,6 +480,7 @@ void WorldInitOnce(){
     EntInitOnce(world.ents[i]);
 
   InitInput(player);
+  LootDraw(player, 6);
   WorldValidateContext();
   WorldEvent(EVENT_ENT_STEP, player, player->gouid);
 }

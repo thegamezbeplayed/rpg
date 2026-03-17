@@ -171,9 +171,9 @@ void WorldApplyLocalContext(ent_t* e);
 local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid);
 local_ctx_t* WorldContextAtPos(DataType type, Vector2);
 void WorldContextChange(ObjectCategory cat, game_object_uid_i gouid);
-static void* WorldPlayerContext(void*){
-  return WorldGetContext(DATA_ENTITY, player->gouid);
-
+static param_t WorldPlayerContext(void*){
+  local_ctx_t* ctx = WorldGetContext(DATA_ENTITY, player->gouid);
+  return ParamMakeObj(DATA_LOCAL_CTX, ctx->gouid, ctx);
 }
 
 typedef struct world_s{

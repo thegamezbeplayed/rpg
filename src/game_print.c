@@ -107,11 +107,8 @@ char *TextFormatLineItem(line_item_t *item) {
     return buffer;
 }
 
-element_value_t* CtxGetItem(void* c, GameObjectParam p, int index){
-
-  inventory_t* inv = c;
-
-  if(!inv)
+element_value_t* CtxGetItem(param_t ctx, GameObjectParam p, int index){
+  if(ctx.type_id != DATA_INV)
     return NULL;
 
   element_value_t* ev = GameCalloc("CtxGetItem", 1,sizeof(element_value_t));
@@ -119,7 +116,7 @@ element_value_t* CtxGetItem(void* c, GameObjectParam p, int index){
   ev->type = VAL_ICO;
   ev->rate = FETCH_EVENT;
   ev->index = index;
-  ev->context = inv;
+  ev->context = ctx;
   ev->get_val = InventoryGetItem;
 
   return ev;
@@ -141,7 +138,7 @@ int CtxGetSkill(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   element_value_t* cur = GameCalloc("CtxGetSkill", 1,sizeof(element_value_t));
 
   cur->rate = FETCH_TURN;
-  cur->context = skill;
+  cur->context = ctx->params[p];
   cur->c = malloc(sizeof(char)*MAX_NAME_LEN);
    
   cur->type = VAL_CHAR;
@@ -171,7 +168,7 @@ int CtxGetSkillDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam
   element_value_t* cur = GameCalloc("CtxGetSkillDetails", 1,sizeof(element_value_t));
 
   cur->rate = FETCH_TURN;
-  cur->context = skill;
+  cur->context = ctx->params[p];
   cur->i = GameMalloc("CtxGetSkillDetails", sizeof(int));
    
   cur->type = VAL_INT;
@@ -225,7 +222,7 @@ int CtxGetAttr(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   cur->type = VAL_CHAR;
   cur->rate = FETCH_TURN;
   cur->get_val = AttrGetPretty;
-  cur->context = attribute;
+  cur->context = ctx->params[p];
   cur->c = GameMalloc("CtxGetAttr", sizeof(char)*MAX_NAME_LEN);
         
   fill[0] = lbl;
@@ -241,7 +238,7 @@ int CtxGetStat(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   stat_t* stat = ParamRead(&ctx->params[p], stat_t);
   element_value_t* lbl = GameCalloc("CtxGetStat", 1,sizeof(element_value_t));
 
-  lbl->context = stat;
+  lbl->context = ctx->params[p];
   lbl->type = VAL_CHAR;
   lbl->c = GameMalloc("CtxGetStat", sizeof(char)*MAX_NAME_LEN);
   strcpy(lbl->c ,STAT_STRING[stat->type].name);
@@ -253,7 +250,7 @@ int CtxGetStat(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   cur->type = VAL_CHAR;
   cur->rate = FETCH_TURN;
   cur->get_val = StatGetPretty;
-  cur->context = stat;
+  cur->context = ctx->params[p];
   cur->c = GameMalloc("CtxGetStat", sizeof(char)*MAX_NAME_LEN);
 
   fill[0] = lbl;
@@ -487,7 +484,7 @@ int CtxGetStatDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam 
   cur->type = VAL_CHAR;
   cur->rate = FETCH_TURN;
   cur->get_val = StatGetPretty;
-  cur->context = stat;
+  cur->context = ctx->params[p];
   cur->c = GameMalloc("CtxGetStatDetails",sizeof(char)*MAX_NAME_LEN);
 
   fill[0] = lbl;
@@ -515,8 +512,8 @@ int CtxGetString(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   return 1;
 }
 
-element_value_t* AttrGetPretty(element_value_t* self, void* context){
-  attribute_t* attribute =  context;
+element_value_t* AttrGetPretty(element_value_t* self, param_t context){
+  attribute_t* attribute =  ParamRead(&context, attribute_t);
 
   switch(self->type){
     case VAL_INT:
@@ -531,8 +528,11 @@ element_value_t* AttrGetPretty(element_value_t* self, void* context){
 
 }
 
-element_value_t* StatGetPretty(element_value_t* self, void* context){
-  stat_t* stat =  context;
+element_value_t* StatGetPretty(element_value_t* self, param_t context){
+  if(context.type_id != DATA_STAT)
+    return NULL;
+
+  stat_t* stat =  ParamRead(&context, stat_t);
 
   switch(self->type){
     case VAL_INT:
@@ -547,8 +547,11 @@ element_value_t* StatGetPretty(element_value_t* self, void* context){
   }
 }
 
-element_value_t* InventoryGetItem(element_value_t* self, void* context){
-  inventory_t* inv = context;
+element_value_t* InventoryGetItem(element_value_t* self, param_t context){
+  if(context.type_id != DATA_INV)
+    return NULL;
+
+  inventory_t* inv = ParamRead(&context, inventory_t);
 
   if(!inv || inv->count <= self->index){
     self->s = NULL;
@@ -562,8 +565,11 @@ element_value_t* InventoryGetItem(element_value_t* self, void* context){
   self->s = item->def->sprite;
 }
 
-element_value_t* SkillGetPretty(element_value_t* self, void* context){
-  skill_t* skill =  context;
+element_value_t* SkillGetPretty(element_value_t* self, param_t context){
+   if(context.type_id != DATA_SKILL)
+    return NULL;
+
+  skill_t* skill =  ParamRead(&context, skill_t);
 
   switch(self->type){
     case VAL_INT:
@@ -636,7 +642,7 @@ int SetCtxDetails(local_ctx_t* ctx , line_item_t** li, const char fmt[PARAM_ALL]
   return count;
 }
 
-int SetCtxDescription(void* ctx , line_item_t** li, GameObjectParam p, int pad[UI_POSITIONING]){
+int SetCtxDescription(param_t ctx , line_item_t** li, int pad[UI_POSITIONING]){
 
   int p_left = pad[UI_PADDING_LEFT];
   int p_right = pad[UI_PADDING_RIGHT];
@@ -646,9 +652,9 @@ int SetCtxDescription(void* ctx , line_item_t** li, GameObjectParam p, int pad[U
   int des_len = li[0]->des_len;
   char* format = "%s";
 
-  switch (p){
-    case PARAM_ITEM:
-      item_t* item = ctx;
+  switch (ctx.type_id){
+    case DATA_ITEM:
+      item_t* item = ParamRead(&ctx, item_t);
       if(!item || !item->def)
         return 0;
 
@@ -693,7 +699,7 @@ int SetActivityLines(element_value_t* ev, int pad[UI_POSITIONING]){
   char* fmt = "%s";
   element_value_t* base[MAX_LINE_VAL];
 
-  int *pos = ev->context;
+  int *pos = ParamRead(&ev->context, int);
   int items = ActivitiesAssignValues(base, *pos);
   ev->l[0] = InitLineItem(base, items, fmt);
 
@@ -719,10 +725,9 @@ int SetActivityLines(element_value_t* ev, int pad[UI_POSITIONING]){
   return 1;
 }
 
-element_value_t* SetCtxItems(void *ctx, GameObjectParam params[4], int index){
+element_value_t* SetCtxItems(param_t ctx, GameObjectParam params[4], int index){
 
-        return CtxGetItem(ctx, params[0], index);
-  return NULL;
+  return CtxGetItem(ctx, params[0], index);
 }
 
 int SetParamDescription(line_item_t** li, int count, param_t param){

@@ -339,18 +339,19 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
 
     },
   },
-  {"ACTIVITY_PANEL", VECTOR2_ZERO, VECTOR2_ZERO, UI_PANEL,
+  {"ACTIVITY_PANEL", UI_PANEL_BOT, VECTOR2_ZERO, UI_PANEL,
     ELEMENT_NONE, LAYOUT_STACK,  0,
     NULL, NULL, 
     {
       [ELEMENT_IDLE] = ElementLoadChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
     },
-    .num_children = 1, .kids = {
+    .num_children = 2, .kids = {
+      "PLAYER_PANEL_HEADERS",
       "COMBAT_LOG",
     },
     .text = "Activity Log",
-    .spacing = {[UI_PADDING_TOP] = 16, [UI_MARGIN_TOP] = 0}
+    .spacing = {[UI_PADDING_BOT] = 20, [UI_MARGIN_TOP] = 0}
   },
   {"COMBAT_LOG", VECTOR2_ZERO, UI_LOG_HOR, UI_CONTAINER, ELEMENT_NONE,
     LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_BOT, NULL, NULL,
@@ -361,7 +362,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       "COMBAT_TEXT",
     },
     .spacing = {
-      [UI_MARGIN_TOP] = 8
+      [UI_MARGIN_TOP] = 20
     }
   },
   {"COMBAT_TEXT", VECTOR2_ZERO, LABEL_LOG, UI_TEXT,

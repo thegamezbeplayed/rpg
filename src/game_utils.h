@@ -38,6 +38,7 @@ typedef struct{
   size_t            size;
 }param_t;
 
+static param_t EMPTY_PARAM = {0,DATA_NONE};
 typedef struct{
   DebugType type;
   Color     color;
@@ -70,6 +71,19 @@ static param_t ParamMakeObj(DataType type, game_object_uid_i uid, void* src) {
   o.gouid = uid;
   o.data = src;
   return o;
+}
+
+static param_t ParamMakeArray(DataType type, game_object_uid_i uid, void* src, int count){
+
+  param_t p = {
+    uid,
+    type,
+    src,
+    count
+  };
+
+  return p;
+
 }
 
 static void ParamUpdate(param_t* p, DataType type, size_t size, const void* src)

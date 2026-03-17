@@ -30,7 +30,7 @@ void ScreenCameraSetBounds(Cell b);
 Rectangle ScreenGetCameraView(void);
 
 local_ctx_t* ScreenPlayerContext(void*);
-void* ScreenSelectContext(void*);
+param_t ScreenSelectContext(void*);
 
 typedef struct{
   bool    is_dragging;

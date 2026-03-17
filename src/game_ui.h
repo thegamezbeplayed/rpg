@@ -186,17 +186,17 @@ void PrintMobDetail(ent_t* e);
 int EntGetStatPretty(element_value_t **fill, stat_t* stat);
 int EntGetNamePretty(element_value_t **fill, ent_t* e );
 int CtxGetString(element_value_t **fill, local_ctx_t*, GameObjectParam);
-element_value_t* InventoryGetItem(element_value_t* self, void* context);
-element_value_t* AttrGetPretty(element_value_t* self, void* context);
-element_value_t* StatGetPretty(element_value_t* self, void* context);
-element_value_t* SkillGetPretty(element_value_t* self, void* context);
+element_value_t* InventoryGetItem(element_value_t* self, param_t context);
+element_value_t* AttrGetPretty(element_value_t* self, param_t context);
+element_value_t* StatGetPretty(element_value_t* self, param_t context);
+element_value_t* SkillGetPretty(element_value_t* self, param_t context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
 int SetParamDescription(line_item_t** li, int count, param_t param);
 int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
-element_value_t* SetCtxItems(void*, GameObjectParam params[4], int);
+element_value_t* SetCtxItems(param_t, GameObjectParam params[4], int);
 int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
-int SetCtxDescription(void* , line_item_t**, GameObjectParam, int pad[UI_POSITIONING]);
+int SetCtxDescription(param_t , line_item_t**, int pad[UI_POSITIONING]);
 char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING], char* out);
 
 int GuiTooltipControl(Rectangle bounds, const char* text);
@@ -211,8 +211,8 @@ typedef enum {
   VAL_LN,
 } ValueType;
 
-typedef element_value_t* (*ElementFetchValue)(element_value_t* e, void* context);
-typedef element_value_t* (*ElementSetValue)(ui_element_t* e, void* context);
+typedef element_value_t* (*ElementFetchValue)(element_value_t* e, param_t);
+typedef element_value_t* (*ElementSetValue)(ui_element_t* e, param_t);
 
 struct element_value_s{
   FetchRate   rate;
@@ -225,7 +225,7 @@ struct element_value_s{
     sprite_t      *s;
   };
   size_t            char_len, num_ln, text_len, text_hei;
-  void*             context;
+  param_t           context;
   int               index;
   bool              reverse;
   ElementFetchValue get_val;
@@ -234,17 +234,16 @@ struct element_value_s{
 typedef void (*ElementValueSync)(ui_element_t* e, FetchRate poll);
 void ElementSetText(ui_element_t* e, char* str);
 
-typedef void* (*ElementDataContext)(void*);
-void* ElementGetOwnerContext(void*);
-void* ElementGetOwnerContextParams(void*);
-void* ElementMatchTab(void*);
-void* ElementOwnerItemContext(void*);
-void* ElementOwnerChildren(void*);
-void* ElementNiblings(void *);
-void* ElementOwnerTextAt(void*);
-void* ElementPresetContext(void*);
-void* ElementGetScreenSelection(void* p);
-void* ElementIndexContext(void* p);
+typedef param_t (*ElementDataContext)(void*);
+param_t ElementGetOwnerContext(void*);
+param_t ElementGetOwnerContextParams(void*);
+param_t ElementOwnerItemContext(void*);
+param_t ElementOwnerChildren(void*);
+param_t ElementNiblings(void *);
+param_t ElementOwnerTextAt(void*);
+param_t ElementPresetContext(void*);
+param_t ElementGetScreenSelection(void* p);
+param_t ElementIndexContext(void* p);
 bool ElementScreenContext(ui_element_t* e);
 bool ElementActivityContext(ui_element_t* e);
 bool ElementInventoryContext(ui_element_t* e);
@@ -276,6 +275,7 @@ typedef struct{
 
 struct ui_element_s{
   uint32_t            hash;
+  game_object_uid_i   gouid;
   char                name[MAX_NAME_LEN];
   int                 index,active;
   struct ui_menu_s    *menu;
@@ -299,7 +299,7 @@ struct ui_element_s{
   ui_element_t*       children[MAX_SUB_ELE];
   ElementDataContext  get_ctx;
   GameObjectParam     params[4];
-  void*               ctx;
+  param_t             ctx;
   char                delimiter;
 };
 
@@ -361,27 +361,21 @@ bool ElementSetActiveTab(ui_element_t* e);
 struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
-element_value_t* GetContextParams(ui_element_t* e, void* context);
-element_value_t* GetContextVal(ui_element_t* e, void* context);
-element_value_t* GetContextName(ui_element_t* e, void* context);
-element_value_t* GetOwnerValue(ui_element_t* e, void* context);
-element_value_t* GetOwnerText(ui_element_t* e, void* context);
-element_value_t* GetContextValueName(ui_element_t* e, void* context);
-element_value_t* GetContextItem(ui_element_t* e, void* context);
-element_value_t* GetTextSprite(ui_element_t* e, void* context);
-element_value_t* GetElementName(ui_element_t* e, void* context);
-element_value_t* GetActivityEntry(ui_element_t* e, void* context);
-element_value_t* GetContextStat(ui_element_t* e, void* context);
-element_value_t* GetContextDetails(ui_element_t* e, void* context);
-element_value_t* GetContextDescription(ui_element_t* e, void* context);
+element_value_t* GetContextParams(ui_element_t* e, param_t context);
+element_value_t* GetContextVal(ui_element_t* e, param_t context);
+element_value_t* GetContextName(ui_element_t* e, param_t context);
+element_value_t* GetOwnerValue(ui_element_t* e, param_t context);
+element_value_t* GetOwnerText(ui_element_t* e, param_t context);
+element_value_t* GetContextValueName(ui_element_t* e, param_t context);
+element_value_t* GetContextItem(ui_element_t* e, param_t context);
+element_value_t* GetTextSprite(ui_element_t* e, param_t context);
+element_value_t* GetElementName(ui_element_t* e, param_t context);
+element_value_t* GetActivityEntry(ui_element_t* e, param_t context);
+element_value_t* GetContextStat(ui_element_t* e, param_t context);
+element_value_t* GetContextDetails(ui_element_t* e, param_t context);
+element_value_t* GetContextDescription(ui_element_t* e, param_t context);
 
 void UIEventLogEntry(EventType event, void* data, void* user);
-static void UIEventActivate(EventType event, void* data, void* user){
-  local_ctx_t* ctx = data;
-  ui_element_t* e = user;
-  e->ctx = ctx;
-  ElementSetState(e, ELEMENT_IDLE);
-}
 
 void UILogEvent(EventType event, void* data, void* user);
 void UIItemEvent(EventType event, void* data, void* user);

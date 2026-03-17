@@ -27,7 +27,6 @@ ent_t* InitEnt(EntityType id,Cell pos){
   EntAddItem(e, InitItem(p), true);
   item_def_t* a = GetItemDefByID(GEAR_LEATHER_ARMOR);
   EntAddItem(e, InitItem(a), true);
-  ActionSlotAddAbility(e,InitAbility(e,ABILITY_MAGIC_MISSLE));
   e->pos = pos;
   strcpy(e->name, "Michael");
  

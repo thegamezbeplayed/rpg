@@ -38,6 +38,7 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
       .delimiter = d.delimiter
     };
 
+    e->gouid = GameObjectMakeUID(d.identifier, d.type, WorldGetTime());
 
     e->text = GameCalloc("InitElementByName",1, MAX_LINE_LEN);
     e->debug_text = GameCalloc("InitElementByName",1, MAX_LINE_LEN);
@@ -634,7 +635,7 @@ bool ElementSetTooltip(ui_element_t* e){
 }
 
 bool ElementItemUse(ui_element_t* e){
-  inventory_t* inv = e->ctx;
+  inventory_t* inv = ParamRead(&e->ctx, inventory_t);
 
   item_t* item = &inv->items[e->index];
 
@@ -643,12 +644,12 @@ bool ElementItemUse(ui_element_t* e){
     return ElementSetState(e, next);
 
   InteractResult res = IR_NONE;
-  TraceLog(LOG_INFO, "use item %s", item->def->name);
+  TraceLog(LOG_INFO, "%s %i - use item %s", e->name, e->index, item->def->name);
   return item->use_fn( item, player);
 }
 
 bool ElementTabToggle(ui_element_t* e){
-  ui_element_t* p = e->ctx;
+  ui_element_t* p = ParamRead(&e->ctx, ui_element_t);
 
   //return ElementSetState(p, ELEMENT_ACTIVATE);
 
@@ -702,22 +703,22 @@ bool ElementToggleChildren(ui_element_t* e){
 }
 
 bool ElementDynamicChildren(ui_element_t* e){
-  param_t* params = (param_t*)e->ctx;
+  local_ctx_t* ctx = ParamRead(&e->ctx, local_ctx_t);
 
   for (int i = 0; i < 4; i++){
-   if(e->params[i] == PARAM_NONE)
+   GameObjectParam p = e->params[i];
+   if(p == PARAM_NONE)
      continue;
 
-   inventory_t* inv = ParamRead(&params[i], inventory_t);
+   inventory_t* inv = ParamRead(&ctx->params[p], inventory_t);
    int max = ITEMS_ALLOWED[inv->id].max;
    for (int j = 0; j < max; j++){
      ui_element_t* c = InitElementByName("ITEM_BOX", e->menu, e);
-     c->params[0] = e->params[i];
-     c->ctx = inv;
+     c->params[0] = PARAM_ITEM;
+     c->ctx = ctx->params[p];
 
      ElementAddChild(e,c);
      WorldTargetSubscribe(EVENT_ITEM_ACQUIRE, UIItemEvent, c, j);
-     WorldTargetSubscribe(EVENT_INV_REMOVE, UIItemEvent, c, j);
    }
 
   }
@@ -886,7 +887,7 @@ bool ElementSetState(ui_element_t* e, ElementState s){
 void ElementSyncVal(ui_element_t* e, FetchRate poll){
   element_value_t* ev = e->value;
 
-  if(!e->ctx || !ev || poll != ev->rate)
+  if(e->ctx.type_id == DATA_NONE || !ev || poll != ev->rate)
     return;
 
   switch(ev->type){
@@ -938,7 +939,7 @@ bool ElementShowContext(ui_element_t* e){
     ElementSetState(e, ELEMENT_SHOW);
   }
 
-  return (e->ctx == NULL);
+  return (e->ctx.type_id == DATA_NONE);
 
 }
 
@@ -955,7 +956,7 @@ bool ElementSetContext(ui_element_t* e){
     }
 
   }
-  return (e->ctx != NULL);
+  return (e->ctx.type_id != DATA_NONE);
 
 }
 void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
@@ -999,7 +1000,12 @@ void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
 
 }
 
-element_value_t* GetContextParams(ui_element_t* e, void* context){
+element_value_t* GetContextParams(ui_element_t* e, param_t context){
+ if(context.type_id == DATA_LOCAL_CTX)
+    return NULL;
+  
+  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
+  
   int count = 0;
 
   for (int i = 0; i < 4; i++){
@@ -1007,7 +1013,6 @@ element_value_t* GetContextParams(ui_element_t* e, void* context){
       count++;
   }
 
-  local_ctx_t* ctx = context;
   param_t *ctx_p = GameCalloc("game_menu: GetContextParams",count, sizeof(param_t));
   element_value_t *ev = GameCalloc("game_menu: GetContextStat", 1,sizeof(element_value_t));
 
@@ -1022,7 +1027,7 @@ element_value_t* GetContextParams(ui_element_t* e, void* context){
     ev->num_ln += SetParamDescription(ev->l, ev->num_ln, p);
   }
 
-  e->ctx = ctx_p;
+  e->ctx = ParamMakeArray(DATA_PARAM, e->gouid, ctx_p, count);
   if(ev->num_ln == 0)
     return NULL;
 
@@ -1031,11 +1036,12 @@ element_value_t* GetContextParams(ui_element_t* e, void* context){
   return ev;
 }
 
-element_value_t* GetContextStat(ui_element_t* e, void* context){
-  if(context == NULL)
+element_value_t* GetContextStat(ui_element_t* e, param_t context){
+  if(context.type_id == DATA_LOCAL_CTX)
     return NULL;
   
-  local_ctx_t* ctx = context;
+  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
+  
   element_value_t *ev = GameCalloc("game_menu: GetContextStat", 1,sizeof(element_value_t));
   ev->rate = FETCH_TURN;
 
@@ -1059,10 +1065,7 @@ element_value_t* GetContextStat(ui_element_t* e, void* context){
   return ev;
 
 }
-element_value_t* GetContextDescription(ui_element_t* e, void* context){
-  if(context == NULL)
-    return NULL;
-
+element_value_t* GetContextDescription(ui_element_t* e,  param_t context){
   element_value_t *ev = GameCalloc("game_menu: GetContextDescription", 1,sizeof(element_value_t));
   ev->rate = FETCH_TURN;
 
@@ -1072,7 +1075,7 @@ element_value_t* GetContextDescription(ui_element_t* e, void* context){
   }
 
   ev->type = VAL_LN;
-  ev->num_ln = SetCtxDescription(context, ev->l, e->params[0], e->spacing);
+  ev->num_ln = SetCtxDescription(context, ev->l, e->spacing);
   
   ElementValueSyncSize(e, ev);
 
@@ -1081,11 +1084,11 @@ element_value_t* GetContextDescription(ui_element_t* e, void* context){
 
 }
 
-element_value_t* GetContextDetails(ui_element_t* e, void* context){
-  if(context == NULL)
+element_value_t* GetContextDetails(ui_element_t* e, param_t context){
+  if(context.type_id != DATA_LOCAL_CTX)
     return NULL;
     
-  local_ctx_t* ctx = context;
+  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
   element_value_t *ev = GameCalloc("game_menu: GetContextDetails", 1,sizeof(element_value_t));
   ev->rate = FETCH_ACTIVE;
     
@@ -1130,7 +1133,7 @@ bool ElementSetActiveTab(ui_element_t* e){
   return true;
 }
 
-element_value_t* GetTextSprite(ui_element_t* e, void* context){
+element_value_t* GetTextSprite(ui_element_t* e, param_t context){
    if(e->text[0] == '\0')
      return NULL;
 
@@ -1138,7 +1141,7 @@ element_value_t* GetTextSprite(ui_element_t* e, void* context){
 
    element_value_t *ev = GameCalloc("GetTextSprite", 1,sizeof(element_value_t));
 
-   e->ctx = e->text;
+   e->ctx = ParamMake(DATA_STRING, sizeof(char) * strlen(e->text), e->text);
    ev->rate = FETCH_ONCE;
    ev->type = VAL_ICO;
    ev->s = InitSpriteByID(char_spr, SHEET_CHARS);
@@ -1149,8 +1152,8 @@ element_value_t* GetTextSprite(ui_element_t* e, void* context){
    return ev;
 }
 
-element_value_t* GetElementName(ui_element_t* e, void* context){
-  ui_element_t* other = context;
+element_value_t* GetElementName(ui_element_t* e, param_t context){
+  ui_element_t* other = ParamRead(&context, ui_element_t);
 
   if(!other || !other->name)
     return NULL;
@@ -1164,9 +1167,9 @@ element_value_t* GetElementName(ui_element_t* e, void* context){
   
 }
 
-element_value_t* GetContextVal(ui_element_t* e, void* context){
+element_value_t* GetContextVal(ui_element_t* e, param_t context){
   GameObjectParam p = e->owner->params[0];
-  local_ctx_t* ctx = context;
+  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
 
   e->params[e->num_params++] = p;
   element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_value_t));
@@ -1174,6 +1177,8 @@ element_value_t* GetContextVal(ui_element_t* e, void* context){
   ev->type = VAL_CHAR;
   ev->rate = FETCH_TURN;
   ev->c = GameCalloc("GetContextVal", MAX_NAME_LEN, sizeof(char));
+  ev->context = ctx->params[p];
+  
   switch(p){
     case PARAM_ATTR_CON:
     case PARAM_ATTR_STR:
@@ -1181,21 +1186,15 @@ element_value_t* GetContextVal(ui_element_t* e, void* context){
     case PARAM_ATTR_INT:
     case PARAM_ATTR_WIS:
     case PARAM_ATTR_CHAR:
-      attribute_t* attribute = ParamRead(&ctx->params[p], attribute_t);
       ev->get_val = AttrGetPretty;
-      ev->context = attribute;
       break;
     case PARAM_STAT_HEALTH:
     case PARAM_STAT_ARMOR:
     case PARAM_STAT_STAMINA:
     case PARAM_STAT_ENERGY:
-      stat_t* stat = ParamRead(&ctx->params[p], stat_t);
-      ev->context = stat;
       ev->get_val = StatGetPretty;
       break;
     case PARAM_SKILL_LVL:
-      skill_t* skill = ParamRead(&ctx->params[p], skill_t);
-      ev->context = skill;
       ev->get_val = SkillGetPretty;
       break;
     default:
@@ -1209,10 +1208,12 @@ element_value_t* GetContextVal(ui_element_t* e, void* context){
   return ev;
 }
 
-element_value_t* GetContextValueName(ui_element_t* e, void* context){
-
-  if(!context)
+element_value_t* GetContextValueName(ui_element_t* e, param_t context){
+  if(context.type_id != DATA_LOCAL_CTX)
     return NULL;
+
+  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
+
 
   GameObjectParam p = e->owner->params[0];
 
@@ -1222,7 +1223,6 @@ element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_v
 
   ev->type = VAL_CHAR;
 
-  local_ctx_t* ctx = context;
   ev->c = GameMalloc("GetContextVal", sizeof(char)*MAX_NAME_LEN);
 
   switch(p){
@@ -1253,7 +1253,7 @@ element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_v
   return ev;
 }
 
-element_value_t* GetOwnerValue(ui_element_t* e, void* context){
+element_value_t* GetOwnerValue(ui_element_t* e, param_t context){
   if(!e->owner || e->owner->value == NULL)
     return NULL;
 
@@ -1261,7 +1261,7 @@ element_value_t* GetOwnerValue(ui_element_t* e, void* context){
 
 }
 
-element_value_t* GetOwnerText(ui_element_t* e, void* context){
+element_value_t* GetOwnerText(ui_element_t* e, param_t context){
   if(!e->owner)
     return NULL;
 
@@ -1281,11 +1281,11 @@ element_value_t* GetOwnerText(ui_element_t* e, void* context){
 
 }
 
-element_value_t* GetContextName(ui_element_t* e, void* context){
-  if(context == NULL)
+element_value_t* GetContextName(ui_element_t* e, param_t context){
+  if(context.type_id != DATA_LOCAL_CTX)
     return NULL;
   
-  local_ctx_t* ctx = context;
+  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
   element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_value_t));
   ev->rate = FETCH_TURN;
 
@@ -1309,7 +1309,7 @@ element_value_t* GetContextName(ui_element_t* e, void* context){
   return ev;
 }
 
-element_value_t* GetActivityEntry(ui_element_t* e, void* context){
+element_value_t* GetActivityEntry(ui_element_t* e, param_t context){
   element_value_t *ev = GameCalloc("game_menu: GetActivityEntry", 1,sizeof(element_value_t));
   ev->rate = FETCH_EVENT;
 
@@ -1323,7 +1323,7 @@ element_value_t* GetActivityEntry(ui_element_t* e, void* context){
   return ev;
 }
 
-element_value_t* GetContextItem(ui_element_t* e, void* context){
+element_value_t* GetContextItem(ui_element_t* e, param_t context){
   element_value_t *ev = GameCalloc("game_menu: GetContextItem",  1,sizeof(element_value_t));
 
   ev = SetCtxItems(e->ctx, e->params, e->index);
@@ -1371,7 +1371,7 @@ void UILogEvent(EventType event, void* data, void* user){
 bool ElementActivityContext(ui_element_t* e){
   WorldTargetSubscribe(EVENT_LOG_ACTIVITY, UILogEvent, e, e->index);
 
-  e->ctx = &e->index;
+  e->ctx = ParamMake(DATA_INT, sizeof(int), &e->index);
   e->value = e->set_val(e, e->ctx);
   return true;
 }
@@ -1419,89 +1419,40 @@ bool ElementInventoryContext(ui_element_t* e){
     }
 
   }
-  return (e->ctx == NULL);
+  return (e->ctx.type_id == DATA_NONE);
 }
 
 bool ElementScreenContext(ui_element_t* e){
-  WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
+  //TODO FIX
+  //WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
 
   return ui.contexts[SCREEN_CTX_HOVER];
 }
 
-void* ElementPresetContext(void* p){
-  ui_element_t* e = p; 
 
-  return e->ctx;
-}
-
-void* ElementMatchTab(void* p){
-  ui_element_t* e = p; 
-}
-
-void* ElementOwnerItemContext(void* p){
-  ui_element_t* e = p; 
-  inventory_t* inv = e->owner->ctx;
-
-  return &inv->items[e->owner->index];
-}
-
-void* ElementOwnerTextAt(void* p){
-  ui_element_t* c = p;
-  ui_element_t* o = c->owner;
-  if (!o || o->text[0] =='\0')
-    return NULL;
-
-  if( strlen( o->text ) < c->index)
-    return NULL;
-
-  ElementSetText(c ,&o->text[c->index]);
-  c->text[1] = '\0';
-}
-
-void* ElementNiblings(void *p){
-  ui_element_t* e = p; 
-  ui_element_t* sib = NULL;
-  for(int i = 0; i < e->owner->num_children; i++){
-    if(e->owner->children[i]->hash == e->hash)
-      continue;
-
-    sib = e->owner->children[i];
-    break; 
-  }
-  if(!sib)
-    return NULL;
-
-  e->ctx = sib->children;
-
-  int count = imin(e->num_children, sib->num_children);
-  for(int i = 0; i < count; i++)
-    e->children[i]->ctx = sib->children[i];
-
-  ElementSetState(e, ELEMENT_IDLE);
-}
-
-void* ElementOwnerChildren(void* p){
+param_t ElementOwnerChildren(void* p){
   ui_element_t* e = p;
-  ui_element_t* others[e->owner->num_children - 1];
+  param_t others[e->owner->num_children - 1];
 
   int count = 0;
   for(int i = 0; i < e->owner->num_children; i++){
-    if(e->owner->children[i]->hash == e->hash)
+    ui_element_t* c = e->owner->children[i];
+    if(c->hash == e->hash)
       continue;
 
-    others[count++] = e->owner->children[i];
+    others[count++] = ParamMakeObj(DATA_ELEM, c->gouid, c);
   }
 
-  e->ctx = others;
+  //e->ctx = others;
   for (int i = 0; i < e->num_children; i++)
     e->children[i]->ctx = others[i];
 }
 
-void* ElementGetOwnerContextParams(void* p){
+param_t ElementGetOwnerContextParams(void* p){
   ui_element_t* c = p; 
 
   if(!c->owner)
-    return NULL;
+    EMPTY_PARAM;
 
   c->num_params = c->owner->num_params;
   memcpy(c->params, c->owner->params, sizeof(c->owner->params));
@@ -1509,30 +1460,17 @@ void* ElementGetOwnerContextParams(void* p){
   return c->owner->ctx;
 }
 
-void* ElementGetOwnerContext(void* p){
+param_t ElementGetOwnerContext(void* p){
   ui_element_t* c = p; 
 
   if(!c->owner)
-    return NULL;
+    return EMPTY_PARAM;
 
   //TraceLog(LOG_INFO, "======= GET OWNER CONTEXT ====\n %s ctx set to %s ctx", c->name, c->owner->name);
 
   return c->owner->ctx;
 }
 
-void* ElementIndexContext(void* p){
-   ui_element_t* e = p;
-
-   return &e->index;
-
-}
-
-void* ElementGetScreenSelection(void* p){
-   ui_element_t* e = p;
-
-  return ui.contexts[SCREEN_CTX_HOVER];
-
-}
 
 
 
@@ -1627,3 +1565,67 @@ int GuiHeader(Rectangle bounds, const char *text){
 }
 
 
+param_t ElementIndexContext(void* p){
+   ui_element_t* e = p;
+
+   return ParamMake(DATA_INT, sizeof(int), &e->index);
+
+}
+
+param_t ElementGetScreenSelection(void* p){
+   ui_element_t* e = p;
+
+  return ParamMakeObj(DATA_LOCAL_CTX, 
+      ui.contexts[SCREEN_CTX_HOVER]->gouid,
+      ui.contexts[SCREEN_CTX_HOVER]);
+
+}
+
+param_t ElementPresetContext(void* p){
+  ui_element_t* e = p; 
+
+  return e->ctx;
+}
+
+param_t ElementOwnerItemContext(void* p){
+  //TODO CALLS EVERY ON FOCUS...
+  ui_element_t* e = p; 
+  inventory_t* inv = ParamRead(&e->owner->ctx, inventory_t);
+  item_t* i = &inv->items[e->owner->index];
+  return ParamMakeObj(DATA_ITEM, i->gouid, i);
+}
+
+param_t ElementOwnerTextAt(void* p){
+  ui_element_t* c = p;
+  ui_element_t* o = c->owner;
+  if (!o || o->text[0] =='\0')
+    return EMPTY_PARAM;
+
+  if( strlen( o->text ) < c->index)
+    return EMPTY_PARAM;
+
+  ElementSetText(c ,&o->text[c->index]);
+  c->text[1] = '\0';
+}
+
+param_t ElementNiblings(void *p){
+  ui_element_t* e = p; 
+  ui_element_t* sib = NULL;
+  for(int i = 0; i < e->owner->num_children; i++){
+    if(e->owner->children[i]->hash == e->hash)
+      continue;
+
+    sib = e->owner->children[i];
+    break; 
+  }
+  if(!sib)
+    return EMPTY_PARAM;
+
+  e->ctx = ParamMakeArray(DATA_ELEM, e->gouid, sib->children, sib->num_children);
+
+  int count = imin(e->num_children, sib->num_children);
+  for(int i = 0; i < count; i++)
+    e->children[i]->ctx = ParamMakeObj(DATA_ELEM, sib->children[i]->gouid, sib->children[i]);
+
+  ElementSetState(e, ELEMENT_IDLE);
+}

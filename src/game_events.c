@@ -253,14 +253,18 @@ void EventEmit(event_bus_t* bus, event_t* e){
     if (bus->subs[i].event != e->type)
       continue;
 
+    if(e->calls >= e->max)
+      break;
+
     if (bus->subs[i].uid != -1 
        && bus->subs[i].uid != e->iuid)
       continue;
 
     bus->subs[i].cb(e->type, e->data, bus->subs[i].user_data);
+    e->calls++;
   }
 
-  if(e->once)
+  if(e->calls >= e->max)
     EventRemove(bus, e->iuid);
 }
 

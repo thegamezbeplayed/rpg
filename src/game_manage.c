@@ -130,23 +130,31 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
 }
 
 void OnActivityEvent(EventType event, void* data, void* user){
+  interaction_t* inter = calloc(1,sizeof(interaction_t));
+  inter->event = event;
+
+  activity_t* act = NULL;
   switch(event){
     case EVENT_STAT_RESTORE:
       stat_t* stat = data;
-      interaction_t* inter = calloc(1,sizeof(interaction_t));
       inter->uid = stat->owner->gouid;
       inter->ctx = stat;
-      inter->event = EVENT_STAT_RESTORE;
-      activity_t* act = InitActivity(event, inter);
-      if(!act)
-        return;
-
-      int pos = ActivityAddEntry(act);
-
-      WorldEvent(EVENT_LOG_ACTIVITY, act, pos);
-
+       break;
+    case EVENT_LEARN:
+      ability_t* a = data;
+      inter->uid = a->id;
+      inter->ctx = a;
       break;
   }
+      
+  act = InitActivity(event, inter);
+  if(!act)
+    return;
+
+  int pos = ActivityAddEntry(act);
+
+  WorldEvent(EVENT_LOG_ACTIVITY, act, pos);
+
 
 }
 
@@ -173,8 +181,8 @@ activity_t* ActivitiesGetEntryAt(int pos){
   return &ACT_TRACK.entries[abs(index)];
 }
 
-element_value_t* ActivitiesFetch(element_value_t* e, void* context){
-  int *pos = context;
+element_value_t* ActivitiesFetch(element_value_t* e, param_t context){
+  int *pos = ParamRead(&context, int);
 
   activity_t* act = ActivitiesGetEntryAt(*pos);
 
@@ -191,6 +199,8 @@ void InitActivities(int cap){
   ACT_TRACK.cap = cap;
   WorldTargetSubscribe(EVENT_COMBAT, OnActivityCombat, &ACT_TRACK, player->gouid);
   WorldTargetSubscribe(EVENT_STAT_RESTORE, OnActivityEvent, &ACT_TRACK, player->gouid);
+  WorldTargetSubscribe(EVENT_ITEM_ACQUIRE, OnActivityEvent, &ACT_TRACK, player->gouid);
+  WorldTargetSubscribe(EVENT_LEARN, OnActivityEvent, &ACT_TRACK, player->gouid);
 }
 
 int ActivitiesAssignValues(element_value_t** fill, int pos){
@@ -200,9 +210,7 @@ int ActivitiesAssignValues(element_value_t** fill, int pos){
   ln->c = GameCalloc("ActivitiesAssignValues char", 1, sizeof(char)*MAX_LINE_LEN);
 
   ln->rate = FETCH_EVENT;
-  int* ctx = GameMalloc("InitActivities", sizeof(int));
-  *ctx = pos;
-  ln->context = ctx;
+  ln->context = ParamMake(DATA_INT, sizeof(int), &pos);
   ln->get_val = ActivitiesFetch;
 
   fill[0] = ln;
