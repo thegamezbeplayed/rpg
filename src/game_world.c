@@ -28,7 +28,8 @@ void WorldEvent(EventType type, void* data, uint64_t uid){
   event_t event = {
     .type = type,
     .data = data,
-    .iuid = uid
+    .iuid = uid,
+    .max  = -1
   };
 
   if(game_process.bus->count)
@@ -68,10 +69,13 @@ void GameSetState(GameState state){
   game_process.state[SCREEN_GAMEPLAY] = state;
 }
 
-void GameReady(void){
+void GameReady(EventType event, void* data, void* user){
   WorldInitOnce();
   game_process.state[SCREEN_GAMEPLAY] = GAME_READY;
   InitActivities(MAX_SUB_ELE);
+
+  MenuSetState(&ui.menus[MENU_HUD],MENU_ACTIVE);
+
 }
 
 void AddFloatingText(render_text_t *rt){
@@ -480,7 +484,7 @@ void WorldInitOnce(){
     EntInitOnce(world.ents[i]);
 
   InitInput(player);
-  LootDraw(player, 6);
+  LootDraw(player, 4);
   WorldValidateContext();
   WorldEvent(EVENT_ENT_STEP, player, player->gouid);
 }
@@ -568,9 +572,20 @@ world_context_t* InitWorldContext(void){
 
 }
 
+void GameProcessLoaded(EventType event, void* data, void* user){
+  GameProcess *pid = data;
+
+  game_process.ready[*pid] = true;
+
+  if(all_true(GP_DONE, game_process.ready))
+    WorldEvent(EVENT_GAME_PROCESS, NULL, 1);
+}
+
 void PrepareWorldRegistry(void){
   world = (world_t){0};
 
+  WorldSubscribe(EVENT_PROCESS_READY, GameProcessLoaded, &world);
+  WorldSubscribe(EVENT_GAME_PROCESS, GameReady, &world);
   world.seed = GenerateSeed();
   for(int i = 0; i < STEP_DONE; i++){
     world.events[i] = InitEvents();
@@ -616,7 +631,7 @@ void InitWorld(void){
     
     if(!cell_compare(player_pos,CELL_UNSET))
       RegisterEnt(InitEnt(ENT_PERSON,player_pos));
-    GameReady(); 
+    
     ScreenCameraSetBounds(CELL_NEW(world.map->width,world.map->height));
 
   }
@@ -761,7 +776,7 @@ void GameProcessSync(bool wait){
   for(int i = 0; i < PROCESS_DONE;i++){
     if(game_process.children[game_process.screen].process==PROCESS_NONE)
       continue;
-    child_process_t* kids = &game_process.children[game_process.screen];
+   child_process_t* kids = &game_process.children[game_process.screen];
     for(int j = 0; j < UPDATE_DONE; j++)
       if(kids->update_steps[i][j]!=NULL)
         kids->update_steps[i][j]();

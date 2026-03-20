@@ -108,7 +108,7 @@ char *TextFormatLineItem(line_item_t *item) {
 }
 
 element_value_t* CtxGetItem(param_t ctx, GameObjectParam p, int index){
-  if(ctx.type_id != DATA_INV)
+  if(ctx.type_id != DATA_ITEM)
     return NULL;
 
   element_value_t* ev = GameCalloc("CtxGetItem", 1,sizeof(element_value_t));
@@ -118,6 +118,14 @@ element_value_t* CtxGetItem(param_t ctx, GameObjectParam p, int index){
   ev->index = index;
   ev->context = ctx;
   ev->get_val = InventoryGetItem;
+
+  item_t* item = ParamRead(&ctx, item_t);
+
+  if(!item || !item->def)
+    return NULL;
+
+  ev->s = item->def->sprite;
+
 
   return ev;
 }
@@ -548,21 +556,17 @@ element_value_t* StatGetPretty(element_value_t* self, param_t context){
 }
 
 element_value_t* InventoryGetItem(element_value_t* self, param_t context){
-  if(context.type_id != DATA_INV)
+  if(context.type_id != DATA_ITEM)
     return NULL;
 
-  inventory_t* inv = ParamRead(&context, inventory_t);
+  item_t* item = ParamRead(&context, item_t);
 
-  if(!inv || inv->count <= self->index){
-    self->s = NULL;
-    return NULL;
-  }
-
-  item_t* item = &inv->items[self->index];
   if(!item || !item->def)
     return NULL;
 
   self->s = item->def->sprite;
+
+  return self;
 }
 
 element_value_t* SkillGetPretty(element_value_t* self, param_t context){
@@ -846,15 +850,8 @@ char* PrintElementValue(element_value_t* ev, int spacing[UI_POSITIONING], char* 
   
 }
 
-char* ParseActivity(activity_t* act, char* buffer, size_t buf_size){
-  activity_format_t a = ACT_LOG_FMT[act->kind];
-  const char* fmt = a.fmt;
-
+char* ParseString(const char* fmt, char* buffer, size_t buf_size, int num_tokens, param_t tokens[num_tokens]){
   size_t out = 0;
-  int token_index = 0;
-
-  buffer[0] = '\0';
-
   for (int i = 0; fmt[i] != 0 && out < buf_size - 1; i++)
   {
     if (fmt[i] == '{')
@@ -866,7 +863,7 @@ char* ParseActivity(activity_t* act, char* buffer, size_t buf_size){
       {
         ParseToken t = TokenFromString(tok);
 
-        param_t* p = &act->tokens[t];
+        param_t* p = &tokens[t];
 
         char tmp[64];
         const char* str = "";
@@ -896,8 +893,17 @@ char* ParseActivity(activity_t* act, char* buffer, size_t buf_size){
     }
 
     buffer[out++] = fmt[i];
-    buffer[out] = 0;
+    //buffer[out] = 0;
   }
+}
+char* ParseActivity(activity_t* act, char* buffer, size_t buf_size){
+  activity_format_t a = ACT_LOG_FMT[act->kind];
+  const char* fmt = a.fmt;
+
+  buffer[0] = '\0';
+
+  ParseString(fmt, buffer, buf_size, TOKE_ALL, act->tokens);
+  
 
   return buffer;
 }

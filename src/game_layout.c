@@ -4,14 +4,21 @@ float ElementGetWidthSum(ui_element_t *e){
   if(e->state < ELEMENT_IDLE)
     return 0;
 
+  if(e->num_children == MAX_SUB_ELE)
+    DO_NOTHING();
   float width = e->bounds.width;// + e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_LEFT];
 /*
   if(e->owner)
   width += e->owner->spacing[UI_PADDING_RIGHT];
 */
+  int padding = e->spacing[UI_PADDING_RIGHT];
   float cwidth = 0;
   if (e->layout == LAYOUT_GRID){
-    cwidth = e->bounds.width * e->owner->num_children / UI_GRID_WIDTH;
+    if(e->num_children == 0)
+      return width;
+
+    int gwidth = (e->num_children > UI_GRID_WIDTH)? UI_GRID_WIDTH : e->num_children;
+    cwidth = (e->children[0]->bounds.width + padding) * gwidth;
     return width+cwidth;
   }
     
@@ -48,8 +55,11 @@ float ElementGetHeightSum(ui_element_t *e){
    padding += e->owner->spacing[UI_PADDING_BOT]; 
   float cheight = 0;
   if (e->layout == LAYOUT_GRID){
-    //height = e->bounds.height * e->owner->num_children / UI_GRID_HEIGHT;
-    return 0;
+    if(e->num_children == 0)
+      return height;
+
+    height += (padding + e->children[0]->bounds.height) * e->num_children / UI_GRID_WIDTH - padding;
+    return height;
   }
 
   for(int i = 0; i < e->num_children; i++){

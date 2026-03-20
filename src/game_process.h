@@ -135,9 +135,16 @@ level_t* InitLevel(void);
 void LevelBury(game_object_uid_i gouid);
 void LevelReady(map_grid_t* m);
 
+typedef enum{
+  GP_UI,
+  GP_MAP_GEN,
+  GP_DONE,
+}GameProcess;
+
 typedef struct{
   GameScreen     screen;
   int            game_frames;
+  bool           ready[GP_DONE];
   child_process_t children[SCREEN_DONE];
   GameScreen     next[SCREEN_DONE];
   GameState      state[SCREEN_DONE];//TODO each screen needs a state

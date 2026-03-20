@@ -13,7 +13,7 @@ void InitGameplayScreen(void){
   InitPlayArea(); 
   InitGameEvents();
   InitScreenInteractive();
-  MenuSetState(&ui.menus[MENU_HUD],MENU_ACTIVE);
+  MenuSetState(&ui.menus[MENU_HUD],MENU_LOAD);
 }
 
 void PreUpdate(void){
@@ -58,6 +58,7 @@ void DrawGameplayScreen(void)
 
   //MapGenRender();
   UISync(FETCH_UPDATE);
+  UIRender();
   DrawFPS(5,5);
 
   EndDrawing();

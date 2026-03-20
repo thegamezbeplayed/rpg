@@ -130,6 +130,14 @@ static game_object_uid_i GameObjectMakeUID(const char* cat, int index, int time)
   return (game_object_uid_i)h;
 }
 
+static bool all_true(int count, bool items[count]){
+  for(int i = 0; i < count; i++)
+    if(!items[i])
+      return false;
+
+  return true;
+}
+
 static int IntGridIndex(int x, int y){
   return x*1000 + y;
 }

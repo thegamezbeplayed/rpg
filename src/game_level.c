@@ -291,7 +291,7 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
     if(!ItemCurate(idef))
       continue;
 
-    AddPurchase(dp, count, 1, 2, idef, ChoiceReduceScore);
+    AddPurchase(dp, count, 1, 2, idef, DiscardChoice);
     //loot_item_t* loot = &lp->loots[lp->count++];
     //loot->ref = GameCalloc("GenerateLootPool", 1, sizeof(item_def_t));
     //loot->ref =idef;
@@ -310,7 +310,8 @@ void LootDraw(ent_t* e, int amnt){
       continue;
 
     item_def_t* def = choice->context;
-    EntAddItem(e, InitItem(def), false);
+    if(EntAddItem(e, InitItem(def), false))
+      TraceLog(LOG_INFO, "Added item - %i", def->id);
   }
 
 }

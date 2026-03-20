@@ -6,7 +6,9 @@ ui_menu_d MENU_DATA[MENU_DONE] = {
     {[MENU_ACTIVE] = MenuActivateChildren}
   },
   [MENU_HUD] = {MENU_HUD, "HUD_MENU_DOM", ELEMENT_NONE, false,
-    {[MENU_ACTIVE] = MenuActivateChildren}
+    {[MENU_LOAD] = MenuActivateChildren,
+      [MENU_READY] = MenuProcessReady
+    }
   }
 };
 
@@ -156,15 +158,17 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     ELEMENT_NONE, LAYOUT_GRID, ALIGN_LEFT, NULL,
     ElementGetOwnerContextParams, 
     {
-      [ELEMENT_LOAD] = ElementInventoryContext,
-      [ELEMENT_IDLE] = ElementDynamicChildren,
-      [ELEMENT_SHOW] = ElementShowChildren
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementInventoryContext,
+      [ELEMENT_SHOW] = ElementDynamicChildren,
+      //[ELEMENT_SHOW] = ElementShowChildren
     },
     .spacing = { [UI_MARGIN_LEFT] = 2},
-    .kids = {"ITEM_BOX"}
+    .kids = {"ITEM_BOX"},
+    .spacing = {[UI_PADDING_RIGHT] = 4, [UI_PADDING_BOT] = 2}
   },
   {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_ICON,
-    ELEMENT_NONE, LAYOUT_STACK, ALIGN_LEFT | ALIGN_MID, GetContextItem, ElementPresetContext,
+    ELEMENT_NONE, LAYOUT_STACK, ALIGN_MID, GetContextItem, NULL,
     {
       [ELEMENT_LOAD]      = ElementSetContext,
       [ELEMENT_FOCUSED]   = ElementShowTooltip,
@@ -278,7 +282,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
   },
   {"CHARACTER_LINE_NAME_VAL", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
-    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_UNIFORM | ALIGN_LEFT, 
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
     NULL, ElementGetOwnerContext,
     {
       [ELEMENT_LOAD] = ElementSetContext,
@@ -362,7 +366,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       "COMBAT_TEXT",
     },
     .spacing = {
-      [UI_MARGIN_TOP] = 20
+      [UI_MARGIN_TOP] = 20, [UI_MARGIN_LEFT] = 4
     }
   },
   {"COMBAT_TEXT", VECTOR2_ZERO, LABEL_LOG, UI_TEXT,
@@ -384,7 +388,9 @@ activity_format_t ACT_LOG_FMT[ACT_ALL] = {
   {ACT_KILL, NARRATE_FIRST, TENSE_PRESENT,
     "{AGG} {SLAIN} {TAR}"},
   {ACT_STAT_RESTORE, NARRATE_FIRST, TENSE_PRESENT,
-    "{WHO} {RESTORE} {AMNT} {STAT}"}
+    "{WHO} {RESTORE} {AMNT} {STAT}"},
+  {ACT_LEARN, NARRATE_FIRST, TENSE_PRESENT,
+    "{WHO} {LEARN} {ABILITY} rank {QUAL}"}
 };
 
 token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
@@ -402,10 +408,13 @@ token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
   {"ABILITY", TOKE_ABILITY},
   {"SCHOOL", TOKE_SCHOOL},
   {"MISS",   TOKE_MISS},
+  {"LEARN",  TOKE_LEARN},
   {"RESTORE",TOKE_REST},
   {"SLAIN",  TOKE_SLAIN},
   {"AMNT",   TOKE_AMNT},
   {"STAT",   TOKE_STAT},
   {"DOES",   TOKE_DOES},
   {"USES",   TOKE_USES},
+  {"QUAL",   TOKE_QUAL},
+  {"DESC",   TOKE_DESC}
 };

@@ -1,11 +1,13 @@
 #include "game_ui.h"
 #include "screens.h"
 #include <pthread.h>
+#include "game_process.h"
 
 #define RAYGUI_IMPLEMENTATION
 void* GenerateMap(void* arg){
+ GameProcess pid = GP_MAP_GEN;
  if( InitMap())
-   TraceLog(LOG_INFO,"MAP GEN THREAD DONE");
+   WorldEvent(EVENT_PROCESS_READY, &pid, pid); 
 }
 
 // Options Screen Initialization logic

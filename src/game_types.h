@@ -98,6 +98,7 @@ struct ability_s{
   stat_t*          stats[STAT_ENT_DONE];
   ability_t        *chain;
   value_t*            values[VAL_WORTH];
+  int                 rank;
   int                 rankup[VAL_WORTH];
   damage_reduction_t* dr;
   AbilityCb           on_success_cb, on_use_cb;
@@ -106,6 +107,7 @@ struct ability_s{
   AbilitySim          sim_fn;
   item_t*             item;
   ActionCategory      cat;
+  ent_t*           owner;
 };
 
 int AbilityAddPB(ent_t* e, ability_t* a, StatType s);
@@ -124,6 +126,7 @@ ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target);
 
 typedef struct{
   ItemSlot      id;
+  game_object_uid_i gouid;
   item_t*       container;
   bool          active;
   int           limits[ITEM_DONE];

@@ -2,10 +2,11 @@
 #include "game_helpers.h"
 #include "game_process.h"
 #include "game_strings.h"
+static int NUM_ITEMS = 0;
 
 item_t* InitItem(item_def_t* def){
   item_t* item = GameMalloc("InitItem", sizeof(item_t));
-  game_object_uid_i gouid = GameObjectMakeUID(def->name, def->id, WorldGetTime());
+  game_object_uid_i gouid = GameObjectMakeUID(def->name, NUM_ITEMS++, WorldGetTime());
   *item = (item_t){
     .gouid = gouid,
     .def = def
@@ -66,7 +67,9 @@ item_pool_t* InitItemPool(void) {
 inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit){
   inventory_t* a = GameCalloc("InitInventory", 1,sizeof(inventory_t));
 
+  game_object_uid_i gouid = GameObjectMakeUID(e->name, id, e->gouid);
   *a = (inventory_t){
+    .gouid  = gouid,
     .id     = id,
       .owner  = e,
       .cap  = cap,
@@ -186,10 +189,15 @@ void InventoryItemEvent(EventType ev, void* edata, void* udata){
     case EVENT_ITEM_DESTROY:
       TraceLog(LOG_INFO, "Attempt to destroy item in inv:%s", INV_STRINGS[inv->id]);
       TraceLog(LOG_INFO, "DESTROY ITEM: %s", item->def->name);
+      /*
       int index = item->index;
-      inv->items[item->index] = inv->items[inv->count];
+      for(int i = index; i < (inv->count -1); i++)
+        inv->items[i] = inv->items[i+1];
+*/
+      inv->count--;
 
-      WorldEventOnce(EVENT_INV_REMOVE, inv, index);
+      uint64_t gouid = item->gouid;
+      WorldEventOnce(EVENT_INV_REMOVE, inv, gouid );
       GameFree("InventoryItemEvent", item);
       break;
     default:
@@ -215,7 +223,7 @@ int InventorySlotAddItem(ent_t* e, ItemSlot id, item_t* i){
   WorldEvent(EVENT_ITEM_ACQUIRE, i, inv->current[item->def->category]);
   inv->current[item->def->category]++;
 
-  WorldEvent(EVENT_ITEM_STORE, inv, id);
+  WorldEvent(EVENT_ITEM_STORE, item, inv->gouid);
   WorldTargetSubscribe(EVENT_ITEM_DESTROY, InventoryItemEvent, inv, item->gouid);
   return inv->count-1;
     
@@ -565,8 +573,10 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
 
   a->hit = Die(20,1);
 
+  a->owner = owner;
   a->dc = Die(a->side,a->die);
 
+  a->rank++;
   if(a->use_fn == NULL)
     a->use_fn = EntUseAbility;
 
@@ -667,10 +677,11 @@ bool ItemSkillup(ent_t* owner, item_t* item, InteractResult result){
 }
 
 InteractResult AbilityLearn(ent_t* owner,  ability_t* a, ent_t* target){
-  bool result = ActionSlotAddAbility(target, InitAbility(owner, a->chain_id));
+  ability_t* abi = InitAbility(owner, a->chain_id);
+  bool result = ActionSlotAddAbility(target, abi);
 
   if(result)
-    WorldEvent(EVENT_LEARN, a, owner->gouid);
+    WorldEvent(EVENT_LEARN, abi, owner->gouid);
 }
 
 int GetWeaponByTrait(Traits t, weapon_def_t *arms){

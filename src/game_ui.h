@@ -12,7 +12,7 @@
 #define MAX_SUB_ELE 20
 #define MAX_ELEMENTS 64
 
-#define UI_GRID_WIDTH 8
+#define UI_GRID_WIDTH 6
 #define UI_GRID_HEIGHT 3
 #define ELE_COUNT 29
 #if defined(PLATFORM_ANDROID)
@@ -53,10 +53,10 @@
 #define FIXED_TITLE_CHAR      (Vector2){32, 48}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){48, 736}
+#define UI_PANEL_BOT (Vector2){268, 736}
 
-#define UI_LOG_HOR (Vector2){480, 220}
-#define LABEL_LOG (Vector2){464, 18}
+#define UI_LOG_HOR (Vector2){640, 220}
+#define LABEL_LOG (Vector2){608, 18}
 
 #define LIST_LEFT_HAND_PAD 18
 #define LIST_RIGHT_HAND_PAD 8
@@ -67,6 +67,7 @@ typedef struct interaction_s interaction_t;
 
 typedef enum{
   MENU_INACTIVE,
+  MENU_LOAD,
   MENU_READY,
   MENU_CLOSED,
   MENU_ACTIVE,
@@ -234,6 +235,8 @@ struct element_value_s{
 typedef void (*ElementValueSync)(ui_element_t* e, FetchRate poll);
 void ElementSetText(ui_element_t* e, char* str);
 
+void ElementDynamicValue(ui_element_t* e, FetchRate poll);
+
 typedef param_t (*ElementDataContext)(void*);
 param_t ElementGetOwnerContext(void*);
 param_t ElementGetOwnerContextParams(void*);
@@ -368,6 +371,7 @@ element_value_t* GetOwnerValue(ui_element_t* e, param_t context);
 element_value_t* GetOwnerText(ui_element_t* e, param_t context);
 element_value_t* GetContextValueName(ui_element_t* e, param_t context);
 element_value_t* GetContextItem(ui_element_t* e, param_t context);
+element_value_t* GetDynamicContext(ui_element_t* e, param_t context);
 element_value_t* GetTextSprite(ui_element_t* e, param_t context);
 element_value_t* GetElementName(ui_element_t* e, param_t context);
 element_value_t* GetActivityEntry(ui_element_t* e, param_t context);
@@ -381,6 +385,8 @@ void UILogEvent(EventType event, void* data, void* user);
 void UIItemEvent(EventType event, void* data, void* user);
 
 typedef struct ui_menu_s{
+  MenuId        id;
+  int           process_id;
   ui_element_t  *element;
   MenuCallback  cb[MENU_END];
   MenuState     state;
@@ -412,6 +418,7 @@ static bool MenuInert(ui_menu_t* self){
 }
 
 bool MenuActivateChildren(ui_menu_t*);
+bool MenuProcessReady(ui_menu_t*);
 typedef struct{
   Font         font;
   float        text_size, text_spacing;
@@ -419,7 +426,9 @@ typedef struct{
   KeyboardKey  menu_key[MENU_DONE];
   ui_menu_t    menus[MENU_DONE];
   int          layer_base, layer_top;
+  int          last_press_frame, current_frame, frame_lock;
   ui_element_t *elements[2][MAX_ELEMENTS];
+  RenderTexture2D base,top;
   local_ctx_t*  contexts[SCREEN_CTX_ALL];
 }ui_manager_t;
 
@@ -466,6 +475,7 @@ typedef enum{
   TOKE_MISS,
   TOKE_OWNER,
   TOKE_WHO,
+  TOKE_LEARN,
   TOKE_REST,
   TOKE_PARAM,
   TOKE_SKILL,
@@ -487,6 +497,7 @@ typedef enum{
   TOKE_MAT,
   TOKE_QUAL,
   TOKE_NAME,
+  TOKE_DESC,
   TOKE_ALL,
 }ParseToken;
 
@@ -498,6 +509,6 @@ typedef struct {
 extern token_lookup_t TOKEN_TABLE[TOKE_ALL];
 const char* ParseEntityToken(param_t);
 const char* ParseResult(param_t p, InteractResult);
-
+char* ParseString(const char* fmt, char* buffer, size_t buf_size, int num_tokens, param_t tokens[num_tokens]);
 int GuiHeader(Rectangle bounds, const char *text);
 #endif

@@ -83,7 +83,7 @@ activity_t* InitCombatActivity(interaction_t* inter){
           act->tokens[TOKE_DMG] = ParamCopyObj(DATA_INT, sim->final_dmg, &sim->final_dmg, sizeof(int));
   
           const char* abi_str = GetAbilityString(sim->id, a.tense);
-          act->tokens[TOKE_ACT] =  ParamMakeString( abi_str);
+          act->tokens[TOKE_ACT] =  ParamMake(DATA_STRING, strlen(abi_str) +1, abi_str);
           const char* abi_name = GetAbilityName(sim->id);
 
           act->tokens[TOKE_ATK] = ParamMakeString(abi_name);
@@ -113,6 +113,18 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
       act->tokens[TOKE_STAT] = ParamMakeString(STAT_STRING[stat->related].name);
       act->tokens[TOKE_AMNT] = ParamMake(DATA_INT, sizeof(int), &stat->current);
       break;
+    case EVENT_LEARN:
+      act = GameCalloc("InitActivity", 1, sizeof(activity_t));
+      act->kind = ACT_LEARN;
+      ability_t* a = inter->ctx;
+      param_t aoname = ParamMakeString(a->owner->name);
+      param_t aname = ParamMakeString(GetAbilityName(a->id));
+      act->str_len+= aoname.size;
+      act->str_len+= aname.size;
+      act->tokens[TOKE_WHO] = aoname;
+      act->tokens[TOKE_ABILITY] = aname;
+      act->tokens[TOKE_QUAL] = ParamMake(DATA_INT, sizeof(int), &a->rank);
+      break;
   }
   if(!act)
     return NULL;
@@ -123,6 +135,7 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
   for(int i = 0; i < TOKE_PARAM; i++){
     const char* str = GetTokenString(i, a.perspective, a.tense);
     act->tokens[i] = ParamMakeString(str);
+    act->str_len+= act->tokens[i].size;
   }
   act->tokens[TOKE_ID] = ParamMake(DATA_INT, sizeof(int), &ACT_TRACK.head);
 

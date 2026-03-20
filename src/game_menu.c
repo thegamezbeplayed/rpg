@@ -97,6 +97,8 @@ void InitMenuById(MenuId id){
 
   ui_menu_t m = {0};
 
+  m.process_id = GP_UI;
+  m.id = d.id;
   m.state = d.state;
   m.is_modal = d.is_modal;
 
@@ -139,6 +141,7 @@ void InitUI(void){
 
     CHAR_SPRITES[i].hash = hash_str_32(CHAR_SPRITES[i].name);
   }
+
   ui.text_size = GuiGetStyle(DEFAULT, TEXT_SIZE);
   ui.text_spacing = GuiGetStyle(DEFAULT, TEXT_SPACING);
   SetTextureFilter(font.texture, TEXTURE_FILTER_POINT);
@@ -247,6 +250,8 @@ void ElementResize(ui_element_t *e){
   float omarginy = e->spacing[UI_MARGIN] + e->spacing[UI_MARGIN_TOP];
 
   float paddingx = 0;
+  float paddingb = 0;
+  float paddingr = 0;
   float paddingy = 0;
   float cwidths =0, cheights= 0;
 
@@ -279,7 +284,7 @@ void ElementResize(ui_element_t *e){
             cheights = c_hei;
           break;
         case LAYOUT_GRID:
-          cheights = c_hei;
+          cheights = +c_hei;
           break;
         case LAYOUT_FREE:
           int widths = ElementGetWidthSum(e->children[i]);
@@ -338,8 +343,10 @@ void ElementResize(ui_element_t *e){
   if(e->owner){
     layout = e->owner->layout;
       paddingx = e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_LEFT];
+      paddingr= e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_RIGHT];
     //paddingy = (e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_BOT]);
     paddingy += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_TOP];
+    paddingb += e->owner->spacing[UI_PADDING] + e->owner->spacing[UI_PADDING_BOT];
 
   }
 
@@ -367,20 +374,16 @@ void ElementResize(ui_element_t *e){
       if(!e->owner)
         break;
       //yinc += omarginy;
-      if(e->index > 0)
-          yinc += paddingy;    
-      switch(e->index%UI_GRID_WIDTH){
-        case 1:
-        case 2:
-          xinc = omarginx+prior.x + prior.width;
-          yinc = prior.y;
-          break;  
-        case 0:
-          //yinc = omarginy+prior.y;//height;
-          xinc = prior.x + prior.width+omarginx;
-          break;
-        default:
-          break;
+      int col = e->index%UI_GRID_WIDTH;
+      if(col>0){    
+        xinc = omarginx+prior.x + prior.width;
+        yinc = prior.y;
+        xinc += paddingr;    
+      }  
+      else{
+        //yinc = omarginy+prior.y;//height;
+        yinc = prior.y + prior.height+omarginy;
+        //xinc = prior.x + prior.width+omarginx;
       }
       break;
     default:
@@ -429,8 +432,8 @@ void ElementRender(ui_element_t* e){
        GuiHeader(header, e->text);
        break;
     case UI_TOOL_TIP:
-      active_tooltip = e;
-      GuiTooltipControl(e->bounds, e->text);
+      //active_tooltip = e;
+      //GuiTooltipControl(e->bounds, e->text);
       break;
     case UI_BOX:
       GuiGroupBox(e->bounds,NULL);//e->text);
@@ -439,8 +442,10 @@ void ElementRender(ui_element_t* e){
       break;
     case UI_ICON:
       DrawRectangleLinesEx(e->bounds, 1.5f,LIGHTGRAY);
-      state = GuiLabel(e->bounds, NULL);
-      DrawSpriteAtPos(e->value->s, e->value->s->pos);
+      if(e->value && e->value->s != NULL){
+        state = GuiLabel(e->bounds, NULL);
+        DrawSpriteAtPos(e->value->s, e->value->s->pos);
+      }
       break;
     case UI_STATUSBAR:
       GuiStatusBar(e->bounds, e->text);
@@ -466,7 +471,8 @@ void ElementRender(ui_element_t* e){
       ElementSetState(e,ELEMENT_FOCUSED);
       break;
     case STATE_PRESSED:
-      ElementSetState(e,ELEMENT_ACTIVATE);
+      if(ui.frame_lock < ui.current_frame)
+        ElementSetState(e,ELEMENT_ACTIVATE);
       break;
     default:
       if(e->type != UI_TOOL_TIP)
@@ -486,11 +492,17 @@ void UIRender(void){
  
     ElementRender(ui.elements[1][i]);
   }
+
+  if(active_tooltip)
+    GuiTooltipControl(active_tooltip->bounds, active_tooltip->text);
+
 }
 
 void UISync(FetchRate poll){
   ui.layer_base = 0;
   ui.layer_top = 0;
+  ui.current_frame = WorldGetTime();
+  ui.frame_lock = ui.last_press_frame + 15;
   ScreenApplyContext(ui.contexts);
   for(int i = 0; i < MENU_DONE; i++){
     if(IsKeyPressed(ui.menu_key[i]))
@@ -541,15 +553,13 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
           PrintElementValue(e->value, e->spacing, e->text);
           break;
         case VAL_ICO:
-          if(e->type == UI_ICON && e->value->s == NULL)
-            return;
         default:
           break;
       }
     }
   }
 
-  if(e->align & ALIGN_OVER)
+  if((e->align & ALIGN_OVER) == ALIGN_OVER)
    ui.elements[1][ui.layer_top++] = e;
   else 
    ui.elements[0][ui.layer_base++] = e; 
@@ -570,8 +580,10 @@ bool UIFreeElement(ui_element_t* e){
 
 bool UIHideElement(ui_element_t* e){
   if(ElementSetState(e,ELEMENT_HIDDEN)){
-    if(e->type == UI_TOOL_TIP)
+    if(e->type == UI_TOOL_TIP){
         GuiDisableTooltip();
+        active_tooltip = NULL;
+    }
 
     return true;
 
@@ -632,19 +644,18 @@ void ElementSetText(ui_element_t* e, char* str){
 
 bool ElementSetTooltip(ui_element_t* e){
   GuiEnableTooltip();
+  active_tooltip = e;
 }
 
 bool ElementItemUse(ui_element_t* e){
-  inventory_t* inv = ParamRead(&e->ctx, inventory_t);
-
-  item_t* item = &inv->items[e->index];
+  item_t* item = ParamRead(&e->ctx, item_t);
 
   ElementState next = ELEMENT_IDLE;
   if(!item || !item->use_fn)
     return ElementSetState(e, next);
 
   InteractResult res = IR_NONE;
-  TraceLog(LOG_INFO, "%s %i - use item %s", e->name, e->index, item->def->name);
+  TraceLog(LOG_INFO, "%s %i - use item %s: %i", e->name, e->index, item->def->name, item->gouid);
   return item->use_fn( item, player);
 }
 
@@ -674,9 +685,11 @@ bool ElementToggle(ui_element_t* e){
   switch(e->prior){
     case ELEMENT_SHOW:
     case ELEMENT_ACTIVATE:
-    case ELEMENT_ACTIVATED:
       TraceLog(LOG_INFO,"===== ELEMENT TOGGLE ====\n hide %s",e->name);
       return ElementSetState(e, ELEMENT_HIDDEN);
+      break;
+    case ELEMENT_ACTIVATED:
+      return ElementSetState(e, ELEMENT_IDLE);
       break;
     default:
       TraceLog(LOG_INFO,"===== ELEMENT TOGGLE ====\n show %s",e->name);
@@ -705,6 +718,9 @@ bool ElementToggleChildren(ui_element_t* e){
 bool ElementDynamicChildren(ui_element_t* e){
   local_ctx_t* ctx = ParamRead(&e->ctx, local_ctx_t);
 
+  if(e->num_children > 0)
+    return true;
+
   for (int i = 0; i < 4; i++){
    GameObjectParam p = e->params[i];
    if(p == PARAM_NONE)
@@ -715,15 +731,14 @@ bool ElementDynamicChildren(ui_element_t* e){
    for (int j = 0; j < max; j++){
      ui_element_t* c = InitElementByName("ITEM_BOX", e->menu, e);
      c->params[0] = PARAM_ITEM;
-     c->ctx = ctx->params[p];
 
      ElementAddChild(e,c);
-     WorldTargetSubscribe(EVENT_ITEM_ACQUIRE, UIItemEvent, c, j);
+     ElementSetState(c, ELEMENT_IDLE);
    }
 
   }
 
-  return ElementLoadChildren(e);
+  return true;//ElementLoadChildren(e);
 
 }
 
@@ -792,6 +807,12 @@ bool ElementShowChildren(ui_element_t* e){
     ElementSetState(e->children[i], ELEMENT_SHOW);
 }
 
+bool MenuProcessReady(ui_menu_t* m){
+  WorldEvent(EVENT_PROCESS_READY, &m->process_id, GP_UI);
+
+  return true;
+}
+
 bool MenuActivateChildren(ui_menu_t* m){
   if(ElementSetState(m->element, ELEMENT_IDLE))
   ElementSetState(m->element, ELEMENT_SHOW);
@@ -812,6 +833,9 @@ void MenuOnStateChanged(ui_menu_t*m, MenuState old, MenuState s){
   switch(s){
     case MENU_CLOSE:
       MenuSetState(m,MENU_CLOSED);
+      break;
+    case MENU_LOAD:
+      MenuSetState(m, MENU_READY);
       break;
     case MENU_ACTIVE:
     case MENU_READY:
@@ -855,14 +879,12 @@ bool ElementCanChangeState(ElementState old, ElementState s){
 
   state_change_requirement_t *req = &ELEM_STATE_REQ[s];
   return req->can(old, req->required);
-
-
-  return true;
 }
 
 void ElementStepState(ui_element_t* e, ElementState s){
   switch(s){
     case ELEMENT_ACTIVATE:
+      ui.last_press_frame = WorldGetTime();
       ElementSetState(e,ELEMENT_ACTIVATED);
       break;
     case ELEMENT_NONE:
@@ -913,6 +935,32 @@ void ElementSyncVal(ui_element_t* e, FetchRate poll){
   }
 }
 
+void ElementDynamicValue(ui_element_t* e, FetchRate poll){
+  element_value_t* ev = e->value;
+
+  if(!ev)
+    return;
+
+  param_t context = ev->context;
+  switch(e->params[0]){
+    case PARAM_ITEM:
+      if(context.type_id != DATA_ITEM)
+        return;
+      item_t* item = ParamRead(&context, item_t);
+
+      if(!item || !item->def)
+        return;
+
+      if(e->ctx.gouid == item->gouid)
+        return;
+
+      e->ctx = ParamMakeObj(DATA_ITEM, item->gouid, item);
+      WorldTargetSubscribe(EVENT_INV_REMOVE, UIItemEvent, e, item->gouid);
+      break;
+  }
+
+  ElementSyncVal(e, poll);
+}
 
 bool ElementSyncContext(ui_element_t* e){
   if(e->get_ctx){
@@ -952,6 +1000,7 @@ bool ElementSetContext(ui_element_t* e){
 
     if(e->set_val){
       e->value = e->set_val(e, e->ctx);
+      if(!e->sync_val)
       e->sync_val = ElementSyncVal;
     }
 
@@ -1000,8 +1049,12 @@ void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
 
 }
 
+element_value_t* GetDynamicContext(ui_element_t* e, param_t context){
+
+}
+
 element_value_t* GetContextParams(ui_element_t* e, param_t context){
- if(context.type_id == DATA_LOCAL_CTX)
+ if(context.type_id != DATA_LOCAL_CTX)
     return NULL;
   
   local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
@@ -1027,7 +1080,7 @@ element_value_t* GetContextParams(ui_element_t* e, param_t context){
     ev->num_ln += SetParamDescription(ev->l, ev->num_ln, p);
   }
 
-  e->ctx = ParamMakeArray(DATA_PARAM, e->gouid, ctx_p, count);
+  //e->ctx = ParamMakeArray(DATA_PARAM, e->gouid, ctx_p, count);
   if(ev->num_ln == 0)
     return NULL;
 
@@ -1326,8 +1379,9 @@ element_value_t* GetActivityEntry(ui_element_t* e, param_t context){
 element_value_t* GetContextItem(ui_element_t* e, param_t context){
   element_value_t *ev = GameCalloc("game_menu: GetContextItem",  1,sizeof(element_value_t));
 
+  e->ctx = context;
   ev = SetCtxItems(e->ctx, e->params, e->index);
-  e->sync_val = ElementSyncVal;
+  //e->sync_val = ElementDynamicValue;
   if(!ev)
     return NULL;
 
@@ -1376,14 +1430,46 @@ bool ElementActivityContext(ui_element_t* e){
   return true;
 }
 
+void ElementContextEmpty(ui_element_t* e, FetchRate poll){
+  e->value = NULL;
+  
+  ElementSetState(e, ELEMENT_IDLE);
+}
+
+int ElementSetFirstAvailableChild(ui_element_t* e, param_t p){
+  for (int i = 0; i < e->num_children; i++){
+    ui_element_t* c = e->children[i];
+    if (c->ctx.type_id != DATA_NONE)
+      continue;
+
+    c->value = c->set_val(c, p);
+    if(c->value)
+      ElementSetState(c, ELEMENT_SHOW);
+
+    return i;
+    
+  }
+
+  return -1;
+}
+
 void UIItemEvent(EventType event, void* data, void* user){
   ui_element_t* e = user;
   switch(event){
     case EVENT_ITEM_ACQUIRE:
+      e->sync_val(e, FETCH_EVENT);
+      break;
     case EVENT_ITEM_STORE:
+      item_t* i = data;
+      param_t p = ParamMakeObj(DATA_ITEM, i->gouid, i);
+      int index = ElementSetFirstAvailableChild(e, p);
+      if(index > -1)
+        WorldTargetSubscribe(EVENT_INV_REMOVE, UIItemEvent, e->children[index], i->gouid);
+      break;
     case EVENT_INV_REMOVE:
     case EVENT_ITEM_DESTROY:
-      UISyncElement(e, FETCH_EVENT);
+      e->ctx = EMPTY_PARAM;
+      ElementContextEmpty(e, FETCH_EVENT);
       break;
     case EVENT_ITEM_EQUIP:
       break;
@@ -1407,9 +1493,8 @@ bool ElementInventoryContext(ui_element_t* e){
   for(int i = 0; i < 4; i++){
     if(e->params[i] == PARAM_NONE)
       continue;
-    WorldTargetSubscribe(EVENT_ITEM_STORE, UIItemEvent, e, e->params[i]);
   }
-  
+
   if(e->get_ctx){
     e->ctx = e->get_ctx(e);
 
@@ -1418,6 +1503,21 @@ bool ElementInventoryContext(ui_element_t* e){
       e->sync_val = ElementSyncVal;
     }
 
+  }
+  if(e->ctx.type_id != DATA_LOCAL_CTX)
+    return false;
+
+  local_ctx_t* ctx = ParamRead(&e->ctx, local_ctx_t);
+  for(int i = 0; i < 4; i++){
+
+    if(e->params[i] == PARAM_NONE)
+      break;
+
+    inventory_t* inv = ParamRead(&ctx->params[e->params[i]], inventory_t);
+    if(!inv)
+      return false;
+
+    WorldTargetSubscribe(EVENT_ITEM_STORE, UIItemEvent, e, inv->gouid);
   }
   return (e->ctx.type_id == DATA_NONE);
 }
@@ -1512,8 +1612,13 @@ int GuiLabel(Rectangle bounds, const char *text)
     if (CheckCollisionPointRec(mousePoint, bounds)){
       state = STATE_FOCUSED;
     // Handle mouse button down
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-      state = STATE_PRESSED;
+      if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
+        TraceLog(LOG_INFO,"Click at %f,%f\n", mousePoint.x, mousePoint.y);
+        char debug[MAX_NAME_LEN];
+        StringBounds(&bounds, debug);
+        TraceLog(LOG_INFO,"%s",debug);
+        state = STATE_PRESSED;
+      }
     }
 
     GuiDrawText(text, GetTextBounds(LABEL, bounds), GuiGetStyle(LABEL, TEXT_ALIGNMENT), GetColor(GuiGetStyle(LABEL, TEXT + (state*3))));
@@ -1590,9 +1695,10 @@ param_t ElementPresetContext(void* p){
 param_t ElementOwnerItemContext(void* p){
   //TODO CALLS EVERY ON FOCUS...
   ui_element_t* e = p; 
-  inventory_t* inv = ParamRead(&e->owner->ctx, inventory_t);
-  item_t* i = &inv->items[e->owner->index];
-  return ParamMakeObj(DATA_ITEM, i->gouid, i);
+  if(e->owner->ctx.type_id != DATA_ITEM)
+    return EMPTY_PARAM;
+
+  return e->owner->ctx;
 }
 
 param_t ElementOwnerTextAt(void* p){
