@@ -14,7 +14,7 @@
 
 #define UI_GRID_WIDTH 6
 #define UI_GRID_HEIGHT 3
-#define ELE_COUNT 29
+#define ELE_COUNT 35
 #if defined(PLATFORM_ANDROID)
 #define DEFAULT_MENU_SIZE (Vector2){GetScreenWidth()/2, GetScreenHeight()/2}
 #define DEFAULT_MENU_THIN_SIZE (Vector2){GetScreenWidth(), 64*UI_SCALE}
@@ -44,6 +44,7 @@
 #define SMALL_PANEL_THIN_SIZE (Vector2){184*UI_SCALE, 32*UI_SCALE}
 #define DEFAULT_LINE_SIZE (Vector2){2 *UI_SCALE, 64*UI_SCALE}
 #define FIXED_GRID_PANEL      (Vector2){124, 64}
+#define FIXED_CONTROL         (Vector2){160, 36}
 #define FIXED_BUTTON_SIZE     (Vector2){128, 24}
 #define FIXED_LABEL_SIZE      (Vector2){136, 24}
 #define FIXED_VAL_LABEL_SIZE  (Vector2){88, 24}
@@ -53,7 +54,8 @@
 #define FIXED_TITLE_CHAR      (Vector2){32, 48}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){268, 736}
+#define UI_PANEL_BOT (Vector2){316, 736}
+#define UI_PANEL_TOP (Vector2){316, 0}
 
 #define UI_LOG_HOR (Vector2){640, 220}
 #define LABEL_LOG (Vector2){608, 18}
@@ -194,7 +196,7 @@ element_value_t* SkillGetPretty(element_value_t* self, param_t context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
 int SetParamDescription(line_item_t** li, int count, param_t param);
 int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
-element_value_t* SetCtxItems(param_t, GameObjectParam params[4], int);
+element_value_t* SetCtxIcon(param_t, GameObjectParam params[4], int);
 int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
 int SetCtxDescription(param_t , line_item_t**, int pad[UI_POSITIONING]);
@@ -248,6 +250,7 @@ param_t ElementPresetContext(void*);
 param_t ElementGetScreenSelection(void* p);
 param_t ElementIndexContext(void* p);
 bool ElementScreenContext(ui_element_t* e);
+bool ElementInputContext(ui_element_t* e);
 bool ElementActivityContext(ui_element_t* e);
 bool ElementInventoryContext(ui_element_t* e);
 
@@ -370,7 +373,6 @@ element_value_t* GetContextName(ui_element_t* e, param_t context);
 element_value_t* GetOwnerValue(ui_element_t* e, param_t context);
 element_value_t* GetOwnerText(ui_element_t* e, param_t context);
 element_value_t* GetContextValueName(ui_element_t* e, param_t context);
-element_value_t* GetContextItem(ui_element_t* e, param_t context);
 element_value_t* GetDynamicContext(ui_element_t* e, param_t context);
 element_value_t* GetTextSprite(ui_element_t* e, param_t context);
 element_value_t* GetElementName(ui_element_t* e, param_t context);
@@ -378,11 +380,13 @@ element_value_t* GetActivityEntry(ui_element_t* e, param_t context);
 element_value_t* GetContextStat(ui_element_t* e, param_t context);
 element_value_t* GetContextDetails(ui_element_t* e, param_t context);
 element_value_t* GetContextDescription(ui_element_t* e, param_t context);
+element_value_t* GetActionParams(ui_element_t* e, param_t context);
 
 void UIEventLogEntry(EventType event, void* data, void* user);
 
 void UILogEvent(EventType event, void* data, void* user);
 void UIItemEvent(EventType event, void* data, void* user);
+void UIActionEvent(EventType event, void* data, void* user);
 
 typedef struct ui_menu_s{
   MenuId        id;

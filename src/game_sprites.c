@@ -7,6 +7,7 @@
 #include "asset_ent.h"
 #include "asset_icons.h"
 #include "asset_chars.h"
+#include "asset_spells.h"
 
 #include "screens.h"
 
@@ -43,12 +44,14 @@ void InitResources(){
   Image spritesImg = LoadImage(TextFormat("resources/%s",ENT_IMAGE_PATH)); 
   Image tilesImg = LoadImage(TextFormat("resources/%s",ENV_IMAGE_PATH)); 
   Image uiImg = LoadImage(TextFormat("resources/%s",UI_IMAGE_PATH)); 
+  Image spellImg = LoadImage(TextFormat("resources/%s",SPELLS_IMAGE_PATH)); 
   Image icoImg = LoadImage(TextFormat("resources/%s",ICONS_IMAGE_PATH)); 
   Image charImg = LoadImage(TextFormat("resources/%s",CHARS_IMAGE_PATH)); 
   SHEETS[SHEET_ENT].sprite_sheet = GameMalloc("",sizeof(Texture2D));
   SHEETS[SHEET_ENV].sprite_sheet = GameMalloc("",sizeof(Texture2D));
   SHEETS[SHEET_UI].sprite_sheet = GameMalloc("",sizeof(Texture2D));
   SHEETS[SHEET_ICON].sprite_sheet = GameMalloc("",sizeof(Texture2D));
+  SHEETS[SHEET_SPELLS].sprite_sheet = GameMalloc("",sizeof(Texture2D));
   SHEETS[SHEET_CHARS].sprite_sheet = GameMalloc("",sizeof(Texture2D));
   uidata.sprite_sheet = GameMalloc("",sizeof(Texture2D));
   SpriteLoadSubTextures(ENT_SPRITES,SHEET_ENT,ENT_DONE);
@@ -56,11 +59,13 @@ void InitResources(){
   SpriteLoadSubTextures(UI_SPRITES,SHEET_UI,ELEMENT_COUNT);
   SpriteLoadSubTextures(ICON_SPRITES,SHEET_ICON,ICON_ALL);
   SpriteLoadSubTextures(CHAR_SPRITES,SHEET_CHARS,CHAR_ALL);
+  SpriteLoadSubTextures(SPELL_SPRITES,SHEET_SPELLS,SPELL_ALL);
   *SHEETS[SHEET_ENT].sprite_sheet = LoadTextureFromImage(spritesImg);
   *SHEETS[SHEET_ENV].sprite_sheet = LoadTextureFromImage(tilesImg);
   *SHEETS[SHEET_UI].sprite_sheet = LoadTextureFromImage(uiImg);
   *SHEETS[SHEET_ICON].sprite_sheet = LoadTextureFromImage(icoImg);
   *SHEETS[SHEET_CHARS].sprite_sheet = LoadTextureFromImage(charImg);
+  *SHEETS[SHEET_SPELLS].sprite_sheet = LoadTextureFromImage(spellImg);
   *uidata.sprite_sheet = LoadTextureFromImage(uiImg);
 
 }
@@ -77,8 +82,9 @@ sprite_t* InitSpriteByID(int id, SheetID sid){
   for (int i = 0; i < data.num_sprites; i++){
     if(data.sprites[i]->id != id)
       continue;
+    spr->slice = GameMalloc("InitSpriteByID", sizeof(sprite_slice_t));
+    *spr->slice = *data.sprites[i];
 
-    spr->slice = data.sprites[i];
     spr->sheet = data.sprite_sheet;
 
     spr->offset = spr->slice->offset;
@@ -94,7 +100,8 @@ sprite_t* InitSpriteByIndex(int index, sprite_sheet_data_t* data){
   memset(spr,0,sizeof(sprite_t));
 
   spr->sheet = data->sprite_sheet;
-  spr->slice = data->sprites[index];
+  spr->slice = GameMalloc("InitSpriteByIndex", sizeof(sprite_slice_t));
+  *spr->slice = *data->sprites[index];
 
   //spr->slice->scale = SPRITE_SCALE;
   return spr;

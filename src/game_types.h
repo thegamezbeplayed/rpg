@@ -107,7 +107,10 @@ struct ability_s{
   AbilitySim          sim_fn;
   item_t*             item;
   ActionCategory      cat;
+  ActionSlot       slot;
   ent_t*           owner;
+  Spells            image_id;
+  sprite_t*        spr;
 };
 
 int AbilityAddPB(ent_t* e, ability_t* a, StatType s);

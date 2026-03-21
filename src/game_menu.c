@@ -433,7 +433,7 @@ void ElementRender(ui_element_t* e){
        break;
     case UI_TOOL_TIP:
       //active_tooltip = e;
-      //GuiTooltipControl(e->bounds, e->text);
+      state = GuiTooltipControl(e->bounds, e->text);
       break;
     case UI_BOX:
       GuiGroupBox(e->bounds,NULL);//e->text);
@@ -441,6 +441,9 @@ void ElementRender(ui_element_t* e){
     case UI_PROGRESSBAR:
       break;
     case UI_ICON:
+      if(e->ctx.type_id == DATA_ABILITY)
+        DO_NOTHING();
+
       DrawRectangleLinesEx(e->bounds, 1.5f,LIGHTGRAY);
       if(e->value && e->value->s != NULL){
         state = GuiLabel(e->bounds, NULL);
@@ -494,7 +497,7 @@ void UIRender(void){
   }
 
   if(active_tooltip)
-    GuiTooltipControl(active_tooltip->bounds, active_tooltip->text);
+    ElementRender(active_tooltip);
 
 }
 
@@ -542,7 +545,7 @@ void UISyncElement(ui_element_t* e, FetchRate poll){
       switch(e->value->type){
         case VAL_CHAR:
           if(!e->value->c || e->value->c[0] == '\0')
-            return;
+            break;
           ElementSetText(e, e->value->c);
           break;
         case VAL_INT:
@@ -716,25 +719,48 @@ bool ElementToggleChildren(ui_element_t* e){
 }
 
 bool ElementDynamicChildren(ui_element_t* e){
-  local_ctx_t* ctx = ParamRead(&e->ctx, local_ctx_t);
 
   if(e->num_children > 0)
     return true;
 
+  char *cname = GameMalloc("ElementDynamicChildren", sizeof(char) * MAX_NAME_LEN);
+
   for (int i = 0; i < 4; i++){
-   GameObjectParam p = e->params[i];
-   if(p == PARAM_NONE)
-     continue;
+    int max = 0;
+    GameObjectParam ptype = PARAM_NONE;
+    GameObjectParam p = e->params[i];
+    switch(p){
+      case PARAM_NONE:
+        continue;
+        break;
+      case PARAM_INV_HELD:
+      case PARAM_INV_WORN:
+      case PARAM_INV_BELT:
+      case PARAM_INV_SLING:
+      case PARAM_INV_PACK:
+        strcpy(cname, "ITEM_BOX");
+        local_ctx_t* ctx = ParamRead(&e->ctx, local_ctx_t);
+        inventory_t* inv = ParamRead(&ctx->params[p], inventory_t);
+        max = ITEMS_ALLOWED[inv->id].max;
+        ptype = PARAM_ITEM;
+        break;
+      case PARAM_SLOT_SPELL:
+      case PARAM_SLOT_ITEM:
+      case PARAM_SLOT_WEAP:
+      case PARAM_SLOT_ATTACK:
+        strcpy(cname, "SPELL_CONTROL");
+        action_slot_t* slot = ParamRead(&e->ctx, action_slot_t);
+        ptype = PARAM_ABILITY;
+        max = slot->cap;
+        break;
+    }
+    for (int j = 0; j < max; j++){
+      ui_element_t* c = InitElementByName(cname, e->menu, e);
+      c->params[0] = ptype;
 
-   inventory_t* inv = ParamRead(&ctx->params[p], inventory_t);
-   int max = ITEMS_ALLOWED[inv->id].max;
-   for (int j = 0; j < max; j++){
-     ui_element_t* c = InitElementByName("ITEM_BOX", e->menu, e);
-     c->params[0] = PARAM_ITEM;
-
-     ElementAddChild(e,c);
-     ElementSetState(c, ELEMENT_IDLE);
-   }
+      ElementAddChild(e,c);
+      ElementSetState(c, ELEMENT_IDLE);
+    }
 
   }
 
@@ -1050,15 +1076,10 @@ void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
 }
 
 element_value_t* GetDynamicContext(ui_element_t* e, param_t context){
-
+  e->ctx = context;
 }
 
 element_value_t* GetContextParams(ui_element_t* e, param_t context){
- if(context.type_id != DATA_LOCAL_CTX)
-    return NULL;
-  
-  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
-  
   int count = 0;
 
   for (int i = 0; i < 4; i++){
@@ -1067,23 +1088,36 @@ element_value_t* GetContextParams(ui_element_t* e, param_t context){
   }
 
   param_t *ctx_p = GameCalloc("game_menu: GetContextParams",count, sizeof(param_t));
-  element_value_t *ev = GameCalloc("game_menu: GetContextStat", 1,sizeof(element_value_t));
 
-  ev->rate = FETCH_EVENT;
 
-  ev->type = VAL_LN;
-  for(int i = 0; i < count; i++){
-    if(e->params[i] != PARAM_NONE)
-      ctx_p[i] = ctx->params[e->params[i]];
+  element_value_t* ev = NULL;
+  switch(e->type){
+    case UI_ICON:
 
-    param_t p = ctx->params[e->params[i]];
-    ev->num_ln += SetParamDescription(ev->l, ev->num_ln, p);
+      e->ctx = context;
+      ev = SetCtxIcon(e->ctx, e->params, e->index);
+
+      if(ev->get_val)
+        ev->get_val(ev, ev->context);
+      break;
+    default:
+      local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
+      ev = GameCalloc("game_menu: GetContextStat", 1,sizeof(element_value_t));
+      ev->rate = FETCH_EVENT;
+      ev->type = VAL_LN;
+      for(int i = 0; i < count; i++){
+        if(e->params[i] != PARAM_NONE)
+          ctx_p[i] = ctx->params[e->params[i]];
+
+        param_t p = ctx->params[e->params[i]];
+        ev->num_ln += SetParamDescription(ev->l, ev->num_ln, p);
+      }
+
+      //e->ctx = ParamMakeArray(DATA_PARAM, e->gouid, ctx_p, count);
+      if(ev->num_ln == 0)
+        return NULL;
+      break;
   }
-
-  //e->ctx = ParamMakeArray(DATA_PARAM, e->gouid, ctx_p, count);
-  if(ev->num_ln == 0)
-    return NULL;
-
   ElementValueSyncSize(e, ev);
 
   return ev;
@@ -1262,10 +1296,7 @@ element_value_t* GetContextVal(ui_element_t* e, param_t context){
 }
 
 element_value_t* GetContextValueName(ui_element_t* e, param_t context){
-  if(context.type_id != DATA_LOCAL_CTX)
-    return NULL;
-
-  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
+  local_ctx_t* ctx = NULL;// ParamRead(&context, local_ctx_t);
 
 
   GameObjectParam p = e->owner->params[0];
@@ -1285,10 +1316,12 @@ element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_v
     case PARAM_ATTR_INT:
     case PARAM_ATTR_WIS:
     case PARAM_ATTR_CHAR:
+      ctx = ParamRead(&context, local_ctx_t);
       attribute_t* attribute = ParamRead(&ctx->params[p], attribute_t);
       strcpy(ev->c, ATTR_STRING[attribute->type].name);
       break;
     case PARAM_SKILL_LVL:
+      ctx = ParamRead(&context, local_ctx_t);
       skill_t* skill = ParamRead(&ctx->params[p], skill_t);
       ev->type = VAL_CHAR;
       strcpy(ev->c ,SKILL_NAMES[skill->id]);
@@ -1297,8 +1330,15 @@ element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_v
     case PARAM_STAT_ARMOR:
     case PARAM_STAT_STAMINA:
     case PARAM_STAT_ENERGY:
+      ctx = ParamRead(&context, local_ctx_t);
       stat_t* stat = ParamRead(&ctx->params[p], stat_t);
       strcpy(ev->c ,STAT_STRING[stat->type].name);
+      break;
+    case PARAM_ABILITY:
+      ability_t* a = ParamRead(&e->ctx, ability_t);
+      if(!a)
+        return NULL;
+      strcpy(ev->c, GetAbilityName(a->id));
       break;
   } 
   ElementValueSyncSize(e, ev);
@@ -1376,18 +1416,20 @@ element_value_t* GetActivityEntry(ui_element_t* e, param_t context){
   return ev;
 }
 
-element_value_t* GetContextItem(ui_element_t* e, param_t context){
-  element_value_t *ev = GameCalloc("game_menu: GetContextItem",  1,sizeof(element_value_t));
-
-  e->ctx = context;
-  ev = SetCtxItems(e->ctx, e->params, e->index);
-  //e->sync_val = ElementDynamicValue;
-  if(!ev)
+element_value_t* GetActionParams(ui_element_t* e, param_t context){
+  if(context.type_id != DATA_LOCAL_CTX)
     return NULL;
 
+  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
 
-  ev->get_val(ev, ev->context);
-  return ev;
+  e->ctx = ctx->params[e->params[0]];
+
+  action_slot_t* slot = ParamRead(&e->ctx, action_slot_t);
+
+  WorldTargetSubscribe(EVENT_LEARN, UIActionEvent, e, ctx->gouid);
+  strcpy(e->name, SLOT_PARAM_REL[slot->id].name);
+
+  return NULL;
 }
 
 bool ElementAssignValues(ui_element_t* e){
@@ -1442,15 +1484,47 @@ int ElementSetFirstAvailableChild(ui_element_t* e, param_t p){
     if (c->ctx.type_id != DATA_NONE)
       continue;
 
+    if(c->type == UI_PANEL)
+      DO_NOTHING();
+    if(c->set_val)
     c->value = c->set_val(c, p);
-    if(c->value)
-      ElementSetState(c, ELEMENT_SHOW);
+      
+    ElementSetState(c, ELEMENT_SHOW);
 
     return i;
     
   }
 
   return -1;
+}
+
+void UIActionEvent(EventType event, void* data, void* user){
+  ui_element_t* e = user;
+  ability_t*    a = data;
+  if(SLOT_PARAM_REL[a->slot].param != e->params[0])
+    return;
+
+  param_t p = ParamMakeObj(DATA_ABILITY, a->id, a);
+  int index = ElementSetFirstAvailableChild(e, p);
+
+}
+
+void UIInputEvent(EventType event, void* data, void* user){
+  ui_element_t* e = user;
+  action_key_t* a = data;
+
+  GameObjectParam action_param = SLOT_PARAM_REL[a->binding].param;
+
+  for(int i = 0; i < e->num_children; i++){
+    ui_element_t* c = e->children[i];
+
+    if(c->params[0] != action_param){
+      ElementSetState(c, ELEMENT_HIDDEN);
+      continue;
+    }
+
+    ElementSetState(c, ELEMENT_SHOW);
+  }
 }
 
 void UIItemEvent(EventType event, void* data, void* user){
@@ -1520,6 +1594,21 @@ bool ElementInventoryContext(ui_element_t* e){
     WorldTargetSubscribe(EVENT_ITEM_STORE, UIItemEvent, e, inv->gouid);
   }
   return (e->ctx.type_id == DATA_NONE);
+}
+
+bool ElementInputContext(ui_element_t* e){
+  WorldSubscribe(EVENT_PLAYER_INPUT, UIInputEvent, e);
+  if(e->get_ctx){
+    e->ctx = e->get_ctx(e);
+
+    if(e->set_val){ 
+      e->value = e->set_val(e, e->ctx);
+      if(!e->sync_val)
+        e->sync_val = ElementSyncVal;
+    }
+
+  }
+  return (e->ctx.type_id != DATA_NONE);
 }
 
 bool ElementScreenContext(ui_element_t* e){
@@ -1632,15 +1721,22 @@ int GuiPanel(Rectangle bounds, const char *text)
         #define RAYGUI_PANEL_BORDER_WIDTH   1
     #endif
 
-    int result = 0;
     GuiState state = guiState;
-    
-    // Text will be drawn as a header bar (if provided)
 
+    Vector2 mousePoint = GetMousePosition();
+
+    // Text will be drawn as a header bar (if provided)
+    if (CheckCollisionPointRec(mousePoint, bounds)){
+      state = STATE_FOCUSED;
+      // Handle mouse button down
+      if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
+        state = STATE_PRESSED;
+      } 
+    }  
     GuiDrawRectangle(bounds, RAYGUI_PANEL_BORDER_WIDTH, GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BORDER_COLOR_DISABLED : (int)LINE_COLOR)),
                      GetColor(GuiGetStyle(DEFAULT, (state == STATE_DISABLED)? (int)BASE_COLOR_DISABLED : (int)BACKGROUND_COLOR)));
     //--------------------------------------------------------------------
-    return result;
+    return state;
 }
 
 int GuiHeader(Rectangle bounds, const char *text){
@@ -1688,6 +1784,9 @@ param_t ElementGetScreenSelection(void* p){
 
 param_t ElementPresetContext(void* p){
   ui_element_t* e = p; 
+
+  if(e->type == UI_TOOL_TIP)
+    DO_NOTHING();
 
   return e->ctx;
 }

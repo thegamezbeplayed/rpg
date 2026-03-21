@@ -179,7 +179,7 @@ ent_t* InitEntByRace(mob_define_t def){
     }
   } 
   for(int i = 0; i < SLOT_ALL; i++)
-    e->slots[i] = InitActionSlot(i, e, 1, 1);  
+    e->slots[i] = InitActionSlot(i, e, 1, 6);  
 
   if(e->props->mind > 0){
     for(int i = 0; i < 16; i++){

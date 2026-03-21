@@ -68,7 +68,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
     },
-    .num_children = 2, .kids= {"PLAYER_PANEL_L","ACTIVITY_PANEL", "CONTEXT_PANEL_R"},
+    .num_children = 3, .kids= {"ACTION_PANEL", "PLAYER_PANEL_L","ACTIVITY_PANEL", "CONTEXT_PANEL_R"},
     .params = { {PARAM_NONE}, {PARAM_NONE}, {PARAM_NAME }}
   },
   {"PLAYER_PANEL_L", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
@@ -168,7 +168,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     .spacing = {[UI_PADDING_RIGHT] = 4, [UI_PADDING_BOT] = 2}
   },
   {"ITEM_BOX", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_ICON,
-    ELEMENT_NONE, LAYOUT_STACK, ALIGN_MID, GetContextItem, NULL,
+    ELEMENT_NONE, LAYOUT_STACK, ALIGN_MID, GetContextParams, NULL,
     {
       [ELEMENT_LOAD]      = ElementSetContext,
       [ELEMENT_FOCUSED]   = ElementShowTooltip,
@@ -305,7 +305,18 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
     .spacing = {[UI_MARGIN_LEFT] = -16, [UI_MARGIN_TOP] = -8}
   },
+  {"CONTEXT_TOOL_TIP", VECTOR2_ZERO, FIXED_TOOL_TIP, UI_TOOL_TIP,
+    ELEMENT_HIDDEN, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_TOP | ALIGN_OVER,
+    GetContextDescription, ElementGetOwnerContext,
+    {
+      [ELEMENT_IDLE] = ElementSetContext,
+      [ELEMENT_FOCUSED] = ElementSetTooltip,
+      [ELEMENT_TOGGLE] = UIHideElement
+    },
+    .spacing = {[UI_MARGIN_LEFT] = 16, [UI_MARGIN_TOP] = -8, [UI_PADDING_LEFT] = 4}
+  },
   {"ITEM_TOOL_TIP", VECTOR2_ZERO, FIXED_TOOL_TIP, UI_TOOL_TIP,
+
     ELEMENT_HIDDEN, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_TOP | ALIGN_OVER,
     GetContextDescription, ElementOwnerItemContext,
     {
@@ -341,6 +352,64 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       {PARAM_STAT_HEALTH},
       {PARAM_STAT_ARMOR},
 
+    },
+  },
+  {"ACTION_PANEL", UI_PANEL_TOP, UI_LOG_HOR, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_STACK, 0, NULL, WorldPlayerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+
+    },
+    .num_children = 2, .kids = {
+      "PLAYER_PANEL_HEADERS",
+      "ABILITY_PANEL"
+    },
+    .spacing = {[UI_PADDING_BOT] = 12, [UI_PADDING_TOP] = -8}
+  },
+  {"ABILITY_PANEL", VECTOR2_ZERO, VECTOR2_ZERO, UI_GROUP,
+    ELEMENT_NONE, LAYOUT_STACK, 0, NULL, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD] = ElementInputContext,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowPrimary,
+    },
+    .num_children = 2, .kids = "ABILITY_LIST",
+    .params = {
+      {PARAM_SLOT_SPELL},
+      {PARAM_SLOT_ATTACK},
+    }
+  },
+  {"ABILITY_LIST", VECTOR2_ZERO, VECTOR2_ZERO, UI_GROUP,
+    ELEMENT_NONE, LAYOUT_GRID, ALIGN_LEFT | ALIGN_TOP,
+    GetActionParams, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_SHOW] = ElementDynamicChildren
+    },
+    .kids = {"SPELL_CONTROL"},
+    .spacing = {[UI_MARGIN_TOP] = 28, [UI_MARGIN_LEFT] = 12, [UI_PADDING_LEFT] = 8, [UI_PADDING_BOT] = 4}
+  },
+  {"SPELL_CONTROL", VECTOR2_ZERO, FIXED_CONTROL, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT,
+    GetDynamicContext, ElementPresetContext,
+    .cb = {
+      [ELEMENT_LOAD]      = ElementSetContext,
+      [ELEMENT_SHOW]      = ElementActivateChildren,
+      [ELEMENT_FOCUSED]   = ElementShowTooltip,
+    },
+    .num_children = 3, .kids = {
+      "VALUE_ICON",
+      "VALUE_NAME_LABEL",
+      "CONTEXT_TOOL_TIP"
+    }
+  },
+  {"VALUE_ICON", VECTOR2_ZERO, FIXED_BOX_SIZE, UI_ICON,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT,
+    GetContextParams, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD]      = ElementSetContext,
+      [ELEMENT_IDLE]      = ElementShowIcon,
     },
   },
   {"ACTIVITY_PANEL", UI_PANEL_BOT, VECTOR2_ZERO, UI_PANEL,

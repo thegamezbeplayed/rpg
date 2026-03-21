@@ -107,6 +107,32 @@ char *TextFormatLineItem(line_item_t *item) {
     return buffer;
 }
 
+element_value_t* CtxGetAbility(param_t ctx, GameObjectParam p, int index){
+  if(ctx.type_id != DATA_ABILITY)
+    return NULL;
+  
+  
+  ability_t* a = ParamRead(&ctx, ability_t);
+  if(!a)
+    return NULL;
+
+  element_value_t* ev = GameCalloc("CtxGetItem", 1,sizeof(element_value_t));
+
+  
+  ev->type = VAL_ICO;
+  ev->rate = FETCH_EVENT;
+  ev->index = index;
+  ev->context = ctx;
+//  ev->get_val = InventoryGetItem;
+
+  if(a->spr){
+    ev->s = a->spr;
+    ev->s->slice->color = DAMAGE_SCHOOL[a->school].col; 
+  }
+  return ev;
+
+} 
+
 element_value_t* CtxGetItem(param_t ctx, GameObjectParam p, int index){
   if(ctx.type_id != DATA_ITEM)
     return NULL;
@@ -122,7 +148,7 @@ element_value_t* CtxGetItem(param_t ctx, GameObjectParam p, int index){
   item_t* item = ParamRead(&ctx, item_t);
 
   if(!item || !item->def)
-    return NULL;
+    return ev;
 
   ev->s = item->def->sprite;
 
@@ -155,8 +181,6 @@ int CtxGetSkill(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
   fill[0] = lbl;
   fill[1] = cur;
   return 2;
-
-
 }
  
 int CtxGetSkillDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
@@ -357,6 +381,70 @@ int GetConsumeDesc(line_item_t** li, item_t* item){
 
 }
 
+int GetAbilityDesc(line_item_t** li, ability_t* a){
+  element_value_t* name = GameCalloc("GetAbilityDesc", 1,sizeof(element_value_t));
+  element_value_t* base[MAX_LINE_VAL];
+
+  int count = 0;
+  name->type = VAL_CHAR;
+  name->rate = FETCH_ONCE;
+  name->c = strdup(GetAbilityName(a->id));
+
+  base[0] = name;
+
+  element_value_t* school[MAX_LINE_VAL];
+
+  element_value_t* type = GameCalloc("GetWeapDesc",1,sizeof(element_value_t));
+
+  type->type = VAL_CHAR;
+  type->rate = FETCH_ONCE;
+  type->c = strdup(SKILL_NAMES[a->skills[0]]);
+
+ 
+  element_value_t* dmg = GameCalloc("GetAbilityDesc", 1,sizeof(element_value_t));
+
+  dmg->type = VAL_CHAR;
+  dmg->rate = FETCH_ONCE;
+  dmg->c = strdup(DAMAGE_STRING[a->school]);
+ element_value_t* min_dmg = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
+  min_dmg->i = malloc(sizeof(int));
+  element_value_t* max_dmg = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
+
+  max_dmg->i = malloc(sizeof(int));
+  min_dmg->type = VAL_INT;
+  min_dmg->rate = FETCH_ONCE;
+  int min_roll = 1 * a->dc->num_die;
+  *min_dmg->i =  min_roll;
+
+  int max_roll = a->dc->sides * a->dc->num_die;
+
+  max_dmg->type = VAL_INT;
+  max_dmg->rate = FETCH_ONCE;
+  *max_dmg->i = max_roll;
+
+
+  school[0] = type;
+
+  element_value_t* vals[MAX_LINE_VAL];
+
+  element_value_t* tar = GameCalloc("GetAbilityDesc", 1,sizeof(element_value_t));
+
+  tar->type = VAL_CHAR;
+  tar->rate = FETCH_ONCE;
+
+  tar->c = strdup(TargetingStringDesc(a->targeting));
+
+  vals[0] = min_dmg;
+  vals[1] = max_dmg;
+  vals[2] = dmg;
+  vals[3] = tar;
+  li[count++] = InitLineItem(base, 1, "%s");
+
+  li[count++] = InitLineItem(school, 1, "School of %s");
+  li[count++] = InitLineItem(vals, 4, "Deals %i - %i %s damage %s.");
+  return count;
+}
+
 int GetWeapDesc(line_item_t** li, item_t* item){
 
   element_value_t* name = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
@@ -393,7 +481,7 @@ int GetWeapDesc(line_item_t** li, item_t* item){
   
   element_value_t* dmg[MAX_LINE_VAL];
   element_value_t* hit[MAX_LINE_VAL];
-
+  
   dmg[0] = min_dmg;
   dmg[1] = max_dmg;
   dmg[2] = type;
@@ -678,6 +766,10 @@ int SetCtxDescription(param_t ctx , line_item_t** li, int pad[UI_POSITIONING]){
 
       }
       break;
+    case DATA_ABILITY:
+      ability_t *a = ParamRead(&ctx, ability_t);
+      lines = GetAbilityDesc(li, a);
+      break;
   }
 
   for(int i = 0; i < lines; i++){
@@ -729,9 +821,18 @@ int SetActivityLines(element_value_t* ev, int pad[UI_POSITIONING]){
   return 1;
 }
 
-element_value_t* SetCtxItems(param_t ctx, GameObjectParam params[4], int index){
+element_value_t* SetCtxIcon(param_t ctx, GameObjectParam params[4], int index){
 
-  return CtxGetItem(ctx, params[0], index);
+  switch(ctx.type_id){
+    case DATA_ITEM:
+      return CtxGetItem(ctx, params[0], index);
+      break;
+    case DATA_ABILITY:
+      return CtxGetAbility(ctx, params[0], index);
+      break;
+    default:
+      return NULL;
+  }
 }
 
 int SetParamDescription(line_item_t** li, int count, param_t param){

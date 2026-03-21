@@ -603,6 +603,7 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
     a->chain_fn = EntUseAbility;
   }
 
+  a->spr = InitSpriteByID(a->image_id, SHEET_SPELLS);
   return a;
 }
 

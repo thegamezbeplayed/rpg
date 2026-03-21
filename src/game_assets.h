@@ -248,6 +248,7 @@ typedef enum{
   SHEET_ENV,
   SHEET_UI,
   SHEET_ICON,
+  SHEET_SPELLS,
   SHEET_CHARS,
   SHEET_ALL
 }SheetID;

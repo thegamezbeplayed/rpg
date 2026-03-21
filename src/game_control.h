@@ -147,5 +147,5 @@ static void InputToggle(void){
   player_input.active = !player_input.active;
 }
 
-
+param_t InputSelectContext(void*);
 #endif

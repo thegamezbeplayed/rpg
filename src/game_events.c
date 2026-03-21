@@ -578,6 +578,12 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->params[PARAM_ATTR_INT] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_INT]);
       e->params[PARAM_ATTR_CHAR] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_CHAR]);
       e->params[PARAM_ATTR_WIS] = ParamMakeObj(DATA_ATTR, mob->gouid, mob->attribs[ATTR_WIS]);
+      
+      e->params[PARAM_SLOT_SPELL] = ParamMakeObj(DATA_SLOT, mob->gouid, mob->slots[SLOT_SPELL]);
+      e->params[PARAM_SLOT_ATTACK] = ParamMakeObj(DATA_SLOT, mob->gouid, mob->slots[SLOT_ATTACK]);
+      e->params[PARAM_SLOT_ITEM] = ParamMakeObj(DATA_SLOT, mob->gouid, mob->slots[SLOT_ITEM]);
+      
+      
       e->dist = cell_distance(pos, mob->pos);
       WorldTargetSubscribe(EVENT_ENT_DEATH, OnWorldByGOUID, s, mob->gouid);
       break;

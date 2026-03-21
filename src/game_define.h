@@ -430,6 +430,28 @@ typedef enum {
   DMGTAG_DONE        = 1 << 9
 } DamageTag;
 
+typedef struct{
+  DamageType    school;
+  Color         col;
+}damage_school_d;
+static damage_school_d DAMAGE_SCHOOL[DMG_DONE] = {
+  {DMG_BLUNT,     GRAY},
+  {DMG_PIERCE,    LIGHTGRAY},
+  {DMG_SLASH,     LIGHTGRAY},
+  {DMG_BLEED,     MAROON},
+  {DMG_FIRE,      RED},
+  {DMG_COLD,      SKYBLUE},
+  {DMG_LIGHTNING, SKYBLUE},
+  {DMG_THUNDER,   DARKBLUE},
+  {DMG_ACID,      PURPLE},
+  {DMG_POISON,    GREEN},
+  {DMG_PSYCHIC,   VIOLET},
+  {DMG_RADIANT,   GOLD},
+  {DMG_NECROTIC,  DARKPURPLE},
+  {DMG_FORCE,     DARKBLUE},
+  {DMG_TRUE,      BLUE},
+
+};
 static const uint32_t DamageTypeTags[DMG_DONE] = {
 
   // Physical
@@ -2190,4 +2212,16 @@ typedef struct{
   SkillType          skill;
 }define_natural_armor_t;
 extern define_natural_armor_t NAT_ARMOR_TEMPLATES[13];
+
+typedef struct{
+  GameObjectParam   param;
+  ActionSlot        slot;
+  char              name[MAX_NAME_LEN];
+}define_action_slots_t;
+
+static define_action_slots_t SLOT_PARAM_REL[SLOT_ALL] = {
+  [SLOT_ATTACK] = {PARAM_SLOT_ATTACK, SLOT_ATTACK, "Techniques"},
+  [SLOT_SPELL] = {PARAM_SLOT_SPELL, SLOT_SPELL, "Spells"},
+  [SLOT_ITEM] = {PARAM_SLOT_ITEM, SLOT_ITEM, "Equipment"},
+};
 #endif

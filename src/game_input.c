@@ -77,6 +77,10 @@ void InputSetTarget(ent_t* e, ActionType a, local_ctx_t* tar){
 
 }
 
+BehaviorStatus SelectActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
+  WorldEvent(EVENT_PLAYER_INPUT, &a, e->gouid);
+}
+
 BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
 
   ability_t* abi = NULL;
@@ -145,12 +149,16 @@ void InitInput(ent_t* player){
     player_input.decisions[i]->decision = i;
   }
 
+  player_input.actions[ACTION_MAGIC] = (action_key_t){
+    ACTION_MAGIC,1,{KEY_M},SelectActionAttack,SLOT_SPELL};
+
+
   player_input.actions[ACTION_ATTACK] = (action_key_t){
-    ACTION_WEAPON,3,{KEY_F, KEY_M, KEY_R},InputActionAttack,SLOT_NONE};
+    ACTION_WEAPON,1,{KEY_F},SelectActionAttack,SLOT_ATTACK};
 
 
   player_input.actions[ACTION_MOVE] = (action_key_t){
-    ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},InputActionMove,SLOT_ATTACK};
+    ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},InputActionMove,SLOT_NONE};
 
 }
 

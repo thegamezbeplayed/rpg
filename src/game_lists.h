@@ -27,51 +27,6 @@ static faction_t FACTION_DEFS[3] = {
   }
 };
 
-static const char* STATE_STRING[STATE_END + 1]={
-  "NONE",
-  "SPAWN",
-  "IDLE",
-  "AGGRO",
-  "NEED",
-  "SELECT",
-  "DIE",
-  "DEAD",
-  "STANDBY",
-  "RETURN",
-  "END"
-};
-
-static const char* DAMAGE_STRING[DMG_DONE]={
-  "Blunt",
-  "Piercing",
-  "Slashing",
-  "Bleed",
-  "Fire",
-  "Frost",
-  "Electric",
-  "Corrosive",
-  "Poison",
-  "Physic",
-  "Radiant",
-  "Necrotic",
-  "Force",
-  "True"
-};
-
-static stat_name_t STAT_STRING[STAT_ENT_DONE]={
-  {STAT_NONE,"N/A"},
-  {STAT_REACH,"Reach"},
-  {STAT_DAMAGE,"Damage"},
-  {STAT_HEALTH,"Health"},
-  {STAT_ARMOR, "Armor"},
-  {STAT_ENERGY,"Spell Energy"},
-  {STAT_STAMINA, "Stamina"},
-  {STAT_STAMINA_REGEN,"Stamina Regen"},
-  {STAT_ENERGY_REGEN, "Spell Regen"},
-  {STAT_STAMINA_REGEN_RATE,"Stamina Regen Rate"},
-  {STAT_ENERGY_REGEN_RATE, "Spell Regen Rate"},
-};
-
 static stat_relate_t STAT_RELATION[STAT_ENT_DONE] = {
   [STAT_HEALTH] = {STAT_HEALTH, STAT_HEALTH_REGEN_RATE, N_THIRST},
   [STAT_STAMINA] = {STAT_STAMINA, STAT_STAMINA_REGEN_RATE, N_HUNGER},
@@ -1393,13 +1348,20 @@ static mob_variants_t MOB_MODS[ENT_DONE] = {
 static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
   {ABILITY_NONE},
   {ABILITY_PUNCH},
+  {ABILITY_RAM},
   {ABILITY_BITE},
   {ABILITY_CHEW},
   {ABILITY_GNAW},
   {ABILITY_CLAW},
   {ABILITY_SWIPE},
   {ABILITY_BITE_POISON},
-  {ABILITY_POISON},
+  {ABILITY_POISON, false, false},
+  {ABILITY_ACID_SPLASH, true, true,
+    CLASS_BASE_DRUID,
+    CLASS_BASE_WIZ,
+    0, 5, 6, 7,
+    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+  },
   {ABILITY_MAGIC_MISSLE, true, true,
     CLASS_BASE_WIZ,
     CLASS_BASE_WIZ,
@@ -1417,6 +1379,12 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
     CLASS_BASE_SHAMAN,
     1,3,8, 10,
     SPEC_HUMAN// | SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
+  },
+  {ABILITY_CHILL_TOUCH, true, true,
+    CLASS_BASE_LOCK,
+    CLASS_BASE_WIZ,
+    0, 3, 6, 8,
+    SPEC_HUMAN | SPEC_GOBLINOID | SPEC_ORC
   },
   {ABILITY_GUIDING_BOLT, true, true,
     CLASS_BASE_CLERIC,
@@ -1446,10 +1414,28 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
     0, 3, 8, 5,
     SPEC_GOBLINOID | SPEC_ORC
   },
+  {ABILITY_DISSONANT_WHISPERS, true, true,
+    CLASS_BASE_LOCK,
+    CLASS_BASE_WIZ,
+    0, 3, 8, 7,
+    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+  },
   {ABILITY_FIRE_BOLT, true, true,
     CLASS_BASE_LOCK,
     CLASS_BASE_WIZ,
     0,3,8, 7,
+    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+  },
+  {ABILITY_FROST_BITE, true, true,
+    CLASS_BASE_DRUID | CLASS_BASE_SHAMAN,
+    CLASS_BASE_WIZ,
+    0, 3, 8, 7,
+    SPEC_HUMAN | SPEC_GOBLINOID | SPEC_ORC
+  },
+  {ABILITY_THUNDER_WAVE, true, true,
+    CLASS_BASE_DRUID | CLASS_BASE_SHAMAN,
+    CLASS_BASE_WIZ,
+    0, 3, 8 ,7,
     SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
   },
   {ABILITY_CURE_WOUNDS, true, true,

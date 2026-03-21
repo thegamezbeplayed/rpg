@@ -208,7 +208,7 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
   lp->rules = ctx;
 
   bool result = false;
-  choice_pool_t *cp = StartChoice(&lp->flags, count * 2, ChooseByWeight, &result);
+  choice_pool_t *cp = StartChoice(&lp->flags, count * 2, ChooseByWeightInBudget, &result);
 
   if(!result){
     for (int i = 0; i < Level.item_defs->count; i++){
@@ -221,7 +221,7 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
           weight += item->data.cons.weight;;
           break;
       }
-      AddPurchase(cp, def->id, weight, 1, def, ChoiceReduceScore);
+      AddPurchase(cp, def->id, weight, 1, def, DiscardChoice);
 
     }
     cp->desired = count;

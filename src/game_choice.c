@@ -387,6 +387,7 @@ choice_t* ChooseByWeightInBudget(choice_pool_t* pool){
     if (r >= running)
       continue;
 
+    pool->budget -= c->cost;
     if(c->cb)
       c->cb(pool, c);
 

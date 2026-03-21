@@ -746,6 +746,7 @@ bool ActionSlotAddAbility(ent_t* owner, ability_t* a){
 
   if( ActionSlotAdd(owner->slots[slot], a)){
     owner->num_abilities++;
+    a->slot = slot;
     return true;
   }
 
