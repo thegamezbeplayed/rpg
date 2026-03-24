@@ -1266,4 +1266,16 @@ static const char* GetPropNameByTypeProps(ItemCategory cat, uint64_t props, uint
   };
 
 }
+
+static int GetSkillCategoryList(SkillCategory cat, SkillType *skills[SKILL_DONE]){
+  int count = 0;
+  for(int i = 0; i < SKILL_DONE; i++){
+    if(GRANTS_PB[i].cat != cat)
+      continue;
+
+    skills[count++] = &GRANTS_PB[i].id;
+  }
+
+  return count;
+}
 #endif

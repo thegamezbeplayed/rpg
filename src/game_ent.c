@@ -15,6 +15,7 @@ ent_t* InitEnt(EntityType id,Cell pos){
   e->type = id;
 
   e->props->base_diff = 5;
+/*
   item_def_t* w = GetItemDefByID(GEAR_MACE);
   EntAddItem(e, InitItem(w), true);
   
@@ -27,6 +28,10 @@ ent_t* InitEnt(EntityType id,Cell pos){
   EntAddItem(e, InitItem(p), true);
   item_def_t* a = GetItemDefByID(GEAR_LEATHER_ARMOR);
   EntAddItem(e, InitItem(a), true);
+  
+  */
+  
+  ActionSlotAddAbility(e, InitAbility(e, ABILITY_PUNCH));
   e->pos = pos;
   strcpy(e->name, "Michael");
  
@@ -1243,7 +1248,14 @@ bool EntAddItem(ent_t* e, item_t* item, bool equip){
     added->equipped = equip;
    if(added->on_acquire)
      added->on_acquire(e, added);
-    return true;
+
+   if(equip)
+     for(int i = 0; i < 2; i++)
+       if(added->on_equip[i])
+         added->on_equip[i](e, added);
+
+   return true;
+
   }
 
   return false;

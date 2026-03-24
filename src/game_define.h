@@ -539,12 +539,8 @@ typedef struct{
   const char* name;
 }attribute_name_t;
 
-typedef struct{
-  SkillType   sk;
-  const char* name;
-}skill_name_t;
-
 typedef uint64_t ProficiencyChecks;
+
 typedef enum{
   PC_NONE     = 0,
   PC_BONUS    = 1ULL << 0,
@@ -554,6 +550,7 @@ typedef enum{
 
 typedef struct{
   SkillType         id;
+  SkillCategory     cat;
   SkillType         counter;
   int               base;
   AttributeType     attr;
@@ -582,6 +579,7 @@ typedef struct{
   SkillRank     rank;
   int           skill_thresh, penalty;
   ModifierType  proficiency;
+  char          name[MAX_NAME_LEN];
 }define_skill_rank_t;
 
 typedef struct{

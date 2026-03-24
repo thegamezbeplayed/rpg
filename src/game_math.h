@@ -5,6 +5,11 @@
 #include <raymath.h>
 #include "reasings.h"
 
+#define ZERO  0
+#define ONE   1
+#define TWO   2
+#define THREE 3
+
 #define CLAMP(x, low, high) (((x) < (low)) ? (low) : (((x) > (high)) ? (high) : (x)))
 #define CLAMPF(val, min, max) ((val) < (min) ? (min) : ((val) > (max) ? (max) : (val)))
 

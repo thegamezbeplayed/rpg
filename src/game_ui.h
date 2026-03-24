@@ -14,7 +14,7 @@
 
 #define UI_GRID_WIDTH 6
 #define UI_GRID_HEIGHT 3
-#define ELE_COUNT 35
+#define ELE_COUNT 41
 #if defined(PLATFORM_ANDROID)
 #define DEFAULT_MENU_SIZE (Vector2){GetScreenWidth()/2, GetScreenHeight()/2}
 #define DEFAULT_MENU_THIN_SIZE (Vector2){GetScreenWidth(), 64*UI_SCALE}
@@ -45,13 +45,15 @@
 #define DEFAULT_LINE_SIZE (Vector2){2 *UI_SCALE, 64*UI_SCALE}
 #define FIXED_GRID_PANEL      (Vector2){124, 64}
 #define FIXED_CONTROL         (Vector2){160, 36}
-#define FIXED_BUTTON_SIZE     (Vector2){128, 24}
-#define FIXED_LABEL_SIZE      (Vector2){136, 24}
-#define FIXED_VAL_LABEL_SIZE  (Vector2){88, 24}
-#define FIXED_HEADER_SIZE     (Vector2){160, 24}
+#define FIXED_BUTTON_SIZE     (Vector2){96, 24}
+#define FIXED_LABEL_SIZE      (Vector2){112, 18}
+#define FIXED_VAL_LABEL_SIZE  (Vector2){80, 18}
+#define FIXED_HEADER_SIZE     (Vector2){144, 18}
 #define FIXED_BOX_SIZE        (Vector2){36, 36}
-#define FIXED_TOOL_TIP        (Vector2){96, 24}
+#define FIXED_TOOL_TIP        (Vector2){96, 20}
 #define FIXED_TITLE_CHAR      (Vector2){32, 48}
+
+#define FIXED_DETAILS_BOX     (Vector2){264, 48}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
 #define UI_PANEL_BOT (Vector2){316, 736}
@@ -178,9 +180,9 @@ typedef struct{
 }line_item_t;
 
 typedef struct{
-  int           lines;
-  line_item_t*  ln[MAX_LINE_ITEMS];
-}stat_sheet_t;
+  float       min, max, *val;
+  line_item_t *left, *right;
+}progress_item_t;
 
 line_item_t* InitLineItem(element_value_t **val, int num_val, const char* format);
 const char* PrintLine(line_item_t* ln);
@@ -212,6 +214,7 @@ typedef enum {
   VAL_FLOAT,
   VAL_CHAR,
   VAL_LN,
+  VAL_PROG,
 } ValueType;
 
 typedef element_value_t* (*ElementFetchValue)(element_value_t* e, param_t);
@@ -221,11 +224,12 @@ struct element_value_s{
   FetchRate   rate;
   ValueType type;
   union {
-    int           *i;
-    float         *f;
-    char          *c;
-    line_item_t   *l[MAX_LINE_ITEMS];
-    sprite_t      *s;
+    int             *i;
+    float           *f;
+    char            *c;
+    line_item_t     *l[MAX_LINE_ITEMS];
+    sprite_t        *s;
+    progress_item_t *p;
   };
   size_t            char_len, num_ln, text_len, text_hei;
   param_t           context;
@@ -347,6 +351,7 @@ bool ElementLoadChildren(ui_element_t*);
 bool ElementShow(ui_element_t* e);
 bool ElementShowIcon(ui_element_t* e);
 bool ElementItemUse(ui_element_t* e);
+bool ElementAbilityUse(ui_element_t* e);
 bool ElementShowChildren(ui_element_t*);
 bool ElementShowPrimary(ui_element_t*);
 bool ElementTabToggle(ui_element_t* e);
@@ -368,6 +373,8 @@ struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
 element_value_t* GetContextParams(ui_element_t* e, param_t context);
+element_value_t* GetSkillContext(ui_element_t* e, param_t context);
+element_value_t* GetContextProgress(ui_element_t* e, param_t context);
 element_value_t* GetContextVal(ui_element_t* e, param_t context);
 element_value_t* GetContextName(ui_element_t* e, param_t context);
 element_value_t* GetOwnerValue(ui_element_t* e, param_t context);

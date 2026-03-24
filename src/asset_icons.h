@@ -14,11 +14,16 @@
 
 // Atlas sprites array
 static sub_texture_t ICON_SPRITES[ICON_ALL] = {
-    { ICON_HELM_COM,  16, 16, 0, 0, 32, 32},
-    { ICON_POT_FULL,  16, 16, 32, 0, 32, 32},
-    { ICON_MACE_COM,  16, 16, 64, 0, 32, 32},
-    { ICON_BELT,      16, 16, 96, 0, 32, 32},
-    { ICON_TUNIC_COM, 16, 16, 128, 0, 32, 32},
-    { ICON_SCROLL,    16, 16, 0, 32, 32, 32, BEIGE},
-    { ICON_TOME,      16, 16, 32, 32, 32, 32, RAYWHITE},
+  { ICON_HELM_COM,  16, 16, 0, 0, 32, 32},
+  { ICON_POT_FULL,  16, 16, 32, 0, 32, 32},
+  { ICON_MACE_COM,  16, 16, 64, 0, 32, 32},
+  { ICON_BELT,      16, 16, 96, 0, 32, 32},
+  { ICON_SCROLL,    16, 16, 128, 0, 32, 32, BEIGE},
+  { ICON_TOME,      16, 16, 160, 0, 32, 32, RAYWHITE},
+  { ICON_SWORD,     16, 16, 192, 0, 32, 32},
+  { ICON_HATCHET,   16, 16, 224, 0, 32, 32},
+  { ICON_CURAISS,   16, 16, 0, 32,  32, 32},
+  { ICON_SHIRT,     16, 16, 32, 32, 32, 32},
+  { ICON_TUNIC_COM, 16, 16, 64, 32, 32, 32},
+  { ICON_DAGGER,    16, 16, 96, 32, 32, 32}
 };

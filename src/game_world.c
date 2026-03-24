@@ -484,7 +484,10 @@ void WorldInitOnce(){
     EntInitOnce(world.ents[i]);
 
   InitInput(player);
-  LootDraw(player, 4);
+
+  LootDraw(player, ITEM_WEAPON, true, 1000, 1);
+  LootDraw(player, ITEM_ARMOR, true, 30, 1);
+  LootDraw(player, ITEM_CONSUMABLE, false, 1000, 4);
   WorldValidateContext();
   WorldEvent(EVENT_ENT_STEP, player, player->gouid);
 }

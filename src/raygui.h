@@ -3303,27 +3303,27 @@ int GuiSliderBar(Rectangle bounds, const char *textLeft, const char *textRight, 
 // Progress Bar control extended, shows current progress value
 int GuiProgressBar(Rectangle bounds, const char *textLeft, const char *textRight, float *value, float minValue, float maxValue)
 {
-    int result = 0;
-    GuiState state = guiState;
+  int result = 0;
+  GuiState state = guiState;
 
-    float temp = (maxValue - minValue)/2.0f;
-    if (value == NULL) value = &temp;
+  float temp = (maxValue - minValue)/2.0f;
+  if (value == NULL) value = &temp;
 
-    // Progress bar
-    Rectangle progress = { bounds.x + GuiGetStyle(PROGRESSBAR, BORDER_WIDTH),
-                           bounds.y + GuiGetStyle(PROGRESSBAR, BORDER_WIDTH) + GuiGetStyle(PROGRESSBAR, PROGRESS_PADDING), 0,
-                           bounds.height - GuiGetStyle(PROGRESSBAR, BORDER_WIDTH) - 2*GuiGetStyle(PROGRESSBAR, PROGRESS_PADDING) -1 };
+  // Progress bar
+  Rectangle progress = { bounds.x + GuiGetStyle(PROGRESSBAR, BORDER_WIDTH),
+    bounds.y + GuiGetStyle(PROGRESSBAR, BORDER_WIDTH) + GuiGetStyle(PROGRESSBAR, PROGRESS_PADDING), 0,
+    bounds.height - GuiGetStyle(PROGRESSBAR, BORDER_WIDTH) - 2*GuiGetStyle(PROGRESSBAR, PROGRESS_PADDING) -1 };
 
-    // Update control
-    //--------------------------------------------------------------------
-    if (*value > maxValue) *value = maxValue;
+  // Update control
+  //--------------------------------------------------------------------
+  if (*value > maxValue) *value = maxValue;
 
-    // WARNING: Working with floats could lead to rounding issues
-    if ((state != STATE_DISABLED)) progress.width = ((float)*value/(maxValue - minValue))*(bounds.width - 2*GuiGetStyle(PROGRESSBAR, BORDER_WIDTH));
-    //--------------------------------------------------------------------
+  // WARNING: Working with floats could lead to rounding issues
+  if ((state != STATE_DISABLED)) progress.width = ((float)*value/(maxValue - minValue))*(bounds.width - 2*GuiGetStyle(PROGRESSBAR, BORDER_WIDTH));
+  //--------------------------------------------------------------------
 
-    // Draw control
-    //--------------------------------------------------------------------
+  // Draw control
+  //--------------------------------------------------------------------
     if (state == STATE_DISABLED)
     {
         GuiDrawRectangle(bounds, GuiGetStyle(PROGRESSBAR, BORDER_WIDTH), GetColor(GuiGetStyle(PROGRESSBAR, BORDER + (state*3))), BLANK);

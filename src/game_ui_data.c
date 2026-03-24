@@ -88,32 +88,34 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, NULL, ElementNiblings,
     {
       [ELEMENT_LOAD] = ElementSetContext,
-      [ELEMENT_IDLE] = ElementActivateChildren
+      [ELEMENT_IDLE] = ElementLoadChildren,
+      [ELEMENT_SHOW] = ElementActivateChildren,
 
     },
-    .num_children = 2, .kids = {
+    .num_children = 3, .kids = {
       "TAB_BUTTON"
     },
     .spacing = {[UI_MARGIN_LEFT] = 36, [UI_PADDING_RIGHT] = 4}
   },
-  {"PANEL_GROUP", VECTOR2_ZERO, VECTOR2_ZERO, UI_GROUP,
+  {"PANEL_GROUP", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
     ELEMENT_NONE, LAYOUT_STACK, ALIGN_LEFT, NULL, WorldPlayerContext,
     .cb = {
       [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowPrimary,
     },
-    .num_children = 2, .kids = {
+    .num_children = 3, .kids = {
       "CHARACTER_SHEET",
-      "INVENTORY"
+      "INVENTORY",
+      "SKILLS_PANEL"
     },
     .spacing ={[UI_PADDING_RIGHT] = 24, [UI_PADDING_LEFT] = 8}
   },
   {"TAB_BUTTON", VECTOR2_ZERO, FIXED_BUTTON_SIZE, UI_BUTTON,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_CENTER | ALIGN_MID, GetElementName, ElementPresetContext,
     {
-      [ELEMENT_LOAD] = ElementSetContext,
-      //[ELEMENT_IDLE] = ElementSetContext,
+      //[ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementSetContext,
       [ELEMENT_ACTIVATE] = ElementTabToggle,
     },
     .delimiter = ' '
@@ -228,7 +230,16 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_IDLE] = ElementSetContext,
     },
   },
-  {"VALUE_LABEL", VECTOR2_ZERO, FIXED_VAL_LABEL_SIZE, UI_LABEL,
+  {"VALUE_PROGRESS", VECTOR2_ZERO, FIXED_VAL_LABEL_SIZE, UI_PROGRESSBAR,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_CENTER | ALIGN_TOP,
+    GetContextProgress, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+
+    },
+    .spacing = {[UI_MARGIN_TOP] = 8}
+  },
+    {"VALUE_LABEL", VECTOR2_ZERO, FIXED_VAL_LABEL_SIZE, UI_LABEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_MID | ALIGN_RIGHT,
     GetContextVal, ElementGetOwnerContext,
     {
@@ -238,6 +249,60 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     },
     .num_children = 1, .kids ={"STAT_TOOL_TIP"},
     .spacing = {[UI_MARGIN_LEFT] = -32, [UI_PADDING_LEFT] = -16}
+  },
+  {"SKILLS_PANEL", VECTOR2_ZERO, VECTOR2_ZERO, UI_PANEL,
+    ELEMENT_NONE, LAYOUT_STACK, ALIGN_LEFT | ALIGN_TOP,
+    NULL, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowChildren,
+      [ELEMENT_ACTIVATE] = ElementHideSiblings,
+
+    },
+    .num_children = 2, .kids = {
+      "PLAYER_PANEL_HEADERS",
+      "SKILLS_GROUP"
+    },
+    .params = {PARAM_SKILL},
+    .text = "Skills"
+  },
+  {"SKILLS_GROUP", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
+    ELEMENT_NONE, LAYOUT_STACK, ALIGN_LEFT | ALIGN_TOP,
+    NULL, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowPrimary,
+    },
+    .num_children = SKILL_CAT_DONE, .kids = {
+      "SKILL_CONTROL"
+    },
+    .params = {
+      {PARAM_SKILL},
+      {PARAM_SKILL},
+      {PARAM_SKILL},
+      {PARAM_SKILL},
+      {PARAM_SKILL},
+      {PARAM_SKILL},
+      {PARAM_SKILL},
+      {PARAM_SKILL},
+    },
+    .spacing = {[UI_MARGIN_TOP] = 24}
+  },
+  {"SKILL_CONTROL", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_TOP,
+    GetSkillContext, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementDynamicChildren,
+      [ELEMENT_SHOW] = ElementShowChildren,
+      [ELEMENT_ACTIVATE] = ElementHideSiblings,
+      [ELEMENT_ACTIVATED] = ElementShow,
+    },
+    .kids = "CHARACTER_LINE_DETAILS",
+    .params = {PARAM_SKILL},
+    .spacing = {[UI_PADDING_BOT] = 4}
   },
   {"CHARACTER_ATTR", VECTOR2_ZERO, VECTOR2_ZERO, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_TOP, NULL, ElementGetOwnerContext,
@@ -281,6 +346,27 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_IDLE] = ElementSetContext,
     },
   },
+  {"CHARACTER_LINE_DETAILS", VECTOR2_ZERO, FIXED_DETAILS_BOX, UI_BOX,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, 
+    GetDynamicContext, ElementGetOwnerContext,
+    {
+      [ELEMENT_LOAD]      = ElementSetContext,
+      [ELEMENT_IDLE]      = ElementActivateChildren,
+      [ELEMENT_SHOW]      = ElementShowChildren,
+    },
+    .num_children = 1, .kids = {
+      "VALUE_PROGRESS"
+    },
+    .spacing = {[UI_PADDING_TOP] = 16, [UI_MARGIN_TOP] = 0}
+  },
+  {"LINE_LABEL", VECTOR2_ZERO, VECTOR2_ZERO, UI_LABEL,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, GetContextVal, ElementGetOwnerContextParams,
+    {
+      [ELEMENT_LOAD]      = ElementSetContext,
+    },
+    .spacing = {[UI_MARGIN_LEFT] = 0}
+  },
+
   {"CHARACTER_LINE_NAME_VAL", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT, 
     NULL, ElementGetOwnerContext,
@@ -392,11 +478,12 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
   },
   {"SPELL_CONTROL", VECTOR2_ZERO, FIXED_CONTROL, UI_PANEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT,
-    GetDynamicContext, ElementPresetContext,
+    NULL, ElementPresetContext,
     .cb = {
       [ELEMENT_LOAD]      = ElementSetContext,
       [ELEMENT_SHOW]      = ElementActivateChildren,
       [ELEMENT_FOCUSED]   = ElementShowTooltip,
+      [ELEMENT_ACTIVATE]  = ElementAbilityUse,
     },
     .num_children = 3, .kids = {
       "VALUE_ICON",

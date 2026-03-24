@@ -73,17 +73,34 @@ static param_t ParamMakeObj(DataType type, game_object_uid_i uid, void* src) {
   return o;
 }
 
-static param_t ParamMakeArray(DataType type, game_object_uid_i uid, void* src, int count){
+static param_t ParamMakeArray(DataType type, game_object_uid_i uid, void* src, int count, size_t size){
 
-  param_t p = {
-    uid,
-    type,
-    src,
-    count
-  };
+  param_t p = {0};
+  p.gouid = uid;
+  p.type_id = type;
+  p.size  =  count;
+  p.data = src;
+  return p;
+
+  if( src && count > 0)
+    p.data = GameMalloc("ParamMakeArray", size * count);
+    memcpy(p.data, src, size * count);
 
   return p;
 
+}
+
+static void* ParamGetArray(param_t* p, DataType expected, int* outCount) {
+  if (!p)
+    return NULL;
+
+  if (p->type_id != expected)
+    return NULL;
+
+  if (outCount)
+    *outCount = p->size;
+
+  return p->data;
 }
 
 static void ParamUpdate(param_t* p, DataType type, size_t size, const void* src)
@@ -547,9 +564,9 @@ item_def_t* GenerateItem(param_t params[LOOT_PARAM_END]);
 typedef struct{
   int           count;
   loot_ctx_t*   rules;
-  choice_pool_t *flags, *drops;
+  choice_pool_t *flags, *drops[ITEM_DONE];
 }loot_pool_t;
 
 loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx);
-void LootDraw(ent_t*, int);
+void LootDraw(ent_t*, ItemCategory, bool, int, int);
 #endif

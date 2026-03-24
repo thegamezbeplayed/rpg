@@ -78,6 +78,7 @@ typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, ent_t* target);
 typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a, ent_t* target);
 bool AbilityCanTarget(ability_t* a, local_ctx_t* target);
 InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target);
+BehaviorStatus AbilityExecute(ability_t* a, ent_t* e);
 InteractResult AbilityLearn(ent_t* owner,  ability_t* a, ent_t* target);
 typedef InteractResult (*AbilitySave)(ent_t* owner,  ability_t* a, ability_sim_t* source);
 bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result);
@@ -108,6 +109,7 @@ struct ability_s{
   item_t*             item;
   ActionCategory      cat;
   ActionSlot       slot;
+  int              vals[VAL_WORTH];
   ent_t*           owner;
   Spells            image_id;
   sprite_t*        spr;
@@ -165,15 +167,14 @@ typedef struct item_def_s{
   void*               type_def;
   ItemCategory        category;        // weapon / armor / potion / scroll
   damage_reduction_t  *dr; //TODO MOVE TO VALUE_T
-  value_t             *values[VAL_ALL];
   AbilityID           ability;
+  int                 cost, weight;
   int                 num_skills;
   SkillType           skills[3];
   StorageMethod       pref;
   bool                allowed[STORE_DONE];
   ItemProps           props;
   uint64_t            t_props;
-  sprite_t            *sprite;     // icon
 }item_def_t;
 
 typedef bool (*ItemEquipCallback)(struct ent_s* owner, item_t* item);
@@ -188,7 +189,11 @@ struct item_s{
   struct ent_s*     owner;
   bool              equipped;
   int               index;
+  int               num_skills;
+  SkillType         skills[3];
+  value_t           *values[VAL_ALL];
   StorageMethod     location;
+  sprite_t          *sprite;
   ability_t         *ability;     
   ItemEquipCallback on_equip[2], on_acquire;
   ItemUseCallback   on_use;
@@ -200,7 +205,7 @@ bool ItemApplyStats(struct ent_s* owner, item_t* item);
 bool ItemConsume(struct ent_s* owner, item_t* item);
 bool ItemAddAbility(struct ent_s* owner, item_t* item);
 bool ItemSkillup(ent_t* owner, item_t* item, InteractResult res);
-
+bool ItemDestroy(value_t* v, void* ctx);
 typedef struct{
   ItemCategory      cat;
   int               num_equip, num_use;
@@ -367,7 +372,7 @@ bool SetState(ent_t *e, EntityState s,StateChangeCallback callback);
 void StepState(ent_t *e);
 void OnStateChange(ent_t *e, EntityState old, EntityState s);
 bool CanChangeState(EntityState old, EntityState s);
-void ApplyItemProps(item_def_t * w, ItemProps props, uint64_t e_props);
+void ApplyItemProps(item_t * w, ItemProps props, uint64_t e_props);
 int GetWeaponByTrait(Traits t, weapon_def_t *arms);
 item_def_t* BuildWeapon(WeaponType, ItemProps, WeaponProps);
 item_def_t* BuildItem(GearID id, ItemProps props, WeaponProps w_props);

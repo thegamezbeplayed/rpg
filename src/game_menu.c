@@ -2,6 +2,7 @@
 #include "game_utils.h"
 #include "screens.h"
 #include "game_tools.h"
+#include "game_helpers.h"
 #include "game_process.h"
 #include "game_ui.h"
 #include "game_strings.h"
@@ -89,6 +90,7 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
     return e;
 
   }
+  TraceLog(LOG_WARNING, "===== ELEMENT %s not found =====", name);
   return NULL;
 }
 
@@ -126,7 +128,7 @@ void InitUI(void){
 #elif defined(PLATFORM_ANDROID)
   GuiSetStyle(DEFAULT,TEXT_SIZE,58);
 #else
-  GuiSetStyle(DEFAULT,TEXT_SIZE,18);
+  GuiSetStyle(DEFAULT,TEXT_SIZE,14);
 #endif
 
   Color col = DARKBLUE;
@@ -149,12 +151,13 @@ void InitUI(void){
   GuiSetStyle(BUTTON,TEXT_ALIGNMENT,TEXT_ALIGN_MIDDLE);
   GuiSetStyle(DEFAULT,TEXT_ALIGNMENT_VERTICAL,TEXT_ALIGN_TOP);
   GuiSetStyle(LABEL,TEXT_ALIGNMENT,TEXT_ALIGN_LEFT);
+  GuiSetStyle(STATUSBAR,TEXT_SIZE,18);
   GuiSetStyle(TEXTBOX,TEXT_SIZE,8);
 
-  GuiSetStyle(DEFAULT, TEXT_LINE_SPACING, 20);
+  GuiSetStyle(DEFAULT, TEXT_LINE_SPACING, 16);
   int pstyle = GuiGetStyle(STATUSBAR, TEXT_PADDING);
-  GuiSetStyle(LABEL, TEXT_PADDING, 4);
-  GuiSetStyle(STATUSBAR, TEXT_PADDING, 2);
+  GuiSetStyle(LABEL, TEXT_PADDING, 3);
+  GuiSetStyle(STATUSBAR, TEXT_PADDING, 1);
   GuiSetStyle(DEFAULT, TEXT_COLOR_NORMAL, ColorToInt(WHITE));
   for (int i = 0; i< MENU_DONE; i++)
     ui.menu_key[i] = KEY_NULL;
@@ -416,6 +419,8 @@ void ElementRender(ui_element_t* e){
         DO_NOTHING();
       break;
     case UI_PANEL:
+  
+      strcpy(e->debug_text,e->name);
       state = GuiPanel(e->bounds, e->text);
       break;
     case UI_LABEL:
@@ -436,9 +441,17 @@ void ElementRender(ui_element_t* e){
       state = GuiTooltipControl(e->bounds, e->text);
       break;
     case UI_BOX:
-      GuiGroupBox(e->bounds,NULL);//e->text);
+      StringBounds(&e->bounds, e->debug_text);
+      GuiPanel(e->bounds, e->text);
+      GuiLabel(e->bounds, e->text);
+      DrawText(e->debug_text, e->bounds.x, e->bounds.y, 11, RED);
       break;
     case UI_PROGRESSBAR:
+      char* left = TextFormatLineItem(e->value->p->left);
+      char* right = TextFormatLineItem(e->value->p->right);
+      GuiProgressBar(e->bounds, left, right,
+          e->value->p->val, e->value->p->min, e->value->p->max);
+      DrawRectangleLinesEx(e->bounds, 1.5f, RED);
       break;
     case UI_ICON:
       if(e->ctx.type_id == DATA_ABILITY)
@@ -461,13 +474,17 @@ void ElementRender(ui_element_t* e){
     case UI_GROUP:
       ui_element_t* ac = e->children[e->active];
 
+      strcpy(e->debug_text,e->name);
+      if(ac){
       GuiPanel(e->bounds, ac->text);
+      
+      DrawText(e->debug_text, e->bounds.x, e->bounds.y, 11, RED);
+      }
       break;
     default:
       break;
   }
 
-  //DrawText(e->debug_text, e->bounds.x, e->bounds.y, 11, RED);
 
   switch(state){
     case STATE_FOCUSED:      
@@ -647,7 +664,21 @@ void ElementSetText(ui_element_t* e, char* str){
 
 bool ElementSetTooltip(ui_element_t* e){
   GuiEnableTooltip();
+  if(active_tooltip)
+    ElementSetState(active_tooltip, ELEMENT_HIDDEN);
   active_tooltip = e;
+}
+
+bool ElementAbilityUse(ui_element_t* e){
+  if(e->ctx.type_id != DATA_ABILITY)
+    return false;
+
+  ability_t* a = ParamRead(&e->ctx, ability_t);
+  
+  if(!a)
+    return false;
+
+  InteractResult res = AbilityExecute(a, a->owner);
 }
 
 bool ElementItemUse(ui_element_t* e){
@@ -671,9 +702,11 @@ bool ElementTabToggle(ui_element_t* e){
     case ELEMENT_HIDDEN:
     case ELEMENT_IDLE:
     case ELEMENT_TOGGLE:
+      TraceLog(LOG_INFO,"==== TAB BUTTON SHOW %s %i====", p->name, p->index);
       return ElementSetState(p, ELEMENT_ACTIVATE);
       break;
     default:
+      TraceLog(LOG_INFO,"==== TAB BUTTON HIDE %s %i====", p->name, p->index);
       return ElementSetState(p, ELEMENT_HIDDEN);
       break;
   }
@@ -704,10 +737,13 @@ bool ElementToggle(ui_element_t* e){
 bool ElementHideSiblings(ui_element_t* e){
   for(int i = 0; i < e->owner->num_children; i++){
     ui_element_t* c = e->owner->children[i];
-    if(c->hash == e->hash)
+    if(c->hash == e->hash && e->index == c->index)
       continue;
+    ElementSetState(c, ELEMENT_HIDDEN);
+    /*
     if(ElementSetState(c, ELEMENT_HIDDEN))
       e->owner->active = e->index;
+      */
   }
 }
 
@@ -725,6 +761,8 @@ bool ElementDynamicChildren(ui_element_t* e){
 
   char *cname = GameMalloc("ElementDynamicChildren", sizeof(char) * MAX_NAME_LEN);
 
+  bool activate = false;
+  local_ctx_t* ctx = NULL;// = ParamRead(&e->ctx, local_ctx_t);
   for (int i = 0; i < 4; i++){
     int max = 0;
     GameObjectParam ptype = PARAM_NONE;
@@ -739,7 +777,7 @@ bool ElementDynamicChildren(ui_element_t* e){
       case PARAM_INV_SLING:
       case PARAM_INV_PACK:
         strcpy(cname, "ITEM_BOX");
-        local_ctx_t* ctx = ParamRead(&e->ctx, local_ctx_t);
+        ctx = ParamRead(&e->ctx, local_ctx_t);
         inventory_t* inv = ParamRead(&ctx->params[p], inventory_t);
         max = ITEMS_ALLOWED[inv->id].max;
         ptype = PARAM_ITEM;
@@ -753,12 +791,42 @@ bool ElementDynamicChildren(ui_element_t* e){
         ptype = PARAM_ABILITY;
         max = slot->cap;
         break;
+      case PARAM_SKILL:
+        activate = true;
+        strcpy(cname, "CHARACTER_LINE_DETAILS");
+        ptype = PARAM_SKILL;
+        SkillType *skills[SKILL_DONE];
+
+        ctx = ParamRead(&e->owner->ctx, local_ctx_t);
+        max = GetSkillCategoryList(e->index, skills);
+
+        skill_t** ctx_skills = GameMalloc("ElementDynamicChildren", max * sizeof(skill_t*));
+
+        int count = ctx->params[PARAM_SKILL].size;
+        int j = 0;
+        int k = 0;
+
+        skill_t** raw_skills = (skill_t**)ctx->params[PARAM_SKILL].data;
+        while (k < count && j < max){
+          skill_t *s = raw_skills[k]; 
+          if(*skills[j] != s->id){
+            k++;
+            continue;
+          }
+
+          ctx_skills[j++] = raw_skills[k];
+          k++;
+
+        }
+        e->ctx = ParamMakeArray(DATA_SKILL, e->index, ctx_skills, count, sizeof(skill_t*));
+        break;
     }
-    for (int j = 0; j < max; j++){
+    for (int l = 0; l < max; l++){
       ui_element_t* c = InitElementByName(cname, e->menu, e);
       c->params[0] = ptype;
 
       ElementAddChild(e,c);
+      if(ElementSetState(c,ELEMENT_LOAD) && activate)
       ElementSetState(c, ELEMENT_IDLE);
     }
 
@@ -814,6 +882,8 @@ bool ElementActivateChildren(ui_element_t* e){
 }
 
 bool ElementShowPrimary(ui_element_t* e){
+  if(e->params[0] == PARAM_SKILL)
+    DO_NOTHING();
   for (int i = 0; i < e->num_children; i++){
     if(i == 0){
       if(ElementSetState(e->children[i], ELEMENT_SHOW))
@@ -1076,7 +1146,25 @@ void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
 }
 
 element_value_t* GetDynamicContext(ui_element_t* e, param_t context){
-  e->ctx = context;
+  
+  switch(context.type_id){
+    case DATA_SKILL:
+      if(context.size <= e->index)
+        return NULL;
+
+      TraceLog(LOG_INFO, "==== ELEMENY DYNAMIC CONTEXT %s %i", e->name, e->index);
+      skill_t** raw_skills = (skill_t**)context.data;
+      skill_t* s = raw_skills[e->index];
+
+      e->ctx = ParamMakeObj(DATA_SKILL, e->index, s);
+      break;
+    default:
+      return NULL;
+      break;
+
+  }
+
+  return GetContextValueName(e, e->ctx);
 }
 
 element_value_t* GetContextParams(ui_element_t* e, param_t context){
@@ -1254,9 +1342,34 @@ element_value_t* GetElementName(ui_element_t* e, param_t context){
   
 }
 
+element_value_t* GetSkillContext(ui_element_t* e, param_t context){
+  strcpy(e->name, strdup(SKILL_CAT_NAMES[e->index]));
+
+  return NULL;
+}
+
+element_value_t* GetContextProgress(ui_element_t* e, param_t context){
+  element_value_t *ev = GameCalloc("GetContextProgress", 1,sizeof(element_value_t));
+
+  ev->type = VAL_PROG;
+  ev->rate = FETCH_EVENT;
+  ev->p = GameCalloc("GetContextVal", 1, sizeof(progress_item_t));
+
+  switch(context.type_id){
+    case DATA_SKILL:
+      ev->context = context;
+      ev->get_val = SkillGetPretty;
+      break;
+  }
+
+  ev->get_val(ev, context);
+
+  return ev;
+}
+
 element_value_t* GetContextVal(ui_element_t* e, param_t context){
   GameObjectParam p = e->owner->params[0];
-  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
+  local_ctx_t* ctx = NULL;//ParamRead(&context, local_ctx_t);
 
   e->params[e->num_params++] = p;
   element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_value_t));
@@ -1264,7 +1377,6 @@ element_value_t* GetContextVal(ui_element_t* e, param_t context){
   ev->type = VAL_CHAR;
   ev->rate = FETCH_TURN;
   ev->c = GameCalloc("GetContextVal", MAX_NAME_LEN, sizeof(char));
-  ev->context = ctx->params[p];
   
   switch(p){
     case PARAM_ATTR_CON:
@@ -1273,15 +1385,26 @@ element_value_t* GetContextVal(ui_element_t* e, param_t context){
     case PARAM_ATTR_INT:
     case PARAM_ATTR_WIS:
     case PARAM_ATTR_CHAR:
+      ctx = ParamRead(&context, local_ctx_t);
+      ev->context = ctx->params[p];
       ev->get_val = AttrGetPretty;
       break;
     case PARAM_STAT_HEALTH:
     case PARAM_STAT_ARMOR:
     case PARAM_STAT_STAMINA:
     case PARAM_STAT_ENERGY:
+      ctx = ParamRead(&context, local_ctx_t);
+      ev->context = ctx->params[p];
       ev->get_val = StatGetPretty;
       break;
+    case PARAM_SKILL:
+      ev->type = VAL_LN;
+      ev->context = context;
+      ev->get_val = SkillGetPretty;
+      break;
     case PARAM_SKILL_LVL:
+      ctx = ParamRead(&context, local_ctx_t);
+      ev->context = ctx->params[p];
       ev->get_val = SkillGetPretty;
       break;
     default:
@@ -1291,7 +1414,7 @@ element_value_t* GetContextVal(ui_element_t* e, param_t context){
   e->sync_val = ElementSyncVal;
 
   ev->get_val(ev, ev->context);
-  //ElementValueSyncSize(e, ev);
+  ElementValueSyncSize(e, ev);
   return ev;
 }
 
@@ -1320,11 +1443,20 @@ element_value_t *ev = GameCalloc("game_menu: GetContextName", 1,sizeof(element_v
       attribute_t* attribute = ParamRead(&ctx->params[p], attribute_t);
       strcpy(ev->c, ATTR_STRING[attribute->type].name);
       break;
+    case PARAM_SKILL:
+      skill_t* skill = ParamRead(&context, skill_t);
+      ev->type = VAL_CHAR;
+      ev->get_val = SkillGetPretty;
+      e->sync_val = ElementSyncVal;
+
+      ev->context = context;
+      ev->get_val(ev, ev->context);
+
+      break;
     case PARAM_SKILL_LVL:
       ctx = ParamRead(&context, local_ctx_t);
-      skill_t* skill = ParamRead(&ctx->params[p], skill_t);
-      ev->type = VAL_CHAR;
-      strcpy(ev->c ,SKILL_NAMES[skill->id]);
+      skill_t* s = ParamRead(&ctx->params[p], skill_t);
+      strcpy(ev->c ,SKILL_NAMES[s->id]);
       break;
     case PARAM_STAT_HEALTH:
     case PARAM_STAT_ARMOR:
@@ -1513,6 +1645,7 @@ void UIInputEvent(EventType event, void* data, void* user){
   ui_element_t* e = user;
   action_key_t* a = data;
 
+  return;
   GameObjectParam action_param = SLOT_PARAM_REL[a->binding].param;
 
   for(int i = 0; i < e->num_children; i++){
@@ -1826,7 +1959,7 @@ param_t ElementNiblings(void *p){
   if(!sib)
     return EMPTY_PARAM;
 
-  e->ctx = ParamMakeArray(DATA_ELEM, e->gouid, sib->children, sib->num_children);
+  e->ctx = ParamMakeArray(DATA_ELEM, e->gouid, sib->children, sib->num_children, sizeof(ui_element_t*));
 
   int count = imin(e->num_children, sib->num_children);
   for(int i = 0; i < count; i++)

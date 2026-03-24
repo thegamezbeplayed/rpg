@@ -203,115 +203,102 @@ void LevelBury(game_object_uid_i gouid){
 
 loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
 
+  int num_armor =0, num_weapon = 0, num_consume = 0;
   loot_pool_t* lp = GameCalloc("GenerateLootPool", 1, sizeof(loot_pool_t));
 
   lp->rules = ctx;
 
-  bool result = false;
-  choice_pool_t *cp = StartChoice(&lp->flags, count * 2, ChooseByWeightInBudget, &result);
+  /*
+     choice_pool_t *cp = StartChoice(&lp->flags, count * 2, ChooseByWeightInBudget, &result);
+     */
+  bool ready = false;
+  choice_pool_t* dp[ITEM_DONE];
 
-  if(!result){
-    for (int i = 0; i < Level.item_defs->count; i++){
-      item_type_d* item = &Level.item_defs->entries[i];
+  for(int i = 0; i < ITEM_DONE; i++){
+    dp[i] = StartChoice(&lp->drops[i], count, ChooseByWeightInBudget, &ready);
+    dp[i]->budget = 200;
+  }
 
-      item_def_t* def = DefineConsumableByDef(&item->data.cons);
-      int weight = 1;
-      switch(item->data.cons.type){
-        case CONS_TOME:
-          weight += item->data.cons.weight;;
-          break;
-      }
-      AddPurchase(cp, def->id, weight, 1, def, DiscardChoice);
+  while(num_weapon < 10 && num_armor < 15){
+    param_t p[LOOT_PARAM_END] = {0};
+
+    int cat = RngRoll(Level.rng, ITEM_WEAPON, ITEM_DONE);
+    p[LOOT_PARAM_CATEGORY] = ParamMake(DATA_INT, sizeof(int),&cat);
+    int start = 0, end = 0;
+    int type_prop_end = -1;
+    LootParams type_param = -1;
+    switch (cat){
+      case ITEM_WEAPON:
+        start = WEAP_MACE;
+        end =  WEAP_DAGGER;
+        type_prop_end = 9;
+        type_param = LOOT_PARAM_WEAP;
+        num_weapon++;
+        break;
+      case ITEM_ARMOR:
+        start = ARMOR_NATURAL;
+        end = ARMOR_SHIELD-1;
+        type_prop_end = 0;
+        type_param = LOOT_PARAM_ARMOR;
+        num_armor++;
+        break;
+      case ITEM_CONSUMABLE:
+        continue;
+      default:
+        continue;
+        break;
 
     }
-    cp->desired = count;
-    /*
-    while(cp->count > cp->cap){
-      param_t p[LOOT_PARAM_END] = {0};
 
-      int cat = RngRoll(Level.rng, ITEM_WEAPON, ITEM_DONE);
-      p[LOOT_PARAM_CATEGORY] = ParamMake(DATA_INT, sizeof(int),&cat);
-      int start = 0, end = 0;
-      int type_prop_end = -1;
-      LootParams type_param = -1;
-      switch (cat){
-        case ITEM_WEAPON:
-          start = WEAP_MACE;
-          end =  WEAP_DONE-1;
-          type_prop_end = 9;
-          type_param = LOOT_PARAM_WEAP;
-          break;
-        case ITEM_ARMOR:
-          start = ARMOR_NATURAL;
-          end = ARMOR_DONE-1;
-          type_prop_end = 0;
-          type_param = LOOT_PARAM_ARMOR;
-          break;
-        case ITEM_CONSUMABLE:
-          continue;
-        default:
-          continue;
-          break;
+    int type = RngRoll(Level.rng, start, end);
+    uint64_t type_props = RngRollUID(Level.rng, 0, type_prop_end);
 
-      }
+    p[LOOT_PARAM_TYPE] = ParamMake(DATA_INT, sizeof(int), &type);
+    p[type_param] = ParamMake(DATA_UINT64, sizeof(uint64_t), &type_props);
 
-      int type = RngRoll(Level.rng, start, end);
-      uint64_t type_props = RngRollUID(Level.rng, 0, type_prop_end);
+    uint64_t qual = RngRollUID(Level.rng, QUAL_BIT_START, QUAL_BIT_START+QUAL_BIT_COUNT);
+    uint64_t mat = RngRollUID(Level.rng, MAT_BIT_START, MAT_BIT_START+MAT_BIT_COUNT);
 
-      p[LOOT_PARAM_TYPE] = ParamMake(DATA_INT, sizeof(int), &type);
-      p[type_param] = ParamMake(DATA_UINT64, sizeof(uint64_t), &type_props);
+    uint64_t props = qual | mat;
+    p[LOOT_PARAM_PROPS] = ParamMake(DATA_UINT64, sizeof(uint64_t), &props);
+    int amnt = RngRoll(Level.rng, 1, 4);
 
-      uint64_t qual = RngRollUID(Level.rng, QUAL_BIT_START, QUAL_BIT_START+QUAL_BIT_COUNT);
-      uint64_t mat = RngRollUID(Level.rng, MAT_BIT_START, MAT_BIT_START+MAT_BIT_COUNT);
-     
-      uint64_t props = qual | mat;
-      p[LOOT_PARAM_PROPS] = ParamMake(DATA_UINT64, sizeof(uint64_t), &props);
-      int amnt = RngRoll(Level.rng, 1, 4);
+    p[LOOT_PARAM_AMNT] = ParamMake(DATA_INT, sizeof(int), &amnt);
 
-      p[LOOT_PARAM_AMNT] = ParamMake(DATA_INT, sizeof(int), &amnt);
+    item_def_t* item = GenerateItem(p);
 
-      item_def_t* item = GenerateItem(p);
-
-      AddPurchase(cp, cp->count, 1, 1, item, ChoiceReduceScore);
-    }
-    */
+    AddPurchase(dp[cat], type, item->weight, item->cost, item, DiscardChoice);
   }
 
 
-  bool ready = false;
-  choice_pool_t* dp = StartChoice(&lp->drops, count, ChooseByWeightInBudget, &ready);
-  cp->budget = 10;
-  dp->budget = 20;
-  while(count > 0 && cp->budget > 0){
-    choice_t* draw = cp->choose(cp);
-    if(!draw || draw->context == NULL)
-      continue;
 
-    item_def_t* idef = draw->context;
-    if(!ItemCurate(idef))
-      continue;
+  for (int i = 0; i < Level.item_defs->count; i++){
+    item_type_d* item = &Level.item_defs->entries[i];
 
-    AddPurchase(dp, count, 1, 2, idef, DiscardChoice);
-    //loot_item_t* loot = &lp->loots[lp->count++];
-    //loot->ref = GameCalloc("GenerateLootPool", 1, sizeof(item_def_t));
-    //loot->ref =idef;
-    count--;
-
+    item_def_t* def = DefineConsumableByDef(&item->data.cons);
+    int weight = 1;
+    def->cost = item->data.cons.cost;
+    
+    AddPurchase(dp[ITEM_CONSUMABLE], def->id, weight, def->cost, def, DiscardChoice);
   }
 
   return lp;
 }
 
-void LootDraw(ent_t* e, int amnt){
-  for(int i = 0; i < amnt; i++){
-    choice_t* choice = Level.loot->drops->choose(Level.loot->drops);
+void LootDraw(ent_t* e, ItemCategory cat, bool equip, int budget, int amnt){
+  int i = 0;
+  Level.loot->drops[cat]->budget = budget;
+  while (i < amnt && Level.loot->drops[cat]->budget > 0){
+    choice_t* choice = Level.loot->drops[cat]->choose(Level.loot->drops[cat]);
 
     if(!choice || !choice->context)
       continue;
 
     item_def_t* def = choice->context;
-    if(EntAddItem(e, InitItem(def), false))
-      TraceLog(LOG_INFO, "Added item - %i", def->id);
+    if(EntAddItem(e, InitItem(def), equip)){
+      i++;
+      TraceLog(LOG_INFO, "Added item - %s", def->name);
+    }
   }
 
 }
