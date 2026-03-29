@@ -329,6 +329,24 @@ static inline define_resource_t* GetResourceByCatFlags(Resource type, ObjectCate
 }
 
 typedef enum{
+  LF_NONE     = 0,
+  LF_WEAP     = BIT64(0),
+  LF_ARMOR    = BIT64(1),
+  LF_CONS     = BIT64(2),
+  LF_TOME     = BIT64(3), 
+  LF_SCROLL   = BIT64(4),
+  LF_MANUAL   = BIT64(5),
+  LF_POT      = BIT64(6),
+  LF_TRASH    = BIT64(7),
+  LF_POOR     = BIT64(8),
+  LF_COMMON   = BIT64(9),
+  LF_MAT_BONE = BIT64(10),
+  LF_MAT_HIDE = BIT64(11),
+}LootFlag;
+  
+typedef uint64_t LootFlags;
+
+typedef enum{
   NREQ_NONE   = 0,
   NREQ_MIN    = 0x0100,
   NREQ_LOW    = 0x0200,
@@ -386,6 +404,7 @@ typedef struct{
   uint64_t    has;
   uint64_t    eats;
   mob_flags_t flags;
+  LootFlags   loot;
 }mob_define_t;
 
 typedef struct{
@@ -556,6 +575,12 @@ typedef struct{
   AttributeType     attr;
   ProficiencyCheck  type;
 }skill_proficiency_bonus_t;
+
+typedef struct{
+  AbilityType   type;
+  AbilityID     id;
+  int           use_gain, succ_gain;
+}define_skill_gain_t;
 
 typedef struct{
   SkillRate   rate;
@@ -2019,8 +2044,10 @@ typedef struct{
   char            name[MAX_NAME_LEN];
   const char*     fmt;
   int             chain_id;
+  int             vals[VAL_ALL];
 }consume_def_t;
 consume_def_t* ConsumeGenerateKnowledge(int id, ConsumeType type);
+consume_def_t* ConsumeGeneratePotion(StatType stat);
 
 typedef struct{
   ItemCategory  cat;
@@ -2030,6 +2057,7 @@ typedef struct{
     consume_def_t   cons;
     weapon_def_t    weap;
   }data;
+  LootFlags         flags;
 }item_type_d;
 
 typedef struct{

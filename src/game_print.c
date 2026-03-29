@@ -316,11 +316,9 @@ int GetConsumeDesc(line_item_t** li, item_t* item){
       param_t token;
       ParseToken t = fmt.tokens[i][j];
       switch(t){
-        case TOKE_DMG:
-          break;
         case TOKE_RESOURCE:
           dtype = DATA_STRING;
-          strcpy(str, GetPropNameByTypeProps(item->def->category, item->def->t_props, PROP_CONS_RESOURCE_MASK));
+          strcpy(str, STAT_STRING[def->chain_id].name);
           break;
         case TOKE_ABILITY:
           if(!def)
@@ -337,8 +335,22 @@ int GetConsumeDesc(line_item_t** li, item_t* item){
           strcpy(str, SKILL_NAMES[def->chain_id]);
           break;
         case TOKE_AMNT:
-          dtype = DATA_INT;
-          ival = item->values[VAL_DMG]->val;
+          int min = item->values[VAL_DMG_DIE]->val;
+          int max = item->values[VAL_DMG]->val * min;
+
+          dtype = DATA_STRING;
+          snprintf(str, sizeof(str), "%i to %i",min, max);
+          break;
+        case TOKE_DMG:
+          if(!item->ability)
+            continue;
+          ability_t* a = item->ability;
+          int min_roll = 1 * a->dc->num_die;
+
+          int max_roll = a->dc->sides * a->dc->num_die;
+
+          dtype = DATA_STRING;
+          snprintf(str, sizeof(str), "%i to %i",min_roll, max_roll);
           break;
         case TOKE_STAT:
           break;

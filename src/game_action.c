@@ -898,6 +898,8 @@ bool PriorityScoreCtx(priority_t* p, ent_t* e){
           engage += l->aggro->threat*t_mod;
         break;
       case TREAT_DEFEND:
+        if(e->last_hit_by == player)
+          DO_NOTHING();
         if(l->aggro)
           engage+= l->aggro->threat * t_mod;
         else if (cr < e->props->cr)

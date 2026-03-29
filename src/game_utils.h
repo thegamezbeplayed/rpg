@@ -259,11 +259,11 @@ static inline void DO_NOTHING(void){}
 static inline bool BOOL_DO_NOTHING(){return false;}
 static inline const char* CHAR_DO_NOTHING(){return "\0";}
 //<===== OPTION CHOOSE
-
 typedef struct choice_s choice_t;
 typedef struct choice_pool_s choice_pool_t;
 typedef void (*OnChosen)(choice_pool_t* pool, choice_t* self);
 
+void DiscardAndReduceCategory(choice_pool_t* pool, choice_t* self);
 void DiscardChoice(choice_pool_t* pool, choice_t* self);
 
 typedef choice_t* (*ChoiceFn)(choice_pool_t *pool);
@@ -274,10 +274,11 @@ choice_t* ChooseBestFitByFlags(choice_pool_t* pool);
 choice_t* ChooseByWeightInBudget(choice_pool_t* pool);
 choice_t* ChooseCheapest(choice_pool_t* pool);
 choice_t* PurchaseByWeight(choice_pool_t* pool);
+choice_t* WeightedPurchaseByFlags(choice_pool_t* pool);
 void ChoiceReduceScore(choice_pool_t* pool, choice_t* self);
 
 struct choice_s{
-  unsigned int id;
+  unsigned int id, cat;
   int          score, orig_score, cost;
   void*        context;
   uint64_t     flags;
@@ -294,6 +295,15 @@ struct choice_pool_s{
   choice_t      *choices;
   choice_t      *filter[MAX_OPTIONS];
 };
+static void ShuffleChoices(choice_pool_t* pool){
+  for (int i = pool->count - 1; i > 0; i--) {
+    int j = rand() % (i + 1);
+
+    choice_t tmp = pool->choices[i];
+    pool->choices[i] = pool->choices[j];
+    pool->choices[j] = tmp;
+  }
+}
 
 static inline bool ChoiceAllowed(choice_pool_t* pool, choice_t* c){
   if (pool->filtered == 0)  // empty filter → allow all
@@ -313,6 +323,7 @@ bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn);
 bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, OnChosen fn);
 bool AddFilter(choice_pool_t *pool, int id, void *ctx);
 bool AddPurchaseFlags(choice_pool_t *pool, int id, int cost, void *ctx, uint64_t flags, OnChosen fn);
+bool AddChoiceCostFlags(choice_pool_t *pool, int id, int score, int cost, void *ctx, uint64_t flags, OnChosen fn);
 
 void PriorityEvent(EventType, void* e, void* u);
 
@@ -564,9 +575,10 @@ item_def_t* GenerateItem(param_t params[LOOT_PARAM_END]);
 typedef struct{
   int           count;
   loot_ctx_t*   rules;
-  choice_pool_t *flags, *drops[ITEM_DONE];
+  choice_pool_t *drops;
 }loot_pool_t;
 
 loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx);
-void LootDraw(ent_t*, ItemCategory, bool, int, int);
+void LootDraw(ent_t*, LootFlags, bool, int, int);
+void LootDrop(LootFlags flags, int budget, int amnt, Rectangle r);
 #endif

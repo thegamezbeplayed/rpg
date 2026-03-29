@@ -86,15 +86,18 @@ BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
   ability_t* abi = NULL;
   switch(k){
     case KEY_M:
-      abi = EntFindAbility(e, ABILITY_MAGIC_MISSLE);
+      abi = e->slots[SLOT_SPELL]->abilities[0];
       break;
     case KEY_F:
-      abi = EntFindAbility(e, ABILITY_WEAP_BLUDGEON);
+      abi = e->slots[SLOT_ATTACK]->abilities[0];
       break;
     case KEY_R:
-      abi = EntFindAbility(e, ABILITY_WEAP_RANGE_PIERCE);
+      abi = e->slots[SLOT_ITEM]->abilities[0];
       break;
   }
+
+  if(!abi)
+    return BEHAVIOR_FAILURE;
 
   local_ctx_t* tar = NULL;
   switch(abi->targeting){
@@ -108,7 +111,8 @@ BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
     case DES_SEL_TAR:
     case DES_MULTI_TAR:
       player_input.sel_abi = abi;
-      ScreenActivateSelector(e->pos, 1, true, InputSetTarget);
+      int amnt = imax(abi->vals[VAL_QUANT],1);
+      ScreenActivateSelector(e->pos, amnt, true, InputSetTarget);
       return BEHAVIOR_RUNNING;
       break;
   }
@@ -150,11 +154,11 @@ void InitInput(ent_t* player){
   }
 
   player_input.actions[ACTION_MAGIC] = (action_key_t){
-    ACTION_MAGIC,1,{KEY_M},SelectActionAttack,SLOT_SPELL};
+    ACTION_MAGIC,1,{KEY_M},InputActionAttack,SLOT_SPELL};
 
 
   player_input.actions[ACTION_ATTACK] = (action_key_t){
-    ACTION_WEAPON,1,{KEY_F},SelectActionAttack,SLOT_ATTACK};
+    ACTION_WEAPON,1,{KEY_F},InputActionAttack,SLOT_ATTACK};
 
 
   player_input.actions[ACTION_MOVE] = (action_key_t){

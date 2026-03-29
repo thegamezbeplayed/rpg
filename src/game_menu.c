@@ -63,9 +63,6 @@ ui_element_t* InitElementByName(const char* name, ui_menu_t* m, ui_element_t* o)
         e->cb[j] = d.cb[j];
     }
 
-    if(d.num_children == 6)
-      DO_NOTHING();
-
     char prev_elem[MAX_NAME_LEN];
     for (int j = 0; j < d.num_children; j++){
       const char* c_name;
@@ -258,9 +255,6 @@ void ElementResize(ui_element_t *e){
   float paddingy = 0;
   float cwidths =0, cheights= 0;
 
-    if(e->num_children == 5)
-    DO_NOTHING();
-
   float tallest = e->bounds.height;
   float widest = e->bounds.width;
   for(int i = 0; i<e->num_children; i++){
@@ -268,8 +262,6 @@ void ElementResize(ui_element_t *e){
       DO_NOTHING();
     }
     else{
-      if(e->layout == LAYOUT_STACK)
-        DO_NOTHING();
       int cwidth = ElementGetWidthSum(e->children[i]);
       if(cwidth > cwidths)
         cwidths = cwidth;
@@ -337,8 +329,6 @@ void ElementResize(ui_element_t *e){
   e->bounds.x = 0;
   if(align & ALIGN_RIGHT)
     e->bounds.x = e->owner->bounds.x + e->owner->bounds.width - e->bounds.width;
-  if(align & ALIGN_TOP)
-    DO_NOTHING();
   //xinc += omarginx;
   //yinc += omarginy;
 
@@ -415,8 +405,6 @@ void ElementRender(ui_element_t* e){
   switch(e->type){
     case UI_BUTTON:
       state = GuiButton(e->bounds,e->text);
-      if(state!=0)
-        DO_NOTHING();
       break;
     case UI_PANEL:
   
@@ -444,19 +432,14 @@ void ElementRender(ui_element_t* e){
       StringBounds(&e->bounds, e->debug_text);
       GuiPanel(e->bounds, e->text);
       GuiLabel(e->bounds, e->text);
-      DrawText(e->debug_text, e->bounds.x, e->bounds.y, 11, RED);
       break;
     case UI_PROGRESSBAR:
       char* left = TextFormatLineItem(e->value->p->left);
       char* right = TextFormatLineItem(e->value->p->right);
       GuiProgressBar(e->bounds, left, right,
           e->value->p->val, e->value->p->min, e->value->p->max);
-      DrawRectangleLinesEx(e->bounds, 1.5f, RED);
       break;
     case UI_ICON:
-      if(e->ctx.type_id == DATA_ABILITY)
-        DO_NOTHING();
-
       DrawRectangleLinesEx(e->bounds, 1.5f,LIGHTGRAY);
       if(e->value && e->value->s != NULL){
         state = GuiLabel(e->bounds, NULL);
@@ -478,7 +461,6 @@ void ElementRender(ui_element_t* e){
       if(ac){
       GuiPanel(e->bounds, ac->text);
       
-      DrawText(e->debug_text, e->bounds.x, e->bounds.y, 11, RED);
       }
       break;
     default:
@@ -882,8 +864,6 @@ bool ElementActivateChildren(ui_element_t* e){
 }
 
 bool ElementShowPrimary(ui_element_t* e){
-  if(e->params[0] == PARAM_SKILL)
-    DO_NOTHING();
   for (int i = 0; i < e->num_children; i++){
     if(i == 0){
       if(ElementSetState(e->children[i], ELEMENT_SHOW))
@@ -897,8 +877,6 @@ bool ElementShowPrimary(ui_element_t* e){
 }
 
 bool ElementShowChildren(ui_element_t* e){
-  if(e->num_children == 6)
-    DO_NOTHING();
   for (int i = 0; i < e->num_children; i++)
     ElementSetState(e->children[i], ELEMENT_SHOW);
 }
@@ -1088,9 +1066,6 @@ bool ElementShowContext(ui_element_t* e){
 }
 
 bool ElementSetContext(ui_element_t* e){
-  if(e->owner && e->owner->num_children == 6)
-    DO_NOTHING();
-
   if(e->get_ctx){
     e->ctx = e->get_ctx(e);
 
@@ -1145,6 +1120,11 @@ void ElementValueSyncSize(ui_element_t *e, element_value_t* ev){
 
 }
 
+void UISkillEvent(EventType event, void* data, void* user){
+  ui_element_t *e = user;
+  e->sync_val(e, FETCH_EVENT);
+}
+ 
 element_value_t* GetDynamicContext(ui_element_t* e, param_t context){
   
   switch(context.type_id){
@@ -1152,11 +1132,19 @@ element_value_t* GetDynamicContext(ui_element_t* e, param_t context){
       if(context.size <= e->index)
         return NULL;
 
-      TraceLog(LOG_INFO, "==== ELEMENY DYNAMIC CONTEXT %s %i", e->name, e->index);
       skill_t** raw_skills = (skill_t**)context.data;
       skill_t* s = raw_skills[e->index];
 
-      e->ctx = ParamMakeObj(DATA_SKILL, e->index, s);
+      e->ctx = ParamMakeObj(DATA_SKILL, s->id, s);
+      WorldTargetSubscribe(EVENT_SKILL_RANK, UISkillEvent, e, e->ctx.gouid);
+
+      break;
+    case DATA_SLOT:
+      e->ctx = context;
+      break;
+    case  DATA_ABILITY:
+      e->ctx = context;
+      return NULL;
       break;
     default:
       return NULL;
@@ -1616,8 +1604,6 @@ int ElementSetFirstAvailableChild(ui_element_t* e, param_t p){
     if (c->ctx.type_id != DATA_NONE)
       continue;
 
-    if(c->type == UI_PANEL)
-      DO_NOTHING();
     if(c->set_val)
     c->value = c->set_val(c, p);
       
@@ -1680,6 +1666,21 @@ void UIItemEvent(EventType event, void* data, void* user){
       break;
     case EVENT_ITEM_EQUIP:
       break;
+  }
+}
+
+bool ElementSubscribe(ui_element_t* e){
+  for (int i = 0; i < 4; i++){
+    switch(e->params[i]){
+      case PARAM_SKILL:
+        WorldTargetSubscribe(EVENT_SKILL_POINTS, UISkillEvent, e, e->ctx.gouid);
+        WorldTargetSubscribe(EVENT_SKILL_LVL, UISkillEvent, e, e->ctx.gouid);
+
+        break;
+      default:
+        continue;
+        break;
+    }
   }
 }
 
@@ -1918,9 +1919,6 @@ param_t ElementGetScreenSelection(void* p){
 param_t ElementPresetContext(void* p){
   ui_element_t* e = p; 
 
-  if(e->type == UI_TOOL_TIP)
-    DO_NOTHING();
-
   return e->ctx;
 }
 
@@ -1949,6 +1947,12 @@ param_t ElementOwnerTextAt(void* p){
 param_t ElementNiblings(void *p){
   ui_element_t* e = p; 
   ui_element_t* sib = NULL;
+  char cname[MAX_NAME_LEN];
+  switch(e->type){
+    case UI_TAB_PANEL:
+      strcpy(cname, "TAB_BUTTON");
+      break;
+  }
   for(int i = 0; i < e->owner->num_children; i++){
     if(e->owner->children[i]->hash == e->hash)
       continue;
@@ -1961,9 +1965,14 @@ param_t ElementNiblings(void *p){
 
   e->ctx = ParamMakeArray(DATA_ELEM, e->gouid, sib->children, sib->num_children, sizeof(ui_element_t*));
 
-  int count = imin(e->num_children, sib->num_children);
-  for(int i = 0; i < count; i++)
-    e->children[i]->ctx = ParamMakeObj(DATA_ELEM, sib->children[i]->gouid, sib->children[i]);
+  int cur_child = e->num_children;
+  for(int i = cur_child; i < sib->num_children; i++){
+    ui_element_t* child = InitElementByName(cname, e->menu, e);
+    if(!child)
+     continue;
+    ElementAddChild(e, child);
 
+    child->ctx = ParamMakeObj(DATA_ELEM, sib->children[i]->gouid, sib->children[i]);
+  }
   ElementSetState(e, ELEMENT_IDLE);
 }

@@ -234,6 +234,7 @@ bool RegisterEnt( ent_t *e);
 bool RegisterEnv( env_t *e);
 map_cell_t* RegisterMapCell(int x, int y);
 bool RegisterSprite(sprite_t *s);
+bool RegisterItemContext(item_t*, Cell);
 bool RegisterItem(ItemInstance g);
 void WorldInitOnce();
 void WorldPreUpdate();

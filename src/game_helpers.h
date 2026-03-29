@@ -1278,4 +1278,15 @@ static int GetSkillCategoryList(SkillCategory cat, SkillType *skills[SKILL_DONE]
 
   return count;
 }
+
+static define_skill_gain_t GetAbilitySkillGain(AbilityType type, AbilityID id){
+  for (int i = 0; i < 10; i++){
+    if(SKILL_GAIN[type][i].id != id)
+      continue;
+
+    return SKILL_GAIN[type][i];
+  }
+
+
+}
 #endif

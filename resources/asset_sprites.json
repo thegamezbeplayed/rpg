@@ -1,0 +1,81 @@
+{ "frames": {
+   "asset_sprites #ENT_GRASS_WILD.png": {
+    "frame": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "asset_sprites #ENT_GRASS_PATCH.png": {
+    "frame": { "x": 0, "y": 16, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "asset_sprites #ENT_GRASS.png": {
+    "frame": { "x": 0, "y": 32, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "asset_sprites #ENT_PERSON.png": {
+    "frame": { "x": 0, "y": 48, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "asset_sprites #ENT_TREE_FERN.png": {
+    "frame": { "x": 0, "y": 64, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "asset_sprites #ENT_TREE_FERN_ALT.png": {
+    "frame": { "x": 0, "y": 80, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   },
+   "asset_sprites #ENT_TREE_OAK.png": {
+    "frame": { "x": 0, "y": 96, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 100
+   }
+ },
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.3.15.5-x64",
+  "image": "asset_sprites-sheet.png",
+  "format": "I8",
+  "size": { "w": 16, "h": 112 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "ENT_GRASS_WILD", "from": 5, "to": 5, "direction": "forward", "color": "#000000ff" },
+   { "name": "ENT_GRASS_PATCH", "from": 6, "to": 6, "direction": "forward", "color": "#000000ff" },
+   { "name": "ENT_GRASS", "from": 7, "to": 7, "direction": "forward", "color": "#000000ff" },
+   { "name": "ENT_PERSON", "from": 25, "to": 25, "direction": "forward", "color": "#000000ff" },
+   { "name": "ENT_TREE_FERN", "from": 49, "to": 49, "direction": "forward", "color": "#000000ff" },
+   { "name": "ENT_TREE_FERN_ALT", "from": 50, "to": 50, "direction": "forward", "color": "#000000ff" },
+   { "name": "ENT_TREE_OAK", "from": 54, "to": 54, "direction": "forward", "color": "#000000ff" }
+  ],
+  "layers": [
+   { "name": "Sprite Sheet", "opacity": 255, "blendMode": "normal" }
+  ],
+  "slices": [
+  ]
+ }
+}

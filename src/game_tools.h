@@ -228,6 +228,14 @@ static inline int CellClusterAround(Cell c, int amnt, int space, int dist, Cell*
 
   return num;
 }
+
+static inline Cell rect_center(Rectangle r){
+  Cell out = {r.x + r.width/2, r.y + r.height/2};
+
+  return out;
+
+}
+
 static inline Cell cell_inc_rect(Cell c, Rectangle r){
   Cell start = CellInc(CELL_NEW(r.x,r.y),CELL_NEW(r.width,r.height));
 

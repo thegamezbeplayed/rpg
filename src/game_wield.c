@@ -13,6 +13,8 @@ void ItemArmorPropVals(item_t* i){
   i->values[VAL_SAVE] = InitValue(VAL_SAVE,temp.armor_class);
   i->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp.size);
 
+  if(temp.skill > SKILL_NONE)
+  i->skills[i->num_skills++] = temp.skill;
   switch(temp.type){
   case ARMOR_CLOTH:
     i->sprite = InitSpriteByID(ICON_SHIRT, SHEET_ICON);
@@ -44,6 +46,7 @@ void ItemConsumePropVals(item_t* i){
     case CONS_SCROLL:
     case CONS_TOME:
     case CONS_SKILLUP:
+    case CONS_POT:
       i->on_acquire = ItemAddAbility;
       break;
     default:
@@ -56,7 +59,14 @@ void ItemConsumePropVals(item_t* i){
   i->values[VAL_DURI] = InitValue(VAL_DURI,def->quanity);
   i->values[VAL_QUANT] = InitValue(VAL_QUANT,def->quanity);
   i->values[VAL_EXP] = InitValue(VAL_EXP,def->exp);
+  i->values[VAL_EXP] = InitValue(VAL_EXP,def->exp);
   i->values[VAL_STORAGE] = InitValue(VAL_STORAGE,def->size);
+
+  for(int j = 0; j < VAL_ALL; j++){
+    if(def->vals[j] == 0)
+      continue;
+    i->values[j] = InitValue(j, def->vals[j]);
+  }
 
   i->values[VAL_DURI]->on_empty = ItemDestroy;
   i->values[VAL_QUANT]->on_empty = ItemDestroy;
@@ -75,7 +85,20 @@ void ItemConsumePropVals(item_t* i){
     case CONS_SKILLUP:
       i->sprite = InitSpriteByID(ICON_TOME, SHEET_ICON);
       break;
-
+    case CONS_POT:
+      i->sprite = InitSpriteByID(ICON_POT_FULL, SHEET_ICON);
+      switch(def->chain_id){
+        case STAT_STAMINA:
+          i->sprite->slice->color = ColorFromNormalized((Vector4){ 0.0f, 0.5f, 0.5f, 1.0f });
+          break;
+        case STAT_ENERGY:
+          i->sprite->slice->color = SKYBLUE;
+          break;
+        default:
+          i->sprite->slice->color = MAROON;
+          break;
+      }
+      break;
   };
 }
 
@@ -136,6 +159,11 @@ void ItemContainerPropVals(item_t* i){
   i->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp->size);
 }
 
+bool InitItemContext(item_def_t* def, Cell pos){
+  item_t* item = InitItem(def);
+
+  return RegisterItemContext(item, pos);
+}
 item_t* InitItem(item_def_t* def){
   item_t* item = GameMalloc("InitItem", sizeof(item_t));
   game_object_uid_i gouid = GameObjectMakeUID(def->name, NUM_ITEMS++, WorldGetTime());
@@ -599,12 +627,49 @@ bool ItemApplyStats(struct ent_s* owner, item_t* item){
   }
 }
 
+ability_sim_t* AbilitySimHeal(ent_t* owner,  ability_t* a, ent_t* target){
+  ability_sim_t* res = GameCalloc("AbilitySimDmg", 1,sizeof(ability_sim_t));
+  res->id = a->id;
+  res->type = a->type;
+  res->d_type = a->school;
+  res->d_bonus = AbilityAddPB(owner, a, STAT_DAMAGE);
+  res->dmg_die = a->dc->num_die;
+  res->dmg_sides = a->dc->sides;
+  res->hit_calc = 20;// a->hit->roll(a->hit, res->hit_res);
+  res->hit_res[0] = 20;
+  res->final_dmg = res->dmg_calc + res->d_bonus;
+  return res;
+}
+
+ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
+  ability_sim_t* res = GameCalloc("AbilitySimDmg", 1,sizeof(ability_sim_t));
+
+  res->id = a->id;
+  res->type = a->type;
+  res->d_type = a->school;
+  res->d_bonus = AbilityAddPB(owner, a, STAT_DAMAGE);
+  res->dmg_die = a->dc->num_die;
+  res->dmg_sides = a->dc->sides;
+  res->penn = a->values[VAL_PENN]->val;
+
+  res->hit_calc = a->hit->roll(a->hit, res->hit_res);
+  res->dmg_calc = a->dc->roll(a->dc, res->dmg_res);
+
+  res->final_dmg = res->dmg_calc + res->d_bonus;
+  return res;
+}
+
 ability_t* InitAbilitySave(ent_t* owner, AbilityID id, define_natural_armor_t* def){
   ability_t* a = InitAbility(owner, id);
 
   a->hit = Die(def->armor_class, 1);
 
-  a->skills[a->num_skills++] = def->skill;
+  for(int i = 0; i < 3; i++){
+    if(a->skills[i] != SKILL_NONE)
+      continue;
+
+    a->skills[i] = def->skill;
+  }
 
   return a;
 }
@@ -613,7 +678,12 @@ ability_t* InitAbilityDR(ent_t* owner, AbilityID id, define_natural_armor_t* def
   ability_t* a = InitAbility(owner, id);
   a->dr = &def->dr;
 
-  a->skills[a->num_skills++] = def->skill;
+  for(int i = 0; i < 3; i++){
+    if(a->skills[i] != SKILL_NONE)
+      continue;
+
+    a->skills[i] = def->skill;
+  }
 
   return a;
 
@@ -636,6 +706,57 @@ ability_t* InitAbilityInnate(ent_t* e, AbilityID id, define_natural_armor_t* def
   return NULL;
 }
 
+bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result){
+
+  int cr = 0;
+  switch(a->type){
+    case AT_KNOWLEDGE:
+      define_skill_gain_t dsg = GetAbilitySkillGain(a->type, a->id);
+
+      cr = dsg.use_gain;
+      if(result > IR_ALMOST)
+        cr += dsg.succ_gain;
+
+      cr*=a->rank;
+      break;
+    default:
+      aggro_t* e = LocalGetAggro(owner->local,target->gouid);
+
+      if(e==NULL)
+        return false;
+
+      cr = e->challenge;
+
+      switch(a->type){
+        case AT_SAVE:
+        case AT_DR:
+          cr = e->offensive_rating;
+          break;
+        case AT_DMG:
+          cr = e->defensive_rating;
+          break;
+      }
+      break;
+  }
+
+  for(int i = 0; i < 3; i++){
+    if(a->skills[i] == SKILL_NONE)
+      break;
+    SkillUse(owner->skills[a->skills[i]],owner->uid,target->uid,cr,result);
+  }
+  return true;
+}
+
+InteractResult AbilityGrantExp(ent_t* owner,  ability_t* a, ent_t* target){
+  int res[a->dc->num_die];
+  int exp = a->dc->roll(a->dc, res);
+  skill_t* s = target->skills[a->chain_id];
+  if(SkillIncrease(s, exp))
+    return IR_SUCCESS;
+
+  return IR_FAIL;
+}
+
 ability_t* InitAbility(ent_t* owner, AbilityID id){
   ability_t* a = GameCalloc("InitAbility", 1,sizeof(ability_t));
 
@@ -650,8 +771,20 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
   if(a->use_fn == NULL)
     a->use_fn = EntUseAbility;
 
-  if(a->type == AT_DMG)
+  switch(a->type){
+    case AT_DMG:
     a->sim_fn = AbilitySimDmg;
+    break;
+    case AT_HEAL:
+    a->sim_fn = AbilitySimHeal;
+    break;
+  }
+
+  switch(a->action){
+    case ACTION_MAGIC:
+      a->skills[1] = SKILL_ARCANA;
+      break;
+  }
 
   a->on_use_cb = AbilitySkillup;
 
@@ -677,6 +810,20 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
   return a;
 }
 
+void AbilityApplyValues(ability_t* self, value_t* v){
+  if(!self || !self->values[v->cat])
+    return;
+
+  value_t* sv = self->values[v->cat];
+  sv->base = v->base; 
+  sv->val = v->base;
+
+  if(sv->on_change){ 
+    sv->context = self;
+    sv->on_change(sv,self);
+  }
+}
+
 bool ItemAddAbility(struct ent_s* owner, item_t* item){
   ability_t* a = InitAbility(owner, item->def->ability);
   //  a->cost = def->
@@ -692,6 +839,8 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
       case VAL_ADV_SAVE:
       case VAL_HIT:
       case VAL_SAVE:
+      case VAL_DMG:
+      case VAL_DMG_DIE:
         a->values[i]->on_change = ValueUpdateDie;
         break;
       case VAL_REACH:
@@ -704,13 +853,24 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
   }
 
   a->dr = item->def->dr;
-  for(int i = 0; i < item->num_skills; i++)
-    a->skills[a->num_skills++] = item->skills[i];
+  int j = 0;
+  for(int i = 0; i < item->num_skills; i){
+    if(a->skills[j] != SKILL_NONE){
+      j++;
+      continue;
+    }
+    a->skills[j++] = item->skills[i++];
+  }
 
   int pref = owner->skills[item->skills[0]]->val * 10;
   if(a->chain){
-    a->chain->skills[a->chain->num_skills++] = item->skills[0];
+    for(int i = 0; i < 3; i++){
+      if(a->skills[j] != SKILL_NONE)        
+        continue;
 
+      a->chain->skills[i] = item->skills[0];
+    }
+  
     if(a->chain->type == AT_DR){
       a->chain->dr = item->def->dr;
       ActionSlotAddAbility(owner,a->chain);
@@ -718,14 +878,25 @@ bool ItemAddAbility(struct ent_s* owner, item_t* item){
     else
       a->chain->weight+=pref;
   }
-  if(a->type != AT_SAVE)
-    a->weight+=pref;
+  switch(a->type){
+    case AT_DMG:
+    case AT_HEAL:
+      if(a->action != ACTION_ITEM){
+        WorldEvent(EVENT_LEARN, a, owner->gouid);
 
-  if(item->def->category == ITEM_CONSUMABLE && a->type == AT_KNOWLEDGE){
-    if(item->def->type_def){
-      consume_def_t* c_def = item->def->type_def;
-      a->chain_id = c_def->chain_id;
-    }
+        a->weight+=pref;
+      }
+      break;
+    case AT_KNOWLEDGE:
+      if(item->def->category == ITEM_CONSUMABLE){
+        if(item->def->type_def){
+          consume_def_t* c_def = item->def->type_def;
+          a->chain_id = c_def->chain_id;
+        }
+      }
+      break;
+    default:
+      break;
   } 
   a->item = item;
   item->ability = a;
@@ -756,6 +927,7 @@ BehaviorStatus AbilityExecute(ability_t* a, ent_t* e){
     case DES_SELF:
       tar = WorldGetContext(DATA_ENTITY, e->gouid);
       break;
+    case DES_MULTI_TAR:
     case DES_SEL_TAR:
       int amnt = imax(1,a->values[VAL_QUANT]->val);
 
@@ -763,7 +935,6 @@ BehaviorStatus AbilityExecute(ability_t* a, ent_t* e){
       ScreenActivateSelector(e->pos, amnt, true, InputSetTarget);
       return BEHAVIOR_RUNNING;
       break;
-    case DES_MULTI_TAR:
   }
 
   if(!tar)
@@ -791,8 +962,18 @@ InteractResult AbilityLearn(ent_t* owner,  ability_t* a, ent_t* target){
   ability_t* abi = InitAbility(owner, a->chain_id);
   bool result = ActionSlotAddAbility(target, abi);
 
-  if(result)
+  InteractResult ires = result?IR_SUCCESS: IR_FAIL;
+  if(a->on_use_cb)
+    a->on_use_cb(owner, a, target, ires);
+
+  if(result){
+    if(a->on_success_cb)
+      a->on_success_cb(owner, a, target, ires);
+
     WorldEvent(EVENT_LEARN, abi, owner->gouid);
+  }
+
+  return ires;
 }
 
 int GetWeaponByTrait(Traits t, weapon_def_t *arms){
@@ -1050,24 +1231,6 @@ int AbilityAddPB(ent_t* e, ability_t* a, StatType s){
     a->stats[s]->start(a->stats[s]);
   }
   return a->stats[s]->current;
-}
-
-ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
-  ability_sim_t* res = GameCalloc("AbilitySimDmg", 1,sizeof(ability_sim_t));
-
-  res->id = a->id;
-  res->type = a->type;
-  res->d_type = a->school;
-  res->d_bonus = AbilityAddPB(owner, a, STAT_DAMAGE);
-  res->dmg_die = a->dc->num_die;
-  res->dmg_sides = a->dc->sides;
-  res->penn = a->values[VAL_PENN]->val;
-
-  res->hit_calc = a->hit->roll(a->hit, res->hit_res);
-  res->dmg_calc = a->dc->roll(a->dc, res->dmg_res);
-
-  res->final_dmg = res->dmg_calc + res->d_bonus;
-  return res;
 }
 
 bool AbilityRankup(ent_t* owner, ability_t* a){

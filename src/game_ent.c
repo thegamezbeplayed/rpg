@@ -1539,31 +1539,6 @@ controller_t* InitController(ent_t* e){
   return ctrl;
 }
 
-bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result){
-  
-  aggro_t* e = LocalGetAggro(owner->local,target->gouid);
-
-  if(e==NULL)
-    return false;
-
-  int cr = e->challenge;
-
-  switch(a->type){
-    case AT_SAVE:
-    case AT_DR:
-      cr = e->offensive_rating;
-      break;
-    case AT_DMG:
-      cr = e->defensive_rating;
-      break;
-  }
-
-  for(int i = 0; i < a->num_skills; i++)
-    SkillUse(owner->skills[a->skills[i]],owner->uid,target->uid,cr,result);
-
-  return true;
-}
-
 InteractResult AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other){
   InteractResult ires = IR_NONE;
   switch(a->type){
@@ -1642,25 +1617,20 @@ bool ValueUpdateDie(value_t* v, void* ctx){
         return true;
       }
       break;
+    case VAL_DMG:
+      a->dc->sides = v->val;
+      return true;
+      break;
+    case VAL_DMG_DIE:
+      a->dc->num_die = v->val;
+      return true;
+      break;
     default:
       return false;
   }
 
 }
 
-void AbilityApplyValues(ability_t* self, value_t* v){
-  if(!self || !self->values[v->cat])
-    return;
-
-  value_t* sv = self->values[v->cat];
-  sv->base = v->base;
-  sv->val = v->base;
-
-  if(sv->on_change){
-    sv->context = self;
-    sv->on_change(sv,self);
-  }
-}
 
 void EntComputeFOV(ent_t* e){
   int radius = e->senses[SEN_SEE]->range;
@@ -1777,6 +1747,9 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
 
   PrioritiesSync(e->control->priorities);
   behavior_tree_node_t* current = e->control->bt[e->state];
+
+  if(e->last_hit_by == player)
+    DO_NOTHING();
 
   current->tick(current, e);
 }

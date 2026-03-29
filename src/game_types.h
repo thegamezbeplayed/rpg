@@ -79,6 +79,7 @@ typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a, ent_t* target)
 bool AbilityCanTarget(ability_t* a, local_ctx_t* target);
 InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target);
 BehaviorStatus AbilityExecute(ability_t* a, ent_t* e);
+InteractResult AbilityGrantExp(ent_t* owner,  ability_t* a, ent_t* target);
 InteractResult AbilityLearn(ent_t* owner,  ability_t* a, ent_t* target);
 typedef InteractResult (*AbilitySave)(ent_t* owner,  ability_t* a, ability_sim_t* source);
 bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result);
@@ -93,7 +94,7 @@ struct ability_s{
   StatType         damage_to;
   AttributeType    save,mod;
   AbilityID        chain_id;
-  int              num_skills, size;
+  int              size;
   SkillType        skills[3];
   dice_roll_t*     dc,*hit;
   stat_t*          stats[STAT_ENT_DONE];
@@ -228,7 +229,7 @@ item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps w);
 item_def_t* DefineConsumable(ItemInstance data);
 item_t* InitItem(item_def_t* def);
 item_def_t* DefineConsumableByDef(consume_def_t *def);
-
+bool InitItemContext(item_def_t* def, Cell pos);
 item_def_t* GetItemDefByID(GearID id);
 
 typedef struct{

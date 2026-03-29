@@ -98,6 +98,7 @@ activity_t* InitCombatActivity(interaction_t* inter){
  
 activity_t* InitActivity(EventType event, interaction_t* inter){
   activity_t* act = NULL;
+  param_t name;
   switch(event){
     case EVENT_COMBAT:
       act =  InitCombatActivity(inter);
@@ -106,7 +107,9 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
       act = GameCalloc("InitActivity", 1, sizeof(activity_t));
       act->kind = ACT_STAT_RESTORE;
       stat_t* stat = inter->ctx;
-      param_t name = ParamMakeString(stat->owner->name);
+      if(!stat)
+        DO_NOTHING();
+      name = ParamMakeString(stat->owner->name);
 
       act->tokens[TOKE_OWNER] = name;
       act->tokens[TOKE_AGG] = name;
@@ -117,13 +120,28 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
       act = GameCalloc("InitActivity", 1, sizeof(activity_t));
       act->kind = ACT_LEARN;
       ability_t* a = inter->ctx;
-      param_t aoname = ParamMakeString(a->owner->name);
+      name = ParamMakeString(a->owner->name);
       param_t aname = ParamMakeString(GetAbilityName(a->id));
-      act->str_len+= aoname.size;
+      act->str_len+= name.size;
       act->str_len+= aname.size;
-      act->tokens[TOKE_WHO] = aoname;
+      act->tokens[TOKE_WHO] = name;
       act->tokens[TOKE_ABILITY] = aname;
       act->tokens[TOKE_QUAL] = ParamMake(DATA_INT, sizeof(int), &a->rank);
+      break;
+    case EVENT_SKILL_RANK:
+      act = GameCalloc("InitActivity", 1, sizeof(activity_t));
+      act->kind = ACT_SKILL;
+      skill_t* s = inter->ctx;
+      name = ParamMakeString(stat->owner->name);
+
+      act->tokens[TOKE_WHO] = name;
+      param_t sname = ParamMakeString(SKILL_NAMES[s->id]);
+      param_t rname = ParamMakeString(SKILL_RANKS[s->rank].name);
+      act->tokens[TOKE_SKILL] = sname;
+      act->tokens[TOKE_RANK] = rname;
+      act->str_len+= sname.size;
+      act->str_len+= rname.size;
+      act->str_len+= name.size;
       break;
   }
   if(!act)
@@ -154,6 +172,7 @@ void OnActivityEvent(EventType event, void* data, void* user){
       inter->ctx = stat;
        break;
     case EVENT_LEARN:
+    case EVENT_SKILL_RANK:
       ability_t* a = data;
       inter->uid = a->id;
       inter->ctx = a;
@@ -214,6 +233,7 @@ void InitActivities(int cap){
   WorldTargetSubscribe(EVENT_STAT_RESTORE, OnActivityEvent, &ACT_TRACK, player->gouid);
   WorldTargetSubscribe(EVENT_ITEM_ACQUIRE, OnActivityEvent, &ACT_TRACK, player->gouid);
   WorldTargetSubscribe(EVENT_LEARN, OnActivityEvent, &ACT_TRACK, player->gouid);
+  WorldTargetSubscribe(EVENT_SKILL_RANK, OnActivityEvent, &ACT_TRACK, player->gouid);
 }
 
 int ActivitiesAssignValues(element_value_t** fill, int pos){

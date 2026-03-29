@@ -92,7 +92,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_SHOW] = ElementActivateChildren,
 
     },
-    .num_children = 3, .kids = {
+    .kids = {
       "TAB_BUTTON"
     },
     .spacing = {[UI_MARGIN_LEFT] = 36, [UI_PADDING_RIGHT] = 4}
@@ -232,10 +232,10 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
   },
   {"VALUE_PROGRESS", VECTOR2_ZERO, FIXED_VAL_LABEL_SIZE, UI_PROGRESSBAR,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_CENTER | ALIGN_TOP,
-    GetContextProgress, ElementGetOwnerContext,
+    GetContextProgress, ElementGetOwnerContextParams,
     {
       [ELEMENT_LOAD] = ElementSetContext,
-
+      [ELEMENT_IDLE] = ElementSubscribe,
     },
     .spacing = {[UI_MARGIN_TOP] = 8}
   },
@@ -445,6 +445,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     {
       [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementShowChildren,
 
     },
     .num_children = 2, .kids = {
@@ -471,19 +472,22 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     GetActionParams, ElementGetOwnerContext,
     {
       [ELEMENT_LOAD] = ElementSetContext,
-      [ELEMENT_SHOW] = ElementDynamicChildren
+      [ELEMENT_IDLE] = ElementDynamicChildren,
+      [ELEMENT_ACTIVATE] = ElementHideSiblings,
+
     },
     .kids = {"SPELL_CONTROL"},
     .spacing = {[UI_MARGIN_TOP] = 28, [UI_MARGIN_LEFT] = 12, [UI_PADDING_LEFT] = 8, [UI_PADDING_BOT] = 4}
   },
   {"SPELL_CONTROL", VECTOR2_ZERO, FIXED_CONTROL, UI_PANEL,
     ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT,
-    NULL, ElementPresetContext,
+    GetDynamicContext, ElementPresetContext,
     .cb = {
-      [ELEMENT_LOAD]      = ElementSetContext,
+      [ELEMENT_IDLE]      = ElementSetContext,
       [ELEMENT_SHOW]      = ElementActivateChildren,
       [ELEMENT_FOCUSED]   = ElementShowTooltip,
       [ELEMENT_ACTIVATE]  = ElementAbilityUse,
+      [ELEMENT_TOGGLE]    = ElementToggleChildren,
     },
     .num_children = 3, .kids = {
       "VALUE_ICON",
@@ -506,8 +510,8 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_IDLE] = ElementLoadChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
     },
-    .num_children = 2, .kids = {
-      "PLAYER_PANEL_HEADERS",
+    .num_children = 1, .kids = {
+      //"PLAYER_PANEL_HEADERS",
       "COMBAT_LOG",
     },
     .text = "Activity Log",
@@ -546,7 +550,9 @@ activity_format_t ACT_LOG_FMT[ACT_ALL] = {
   {ACT_STAT_RESTORE, NARRATE_FIRST, TENSE_PRESENT,
     "{WHO} {RESTORE} {AMNT} {STAT}"},
   {ACT_LEARN, NARRATE_FIRST, TENSE_PRESENT,
-    "{WHO} {LEARN} {ABILITY} rank {QUAL}"}
+    "{WHO} {LEARN} {ABILITY} rank {QUAL}"},
+  {ACT_SKILL, NARRATE_FIRST, TENSE_PRESENT,
+  "{WHO} has reached rank {RANK} in {SKILL}"}
 };
 
 token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
@@ -562,6 +568,8 @@ token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
   {"ATK",    TOKE_ATK},
   {"ACT",    TOKE_ACT},
   {"ABILITY", TOKE_ABILITY},
+  {"SKILL",   TOKE_SKILL},
+  {"RANK",    TOKE_RANK},
   {"SCHOOL", TOKE_SCHOOL},
   {"MISS",   TOKE_MISS},
   {"LEARN",  TOKE_LEARN},

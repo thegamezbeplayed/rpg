@@ -81,6 +81,21 @@ choice_pool_t* InitChoicePool(int size, ChoiceFn fn){
   return pool;
 }
 
+void DiscardAndReduceCategory(choice_pool_t* pool, choice_t* self){
+ if (!pool || !self || pool->count <= 0)
+    return;
+
+ int cat = self->cat;
+ for (int i = 0; i < pool->count; i++) {
+   if (pool->choices[i].cat == cat)
+     pool->choices[i].score -= pool->choices[i].score / pool->count;
+
+   if (pool->choices[i].id == self->id) 
+     pool->choices[i] = pool->choices[--pool->count];
+  }
+
+}
+
 void DiscardChoice(choice_pool_t* pool, choice_t* self){
   if (!pool || !self || pool->count <= 0)
     return;
@@ -114,6 +129,30 @@ bool AddFilter(choice_pool_t *pool, int id, void *ctx){
 
   c->id = id;
   pool->filter[pool->filtered++] = c;
+  return true;
+}
+
+bool AddChoiceCostFlags(choice_pool_t *pool, int id, int score, int cost, void *ctx, uint64_t flags, OnChosen fn){
+    if (!pool) return false;
+
+  // Ensure we do not exceed capacity
+  if (!ChoiceEnsureCap(pool))
+    return false;
+
+  // Allocate a new choice
+  choice_t *c = &pool->choices[pool->count++];
+
+
+  c->score   = score;
+  c->orig_score   = score;
+  c->cost    = cost;
+  c->context = ctx;
+  c->id = id;
+  c->cb = fn;
+  c->flags = flags;
+
+  // Store in pool
+  pool->total+= score;
   return true;
 }
 
@@ -156,6 +195,7 @@ bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, On
   // Allocate a new choice
   choice_t *c = &pool->choices[pool->count++];
 
+  c->cat = score;
   c->score   = score;
   c->orig_score   = score;
   c->cost    = cost;
@@ -219,6 +259,54 @@ choice_t* ChooseCheapest(choice_pool_t* pool){
     pool->choices[best_index].cb(pool,&pool->choices[best_index]);
   return out;
 
+
+}
+
+choice_t* WeightedPurchaseByFlags(choice_pool_t* pool){
+  if(pool->count == 0)
+    return NULL;
+
+  int matches = 0;
+  int total = 0;
+  for (int i = 0; i < pool->count; i++){
+    choice_t* cf = &pool->choices[i];
+    if((cf->flags & pool->flags) == 0)
+      continue;
+
+    if(cf->cost > pool->budget)
+      continue;
+
+    matches++;
+    total += cf->score;
+  }
+
+  if(matches < 1)
+    return NULL;
+
+  int running = 0;
+  int r = RandRange(0, total);
+  for (int i = 0; i < pool->count; i++){
+    choice_t* c = &pool->choices[i];
+
+    if((c->flags & pool->flags) == 0)
+      continue;
+
+    if (c->score <= 0)
+      continue;
+
+    running += c->score;
+
+    if(r >= running)
+      continue;
+
+    if(c->cb)
+      pool->choices[i].cb(pool, &pool->choices[i]);
+
+    return c;
+
+  }
+
+  return NULL;
 
 }
 
@@ -388,8 +476,8 @@ choice_t* ChooseByWeightInBudget(choice_pool_t* pool){
       continue;
 
     pool->budget -= c->cost;
-    if(c->cb)
-      c->cb(pool, c);
+    if(pool->choices[i].cb)
+      pool->choices[i].cb(pool, &pool->choices[i]);
 
     return c;
   }

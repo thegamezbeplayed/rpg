@@ -56,7 +56,7 @@
 #define FIXED_DETAILS_BOX     (Vector2){264, 48}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){316, 736}
+#define UI_PANEL_BOT (Vector2){316, 704}
 #define UI_PANEL_TOP (Vector2){316, 0}
 
 #define UI_LOG_HOR (Vector2){640, 220}
@@ -356,6 +356,7 @@ bool ElementShowChildren(ui_element_t*);
 bool ElementShowPrimary(ui_element_t*);
 bool ElementTabToggle(ui_element_t* e);
 bool ElementAssignValues(ui_element_t* e);
+bool ElementSubscribe(ui_element_t* e);
 bool ElementSetContext(ui_element_t* e);
 bool ElementSetContextParams(ui_element_t* e);
 bool ElementHideSiblings(ui_element_t* e);
@@ -490,6 +491,7 @@ typedef enum{
   TOKE_REST,
   TOKE_PARAM,
   TOKE_SKILL,
+  TOKE_RANK,
   TOKE_ID,
   TOKE_DMG,
   TOKE_TAR,

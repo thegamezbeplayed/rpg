@@ -1079,7 +1079,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       RES_MEAT,
       .flags = {
         PQ_SMALL | PQ_LIGHT
-      } 
+      },
+     LF_TRASH | LF_POOR | LF_MAT_BONE | LF_MAT_HIDE
   },
   {ENT_ORC, "Orc",
       MOB_SPAWN_CHALLENGE | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
@@ -1094,6 +1095,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       SOC_MARTIAL,
       RES_MEAT | RES_BONE | RES_BLOOD,
       RES_MEAT,
+      .loot = LF_POOR | LF_MAT_BONE | LF_MAT_HIDE
   },
   {ENT_OGRE},
   {ENT_HOBGOBLIN, "Hobgoblin",
@@ -1113,7 +1115,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       .flags = {
         PQ_LONG_LIMB,
         MQ_STRATEGIC | MQ_DISCIPLINED | MQ_LEADER
-      }
+      },
+      LF_POOR | LF_COMMON | LF_MAT_BONE | LF_MAT_HIDE
   },
   {ENT_SCORPION, "Scorpion",
       MOB_MOD_ENLARGE |
@@ -1232,7 +1235,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     SOC_INSTINCTIVE,
     RES_MEAT | RES_BONE | RES_BLOOD,
     RES_MEAT|RES_BONE,
-    .flags = PQ_TAIL | PQ_SMALL
+    .flags = PQ_TAIL | PQ_SMALL,
+    LF_TRASH | LF_MAT_BONE
   },
   {ENT_BUGBEAR, "Bugbear",
     MOB_SPAWN_CHALLENGE | MOB_SPAWN_LAIR | MOB_SPAWN_CAMP | MOB_SPAWN_PATROL |
@@ -1252,8 +1256,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       PQ_SHARP_TEETH | PQ_SHARP_CLAWS,
       PQ_THICK_FUR
     },
+    LF_POOR | LF_MAT_BONE
   }
-
 };
 
 static mob_variants_t MOB_MODS[ENT_DONE] = {
@@ -1365,7 +1369,7 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
   {ABILITY_MAGIC_MISSLE, true, true,
     CLASS_BASE_WIZ,
     CLASS_BASE_WIZ,
-    0,9,10, 25,
+    0,9,10, 35,
     SPEC_HUMAN | SPEC_ELF,
   },
   {ABILITY_ELDRITCH_BLAST, true,true, 
@@ -1380,7 +1384,7 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
     1,3,8, 10,
     SPEC_HUMAN// | SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
   },
-  {ABILITY_CHILL_TOUCH, true, true,
+  {ABILITY_CHILL_TOUCH, false, false,
     CLASS_BASE_LOCK,
     CLASS_BASE_WIZ,
     0, 3, 6, 8,
@@ -1432,7 +1436,7 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
     0, 3, 8, 7,
     SPEC_HUMAN | SPEC_GOBLINOID | SPEC_ORC
   },
-  {ABILITY_THUNDER_WAVE, true, true,
+  {ABILITY_THUNDER_WAVE, false, false,
     CLASS_BASE_DRUID | CLASS_BASE_SHAMAN,
     CLASS_BASE_WIZ,
     0, 3, 8 ,7,
@@ -1441,7 +1445,7 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
   {ABILITY_CURE_WOUNDS, true, true,
     CLASS_BASE_CLERIC | CLASS_BASE_DRUID,
     CLASS_BASE_SHAMAN,
-    1,8,8, 10,
+    0,8,8, 17,
     SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
   },
   [ABILITY_REND] = {ABILITY_REND, false, false,
@@ -1652,7 +1656,7 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
     0x0050
   },
   {INV_PACK,
-    {[ITEM_CONSUMABLE] = 5},
+    {[ITEM_CONSUMABLE] = 10},
     .cap = 10, .max = 20,
     .base_size = 0xA000
   },
@@ -1788,4 +1792,12 @@ static skill_unlocks_t SKILL_UNLOCKS[SKILL_DONE] = {
     }
   }
 };
+
+static define_skill_gain_t SKILL_GAIN[AT_DONE][10] = {
+  [AT_KNOWLEDGE] = {
+    {AT_KNOWLEDGE, ABILITY_ITEM_TOME, 10, 10},
+  }
+
+};
+
 #endif

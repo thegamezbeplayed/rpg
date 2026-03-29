@@ -18,6 +18,7 @@
 
 #define NUM_FEATS 40
 #define NUM_AFFECTS 1
+
 typedef struct{
   DataType    type;
   union{

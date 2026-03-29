@@ -75,6 +75,37 @@ void OnLevelReady(EventType event, void* data, void* user){
   }
 }
 
+void LootDrops(ent_t* e){
+  TraceLog(LOG_INFO, "%s base challenge %f", e->name, e->props->base_diff);
+  int budget = e->props->base_diff * 100;
+
+  mob_define_t mdef =  MONSTER_MASH[e->type];
+  LootFlags flags = mdef.loot;
+
+  int amnt = RandRange(0, mdef.cost);
+
+  if(flags == 0 || amnt < 1)
+   return;
+
+  TraceLog(LOG_INFO, "Generate %i loot with budget %i", amnt, budget);
+  Rectangle area = {e->pos.x -2, e->pos.y -2, 5, 5};
+  LootDrop(flags, budget, amnt, area);
+
+}
+
+void LevelEntityEvent(EventType event, void* data, void* user){
+  ent_t* e = data;
+
+  switch(event){
+    case EVENT_ENT_DEATH:
+      if(e->last_hit_by == player)
+      LootDrops(e);
+      break;
+  }
+
+
+}
+
 level_t* InitLevel(void){
   uint64_t addr = (uint64_t)&Level;
   Level.seed = hash_combine_64(WorldSeed(), addr);
@@ -88,16 +119,16 @@ level_t* InitLevel(void){
   for(int i = 0; i < ABILITY_DONE; i++){
     if(CLASS_ABILITIES[i].tome && CLASS_ABILITIES[i].lvl == 0)
       ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_TOME));     
-    /*
     if(CLASS_ABILITIES[i].scroll)
       ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_SCROLL));     
-  */
       }
 
-  /*
-  for (int i = 1; i < SKILL_DONE; i++)
+  for (int i = 2; i < SKILL_DONE; i++)
       ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_SKILLUP));     
-*/
+ 
+  ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGeneratePotion(STAT_ENERGY_REGEN)); 
+  ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGeneratePotion(STAT_HEALTH_REGEN)); 
+  ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGeneratePotion(STAT_STAMINA_REGEN)); 
   return &Level;
 }
 
@@ -139,6 +170,9 @@ void LevelReady(map_grid_t* m){
   ctx->enemy_cr = iround(mgen.diff);
   ctx->seed = hash_combine_64(Level.seed, mgen.biome);
   Level.loot = GenerateLootPool(64 + Level.item_defs->count, ctx);
+
+  WorldSubscribe(EVENT_ENT_DEATH, LevelEntityEvent, &Level);
+
 }
 
 mob_group_t* InitMobGroup(faction_t* f, MobRule size)
@@ -212,16 +246,14 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
      choice_pool_t *cp = StartChoice(&lp->flags, count * 2, ChooseByWeightInBudget, &result);
      */
   bool ready = false;
-  choice_pool_t* dp[ITEM_DONE];
+  choice_pool_t* dp;
 
-  for(int i = 0; i < ITEM_DONE; i++){
-    dp[i] = StartChoice(&lp->drops[i], count, ChooseByWeightInBudget, &ready);
-    dp[i]->budget = 200;
-  }
+  dp = StartChoice(&lp->drops, count, WeightedPurchaseByFlags, &ready);
 
   while(num_weapon < 10 && num_armor < 15){
     param_t p[LOOT_PARAM_END] = {0};
 
+    LootFlags iflags = 0;
     int cat = RngRoll(Level.rng, ITEM_WEAPON, ITEM_DONE);
     p[LOOT_PARAM_CATEGORY] = ParamMake(DATA_INT, sizeof(int),&cat);
     int start = 0, end = 0;
@@ -229,6 +261,7 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
     LootParams type_param = -1;
     switch (cat){
       case ITEM_WEAPON:
+        iflags = LF_WEAP;
         start = WEAP_MACE;
         end =  WEAP_DAGGER;
         type_prop_end = 9;
@@ -236,14 +269,13 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
         num_weapon++;
         break;
       case ITEM_ARMOR:
+        iflags = LF_ARMOR;
         start = ARMOR_NATURAL;
         end = ARMOR_SHIELD-1;
         type_prop_end = 0;
         type_param = LOOT_PARAM_ARMOR;
         num_armor++;
         break;
-      case ITEM_CONSUMABLE:
-        continue;
       default:
         continue;
         break;
@@ -267,29 +299,51 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
 
     item_def_t* item = GenerateItem(p);
 
-    AddPurchase(dp[cat], type, item->weight, item->cost, item, DiscardChoice);
+    switch(qual){
+      case PROP_QUAL_TRASH:
+        iflags |= LF_TRASH;
+        break;
+      case PROP_QUAL_POOR:
+        iflags |= LF_POOR;
+        break;
+      default:
+        iflags |= LF_COMMON;
+        break;
+    }
+    AddChoiceCostFlags(dp, type, item->weight, item->cost, item, iflags, ChoiceReduceScore);
   }
+
 
 
 
   for (int i = 0; i < Level.item_defs->count; i++){
+    uint64_t cflags = LF_CONS;
     item_type_d* item = &Level.item_defs->entries[i];
 
     item_def_t* def = DefineConsumableByDef(&item->data.cons);
-    int weight = 1;
+    int weight = item->data.cons.weight;
+    cflags |= item->flags;
     def->cost = item->data.cons.cost;
-    
-    AddPurchase(dp[ITEM_CONSUMABLE], def->id, weight, def->cost, def, DiscardChoice);
+ TraceLog(LOG_INFO, "%s: score %i cost %i", def->name, weight, def->cost);  
+    def->id = item->data.cons.chain_id; 
+      
+    AddChoiceCostFlags(dp, def->id, weight, def->cost, def, cflags, ChoiceReduceScore);
   }
 
+  ShuffleChoices(dp);
   return lp;
 }
 
-void LootDraw(ent_t* e, ItemCategory cat, bool equip, int budget, int amnt){
+void LootDraw(ent_t* e, LootFlags flags, bool equip, int budget, int amnt){
+  if(Level.loot->drops->count < 1)
+    return;
+
   int i = 0;
-  Level.loot->drops[cat]->budget = budget;
-  while (i < amnt && Level.loot->drops[cat]->budget > 0){
-    choice_t* choice = Level.loot->drops[cat]->choose(Level.loot->drops[cat]);
+  Level.loot->drops->budget = budget;
+  Level.loot->drops->flags = flags;
+  
+  while (i < amnt && Level.loot->drops->budget > 0){
+    choice_t* choice = Level.loot->drops->choose(Level.loot->drops);
 
     if(!choice || !choice->context)
       continue;
@@ -300,5 +354,62 @@ void LootDraw(ent_t* e, ItemCategory cat, bool equip, int budget, int amnt){
       TraceLog(LOG_INFO, "Added item - %s", def->name);
     }
   }
+}
 
+choice_pool_t* LootPlacements(map_grid_t* m, Rectangle r, int amount){
+  int area = r.width * r.height;
+  Cell center = rect_center(r);
+  choice_pool_t* cp = InitChoicePool(area, ChooseByWeight);
+  for (int x = r.x; x < r.x + r.width; x++){
+    for (int y = r.y; y < r.y + r.height; y++){
+
+      map_cell_t* c = &m->tiles[x][y];
+
+      if(TileBlocksMovement(c))
+        continue;
+
+      int dist = 1 + cell_distance(center, c->coords);
+      AddChoice(cp, x*1000+y, area/dist, c, DiscardChoice);
+
+    }
+  }
+
+  if(cp->count < 1)
+    return NULL;
+
+  return cp;
+}
+
+void LootDrop(LootFlags flags, int budget, int amnt, Rectangle r){
+
+  if(Level.loot->drops->count < 1)
+    return;
+
+  int i = 0;
+  Level.loot->drops->budget = budget;
+  Level.loot->drops->flags = flags;
+
+  choice_pool_t* placements = LootPlacements(WorldGetMap(), r, amnt);
+  if(!placements || placements->count < 1)
+    return;
+
+  while (placements->count > 0 && i < amnt && Level.loot->drops->budget > 0){
+    choice_t* choice = Level.loot->drops->choose(Level.loot->drops);
+
+    if(!choice || !choice->context)
+      continue;
+
+    item_def_t* def = choice->context;
+
+    choice_t* pos = placements->choose(placements);
+
+    if(!pos || !pos->context)
+      continue;
+
+    map_cell_t* mc = pos->context;
+
+    if(InitItemContext(def, mc->coords))
+      i++;
+
+  }
 }

@@ -338,6 +338,13 @@ bool RegisterEnt( ent_t *e){
 
 }
 
+bool RegisterItemContext(item_t* i, Cell pos){
+  param_t p = ParamMakeObj(DATA_ITEM, i->gouid, i);
+
+  return (MakeLocalContext(world.ctx->tables[OBJ_ITEM], &p, pos) != NULL);
+ 
+}
+ 
 map_cell_t* RegisterMapCell(int x, int y){
   map_cell_t* out = GameCalloc("RegisterMapCell", 1,sizeof(map_cell_t));
   int index = IntGridIndex(x, y);
@@ -420,6 +427,9 @@ local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid){
     case DATA_MAP_CELL:
       cat = OBJ_MAP_CELL;
       break;
+    case DATA_ITEM:
+      cat = OBJ_ITEM;
+      break;
   }
 
   if(cat == OBJ_NONE)
@@ -428,7 +438,7 @@ local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid){
   return LocalGetEntry(world.ctx->tables[cat], gouid);
 }
 void WorldValidateContext(){
-world_context_t* wctx = world.ctx;
+  world_context_t* wctx = world.ctx;
 
   if(wctx==NULL)
     return;
@@ -485,9 +495,12 @@ void WorldInitOnce(){
 
   InitInput(player);
 
-  LootDraw(player, ITEM_WEAPON, true, 1000, 1);
-  LootDraw(player, ITEM_ARMOR, true, 30, 1);
-  LootDraw(player, ITEM_CONSUMABLE, false, 1000, 4);
+  LootDraw(player, LF_WEAP, true, 1000, 1);
+  LootDraw(player, LF_ARMOR, true, 30, 1);
+  LootDraw(player, LF_TOME, false, 1000, 6);
+  //LootDraw(player, LF_SCROLL, false, 1000, 2);
+  //LootDraw(player, LF_MANUAL, false, 1000, 2);
+  LootDraw(player, LF_POT, false, 1000, 4);
   WorldValidateContext();
   WorldEvent(EVENT_ENT_STEP, player, player->gouid);
 }
@@ -569,6 +582,7 @@ world_context_t* InitWorldContext(void){
 
   ctx->tables[OBJ_ENT] = InitLocals(player, MAX_ENTS);
   ctx->tables[OBJ_ENV] = InitLocals(player, MAX_ENVS);
+  ctx->tables[OBJ_ITEM] = InitLocals(player, MAX_ENTS);
   ctx->tables[OBJ_MAP_CELL] = InitLocals(player, MAX_ENVS);
   
   return ctx;

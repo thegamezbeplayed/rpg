@@ -267,10 +267,11 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_ACID_SPLASH, AT_DMG, ACTION_MAGIC, DMG_ACID, STAT_ENERGY,
     DES_AREA, 11, 12, 0, 1, 6, 0, 2, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
     .skills = SKILL_SPELL_EVO, .image_id = SPELL_BUBBLES},
- {ABILITY_MAGIC_MISSLE, AT_DMG, ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TAR, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .num_skills =1, .skills = SKILL_SPELL_EVO,
-   .image_id = SPELL_MISSILE
+ {ABILITY_MAGIC_MISSLE, AT_DMG, ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TAR, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .skills = SKILL_SPELL_EVO,
+   .image_id = SPELL_MISSILE,
+   .vals = {[VAL_QUANT] = 3}
  },
-  {ABILITY_ELDRITCH_BLAST, AT_DMG,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_FACING, 30, 8, 14, 1, 10,3, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
+  {ABILITY_ELDRITCH_BLAST, AT_DMG,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_FACING, 30, 8, 14, 1, 10, 3, 2, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
    .skills = SKILL_SPELL_EVO,
    .image_id = SPELL_FLARE
   },
@@ -343,8 +344,12 @@ ability_t ABILITIES[ABILITY_DONE]={
   {ABILITY_ITEM_HEAL, AT_HEAL, ACTION_ITEM,
     DMG_RADIANT, STAT_NONE, DES_SELF, 10, 1, 1, 2,4,2,0, STAT_HEALTH, ATTR_NONE, ATTR_NONE,.skills=SKILL_ALCH, .use_fn = AbilityConsume
   },
-  {ABILITY_ITEM_SKILL, AT_KNOWLEDGE, ACTION_ITEM,
+  {ABILITY_ITEM_RESTORE, AT_HEAL, ACTION_ITEM,
+    DMG_RADIANT, STAT_NONE, DES_SELF, 10, 1, 1, 20, 1,2,0, STAT_ENERGY, ATTR_NONE, ATTR_NONE,.skills=SKILL_ALCH, .use_fn = AbilityConsume
+  },
   
+  {ABILITY_ITEM_SKILL, AT_KNOWLEDGE, ACTION_ITEM,
+      .skills=SKILL_LING, .use_fn = AbilityGrantExp
   },
   {ABILITY_ITEM_TOME, AT_KNOWLEDGE, ACTION_ITEM,
     .skills=SKILL_ARCANA, .use_fn = AbilityLearn
@@ -516,14 +521,14 @@ consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
     "Tome of "
   },
   {CONS_SKILLUP,
-     200, 500, 1, 1, 10,
+     200, 500, 1, 25, 50,
     PROP_MAT_LEATHER | PROP_QUAL_FINE, 0,
     ABILITY_ITEM_SKILL, SKILL_LING,
     STORE_SPECIAL,
     {[STORE_HELD] = 5, [STORE_CONTAINER] = 3},
     0X1000,
-    "Manual of "
-  
+    "Manual of ",
+    .vals = {[VAL_DMG] = 6, [VAL_DMG_DIE] = 10}  
   }
 };
 
@@ -1487,16 +1492,17 @@ bool SkillIncreaseUncapped(struct skill_s* s, int amnt){
 bool SkillIncrease(struct skill_s* s, int amnt){
   s->point+=imin(MAX_SKILL_GAIN,amnt);
 
-  if(s->point < s->threshold){
-    //TraceLog(LOG_INFO,"%s %i experience in %s now (%0f / %i)",s->owner->name, s->owner->uid, SKILL_NAMES[s->id], s->point, s->threshold);
+  WorldEvent(EVENT_SKILL_POINTS, s, s->id);
+  if(s->point < s->threshold)
     return false;
-  }
 
   s->point = s->point - s->threshold;
 
 
   int old = s->val;
   s->val++;
+
+  WorldEvent(EVENT_SKILL_LVL, s, s->id);
 
   s->threshold+= 100/s->val;
   
@@ -1510,6 +1516,7 @@ bool SkillIncrease(struct skill_s* s, int amnt){
     s->rank=r.rank;
     if(s->on_rank_up)
       s->on_rank_up(s, old, s->rank);
+    WorldEvent(EVENT_SKILL_RANK, s, s->id);
   }
 
   return true;
@@ -1748,12 +1755,29 @@ item_type_d* ItemGenAdd(item_gen_pool* p, ItemCategory cat, void* def){
   switch(cat){
     case ITEM_WEAPON:
       idef->data.weap = *(weapon_def_t*) def;
+      idef->flags |= LF_WEAP;
       break;
     case ITEM_ARMOR:
       idef->data.armor = *(armor_def_t*) def;
+      idef->flags |= LF_ARMOR;
       break;
     case ITEM_CONSUMABLE:
       idef->data.cons = *(consume_def_t*) def;
+      idef->flags |= LF_CONS;
+      switch(idef->data.cons.type){
+        case CONS_SCROLL:
+          idef->flags |= LF_SCROLL;
+          break;
+        case CONS_POT:
+          idef->flags |= LF_POT;
+          break;
+        case CONS_TOME:
+          idef->flags |= LF_TOME;
+          break;
+        case CONS_SKILLUP:
+          idef->flags |= LF_MANUAL;
+          break;
+      }
       break;
     case ITEM_CONTAINER:
       idef->data.cont = *(container_def_t*) def;
@@ -1778,8 +1802,6 @@ consume_def_t* ConsumeGenerateKnowledge(int id, ConsumeType type){
   switch(type){
     case CONS_SCROLL:
     case CONS_TOME:
-      define_ability_class_t dac = CLASS_ABILITIES[id];
-      def->weight = dac.weight;
       strcat(def->name, GetAbilityName(id));
       break;
     case CONS_SKILLUP:
@@ -1795,4 +1817,40 @@ consume_def_t* ConsumeGenerateKnowledge(int id, ConsumeType type){
 }
 
 
+consume_def_t* ConsumeGeneratePotion(StatType stat){
+  consume_def_t* def = GameCalloc("ConsumeGenerateKnowledge", 1, sizeof(consume_def_t));
 
+  
+  *def = CONSUME_TEMPLATES[CONS_POT];
+
+  switch(stat){
+    case STAT_HEALTH:
+    case STAT_ARMOR:
+    case STAT_ENERGY:
+    case STAT_STAMINA_REGEN_RATE:
+    case STAT_ENERGY_REGEN_RATE:
+    case STAT_HEALTH_REGEN_RATE:
+    case STAT_RAGE:
+    case STAT_STAMINA:
+      return NULL;
+      break;    
+    case STAT_STAMINA_REGEN:
+      def->ability = ABILITY_ITEM_RESTORE;
+      def->weight = 21;
+      def->chain_id = STAT_STAMINA;
+      strcat(def->name, "Endurance");
+      break;
+    case STAT_ENERGY_REGEN:
+      def->ability = ABILITY_ITEM_RESTORE;
+      def->weight = 25;
+      def->chain_id = STAT_ENERGY;
+      strcat(def->name, "Mana");
+      break;
+    case STAT_HEALTH_REGEN:
+      def->weight = 11;
+      strcat(def->name, "Health");
+      break;
+  }
+
+  return def;
+}

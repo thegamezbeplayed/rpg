@@ -605,6 +605,12 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->resource = mc->props->resources;
       e->dist = cell_distance(pos, mc->coords);
       break;
+    case DATA_ITEM:
+      item_t* item = ParamRead(entry, item_t);
+      e->gouid = item->gouid;
+      e->pos   = pos;
+      e->dist  = cell_distance(pos, CELL_EMPTY); 
+      break;
   }
   
   WorldTargetSubscribe(EVENT_UPDATE_LOCAL_CTX, OnWorldByGOUID, s, e->gouid);
@@ -800,6 +806,10 @@ void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
       return;
       map_cell_t* mc = ParamReadMapCell(&ctx->other);
       lctx = LocalAddMap(s, mc);
+      break;
+    case DATA_ITEM:
+      item_t* item = ParamRead(ctx, item_t);
+      lctx = LocalAddItem(s, item, SPEC_RELATE_NONE);
       break;
   }
 
