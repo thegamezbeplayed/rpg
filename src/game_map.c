@@ -239,6 +239,8 @@ void MapRoomSpawn(map_grid_t* m, EntityType data, int room){
   if(RegisterEnt(e)){
     e->map = m;
     EntPrepare(e);
+    m->materials |= MONSTER_MASH[e->type].materials;
+
     SetState(e,STATE_SPAWN,NULL);
   }
 
@@ -288,13 +290,10 @@ void OnTurnMapRoom(EventType event, void* data, void* user){
 
   if(roll <= r->map->num_mobs)
     return;
-
-  DO_NOTHING();
 }
 
 void OnRoomMobEvent(EventType event, void* data, void* user){
   map_room_t* r = user;
-
 
   switch(event){
     case EVENT_ENT_DEATH:
@@ -373,6 +372,8 @@ map_room_t* InitMapRoom(map_context_t* ctx, room_t* r){
 }
 
 void WorldMapLoaded(map_grid_t* m){
+  map_gen_t mgen = MAPS[m->id];
+  m->materials = BIOME[mgen.biome].materials;
   for(int i = 0; i < world_map.num_rooms; i++){
     map_room_t* mr = InitMapRoom(&world_map,world_map.rooms[i]);
   
@@ -381,6 +382,8 @@ void WorldMapLoaded(map_grid_t* m){
     mr->map = m;
     m->num_mobs += mr->num_mobs;
   }
+
+  WorldEvent(EVENT_MAP_LOADED, m, m->id);
 }
 
 
@@ -2923,6 +2926,24 @@ void MapAddNodeOption(node_option_t opt){
     NODE_OPTIONS.items[NODE_OPTIONS.count++] = opt;
   }
 }
+
+uint64_t MapGetMaterials(map_grid_t* m, MaterialType type){
+  uint64_t mask;
+  switch(type){
+    case MAT_WOOD:
+      mask = MAT_WOOD_MASK;
+      break;
+    case MAT_STONE:
+      mask = MAT_STONE_MASK;
+      break;
+    case MAT_HIDE:
+      mask = MAT_HIDE_MASK;
+      break;
+  }
+
+  return m->materials & mask; 
+}
+
 int GetNeighborFlags(map_context_t* ctx, Cell c, RoomFlags f, Cell *filter){
   int count = 0;
 

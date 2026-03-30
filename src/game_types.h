@@ -176,6 +176,7 @@ typedef struct item_def_s{
   bool                allowed[STORE_DONE];
   ItemProps           props;
   uint64_t            t_props;
+  LootFlags           flags;
 }item_def_t;
 
 typedef bool (*ItemEquipCallback)(struct ent_s* owner, item_t* item);

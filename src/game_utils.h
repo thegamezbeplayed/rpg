@@ -426,6 +426,7 @@ typedef struct{
 
 local_table_t* InitLocals(ent_t* e, int cap);
 local_ctx_t* MakeLocalContext(local_table_t* s, param_t* e, Cell p);
+void LocalCtxRender(local_table_t* s, int index);
 void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx);
 bool LocalContextCheck(local_ctx_t* ctx);
 void LocalSyncPos(EventType, void* e, void* u);

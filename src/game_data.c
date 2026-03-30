@@ -292,7 +292,7 @@ ability_t ABILITIES[ABILITY_DONE]={
   .skills = SKILL_SPELL_TRANS, .image_id = SPELL_ROCK},
   {ABILITY_POISON_SPRAY, AT_DMG,ACTION_MAGIC,DMG_POISON, STAT_ENERGY, DES_SEL_TAR, 25, 8, 14, 1,10,0,3, STAT_HEALTH, ATTR_CON, ATTR_NONE,
   .skills = SKILL_SPELL_NECRO, .image_id = SPELL_BUBBLE},
-  {ABILITY_FIRE_BOLT, AT_DMG, ACTION_MAGIC,DMG_FIRE, STAT_ENERGY, DES_SEL_TAR, 20, 8, 2, 1,10,0,4, STAT_HEALTH, ATTR_NONE, ATTR_INT,
+  {ABILITY_FIRE_BOLT, AT_DMG, ACTION_MAGIC,DMG_FIRE, STAT_ENERGY, DES_SEL_TAR, 20, 8, 2, 1,12,0,4, STAT_HEALTH, ATTR_NONE, ATTR_INT,
   .skills = SKILL_SPELL_EVO, .image_id = SPELL_MISSILE},
   {ABILITY_FROST_BITE, AT_DMG, ACTION_MAGIC, DMG_COLD, STAT_ENERGY,
     DES_SEL_TAR, 12, 10, 0, 1, 6, STAT_HEALTH, ATTR_CON, ATTR_INT,
@@ -570,6 +570,63 @@ define_natural_armor_t NAT_ARMOR_TEMPLATES[13] = {
 
 };
 
+material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
+  {MAT_CLOTH,
+    PROP_MAT_CLOTH,
+    .vals ={
+      [VAL_STORAGE] = 400,
+      [VAL_WEIGHT]  = 15,
+    }
+  },
+  {MAT_HIDE,
+    .vals ={
+      [VAL_STORAGE] = 400,
+      [VAL_WEIGHT]  = 50,
+    }
+  },
+  {MAT_FUR,
+    .vals ={
+      [VAL_STORAGE] = 400,
+      [VAL_WEIGHT]  = 25, 
+    }
+  },
+  {MAT_LEATHER,
+    PROP_MAT_LEATHER,
+    .vals ={
+      [VAL_STORAGE] = 400,
+      [VAL_WEIGHT]  = 50,
+    }
+  },
+  {MAT_BONE,
+    PROP_MAT_BONE,
+    PROP_MAT_HAS_RESOURCE,
+    RES_BONE,
+    .vals ={
+      [VAL_STORAGE] = 200,
+      [VAL_WEIGHT]  = 250,
+    }
+  },
+  {MAT_WOOD,
+    PROP_MAT_WOOD,
+    PROP_MAT_HAS_RESOURCE,
+    RES_WOOD,
+    .vals ={
+      [VAL_STORAGE] = 2000,
+      [VAL_WEIGHT]  = 1500,
+    }
+  },
+  {MAT_STONE,
+    PROP_MAT_STONE,
+    PROP_MAT_HAS_RESOURCE,
+    RES_STONE,
+    .vals ={
+      [VAL_STORAGE] = 1000,
+      [VAL_WEIGHT]  = 3000,
+    }
+  }
+
+};
+
 define_mobtype_t MOB_THEME[MT_DONE] = {
   {MT_PREY,       MOB_THEME_GAME},
   {MT_PRED,       MOB_THEME_PRED},
@@ -589,6 +646,7 @@ biome_t BIOME[BIO_DONE] = {
     0.1f, 0.15f, 0.05f, 0.1f, 0.05f,
     .ratios = {
       [MT_PREY] = .40f, [MT_PRED] = .08f, [MT_CRITTER] = .20f, [MT_BUG] = .12f, [MT_FACTION] = .0f, [MT_MONSTER] = 0.07f, [MT_LOCALS] = .13f},
+  .materials = MAT_STONE_GRANITE | MAT_STONE_SANDSTONE | MAT_WOOD_SPRUCE | MAT_WOOD_OAK | MAT_WOOD_PINE
   },
 };
 
@@ -1782,6 +1840,21 @@ item_type_d* ItemGenAdd(item_gen_pool* p, ItemCategory cat, void* def){
     case ITEM_CONTAINER:
       idef->data.cont = *(container_def_t*) def;
       break;
+    case ITEM_MATERIAL:
+      idef->data.mat = *(material_def_t*) def;
+      idef->flags |= LF_MATERIAL;
+      switch(idef->data.mat.type){
+        case MAT_CLOTH:
+        case MAT_HIDE:
+        case MAT_FUR:
+        case MAT_LEATHER:
+        case MAT_BONE:
+        case MAT_WOOD:
+        case MAT_STONE:
+        case MAT_METAL:
+          break;
+      }
+      break;
     default:
       return NULL;
   }
@@ -1853,4 +1926,30 @@ consume_def_t* ConsumeGeneratePotion(StatType stat){
   }
 
   return def;
+}
+
+material_def_t* InitMaterial(material_def_t base, MaterialType type, MaterialSpec spec){
+  material_def_t* mat = GameCalloc("InitMaterial", 1, sizeof(material_def_t));
+
+  mat->type = type;
+  mat->spec = spec;
+  mat->i_props = base.i_props;
+  mat->m_props = base.m_props;
+  mat->resources = base.resources;
+  memcpy(mat->vals, base.vals, sizeof(base.vals));
+
+  return mat;
+}
+
+size_t GetMaterialByBiome(MaterialType type, material_def_t** defs, size_t *count, size_t cap){
+  material_def_t base = MATERIAL_TEMPLATES[type];
+
+  uint64_t mats = MapGetMaterials(WorldGetMap(), type);
+
+  while(mats){
+    uint64_t mat = mats & -mats;
+    mats &= mats -1;
+
+    defs[(*count)++] = InitMaterial(base, type, mat);
+  }
 }

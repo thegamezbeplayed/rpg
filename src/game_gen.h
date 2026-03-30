@@ -22,6 +22,14 @@
 
 #define GRID_WIDTH 128
 #define GRID_HEIGHT 128
+  
+#define MAT_WOOD_SHIFT  0
+#define MAT_WOOD_BITS   15
+#define MAT_HIDE_SHIFT  16
+
+#define MAT_HIDE_BITS   15
+#define MAT_STONE_SHIFT 32
+#define MAT_STONE_BITS  15
 
 #define TILE_SIZE_MASK (\
     TILEFLAG_SIZE_XS  |\
@@ -73,6 +81,37 @@ typedef enum{
   RS_CARVED,
   RS_CORRECTED
 }RoomStatus;
+
+typedef enum{
+  MAT_WOOD_OAK    = (1ULL << (MAT_WOOD_SHIFT + 0)),
+  MAT_WOOD_MAPLE  = (1ULL << (MAT_WOOD_SHIFT + 1)),
+  MAT_WOOD_PINE   = (1ULL << (MAT_WOOD_SHIFT + 2)),
+  MAT_WOOD_SPRUCE = (1ULL << (MAT_WOOD_SHIFT + 3)),
+  MAT_WOOD_BIRCH  = (1ULL << (MAT_WOOD_SHIFT + 4)),
+  MAT_WOOD_CEDAR  = (1ULL << (MAT_WOOD_SHIFT + 5)),
+  MAT_WOOD_FIR    = (1ULL << (MAT_WOOD_SHIFT + 6)),
+  MAT_WOOD_ASH    = (1ULL << (MAT_WOOD_SHIFT + 7)),
+  MAT_WOOD_WALNUT = (1ULL << (MAT_WOOD_SHIFT + 8)),
+  MAT_WOOD_CHERRY = (1ULL << (MAT_WOOD_SHIFT + 9)),
+  MAT_WOOD_BEECH  = (1ULL << (MAT_WOOD_SHIFT + 10)),
+  MAT_WOOD_POPLAR = (1ULL << (MAT_WOOD_SHIFT + 11)),
+  MAT_WOOD_HICKORY= (1ULL << (MAT_WOOD_SHIFT + 12)),
+  MAT_WOOD_ELM    = (1ULL << (MAT_WOOD_SHIFT + 13)),
+  MAT_WOOD_REDWOOD= (1ULL << (MAT_WOOD_SHIFT + 14)),
+  MAT_WOOD_CYPRESS= (1ULL << (MAT_WOOD_SHIFT + 15)),
+  MAT_WOOD_MASK   = 0xFFULL,
+  MAT_HIDE_RAT    = (1ULL << (MAT_HIDE_SHIFT + 0)),
+  MAT_HIDE_DEER   = (1ULL << (MAT_HIDE_SHIFT + 1)),
+  MAT_HIDE_WOLF   = (1ULL << (MAT_HIDE_SHIFT + 2)),
+  MAT_HIDE_BEAR   = (1ULL << (MAT_HIDE_SHIFT + 3)),
+  MAT_HIDE_MASK   = 0xFFULL << MAT_HIDE_SHIFT,
+  MAT_STONE_GRANITE   = (1ULL << (MAT_STONE_SHIFT + 0)),
+  MAT_STONE_LIMESTONE = (1ULL << (MAT_STONE_SHIFT + 1)),
+  MAT_STONE_SANDSTONE = (1ULL << (MAT_STONE_SHIFT + 0)),
+  MAT_STONE_MASK      = 0xFFULL << MAT_STONE_SHIFT,
+}MaterialSpec;
+
+typedef uint64_t MaterialSpecs;
 
 typedef enum{
   TILEFLAG_NONE        = 0,
@@ -309,12 +348,13 @@ typedef struct {
 } cell_bounds_t;
 
 typedef struct {
-  Biome     id;
-  float     r_lairs, r_chall, r_secrets, r_traps, r_treasure;
-  float     ratios[MT_DONE];
-  int       desired[MT_DONE];
-  int       current[MT_DONE];
-  int       total, sum;
+  Biome         id;
+  float         r_lairs, r_chall, r_secrets, r_traps, r_treasure;
+  float         ratios[MT_DONE];
+  int           desired[MT_DONE];
+  int           current[MT_DONE];
+  int           total, sum;
+  MaterialSpecs materials;
 }biome_t;
 extern biome_t BIOME[BIO_DONE];
 
@@ -658,6 +698,7 @@ struct map_grid_s{
   int          num_mobs;
   Color        floor;
   bool         updates;
+  uint64_t     materials;
 };
 
 bool InitMap(void);
@@ -680,6 +721,7 @@ void MapSpawnMob(map_grid_t* m, int x, int y);
 void RoomSpawnMob(map_grid_t* m, room_t* r);
 Cell MapApplyContext(map_grid_t* m);
 void MapVisEvent(EventType event, void* data, void* user);
+uint64_t MapGetMaterials(map_grid_t*, MaterialType);
 static int MapGetNeighborsByStatus(map_grid_t* m, Cell pos, map_cell_t* nei[8], TileStatus status){
 
   int count = 0;

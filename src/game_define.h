@@ -280,6 +280,7 @@ typedef enum{
   RES_BLOOD = BIT64(7),
   RES_DONE = 8
 }Resource;
+typedef uint64_t Resources;
 
 typedef struct{
   const char* name;
@@ -340,8 +341,9 @@ typedef enum{
   LF_TRASH    = BIT64(7),
   LF_POOR     = BIT64(8),
   LF_COMMON   = BIT64(9),
-  LF_MAT_BONE = BIT64(10),
-  LF_MAT_HIDE = BIT64(11),
+  LF_MATERIAL = BIT64(10),
+  LF_MAT_BONE = BIT64(11),
+  LF_MAT_HIDE = BIT64(12),
 }LootFlag;
   
 typedef uint64_t LootFlags;
@@ -405,6 +407,7 @@ typedef struct{
   uint64_t    eats;
   mob_flags_t flags;
   LootFlags   loot;
+  MaterialSpecs materials;
 }mob_define_t;
 
 typedef struct{
@@ -1940,11 +1943,13 @@ typedef enum{
 
   PROP_MAT_CLOTH      = BIT64(9),
   PROP_MAT_LEATHER    = BIT64(10),
-  PROP_MAT_BONE       = BIT64(11),
-  PROP_MAT_WOOD       = BIT64(12),
-  PROP_MAT_STONE      = BIT64(13),
-  PROP_MAT_METAL      = BIT64(14),
-  PROP_MAT_LIQUID     = BIT64(15), 
+  PROP_MAT_HIDE       = BIT64(11),
+  PROP_MAT_FUR        = BIT64(12),
+  PROP_MAT_BONE       = BIT64(13),
+  PROP_MAT_WOOD       = BIT64(14),
+  PROP_MAT_STONE      = BIT64(15),
+  PROP_MAT_METAL      = BIT64(16),
+  PROP_MAT_LIQUID     = BIT64(17), 
 }ItemProp;
 
 static int QualityIndex(uint64_t props) {
@@ -1973,6 +1978,11 @@ typedef enum{
   PROP_ARMOR_NONE      = 0,
 
 }ArmorProp;
+
+typedef enum{
+  PROP_MAT_NONE         = 0,
+  PROP_MAT_HAS_RESOURCE = BIT64(0),
+}MaterialProps;
 
 typedef enum{
   PROP_CONS_NONE       = 0,
@@ -2050,12 +2060,25 @@ consume_def_t* ConsumeGenerateKnowledge(int id, ConsumeType type);
 consume_def_t* ConsumeGeneratePotion(StatType stat);
 
 typedef struct{
+  MaterialType    type;
+  ItemProps       i_props;
+  MaterialProps   m_props;
+  Resources       resources;
+  MaterialSpec    spec;
+  int             vals[VAL_ALL];
+}material_def_t;
+extern material_def_t MATERIAL_TEMPLATES[MAT_DONE];
+
+size_t GetMaterialByBiome(MaterialType, material_def_t**, size_t*, size_t);
+
+typedef struct{
   ItemCategory  cat;
   union {
     armor_def_t     armor;
     container_def_t cont;
     consume_def_t   cons;
     weapon_def_t    weap;
+    material_def_t  mat;
   }data;
   LootFlags         flags;
 }item_type_d;

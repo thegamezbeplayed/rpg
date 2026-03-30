@@ -346,9 +346,9 @@ typedef struct{
   ItemProp      mat;
   const char*   name;
   quality_def_t desc[QUAL_BIT_COUNT];
-} material_def_t;
+} material_d;
 
-static const material_def_t ITEM_DEF_STRINGS[ITEM_DONE][MAT_BIT_COUNT] = {
+static const material_d ITEM_DEF_STRINGS[ITEM_DONE][MAT_BIT_COUNT] = {
   [ITEM_WEAPON] = {
     {PROP_MAT_BONE, },
     { PROP_MAT_WOOD, },

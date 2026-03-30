@@ -72,6 +72,10 @@ void OnLevelReady(EventType event, void* data, void* user){
 
       AssignFaction(r);
       break;
+    case EVENT_MAP_LOADED:
+      map_grid_t* m = data;
+      LevelReady(m);
+      break;
   }
 }
 
@@ -113,8 +117,9 @@ level_t* InitLevel(void){
   Level.paths = InitPathPool(MAX_ENVS);
 
   WorldSubscribe(EVENT_ROOM_READY, OnLevelReady, &Level);
+  WorldSubscribe(EVENT_MAP_LOADED, OnLevelReady, &Level);
 
-  Level.item_defs = InitItemGenPool(ABILITY_DONE + SKILL_DONE);
+  Level.item_defs = InitItemGenPool(ENT_DONE + ABILITY_DONE + SKILL_DONE);
 
   for(int i = 0; i < ABILITY_DONE; i++){
     if(CLASS_ABILITIES[i].tome && CLASS_ABILITIES[i].lvl == 0)
@@ -169,7 +174,16 @@ void LevelReady(map_grid_t* m){
   ctx->luck = -1;
   ctx->enemy_cr = iround(mgen.diff);
   ctx->seed = hash_combine_64(Level.seed, mgen.biome);
-  Level.loot = GenerateLootPool(64 + Level.item_defs->count, ctx);
+
+  material_def_t* mats[MAX_ENTS];
+  size_t num_mats = 0; 
+  for (int i = 0; i < MAT_DONE; i++)
+  GetMaterialByBiome(i, mats, &num_mats, MAX_ENTS);
+
+  for(int i = 0; i < num_mats; i++)
+      ItemGenAdd(Level.item_defs, ITEM_MATERIAL, mats[i]);
+
+  Level.loot = GenerateLootPool((num_mats * 4) + Level.item_defs->count, ctx);
 
   WorldSubscribe(EVENT_ENT_DEATH, LevelEntityEvent, &Level);
 
@@ -250,10 +264,9 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
 
   dp = StartChoice(&lp->drops, count, WeightedPurchaseByFlags, &ready);
 
-  while(num_weapon < 10 && num_armor < 15){
+  while(num_weapon < 15 && num_armor < 25){
     param_t p[LOOT_PARAM_END] = {0};
 
-    LootFlags iflags = 0;
     int cat = RngRoll(Level.rng, ITEM_WEAPON, ITEM_DONE);
     p[LOOT_PARAM_CATEGORY] = ParamMake(DATA_INT, sizeof(int),&cat);
     int start = 0, end = 0;
@@ -261,7 +274,6 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
     LootParams type_param = -1;
     switch (cat){
       case ITEM_WEAPON:
-        iflags = LF_WEAP;
         start = WEAP_MACE;
         end =  WEAP_DAGGER;
         type_prop_end = 9;
@@ -269,7 +281,6 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
         num_weapon++;
         break;
       case ITEM_ARMOR:
-        iflags = LF_ARMOR;
         start = ARMOR_NATURAL;
         end = ARMOR_SHIELD-1;
         type_prop_end = 0;
@@ -299,35 +310,43 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
 
     item_def_t* item = GenerateItem(p);
 
+    if(!ItemCurate(item))
+      continue;
+
     switch(qual){
       case PROP_QUAL_TRASH:
-        iflags |= LF_TRASH;
+        item->flags |= LF_TRASH;
         break;
       case PROP_QUAL_POOR:
-        iflags |= LF_POOR;
+        item->flags |= LF_POOR;
         break;
       default:
-        iflags |= LF_COMMON;
+        item->flags |= LF_COMMON;
         break;
     }
-    AddChoiceCostFlags(dp, type, item->weight, item->cost, item, iflags, ChoiceReduceScore);
+    switch(mat){
+      case PROP_MAT_BONE:
+        item->flags |= LF_MAT_BONE;
+        break;
+      case PROP_MAT_LEATHER:
+        item->flags |= LF_MAT_HIDE;
+        break;
+    }
+
+    AddChoiceCostFlags(dp, type, item->weight, item->cost, item, item->flags, ChoiceReduceScore);
   }
 
-
-
-
   for (int i = 0; i < Level.item_defs->count; i++){
-    uint64_t cflags = LF_CONS;
     item_type_d* item = &Level.item_defs->entries[i];
 
     item_def_t* def = DefineConsumableByDef(&item->data.cons);
     int weight = item->data.cons.weight;
-    cflags |= item->flags;
+    def->flags |= item->flags;
     def->cost = item->data.cons.cost;
  TraceLog(LOG_INFO, "%s: score %i cost %i", def->name, weight, def->cost);  
     def->id = item->data.cons.chain_id; 
       
-    AddChoiceCostFlags(dp, def->id, weight, def->cost, def, cflags, ChoiceReduceScore);
+    AddChoiceCostFlags(dp, def->id, weight, def->cost, def, def->flags, ChoiceReduceScore);
   }
 
   ShuffleChoices(dp);
@@ -346,7 +365,7 @@ void LootDraw(ent_t* e, LootFlags flags, bool equip, int budget, int amnt){
     choice_t* choice = Level.loot->drops->choose(Level.loot->drops);
 
     if(!choice || !choice->context)
-      continue;
+      break;
 
     item_def_t* def = choice->context;
     if(EntAddItem(e, InitItem(def), equip)){
@@ -397,14 +416,14 @@ void LootDrop(LootFlags flags, int budget, int amnt, Rectangle r){
     choice_t* choice = Level.loot->drops->choose(Level.loot->drops);
 
     if(!choice || !choice->context)
-      continue;
+      break;
 
     item_def_t* def = choice->context;
 
     choice_t* pos = placements->choose(placements);
 
     if(!pos || !pos->context)
-      continue;
+      break;
 
     map_cell_t* mc = pos->context;
 

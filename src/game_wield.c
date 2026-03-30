@@ -162,7 +162,14 @@ void ItemContainerPropVals(item_t* i){
 bool InitItemContext(item_def_t* def, Cell pos){
   item_t* item = InitItem(def);
 
-  return RegisterItemContext(item, pos);
+  TraceLog(LOG_INFO, "=== DROP ITEM %s at %i/%i", def->name, pos.x, pos.y);
+  if(RegisterItemContext(item, pos))
+    item->sprite->is_visible = true;
+
+  item->sprite->slice->scale = 0.25f;
+  item->sprite->pos = CellToVector2(pos,CELL_WIDTH); 
+
+  return item->sprite->is_visible;
 }
 item_t* InitItem(item_def_t* def){
   item_t* item = GameMalloc("InitItem", sizeof(item_t));
@@ -453,7 +460,7 @@ char* ItemGenerateName(item_def_t* def){
   ItemProps mat = def->props & MAT_MASK;
   ItemProps qual = def->props & QUAL_MASK;
 
-  material_def_t str_def = ITEM_DEF_STRINGS[def->category][BCTZL(mat)];
+  material_d str_def = ITEM_DEF_STRINGS[def->category][BCTZL(mat)];
 
   const char* format = "{QUAL} {MATERIAL} {NAME}";
 
@@ -539,6 +546,7 @@ item_def_t* DefineConsumableByDef(consume_def_t *def){
 
   item->type = def->type;
 
+  item->flags |= LF_CONS;
   strcpy(item->name, def->name);
 
   item->category = ITEM_CONSUMABLE;
@@ -1183,17 +1191,18 @@ item_def_t* GenerateItem(param_t params[LOOT_PARAM_END]){
   switch(cat){
     case ITEM_WEAPON:
       WeaponProps weap_p = *ParamRead(&params[LOOT_PARAM_WEAP], uint64_t);
-
       item = GenerateWeapon(type, props, weap_p, params);
+      item->flags |= LF_WEAP;
       break;
     case ITEM_ARMOR:
       ArmorProps arm_p = *ParamRead(&params[LOOT_PARAM_ARMOR], uint64_t);
-
       item = GenerateArmor(type, props, arm_p, params);
+      item->flags |= LF_ARMOR;
       break;
     case ITEM_CONSUMABLE:
       ConsumeProps con_p = *ParamRead(&params[LOOT_PARAM_CONS], uint64_t);
       item = GenerateConsume(type, props, con_p, params);
+      item->flags |= LF_CONS;
       break;
   }
 

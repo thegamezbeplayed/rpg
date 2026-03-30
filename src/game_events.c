@@ -620,6 +620,21 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
   return e;
 }
 
+void LocalCtxRender(local_table_t* s, int index){
+  local_ctx_t* ctx = &s->entries[index];
+  sprite_t* spr = NULL;
+  switch(ctx->other.type_id){
+    case DATA_ITEM:
+      item_t* i = ParamRead(&ctx->other, item_t);
+      spr = i->sprite;
+      break;
+  }
+  if(!spr)
+    return;
+
+  DrawSprite(spr);
+}
+
 void LocalBuildSortedIndices(local_table_t* table) {
     for (int i = 0; i < table->count; i++)
         table->sorted_indices[i] = i;
@@ -778,6 +793,26 @@ local_ctx_t* LocalAddEnt(local_table_t* s, ent_t* e, SpeciesRelate rel){
   return ctx;
 }
 
+local_ctx_t* LocalAddItem(local_table_t* s, item_t* e, SpeciesRelate rel){
+ if(LocalGetEntry(s, e->gouid))
+    return NULL;
+
+ LocalEnsureCap(s);
+
+ local_ctx_t* ctx = &s->entries[s->count++];
+
+ ctx->gouid = e->gouid;
+
+ param_t item = ParamMakeObj(DATA_ITEM, e->gouid, e);
+
+ ctx->params[PARAM_RELATE] = ParamMake(DATA_UINT64, sizeof(rel), &rel);
+ ctx->other = item;
+ ctx->aggro = NULL;
+
+ return ctx;
+
+}
+
 void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
   if(LocalGetEntry(s, ctx->gouid))
     return;
@@ -808,7 +843,7 @@ void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
       lctx = LocalAddMap(s, mc);
       break;
     case DATA_ITEM:
-      item_t* item = ParamRead(ctx, item_t);
+      item_t* item = ParamRead(&ctx->other, item_t);
       lctx = LocalAddItem(s, item, SPEC_RELATE_NONE);
       break;
   }

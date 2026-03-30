@@ -437,6 +437,13 @@ local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid){
 
   return LocalGetEntry(world.ctx->tables[cat], gouid);
 }
+
+void WorldContextRender(ObjectCategory cat){
+
+  for (int i = 0; i < world.ctx->tables[cat]->count; i++)
+    LocalCtxRender(world.ctx->tables[cat], i);
+}
+
 void WorldValidateContext(){
   world_context_t* wctx = world.ctx;
 
@@ -479,7 +486,6 @@ void WorldContextInitOnce(void){
 }
 
 void WorldInitOnce(){
-  LevelReady(world.map);
   WorldMapLoaded(world.map);
   //MapRoomSpawn(world.map, ENT_DEER, 5);
   //MapRoomSpawn(world.map, ENT_BEAR, 3);
@@ -671,6 +677,7 @@ void WorldRender(){
 
   MapRender(world.map);
 
+  WorldContextRender(OBJ_ITEM);
   ScreenRender(); 
 }
 

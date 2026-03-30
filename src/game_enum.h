@@ -482,6 +482,18 @@ typedef enum{
 }ConsumeType;
 
 typedef enum{
+  MAT_CLOTH,
+  MAT_HIDE,
+  MAT_FUR,
+  MAT_LEATHER,
+  MAT_BONE,
+  MAT_WOOD,
+  MAT_STONE,
+  MAT_METAL,
+  MAT_DONE,
+}MaterialType;
+
+typedef enum{
   DARK_FOREST,
   DANK_DUNGEON,
   MAP_DONE,
@@ -711,6 +723,7 @@ typedef enum{
   ITEM_AMULET,
   ITEM_RING,
   ITEM_AMMO,
+  ITEM_MATERIAL,
   ITEM_DONE
 }ItemCategory;
 
@@ -950,6 +963,7 @@ typedef enum{
   EVENT_TURN_END,
   EVENT_ROOM_READY,
   EVENT_LEVEL_SPAWNER_READY,
+  EVENT_MAP_LOADED,
   EVENT_ITEM_ACQUIRE,
   EVENT_ITEM_STORE,
   EVENT_ITEM_EQUIP,
@@ -1149,7 +1163,6 @@ typedef enum{
   ICON_ALL,
 }Icons;
 
-
 typedef enum{
   SPELL_NONE,
   SPELL_BLUDGEON,
@@ -1180,23 +1193,4 @@ typedef enum{
   LETTER_DONE,
   CHAR_ALL
 }CharacterStrings;
-
-typedef enum{
-  MAT_NONE = -1,
-  MAT_BONE_BEAR,
-  MAT_BONE_WOLF,
-  MAT_CLOTH_LINEN,
-  MAT_CLOTH_WOOL,
-  MAT_CLOTH_SILK,
-  MAT_HIDE_BEAR,
-  MAT_HIDE_WOLF,
-  MAT_LEATHER_DEER,
-  MAT_LEATHER_ELK,
-  MAT_METAL_BRONZE,
-  MAT_METAL_COPPER,
-  MAT_METAL_IRON,
-  MAT_METAL_STEEL,
-  MAT_DONE
-}Materials;
-
 #endif

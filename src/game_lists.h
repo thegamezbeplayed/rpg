@@ -1177,7 +1177,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
         PQ_LARGE | PQ_DENSE_MUSCLE | PQ_LARGE_HANDS,
       0, PQ_SHARP_CLAWS | PQ_SHARP_TEETH | PQ_TOUGH_CLAWS,
       PQ_THICK_FUR | PQ_TOUGH_HIDE
-      }
+      },
+      .materials = MAT_HIDE_BEAR
   },
   {ENT_WOLF, "Wolf",
       MOB_SPAWN_LAIR | MOB_SPAWN_CHALLENGE |
@@ -1192,7 +1193,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       RES_MEAT|RES_BONE,
       .flags = {
         PQ_SENSITIVE_NOSE
-      }
+      },
+      .materials = MAT_HIDE_WOLF
   },
   {ENT_RAT, "Rat",
       MOB_MOD_ENLARGE |
@@ -1206,6 +1208,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       SOC_HIVE,
       RES_MEAT | RES_BONE | RES_BLOOD,
       RES_BLOOD | RES_VEG,
+      .materials = MAT_HIDE_RAT
   },
   {ENT_SKELETON,"Skeleton",
     MOB_THEME_MONSTER
@@ -1222,6 +1225,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     SOC_FAMILY,
     RES_MEAT | RES_BONE | RES_BLOOD,
     RES_VEG,
+    .materials = MAT_HIDE_DEER
   },
   {ENT_KOBOLD, "Kobold",
     MOB_MOD_WEAPON | MOB_LOC_FOREST | MOB_LOC_CAVE |
