@@ -51,6 +51,7 @@ ent_t* InitEnt(EntityType id,Cell pos){
   }
   EntPrepare(e);
   e->inventory[INV_PACK]->active = true;
+  e->inventory[INV_BELT]->active = true;
   SetState(e,STATE_SPAWN,NULL);
   return e;
 }
@@ -934,7 +935,15 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
         break;
       case RES_WOOD:
         break;
-
+      case RES_HIDE:
+        amnt = p->size * 0x080;
+        break;
+      case RES_FUR:
+        amnt = p->size * 0x020;
+        break;
+      case RES_SCALE:
+        amnt = p->size * 0x020;
+        break;
     }
 
     if(amnt == 0)
@@ -942,6 +951,11 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
 
     p->smell+=def->smell;
     resource->amount = amnt;
+
+    MaterialType mat = MapMaterialResource(r);
+    if (mat > 0 && mat < MAT_DONE)
+    resource->spec = RegisterMaterial(mat, DATA_ENTITY, m.id, m.name);
+
     p->resources[BCTZL(r)] = resource;
   }
   return p;
@@ -959,7 +973,10 @@ void PropAddFeat(ent_t* e, FeatFlag f, SkillType skill){
 env_t* InitEnvFromEnt(ent_t* e){
   env_t* env = InitEnv(ENV_BONES_BEAST, e->pos);
 
+  mob_define_t m = MONSTER_MASH[e->type];
   bool empty = true;
+  sprintf(e->name, "%s %s", m.name,"Corpse");
+
   for(int i = 0; i < RES_DONE; i++){
     resource_t* tmp = e->props->resources[i];
     if(!tmp || tmp->amount == 0)
@@ -972,8 +989,13 @@ env_t* InitEnvFromEnt(ent_t* e){
     *res = (resource_t){
       .type = tmp->type,
         .amount = tmp->amount,
-        .smell = tmp->smell
+        .smell = tmp->smell,
     };
+
+    MaterialType mat = MapMaterialResource(tmp->type);
+
+    if(mat > 0 && mat < MAT_DONE)
+    res->spec = RegisterMaterial(mat, DATA_ENTITY, m.id, m.name);
 
     env->resources[i] = res;
     env->has_resources |= tmp->type;
@@ -986,11 +1008,52 @@ env_t* InitEnvFromEnt(ent_t* e){
 
 }
 
+env_t* InitEnvFromData(EnvTile t,Cell pos, MaterialID mat, uint32_t size){
+
+  env_t* e = GameMalloc("InitEnv",sizeof(env_t));
+  *e = (env_t){0};  // zero initialize if needed
+
+  material_data_t data = MATERIAL_DATA[mat];
+
+  material_def_t mdef = MATERIAL_TEMPLATES[data.type];
+ 
+  if(data.tile > 0)
+    t = data.tile;
+
+  e->type = t;
+  Resources res = mdef.resources;
+  while(res){ 
+    Resource r = res & -res;
+    res &= res -1;
+
+    e->resources[BCTZL(r)] = InitResourceByMat(r, mat, size);
+
+    e->has_resources |= r;
+  }
+  sprintf(e->name, ENV_STRINGS[t], data.name);
+
+  e->material = mat;
+  e->vpos =CellToVector2(pos,CELL_WIDTH);
+  e->pos = pos;
+  e->sprite = InitSpriteByID(t,SHEET_ENV);
+  env_t* batch =WorldGetEnvById(e->type);
+  if(!batch || batch->material != mat){
+    e->sprite = InitSpriteByID(t,SHEET_ENV);
+    if(data.col.a == 255)
+      e->sprite->slice->color = data.col;
+  }
+  else
+    e->sprite = batch->sprite;
+
+  return e;
+
+}
 env_t* InitEnv(EnvTile t,Cell pos){
-  env_t* e = GameMalloc("InitEnv",sizeof(ent_t));
+  env_t* e = GameMalloc("InitEnv",sizeof(env_t));
   *e = (env_t){0};  // zero initialize if needed
   e->type = t;
 
+  strcpy(e->name, ENV_STRINGS[t]);
   e->vpos =CellToVector2(pos,CELL_WIDTH);
   e->pos = pos;
   env_t* batch =WorldGetEnvById(e->type);
@@ -1240,25 +1303,40 @@ item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped){
 }
 
 bool EntAddItem(ent_t* e, item_t* item, bool equip){
-  item_t* added = InventoryAddItem(e, item);
-  if(added){
-    event_fuid_i fuid = EventMakeFlexID(e->gouid, 
-        (flex_id_t){DATA_INT, .id = item->def->type});
-    added->fuid = fuid;
-    added->equipped = equip;
-   if(added->on_acquire)
-     added->on_acquire(e, added);
+  item_t* exists = NULL;
+  item_t* added = NULL;
 
-   if(equip)
-     for(int i = 0; i < 2; i++)
-       if(added->on_equip[i])
-         added->on_equip[i](e, added);
+  item->fuid = EventMakeFlexID(e->gouid, 
+          (flex_id_t){DATA_INT, .id = item->def->type});
 
-   return true;
+  if(item->stack > 0)
+    exists = InventoryGetStackable(e, item->def->hash);
+
+  if(exists
+      && exists->values[VAL_QUANT]->val < item->stack){
+    added = exists;
+    item->owner = e;
+    added->values[VAL_QUANT]->val += item->values[VAL_QUANT]->val;
+    added->values[VAL_WEIGHT]->val = added->values[VAL_WEIGHT]->base * item->values[VAL_QUANT]->val;
+    WorldEvent(EVENT_ITEM_STORE, item, e->gouid);
 
   }
+  else
+    added = InventoryAddItem(e, item);
+  
+  if(added){
+    added->equipped = equip;
 
-  return false;
+    if(added->on_acquire)
+      added->on_acquire(e, added);
+
+    if(equip)
+      for(int i = 0; i < 2; i++)
+        if(added->on_equip[i])
+          added->on_equip[i](e, added);
+  }
+
+  return added != NULL;
 }
 
 void EntAddExp(ent_t *e, int exp){
@@ -1279,10 +1357,15 @@ void EntDestroy(ent_t* e){
   e->control = NULL;
 }
 
-InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target){
+InteractResult AbilityConsume(ent_t* owner,  ability_t* a, local_ctx_t* target){
+  if(target->other.type_id != DATA_ENTITY)
+    return IR_FAIL;
+
+  ent_t* e = ParamRead(&target->other, ent_t);
   int cr = 1;
 
   InteractResult ires = IR_SUCCESS;
+
 
 
   int rolls[a->dc->num_die];
@@ -1290,11 +1373,11 @@ InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target){
 
   base = (base + a->stats[STAT_DAMAGE]->current);
 
-  stat_t* damage_to = target->stats[a->damage_to];
+  stat_t* damage_to = e->stats[a->damage_to];
  
-  if(StatChangeValue(target, damage_to, base)){
+  if(StatChangeValue(e, damage_to, base)){
     TraceLog(LOG_INFO,"%s consumes potion %s now %0.0f / %0.0f",
-        target->name,
+        e->name,
         STAT_STRING[a->damage_to].name,
         damage_to->current,
         damage_to->max);
@@ -1473,7 +1556,12 @@ InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source){
   return res;
 }
 
-InteractResult EntUseAbility(ent_t* e, ability_t* a, ent_t* target){
+InteractResult EntUseAbility(ent_t* e, ability_t* a, local_ctx_t* ctx){
+  if(ctx->other.type_id != DATA_ENTITY)
+    return IR_NONE;
+
+  ent_t* target = ParamRead(&ctx->other, ent_t);
+
   interaction_t* combat = StartCombat(e, target, a);
   if(!combat)
     return IR_NONE;
@@ -1539,9 +1627,10 @@ controller_t* InitController(ent_t* e){
   return ctrl;
 }
 
-InteractResult AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other){
+InteractResult AbilityUse(ent_t* owner, ability_t* a, local_ctx_t* target, ability_sim_t* other){
   InteractResult ires = IR_NONE;
   switch(a->type){
+    case AT_SKILL:
     case AT_DMG:
     case AT_HEAL:
       if(a->use_fn == NULL)
@@ -1561,6 +1650,11 @@ InteractResult AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim
    if(a->on_use_cb)
     a->on_use_cb(owner, a, target, ires);
 
+   if(owner == player && a->item){
+   
+     TraceLog(LOG_INFO, "%i", a->id);
+     TraceLog(LOG_INFO, "%s", a->item->def->name);
+   }
    if(a->item && a->item->on_use)
      a->item->on_use(owner, a->item, ires);
    
@@ -2170,5 +2264,5 @@ int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]){
 
   param_t f = ParamMake(DATA_UINT64, sizeof(res), &res);
 
-  return LocalContextFilter(e->local, num, pool, f, PARAM_RESOURCE, ParamCompareAnd);
+  return LocalContextFilter(e->local, num, pool, f, PARAM_RESOURCE, ParamCompareAnd, 1);
 }

@@ -15,6 +15,7 @@ void InitOptionsScreen(void)
 {
   pthread_t t;
   //MenuSetState(&ui.menus[MENU_OPTIONS],MENU_ACTIVE);
+  InitLevel();
   pthread_create(&t, NULL, GenerateMap, NULL);
   
     //InitMapGrid();

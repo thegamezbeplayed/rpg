@@ -128,12 +128,17 @@ typedef struct{
   choice_pool_t*   assignments;
   int              num_factions;
   faction_groups_t *factions[MAX_FACTIONS];
+  material_table_t*  materials;
 }level_t;
 extern level_t Level;
 
 level_t* InitLevel(void);
 void LevelBury(game_object_uid_i gouid);
 void LevelReady(map_grid_t* m);
+
+static material_table_t* LevelMaterials(void){
+  return Level.materials;
+}
 
 typedef enum{
   GP_UI,

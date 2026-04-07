@@ -10,7 +10,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 #define ATLAS_ASSET_ENV_IMAGE_PATH      "asset_env.png"
-#define ATLAS_ASSET_ENV_SPRITE_COUNT    40
+#define ATLAS_ASSET_ENV_SPRITE_COUNT    39
 
 // Atlas sprite properties
 typedef struct rtpAtlasSprite {
@@ -27,7 +27,7 @@ typedef struct rtpAtlasSprite {
 } rtpAtlasSprite;
 
 // Atlas sprites array
-static rtpAtlasSprite rtpDescAssetEnv[40] = {
+static rtpAtlasSprite rtpDescAssetEnv[39] = {
     { "BONES_BEAST", "ENV_BONES_BEAST", 8, 8, 0, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
     { "BOULDER", "ENV_BOULDER", 8, 8, 16, 0, 16, 16, 0, false, 1, 3, 14, 11, 0, 0, 0, 0, 0 },
     { "COBBLE", "ENV_COBBLE", 8, 8, 32, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
@@ -65,7 +65,6 @@ static rtpAtlasSprite rtpDescAssetEnv[40] = {
     { "DOOR_DUNGEON", "ENV_DOOR_DUNGEON", 8, 8, 32, 64, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
     { "DOOR_HEAVY", "ENV_DOOR_DUNGEON", 8, 8, 48, 64, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
     { "DOOR_JAILT", "ENV_DOOR_VAULT", 8, 8, 64, 64, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
-    { "BORDER_DUNGEON", "", 0, 0, 80, 64, 16, 16, 0, false, 0, 0, 16, 16, 0, 0, 0, 0, 0 },
-    { "ENV_CHAIR", "", 0, 0, 96, 64, 16, 16, 0, false, 3, 5, 10, 10, 0, 0, 0, 0, 0 },
-    { "ENV_EXIT", "", 0, 0, 112, 64, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
+    { "ROCKS", "", 0, 0, 80, 64, 16, 16, 0, false, 1, 2, 14, 10, 0, 0, 0, 0, 0 },
+    { "OXIDE", "", 0, 0, 96, 64, 16, 16, 0, false, 2, 2, 13, 12, 0, 0, 0, 0, 0 },
 };

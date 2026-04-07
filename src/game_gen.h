@@ -2,6 +2,7 @@
 #define __GAME_GEN__ 
 #include "game_tools.h"
 #include "game_enum.h"
+#include "game_unique.h"
 
 #define MAX_CACHED_PATHS 128
 #define MAX_PATH_LEN    128
@@ -23,14 +24,6 @@
 #define GRID_WIDTH 128
 #define GRID_HEIGHT 128
   
-#define MAT_WOOD_SHIFT  0
-#define MAT_WOOD_BITS   15
-#define MAT_HIDE_SHIFT  16
-
-#define MAT_HIDE_BITS   15
-#define MAT_STONE_SHIFT 32
-#define MAT_STONE_BITS  15
-
 #define TILE_SIZE_MASK (\
     TILEFLAG_SIZE_XS  |\
     TILEFLAG_SIZE_SM  |\
@@ -45,6 +38,7 @@
     ROOM_PURPOSE_CAMP)
 
 #define GROUPING_SHIFT (__builtin_ctzll(MOB_GROUPING_MASK))
+
 typedef struct map_grid_s map_grid_t;
 typedef struct choice_pool_s choice_pool_t;
 typedef struct local_ctx_s local_ctx_t;
@@ -83,37 +77,6 @@ typedef enum{
 }RoomStatus;
 
 typedef enum{
-  MAT_WOOD_OAK    = (1ULL << (MAT_WOOD_SHIFT + 0)),
-  MAT_WOOD_MAPLE  = (1ULL << (MAT_WOOD_SHIFT + 1)),
-  MAT_WOOD_PINE   = (1ULL << (MAT_WOOD_SHIFT + 2)),
-  MAT_WOOD_SPRUCE = (1ULL << (MAT_WOOD_SHIFT + 3)),
-  MAT_WOOD_BIRCH  = (1ULL << (MAT_WOOD_SHIFT + 4)),
-  MAT_WOOD_CEDAR  = (1ULL << (MAT_WOOD_SHIFT + 5)),
-  MAT_WOOD_FIR    = (1ULL << (MAT_WOOD_SHIFT + 6)),
-  MAT_WOOD_ASH    = (1ULL << (MAT_WOOD_SHIFT + 7)),
-  MAT_WOOD_WALNUT = (1ULL << (MAT_WOOD_SHIFT + 8)),
-  MAT_WOOD_CHERRY = (1ULL << (MAT_WOOD_SHIFT + 9)),
-  MAT_WOOD_BEECH  = (1ULL << (MAT_WOOD_SHIFT + 10)),
-  MAT_WOOD_POPLAR = (1ULL << (MAT_WOOD_SHIFT + 11)),
-  MAT_WOOD_HICKORY= (1ULL << (MAT_WOOD_SHIFT + 12)),
-  MAT_WOOD_ELM    = (1ULL << (MAT_WOOD_SHIFT + 13)),
-  MAT_WOOD_REDWOOD= (1ULL << (MAT_WOOD_SHIFT + 14)),
-  MAT_WOOD_CYPRESS= (1ULL << (MAT_WOOD_SHIFT + 15)),
-  MAT_WOOD_MASK   = 0xFFULL,
-  MAT_HIDE_RAT    = (1ULL << (MAT_HIDE_SHIFT + 0)),
-  MAT_HIDE_DEER   = (1ULL << (MAT_HIDE_SHIFT + 1)),
-  MAT_HIDE_WOLF   = (1ULL << (MAT_HIDE_SHIFT + 2)),
-  MAT_HIDE_BEAR   = (1ULL << (MAT_HIDE_SHIFT + 3)),
-  MAT_HIDE_MASK   = 0xFFULL << MAT_HIDE_SHIFT,
-  MAT_STONE_GRANITE   = (1ULL << (MAT_STONE_SHIFT + 0)),
-  MAT_STONE_LIMESTONE = (1ULL << (MAT_STONE_SHIFT + 1)),
-  MAT_STONE_SANDSTONE = (1ULL << (MAT_STONE_SHIFT + 0)),
-  MAT_STONE_MASK      = 0xFFULL << MAT_STONE_SHIFT,
-}MaterialSpec;
-
-typedef uint64_t MaterialSpecs;
-
-typedef enum{
   TILEFLAG_NONE        = 0,
   TILEFLAG_BORDER      = 1 << 0,
   TILEFLAG_EMPTY       = 1 << 1,   // blocks movement
@@ -142,13 +105,14 @@ typedef enum{
   TILEFLAG_SIZE_MAX    = 1 << 24,
   MAPFLAG_DUNGEON      = 1 << 25,
   MAPFLAG_FOREST       = 1 << 26,
-}TileFlags;
+}TileFlag;
 
-static const uint32_t EnvTileFlags[ENV_DONE] = {
-  [ENV_BONES_BEAST]    = TILEFLAG_SIZE_MED | TILEFLAG_BONE | TILEFLAG_DEBRIS | TILEFLAG_DECOR | MAPFLAG_FOREST | MAPFLAG_DUNGEON,
-  [ENV_BOULDER]        = TILEFLAG_SIZE_MED | TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_STONE,
+typedef uint32_t TileFlags;
+static const TileFlags EnvTileFlags[ENV_DONE] = {
+  [ENV_BONES_BEAST]    = TILEFLAG_SIZE_MED | TILEFLAG_BONE | MAPFLAG_FOREST | MAPFLAG_DUNGEON,
+  [ENV_BOULDER]        = MAPFLAG_FOREST | TILEFLAG_SIZE_MED | TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_STONE,
   [ENV_COBBLE]         = TILEFLAG_ROAD,
-  [ENV_COBBLE_WORN]    = TILEFLAG_ROAD,
+  [ENV_COBBLE_WORN]    = MAPFLAG_FOREST | TILEFLAG_SIZE_XS | TILEFLAG_DEBRIS | TILEFLAG_ROAD | TILEFLAG_STONE,
   [ENV_FLOWERS]        = TILEFLAG_SIZE_SM | TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
   [ENV_FLOWERS_THIN]   = TILEFLAG_SIZE_XS | TILEFLAG_DEBRIS | TILEFLAG_DECOR | TILEFLAG_NATURAL,
   [ENV_FOREST_FIR]     = TILEFLAG_SIZE_XL | TILEFLAG_SOLID | TILEFLAG_FOREST | TILEFLAG_NATURAL,
@@ -182,6 +146,8 @@ static const uint32_t EnvTileFlags[ENV_DONE] = {
   [ENV_DOOR_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_DOOR | TILEFLAG_OBSTRUCT | TILEFLAG_INTERACT,
   [ENV_DOOR_HEAVY]    = MAPFLAG_DUNGEON | TILEFLAG_DOOR | TILEFLAG_OBSTRUCT | TILEFLAG_INTERACT,
   [ENV_DOOR_VAULT]    = MAPFLAG_DUNGEON | TILEFLAG_DOOR | TILEFLAG_OBSTRUCT | TILEFLAG_INTERACT,
+  [ENV_STONES]          = MAPFLAG_FOREST | TILEFLAG_SIZE_XS |
+    TILEFLAG_STONE | TILEFLAG_DECOR | TILEFLAG_DEBRIS, 
   [ENV_BORDER_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_BORDER | TILEFLAG_SOLID,
   [ENV_FURNITURE_CHAIR]  = MAPFLAG_DUNGEON | TILEFLAG_SPAWN | TILEFLAG_DECOR,
   [ENV_EXIT]  = MAPFLAG_DUNGEON | MAPFLAG_FOREST |  TILEFLAG_EXIT,
@@ -354,7 +320,7 @@ typedef struct {
   int           desired[MT_DONE];
   int           current[MT_DONE];
   int           total, sum;
-  MaterialSpecs materials;
+  int           materials[MAT_ALL];
 }biome_t;
 extern biome_t BIOME[BIO_DONE];
 
@@ -429,6 +395,7 @@ typedef enum {
   MN_FIX,
   MN_ECO,
   MN_ENH,
+  MN_DECOR,
   MAP_NODE_DONE
 } MapNodeID;
 
@@ -562,6 +529,7 @@ MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node);
 MapNodeResult MapEnhance(map_context_t *ctx, map_node_t *node);
+MapNodeResult MapDecor(map_context_t *ctx, map_node_t *node);
 
 void MapAssignTreasures(map_context_t *ctx, room_t** rooms, int count);
 void MapAssignTraps(map_context_t *ctx, room_t** rooms, int count);
@@ -590,6 +558,7 @@ map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count);
 
 static inline map_node_t* LeafMapPlaceSpawns(MapNodeID id)  { return MapCreateLeafNode(MapPlaceSpawns,id); }
 static inline map_node_t* LeafMapEnhance(MapNodeID id)  { return MapCreateLeafNode(MapEnhance,id); }
+static inline map_node_t* LeafMapDecor(MapNodeID id)  { return MapCreateLeafNode(MapDecor,id); }
 static inline map_node_t* LeafMapBuildBiome(MapNodeID id)  { return MapCreateLeafNode(MapBuildBiome,id); }
 static inline map_node_t* LeafMapFillWalls(MapNodeID id)  { return MapCreateLeafNode(MapFillWalls,id); }
 static inline map_node_t* LeafMapPlayerSpawn(MapNodeID id)  { return MapCreateLeafNode(MapPlayerSpawn,id); }
@@ -699,6 +668,7 @@ struct map_grid_s{
   Color        floor;
   bool         updates;
   uint64_t     materials;
+  choice_pool_t *mat_distri, *decor;
 };
 
 bool InitMap(void);
@@ -716,7 +686,7 @@ TileStatus MapTileAvailable(map_grid_t* m, Cell c);
 TileStatus MapRemoveOccupant(map_grid_t* m, Cell c);
 TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c);
 void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);
-env_t* MapSpawn(TileFlags flags, int x, int y);
+env_t* MapSpawn(map_grid_t*, TileFlags flags, int x, int y);
 void MapSpawnMob(map_grid_t* m, int x, int y);
 void RoomSpawnMob(map_grid_t* m, room_t* r);
 Cell MapApplyContext(map_grid_t* m);

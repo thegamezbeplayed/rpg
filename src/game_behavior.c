@@ -118,7 +118,7 @@ BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
   param_t f = ParamMake(DATA_FLOAT, sizeof(float), &min);
   local_ctx_t* ctx_pool[32] = {0};
 
-  int count = LocalContextFilter(e->local, 32, ctx_pool, f, p, ParamCompareLesser);
+  int count = LocalContextFilter(e->local, 32, ctx_pool, f, p, ParamCompareLesser, min);
 
   for (int i = 0; i < count; i++)
     AddEnemy( e->control->decider[e->state], ctx_pool[i]);
@@ -136,20 +136,29 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
   if(!e || !e->control)
     return BEHAVIOR_FAILURE;
 
+  EntityState s = e->state;
   param_t f;
   Score stype = SCORE_CR;
   Score ctype = SCORE_PATH;
   GameObjectParam p = PARAM_NONE;
+  ParamCompareFn fn = ParamCompareAnd;
   switch(e->state){
     case STATE_IDLE:
       uint64_t dat = SPEC_DESIRE | SPEC_RELATE_POSITIVE;
       f = ParamMake(DATA_UINT64, sizeof(uint64_t), &dat);
       p = PARAM_RELATE;
       break;
-
+    case STATE_AGGRO:
+      float min = 1.0f;
+      p = PARAM_AGGRO;
+      s = STATE_AGGRO;
+      fn = ParamCompareLesser;
+      f = ParamMake(DATA_FLOAT, sizeof(float), &min);
+      if(e->last_hit_by == player)
+        DO_NOTHING();
+      break;
   }
 
-  EntityState s = e->state;
   if(p == PARAM_NONE)
     return BEHAVIOR_FAILURE;
 
@@ -160,7 +169,7 @@ BehaviorStatus BehaviorAcquireDestination(behavior_params_t *params){
 
     local_ctx_t* ctx_pool[32] = {0};
 
-    int count = LocalContextFilter(e->local, 32, ctx_pool, f, p, ParamCompareAnd);
+    int count = LocalContextFilter(e->local, 32, ctx_pool, f, p, fn, 1);
 
     for (int i = 0; i < count; i++){
       LocalSetPath(e, ctx_pool[i]);
@@ -275,7 +284,7 @@ BehaviorStatus BehaviorExecuteDecision(behavior_params_t *params){
   if(!sel)
     return BEHAVIOR_FAILURE;
 
-  action_t* a = InitActionByDecision(sel, ACTION_NONE);
+  action_t* a = InitActionByDecision(sel, e->control->action);
   if(!a)
     return BEHAVIOR_FAILURE;
 

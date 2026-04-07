@@ -132,6 +132,30 @@ bool AddFilter(choice_pool_t *pool, int id, void *ctx){
   return true;
 }
 
+bool AddChoiceFlags(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn, uint64_t flags){
+    if (!pool) return false;
+
+  // Ensure we do not exceed capacity
+  if (!ChoiceEnsureCap(pool))
+    return false;
+
+  // Allocate a new choice
+  choice_t *c = &pool->choices[pool->count++];
+
+    
+  c->score   = score;
+  c->orig_score   = score;
+  c->context = ctx;
+  c->id = id;
+  c->cb = fn;
+  c->flags = flags;
+  
+  // Store in pool
+  pool->total+= score;
+  return true;
+
+}
+
 bool AddChoiceCostFlags(choice_pool_t *pool, int id, int score, int cost, void *ctx, uint64_t flags, OnChosen fn){
     if (!pool) return false;
 
@@ -291,6 +315,9 @@ choice_t* WeightedPurchaseByFlags(choice_pool_t* pool){
     if((c->flags & pool->flags) == 0)
       continue;
 
+    if(c->cost > pool->budget)
+      continue;
+
     if (c->score <= 0)
       continue;
 
@@ -356,6 +383,50 @@ choice_t* ChooseBest(choice_pool_t* pool){
   if(pool->choices[best_index].cb)
     pool->choices[best_index].cb(pool,&pool->choices[best_index]);
   return out;
+
+}
+
+choice_t* ChooseByFlagsWeighted(choice_pool_t* pool){
+  if(!pool || pool->count == 0)
+    return NULL;
+
+  // 1. Compute total weight
+  int total = 0;
+  for (int i = 0; i < pool->count; i++) {
+    choice_t* c = &pool->choices[i];
+    if((pool->flags & c->flags) == 0)
+      continue; 
+
+    int w = c->score;
+    if (w > 0) total += w;
+  }
+  
+  if (total <= 0)
+    return NULL; // all weights were zero or negative
+  
+  // 2. Pick random number in range
+  int r = rand() % total;
+ 
+  // 3. Find the weighted entry
+  int running = 0;
+  for (int i = 0; i < pool->count; i++) {
+    if((pool->flags & pool->choices[i].flags) == 0)
+      continue;
+
+    int w = pool->choices[i].score;
+    if (w <= 0) continue;
+  
+    running += w;
+    if (r >= running)
+      continue;
+  
+    choice_t* out = &pool->choices[i];
+    if(pool->choices[i].cb)
+      pool->choices[i].cb(pool,&pool->choices[i]);
+    return out;
+  }
+
+  return NULL;
 
 }
 
@@ -525,7 +596,7 @@ decision_pool_t* StartDecision(decision_pool_t** pool, int size, ent_t* e, Entit
     *result = false;
   }
   else{
-    *result = true;//(*pool)->cap != size;
+    *result = (*pool)->count > 0;
   }
   return *pool;
 

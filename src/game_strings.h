@@ -1,6 +1,6 @@
 #ifndef __GAME_STR__
 #define __GAME_STR__
-
+#include <stdio.h>
 #include "game_ui.h"
 #include "asset_chars.h"
 
@@ -29,6 +29,68 @@ typedef struct{
 }token_strings_d;
 int ReadToken(const char* fmt, int start, char* out, int out_sz);
 ParseToken TokenFromString(const char* s);
+
+static char* MAT_STRINGS[MAT_DONE] = {
+  [MAT_CLOTH]   = "Cloth",
+  [MAT_HIDE]    = "Hide",
+  [MAT_FUR]     = "Fur",
+  [MAT_LEATHER] = "Leather",
+  [MAT_BONE]    = "Bone",
+  [MAT_WOOD]    = "Wood",
+  [MAT_STONE]   = "Stone",
+  [MAT_METAL]   = "Ore",
+  [MAT_GEM]     = "",
+};
+
+static char* ACTION_STRINGS[ACTION_DONE] = {
+  [ACTION_WEAPON] = "%s Fighting",
+  [ACTION_MAGIC]  = "School of %s"
+};
+
+static char* ENV_STRINGS[ENV_DONE] = {
+  [ENV_BONES_BEAST]     = "%s Bones",
+  [ENV_BOULDER]         = "%s Boulder",
+  [ENV_COBBLE]          = "%s Cobble",
+  [ENV_COBBLE_WORN]     = "%s Cobble",
+  [ENV_FLOWERS]         = "Flower",
+  [ENV_FLOWERS_THIN]    = "%s Forest",
+  [ENV_FOREST_FIR]      = "%s Forest",
+  [ENV_GRASS]           = "Grass",
+  [ENV_GRASS_SPARSE]    = "Grass",
+  [ENV_GRASS_WILD]      = "Wild Grass",
+  [ENV_LEAVES]          = "Leaves",
+  [ENV_TREE_MAPLE]      = "%s Tree",
+  [ENV_MEADOW]          = "Meadow",
+  [ENV_TREE_OLDGROWTH]  = "%s Tree",
+  [ENV_TREE_PINE]       = "%s Tree",
+  [ENV_ROAD]            = "Road",
+  [ENV_ROAD_CROSS]      = "Road",
+  [ENV_ROAD_FORK]       = "Road",
+  [ENV_ROAD_TURN]       = "Road",
+  [ENV_TREE_BIGLEAF]    = "%s Tree",
+  [ENV_TREE_CEDAR]      = "%s Tree",
+  [ENV_TREE_DEAD]       = "Dead %s Tree",
+  [ENV_TREE_DYING]      = "Dying %s Tree",
+  [ENV_TREE_FELLED]     = "Felled %sTree",
+  [ENV_TREE_FIR]        = "Fir %s Tree",
+  [ENV_FOREST]          = "%s Forest",
+  [ENV_WEB]             = "Web",
+  [ENV_DIRT]            = "Dirt",
+  [ENV_DIRT_PATCH]      = "Dirt",
+  [ENV_CAMP]            = "Camp",
+  [ENV_FLOOR_DUNGEON]   = "Tile",
+  [ENV_STONE_WALL]      = "Wall",
+  [ENV_WALL_DUNGEON]    = "Wall",
+  [ENV_WALL_RUIN]       = "Ruins",
+  [ENV_DOOR_DUNGEON]    = "Door",
+  [ENV_DOOR_HEAVY]      = "Heavy Door",
+  [ENV_DOOR_VAULT]      = "Vault Door",
+  [ENV_STONES]          = "Stones",
+  [ENV_OXIDE]           = "%s Oxide", 
+  [ENV_BORDER_DUNGEON]  = "Dungeon",
+  [ENV_FURNITURE_CHAIR] = "Chair",
+  [ENV_EXIT]            = "Exit"
+};
 
 static char* INV_STRINGS[INV_DONE] = {
   "Held Items",
@@ -84,6 +146,8 @@ static stat_name_t STAT_STRING[STAT_ENT_DONE]={
   {STAT_ENERGY_REGEN, "Spell Regen"},
   {STAT_STAMINA_REGEN_RATE,"Stamina Regen Rate"},
   {STAT_ENERGY_REGEN_RATE, "Spell Regen Rate"},
+  [STAT_HEALTH_REGEN] = {STAT_HEALTH_REGEN, "Health Regen"},
+  [STAT_HEALTH_REGEN_RATE] = {STAT_HEALTH_REGEN_RATE, "Health Regen Rate"}
 };
 
 static const char* NEED_STRINGS[N_DONE] = {
@@ -150,7 +214,10 @@ static const char* SKILL_NAMES[SKILL_DONE] = {
   [SKILL_POISON]            = "Poisoncraft",
   [SKILL_POTT]              = "Pottery",
   [SKILL_RELIG]             = "Religion",
+
+  [SKILL_SKIN]              = "Skinning",
   [SKILL_SLEIGHT]           = "Sleight of Hand",
+  [SKILL_SMELT]             = "Smelting",
   [SKILL_SMITH]             = "Smithing",
 
   [SKILL_SPELL_ABJ]         = "Abjuration",
@@ -162,8 +229,9 @@ static const char* SKILL_NAMES[SKILL_DONE] = {
   [SKILL_SPELL_NECRO]       = "Necromancy",
   [SKILL_SPELL_TRANS]       = "Transmutation",
 
+  [SKILL_SKIN]              = "Skinning",
   [SKILL_STEALTH]           = "Stealth",
-  [SKILL_STONE]             = "Stoneworking",
+  [SKILL_STONE]             = "Mining",
   [SKILL_SURV]              = "Survival",
   [SKILL_TINK]              = "Tinkering",
   [SKILL_THEFT]             = "Theft",
@@ -185,7 +253,7 @@ static const char* SKILL_NAMES[SKILL_DONE] = {
   [SKILL_WEAP_GREAT]        = "Two Handed Weapons",
   [SKILL_WEAP_NONE]         = "Unarmed",
   [SKILL_WRESTLE]           = "Wrestling",
-  [SKILL_WOOD]              = "Woodworking",
+  [SKILL_WOOD]              = "Lumbering",
 };
 
 static ability_strings_d ABILITY_STRINGS[ABILITY_DONE] = {
@@ -222,6 +290,8 @@ static ability_strings_d ABILITY_STRINGS[ABILITY_DONE] = {
   [ABILITY_WEAP_PIERCE]           = {ABILITY_WEAP_PIERCE, {"thrusted at", "thrust at"},"Pierce"},
   [ABILITY_WEAP_BLUDGEON]           = {ABILITY_WEAP_BLUDGEON, {"bludgeoned", "blugeon"},"Bludgeon"},
 
+  [ABILITY_TOOL_SKIN]           = {ABILITY_TOOL_SKIN, {"SOMETHING", "SOMETHINGS"}, "Skin"},
+  [ABILITY_TOOL_MINE]           = {ABILITY_TOOL_MINE, {"SOMETHING", "SOMETHINGS"}, "Mine"},
 };
 
 static token_strings_d TOKEN_STRINGS[TOKE_ALL] = {

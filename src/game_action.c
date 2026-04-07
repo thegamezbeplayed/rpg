@@ -165,12 +165,14 @@ ActionStatus ActionAttack(action_t* a){
   if(a->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX)
     s = ACT_STATUS_BAD_DATA;
 
+  if(a->owner == player)
+    DO_NOTHING();
+
   bool prepared = false;
   ability_t* ab;
-  ent_t* tar = NULL;
+  local_ctx_t* tar = NULL;
   if(s == ACT_STATUS_RUNNING){
-    local_ctx_t* ctx = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
-    tar = ParamReadEnt(&ctx->other);
+    tar = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
     switch(a->params[ACT_PARAM_ABILITY].type_id){
       case DATA_INT:
         AbilityID aid = ParamReadInt(&a->params[ACT_PARAM_ABILITY]);
@@ -211,6 +213,49 @@ ActionStatus ActionInteract(action_t* a){
   return a->status;
 }
 
+ActionStatus ActionValidate(action_t* a){
+  ActionStatus status = a->status;
+  switch(a->type){
+    case ACTION_MOVE:
+      if(a->params[ACT_PARAM_STEP].type_id != DATA_CELL){
+        status = ACT_STATUS_BAD_DATA;    
+        break;
+        local_ctx_t* dest = ParamReadCtx(&a->params[ACT_PARAM_DEST]);
+        if(!dest || dest->path == NULL){
+          a->status = ACT_STATUS_BAD_DATA; 
+          break;
+        } 
+
+        Cell step = ParamReadCell(&a->params[ACT_PARAM_STEP]);
+        TileStatus tile = MapTileAvailable(a->owner->map, step);
+        if(tile > TILE_SUCCESS){
+          status = ACT_STATUS_BLOCK;
+          break;
+        }
+      }
+      break;
+    case ACTION_ATTACK:
+      if(a->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX){
+        status = ACT_STATUS_BAD_DATA;
+        break;
+      }
+      if(a->params[ACT_PARAM_ABILITY].type_id != DATA_ABILITY){
+        status = ACT_STATUS_BAD_DATA;
+        break;
+      }
+      local_ctx_t* tar = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
+
+      ability_t* abi = ParamRead(&a->params[ACT_PARAM_ABILITY],ability_t);
+      if(!AbilityCanTarget(abi, tar))
+       status = ACT_STATUS_BAD_ATTACK;
+      break;
+    case ACTION_INTERACT:
+      break;
+  }
+
+  ActionSetStatus(a, status);
+  return a->status;
+}
 
 ActionStatus ActionMove(action_t* a){
   param_t p = a->params[ACT_PARAM_STEP];
@@ -269,6 +314,7 @@ void ActionManagerRunQueue(TurnPhase phase){
 
   for (int i = 0; i < count; i++){
     action_t* a = ActionMan.round[phase].entries[i];
+    if(ActionValidate(a) < ACT_STATUS_ERROR)
     ActionSetStatus(a, ActionRun(a));
     switch(a->status){
       case ACT_STATUS_TAKEN:
@@ -309,6 +355,10 @@ void ActionManOnStatus(TurnPhase phase, ActionStatus s){
     case ACT_STATUS_DONE:
       ActionTurnStep();
       UISync(FETCH_TURN);
+      break;
+    case ACT_STATUS_BLOCK:
+
+      InputReset();
       break;
   }
 }
@@ -462,50 +512,6 @@ action_t* InitActionByDecision(decision_t* d, ActionType t){
       break;
   }
   return a;
-}
-
-ActionStatus ActionValidate(action_t* a){
-  ActionStatus status = a->status;
-  switch(a->type){
-    case ACTION_MOVE:
-      if(a->params[ACT_PARAM_STEP].type_id != DATA_CELL){
-        status = ACT_STATUS_BAD_DATA;    
-        break;
-        local_ctx_t* dest = ParamReadCtx(&a->params[ACT_PARAM_DEST]);
-        if(!dest || dest->path == NULL){
-          a->status = ACT_STATUS_BAD_DATA; 
-          break;
-        } 
-
-        Cell step = ParamReadCell(&a->params[ACT_PARAM_STEP]);
-        TileStatus tile = MapTileAvailable(a->owner->map, step);
-        if(tile > TILE_SUCCESS){
-          status = ACT_STATUS_BLOCK;
-          break;
-        }
-      }
-      break;
-    case ACTION_ATTACK:
-      if(a->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX){
-        status = ACT_STATUS_BAD_DATA;
-        break;
-      }
-      if(a->params[ACT_PARAM_ABILITY].type_id != DATA_ABILITY){
-        status = ACT_STATUS_BAD_DATA;
-        break;
-      }
-      local_ctx_t* tar = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
-
-      ability_t* abi = ParamRead(&a->params[ACT_PARAM_ABILITY],ability_t);
-      if(!AbilityCanTarget(abi, tar))
-       status = ACT_STATUS_BAD_ATTACK;
-      break;
-    case ACTION_INTERACT:
-      break;
-  }
-
-  ActionSetStatus(a, status);
-  return a->status;
 }
 
 BehaviorStatus ActionExecute(ActionType t, action_t* a){

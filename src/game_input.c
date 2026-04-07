@@ -3,7 +3,6 @@
 
 game_input_t player_input;
 
-
 BehaviorStatus InputActionMove(ent_t* e, action_key_t akey, KeyboardKey k){
   Cell dir = CELL_UNSET;
 
@@ -174,19 +173,29 @@ void InputSync(TurnPhase phase, int turn){
   player_input.turn  = turn;
 }
 
+void InputReset(void){
+  player_input.active = true;
+  player_input.redo = true;
+}
+
 bool InputCheck(TurnPhase phase, int turn){
   if(IsKeyDown(KEY_SPACE))
     moncontrol(1);
 
-  if(!player_input.active)
-    return false;
+  if(player_input.redo){
+    TraceLog(LOG_WARNING, "=== GAME INPUT ===\n INPUT REDO");
+    player_input.redo = false;
+  }
+  else{
+    if(!player_input.active)
+      return false;
 
-  if(!player->control->actions->options[phase])
-    return false;
+    if(!player->control->actions->options[phase])
+      return false;
 
-  if(ActionMan.round[phase].status != ACT_STATUS_NONE)
-    return false;
-
+    if(ActionMan.round[phase].status != ACT_STATUS_NONE)
+      return false;
+  }
     for(int i = 0; i < ACTION_DONE; i++){
     action_key_t akey = player_input.actions[i];
 

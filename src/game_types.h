@@ -73,16 +73,21 @@ typedef struct{
 
 properties_t* InitProperties(race_define_t racials, mob_define_t m);
 void  PropAddFeat(ent_t* e, FeatFlag f, SkillType skill);
-typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, struct ent_s* target, InteractResult result);
-typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, ent_t* target);
-typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a, ent_t* target);
+typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, local_ctx_t* target, InteractResult result);
+typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, local_ctx_t* target);
+typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a);
 bool AbilityCanTarget(ability_t* a, local_ctx_t* target);
-InteractResult AbilityConsume(ent_t* owner,  ability_t* a, ent_t* target);
+InteractResult AbilityConsume(ent_t*,  ability_t*, local_ctx_t*);
+InteractResult AbilityGrantExp(ent_t*,  ability_t*, local_ctx_t* target);
+InteractResult AbilityLearn(ent_t* owner,  ability_t* a, local_ctx_t*);
+InteractResult AbilityProcess(ent_t* e,  ability_t* a, local_ctx_t* target);
+InteractResult AbilityInteract(ent_t* owner,  ability_t* a, local_ctx_t*);
+material_extraction_t* ResourceExtract(resource_t*, int, skill_t*);
+
 BehaviorStatus AbilityExecute(ability_t* a, ent_t* e);
-InteractResult AbilityGrantExp(ent_t* owner,  ability_t* a, ent_t* target);
-InteractResult AbilityLearn(ent_t* owner,  ability_t* a, ent_t* target);
+
 typedef InteractResult (*AbilitySave)(ent_t* owner,  ability_t* a, ability_sim_t* source);
-bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result);
+bool AbilitySkillup(ent_t*, ability_t*, local_ctx_t*, InteractResult);
 struct ability_s{
   AbilityID        id;
   AbilityType      type;
@@ -114,6 +119,9 @@ struct ability_s{
   ent_t*           owner;
   Spells            image_id;
   sprite_t*        spr;
+  uint64_t         params[PARAM_ALL];
+  CtxProps         req;
+  int              last_use_cr;
 };
 
 int AbilityAddPB(ent_t* e, ability_t* a, StatType s);
@@ -128,7 +136,7 @@ struct ability_sim_s{
 };
 
 int AbilitySimulate(ability_t* a, local_ctx_t* ctx);
-ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target);
+ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a);
 
 typedef struct{
   ItemSlot      id;
@@ -141,9 +149,12 @@ typedef struct{
   ent_t*        owner;
   int           count, cap, size, space, unburdened, limit;
   item_t        *items;
+  hash_map_t    map, hash;
 }inventory_t;
 
 inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit);
+item_t* InventoryGetEntry(ent_t* e, uint64_t uid);
+item_t* InventoryGetStackable(ent_t* e, hash_key_t hash);
 void InventoryPoll(ent_t*, ItemSlot id);
 void InventorySetPrefs(inventory_t* inv, uint64_t traits);
 item_t* InventoryAddItem(ent_t* e, item_t*);
@@ -155,7 +166,7 @@ ability_t* EntFindAbility(ent_t* e, AbilityID id);
 ability_t* InitAbility(ent_t* owner, AbilityID);
 bool AbilityRankup(ent_t* owner, ability_t* a);
 ability_t* InitAbilityDummy(ent_t* owner, ability_t copy);
-InteractResult AbilityUse(ent_t* owner, ability_t* a, ent_t* target, ability_sim_t* other);
+InteractResult AbilityUse(ent_t*, ability_t*, local_ctx_t*, ability_sim_t*);
 ability_t* EntChoosePreferredAbility(ent_t* e);
 ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot);
 InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_sim_t* source);
@@ -164,6 +175,7 @@ InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source);
 typedef struct item_def_s{
   int                 id;
   char                name[32];
+  hash_key_t          hash;
   int                 type;
   void*               type_def;
   ItemCategory        category;        // weapon / armor / potion / scroll
@@ -181,7 +193,7 @@ typedef struct item_def_s{
 
 typedef bool (*ItemEquipCallback)(struct ent_s* owner, item_t* item);
 typedef bool (*ItemUseCallback)(ent_t* owner, item_t* item, InteractResult res);
-typedef bool (*ItemUseFunction)(item_t*, ent_t*);
+typedef bool (*ItemUseFunction)(item_t*, local_ctx_t*);
 
 
 struct item_s{
@@ -192,6 +204,7 @@ struct item_s{
   bool              equipped;
   int               index;
   int               num_skills;
+  int               stack;
   SkillType         skills[3];
   value_t           *values[VAL_ALL];
   StorageMethod     location;
@@ -202,16 +215,18 @@ struct item_s{
   ItemUseFunction   use_fn;
 };
 
-bool ItemAbilityUse(item_t* i, ent_t* tar);
-bool ItemApplyStats(struct ent_s* owner, item_t* item);
-bool ItemConsume(struct ent_s* owner, item_t* item);
-bool ItemAddAbility(struct ent_s* owner, item_t* item);
+bool ItemAbilityUse(item_t*, local_ctx_t*);
+bool ItemApplyStats(ent_t* owner, item_t* item);
+bool ItemConsume(ent_t* owner, item_t* item);
+bool ItemAddAbility(ent_t* owner, item_t* item);
+bool ItemAddUse(ent_t* owner, item_t* item);
 bool ItemSkillup(ent_t* owner, item_t* item, InteractResult res);
 bool ItemDestroy(value_t* v, void* ctx);
+bool ItemTakeDuribility(ent_t*, item_t*, InteractResult);
 typedef struct{
   ItemCategory      cat;
   int               num_equip, num_use;
-  ItemEquipCallback on_equip[2];
+  ItemEquipCallback on_equip[2], on_acquire;
   ItemUseCallback   on_use[2];
 }item_fn_t;
 
@@ -223,15 +238,19 @@ typedef struct{
 
 item_pool_t* InitItemPool(void);
 item_def_t* DefineItem(ItemInstance data);
-item_def_t* DefineArmor(ItemInstance data);
-item_def_t* DefineWeapon(ItemInstance data);
+item_def_t* DefineArmor(armor_def_t*);
+item_def_t* DefineWeapon(weapon_def_t* wdef);
 item_def_t* DefineWeaponByType(WeaponType t, ItemProps p, WeaponProps w);
 item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps w);
 item_def_t* DefineConsumable(ItemInstance data);
 item_t* InitItem(item_def_t* def);
 item_def_t* DefineConsumableByDef(consume_def_t *def);
+item_def_t* DefineTool(tool_def_t* def);
+item_def_t* DefineMaterial(material_def_t *def);
+item_def_t* DefineMaterialByResource(Resource, MaterialSpec, int);
 bool InitItemContext(item_def_t* def, Cell pos);
 item_def_t* GetItemDefByID(GearID id);
+material_def_t* InitMaterial(material_def_t, material_spec_d*);
 
 typedef struct{
   int                     turn;
@@ -314,7 +333,7 @@ void EntInitOnce(ent_t* e);
 bool EntPrepareAttack(ent_t* e, ability_t* a, local_ctx_t*);
 //attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 InteractResult EntMeetNeed(ent_t* e, need_t* n, param_t g);
-InteractResult EntUseAbility(ent_t* owner, ability_t* a, ent_t* target);
+InteractResult EntUseAbility(ent_t* owner, ability_t* a, local_ctx_t*);
 InteractResult EntSkillCheck(ent_t* owner, ent_t* target, SkillType s);
 local_ctx_t* EntGetTarget(ent_t* e, AbilityID id);
 void EntSync(ent_t* e);
@@ -365,7 +384,6 @@ int EntGetCtxByNeed(ent_t* e, need_t* n, int num, local_ctx_t* pool[num]);
 void DamageEvent(EventType ev, void* edata, void* udata);
 void EntRender(ent_t* e);
 
-
 bool CheckEntAvailable(ent_t* e);
 bool EnvSetStatus(env_t* e, EnvStatus s);
 bool CheckEnvAvailable(env_t* e);
@@ -384,19 +402,22 @@ bool ItemCurate(item_def_t*);
 
 struct env_s{
   game_object_uid_i     gouid;
-  int         uid;
-  uint64_t    has_resources;
-  resource_t  *resources[RES_DONE];
-  int         smell;
-  EnvTile     type;
-  Vector2     vpos;
-  Cell        pos;
-  map_cell_t* map_cell;
-  EnvStatus   status;
-  sprite_t    *sprite;
+  int                   uid;
+  uint64_t              has_resources;
+  char                  name[MAX_NAME_LEN];
+  resource_t            *resources[RES_DONE];
+  int                   smell;
+  EnvTile               type;
+  Vector2               vpos;
+  Cell                  pos;
+  map_cell_t*           map_cell;
+  EnvStatus             status;
+  sprite_t              *sprite;
+  MaterialID            material;
 };
 
-env_t* InitEnv(EnvTile t,Cell pos);
+env_t* InitEnvFromData(EnvTile t, Cell pos, MaterialID, uint32_t);
+env_t* InitEnv(EnvTile t, Cell pos);
 void EnvRender(env_t* e);
 
 static int CompareEntByCR(const void *a, const void *b)

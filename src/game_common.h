@@ -15,6 +15,7 @@
 #define MAX_MAP_SIZE 128
 
 #define RATIO(s) ((s)->ratio((s)))
+#define STAT(st, val) (stat_t*){InitStat(st, val, val, val)}
 
 #define NUM_FEATS 40
 #define NUM_AFFECTS 1
@@ -368,6 +369,7 @@ int ValueRebase(value_t* self);
 int ValueApplyModsToVal(int val, value_affix_t* aff);
 void ValueAddBaseMod(value_t* self, value_affix_t mod);
 void ValueDecrease(value_t* self, int amnt);
+void ValueSet(value_t* self, int amnt);
 struct stat_s;
 typedef void (*StatFormula)(struct stat_s* self);
 
@@ -463,6 +465,8 @@ typedef struct{
 }skill_check_t;
 
 skill_check_t* InitSkillCheck(skill_t* skill);
+
+InteractResult SkillCheckVal(skill_t* s, int cr);
 InteractResult SkillCheck(skill_t* s, skill_t* against);
 int SkillCheckGetVal(skill_t* s, ValueCategory val);
 typedef struct{

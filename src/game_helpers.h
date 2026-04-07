@@ -1286,7 +1286,14 @@ static define_skill_gain_t GetAbilitySkillGain(AbilityType type, AbilityID id){
 
     return SKILL_GAIN[type][i];
   }
+}
 
+static MaterialType MapMaterialResource(Resource res){
+  for(int i = 0; i < MAT_DONE; i++){
+    if (res == MAT_RES_MAP[i].other)
+      return MAT_RES_MAP[i].e;
+  }
 
+  return -1;
 }
 #endif

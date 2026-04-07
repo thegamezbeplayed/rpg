@@ -2,20 +2,59 @@
 #include "game_helpers.h"
 #include "game_process.h"
 #include "game_strings.h"
+
+#include <stdio.h>
+
+static ent_t* debug;
 static int NUM_ITEMS = 0;
 
-void ItemArmorPropVals(item_t* i){
-  armor_def_t temp = ARMOR_TEMPLATES[i->def->type];
-  i->values[VAL_DURI] = InitValue(VAL_DURI,temp.durability);
-  i->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
-  i->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
-  i->values[VAL_ADV_SAVE] = InitValue(VAL_ADV_SAVE,0);
-  i->values[VAL_SAVE] = InitValue(VAL_SAVE,temp.armor_class);
-  i->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp.size);
+void ItemApplyMaterial(item_t* item){
+  MaterialSpec spec = 0;
+  switch(item->def->category){
+    case ITEM_TOOL:
+      tool_def_t* tool = item->def->type_def;
+      spec = tool->material;
+      break;
+    case ITEM_WEAPON:
+      weapon_def_t* weapon = item->def->type_def;
+      spec = weapon->mat;
+      break;
+    default:
+      return;
+      break;
+  }
+  
+  if(spec == 0)
+    return;
 
-  if(temp.skill > SKILL_NONE)
-  i->skills[i->num_skills++] = temp.skill;
-  switch(temp.type){
+  material_spec_d *mspec  = MaterialsGetEntry(LevelMaterials(), spec);
+
+  if(!mspec)
+    return;
+
+
+  item_prop_mod_t mod = MAT_MODS[item->def->category][mspec->id];
+
+  if(mod.propID != mspec->id || mod.num_aff == 0)
+    return;
+
+  for (int i = 0; i < mod.num_aff; i++){
+    ValueAddBaseMod(item->values[mod.val_change[i].modifies], mod.val_change[i]);
+
+  }
+
+  if(item->def->props == 0)
+    return;
+}
+
+void ItemArmorPropVals(item_t* i){
+  armor_def_t *tmp = i->def->type_def;
+  for(int j = 0; j < VAL_ALL; j++)
+    i->values[j] = InitValue(j, tmp->vals[j]);
+
+  if(tmp->skill > SKILL_NONE)
+  i->skills[i->num_skills++] = tmp->skill;
+  switch(tmp->type){
   case ARMOR_CLOTH:
     i->sprite = InitSpriteByID(ICON_SHIRT, SHEET_ICON);
     i->sprite->slice->color = BEIGE;
@@ -102,38 +141,47 @@ void ItemConsumePropVals(item_t* i){
   };
 }
 
-void ItemWeapPropVals(item_t* i){
-  weapon_def_t *temp = i->def->type_def;
+void ItemToolPropVals(item_t* item){
+  tool_def_t* tmp = item->def->type_def;
 
-  i->values[VAL_WORTH] = InitValue(VAL_WORTH,temp->cost);
-  i->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp->weight);
-  i->values[VAL_PENN] = InitValue(VAL_PENN,temp->penn);
-  i->values[VAL_DURI] = InitValue(VAL_DURI,temp->durability);
-  i->values[VAL_REACH] = InitValue(VAL_REACH,temp->reach_bonus);
+  for(int i = 0; i < VAL_ALL; i++)
+    item->values[i] = InitValue(i, tmp->vals[i]);
 
-  i->values[VAL_ADV_HIT] = InitValue(VAL_ADV_HIT,0);
-  i->values[VAL_ADV_DMG] = InitValue(VAL_ADV_DMG,0);
+  item->sprite = InitSpriteByID(tmp->icon, SHEET_ICON);
+  if(tmp->col.a > 0)
+  item->sprite->slice->color = tmp->col;
 
-  i->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp->size);
+  for (int i = 0; i < 3; i++){
+    if(tmp->skills[i] > SKILL_NONE)
+      item->skills[item->num_skills++] = tmp->skills[i];
+  }
 
-  i->skills[i->num_skills++] = temp->skill;
+}
 
-  switch(temp->type){
+void ItemWeapPropVals(item_t* item){
+  weapon_def_t *tmp = item->def->type_def;
+
+  for(int i = 0; i < VAL_ALL; i++)
+    item->values[i] = InitValue(i, tmp->vals[i]);
+
+  item->skills[item->num_skills++] = tmp->skill;
+
+  switch(tmp->type){
     case WEAP_MACE:
-      i->sprite = InitSpriteByID(ICON_MACE_COM, SHEET_ICON);
-      i->sprite->slice->color = DARKGRAY;
+      item->sprite = InitSpriteByID(ICON_MACE_COM, SHEET_ICON);
+      item->sprite->slice->color = DARKGRAY;
       break;
     case WEAP_SWORD:
-      i->sprite = InitSpriteByID(ICON_SWORD, SHEET_ICON);
-      i->sprite->slice->color = RAYWHITE;
+      item->sprite = InitSpriteByID(ICON_SWORD, SHEET_ICON);
+      item->sprite->slice->color = RAYWHITE;
       break;
     case WEAP_AXE:
-      i->sprite = InitSpriteByID(ICON_HATCHET, SHEET_ICON);
-      i->sprite->slice->color = DARKBROWN;
+      item->sprite = InitSpriteByID(ICON_HATCHET, SHEET_ICON);
+      item->sprite->slice->color = DARKBROWN;
       break;
     case WEAP_DAGGER:
-      i->sprite = InitSpriteByID(ICON_DAGGER, SHEET_ICON);
-      i->sprite->slice->color = RAYWHITE;
+      item->sprite = InitSpriteByID(ICON_DAGGER, SHEET_ICON);
+      item->sprite->slice->color = RAYWHITE;
       break;
     case WEAP_JAVELIN:
     case WEAP_BOW:
@@ -149,6 +197,19 @@ void ItemWeapPropVals(item_t* i){
     case WEAP_SICKLE:
       break;
   }
+}
+
+void ItemMatPropVals(item_t* item){
+  material_def_t* tmp = item->def->type_def;
+
+  for(int i = 0; i < VAL_ALL; i++)
+    item->values[i] = InitValue(i, tmp->vals[i]);
+
+  item->sprite = InitSpriteByID(tmp->icon, SHEET_ICON);
+  if(tmp->col.a > 0)
+    item->sprite->slice->color = tmp->col;
+
+  item->stack = 64;
 }
 
 void ItemContainerPropVals(item_t* i){
@@ -171,13 +232,17 @@ bool InitItemContext(item_def_t* def, Cell pos){
 
   return item->sprite->is_visible;
 }
+
 item_t* InitItem(item_def_t* def){
   item_t* item = GameMalloc("InitItem", sizeof(item_t));
   game_object_uid_i gouid = GameObjectMakeUID(def->name, NUM_ITEMS++, WorldGetTime());
+  def->hash = hash_string_64(def->name);
+
   *item = (item_t){
     .gouid = gouid,
       .def = def 
   };
+
 
   switch(def->category){
     case ITEM_ARMOR:
@@ -192,9 +257,15 @@ item_t* InitItem(item_def_t* def){
     case ITEM_CONTAINER:
       ItemContainerPropVals(item);
       break;
+    case ITEM_TOOL:
+      ItemToolPropVals(item);
+      break;
+    case ITEM_MATERIAL:
+      ItemMatPropVals(item);
+      break;
   }
-
-  ApplyItemProps(item, item->def->props, item->def->t_props);
+  ItemApplyMaterial(item);
+  //ApplyItemProps(item, item->def->props, item->def->t_props);
   
   for (int i = 0; i < VAL_ALL; i++){
     if(item->values[i] == NULL)
@@ -221,9 +292,40 @@ item_t* InitItem(item_def_t* def){
       item->on_equip[i] = item_funcs[def->category].on_equip[i];
     for(int i = 0; i < item_funcs[def->category].num_use; i++)
       item->on_use = item_funcs[def->category].on_use[i];
+    if(item_funcs[def->category].on_acquire)
+      item->on_acquire = item_funcs[def->category].on_acquire;
   }
 
+  if(item->values[VAL_DURI] && item->values[VAL_DURI]->val > 0)
+    item->on_use = ItemTakeDuribility;
+
   return item;
+}
+
+item_t* InventoryGetEntry(ent_t* e, uint64_t uid){
+  for(int i = 0; i < INV_DONE; i++){
+    inventory_t* t = e->inventory[i];
+    item_t* exists = HashGet(&t->map, uid);
+    if(exists)
+      return exists;
+  }
+
+  return NULL;
+}
+
+item_t* InventoryGetStackable(ent_t* e, hash_key_t hash){
+for(int i = 0; i < INV_DONE; i++){
+    inventory_t* t = e->inventory[i];
+    item_t* exists = HashGet(&t->hash, hash);
+    if(exists){
+      if(!exists->values[VAL_QUANT])
+        continue;
+      if(exists->values[VAL_QUANT]->val < exists->stack)
+        return exists;
+    }
+  }
+
+  return NULL;
 }
 
 void InventoryEnsureCap(inventory_t* t){
@@ -277,6 +379,8 @@ inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit){
   a->unburdened = a->limit;
 
   a->items = GameCalloc("InitInventory items", a->cap, sizeof(item_t));
+  HashInit(&a->map, next_pow2_int(a->cap*2));
+  HashInit(&a->hash, next_pow2_int(a->cap*2));
   return a;
 
 }
@@ -409,10 +513,29 @@ int InventorySlotAddItem(ent_t* e, ItemSlot id, item_t* i){
   WorldEvent(EVENT_ITEM_ACQUIRE, i, inv->current[item->def->category]);
   inv->current[item->def->category]++;
 
+  HashPut(&inv->map, item->fuid, item);
+  HashPut(&inv->hash, item->def->hash, item);
   WorldEvent(EVENT_ITEM_STORE, item, inv->gouid);
+  WorldEvent(EVENT_ITEM_STORE, item, e->gouid);
   WorldTargetSubscribe(EVENT_ITEM_DESTROY, InventoryItemEvent, inv, item->gouid);
   return inv->count-1;
 
+}
+
+bool ItemTakeDuribility(ent_t* e, item_t* i, InteractResult res){
+
+  res = IR_NONE;
+  if(!i->values[VAL_DURI])
+    return false;
+
+  int dmg = 1;
+  if(i->values[VAL_DRAIN])
+    dmg = i->values[VAL_DRAIN]->val;
+
+  ValueDecrease(i->values[VAL_DURI], dmg);
+
+  res = IR_SUCCESS;
+  return true;
 }
 
 item_t* InventoryAddItem(ent_t* e, item_t* i){
@@ -423,9 +546,6 @@ item_t* InventoryAddItem(ent_t* e, item_t* i){
     case ITEM_CONTAINER:
       slot = InventoryAddStorage(e, i);
       return e->inventory[i->def->type]->container;
-      break;
-    case ITEM_CONSUMABLE:
-      slot = InventoryGetAvailable(e, i->def->category, size, weight);
       break;
     default:
       slot = InventoryGetAvailable(e, i->def->category, size, weight);
@@ -440,7 +560,7 @@ item_t* InventoryAddItem(ent_t* e, item_t* i){
   return &e->inventory[slot]->items[index];
 }
 
-bool ItemAbilityUse(item_t* i, ent_t* tar){
+bool ItemAbilityUse(item_t* i, local_ctx_t* tar){
   i->ability->use_fn(i->owner, i->ability, tar);
 
   ValueDecrease(i->values[VAL_QUANT], 1);
@@ -491,7 +611,61 @@ item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps a){
   return item;
 
 }
+item_def_t* DefineArmor(armor_def_t* adef){
+  item_def_t* item = GameCalloc("DefineWeapon", 1,sizeof(item_def_t));
 
+  item->category = ITEM_ARMOR;
+  item->type = adef->type;
+  item->props = adef->i_props;
+  item->t_props = adef->a_props;
+  item->type_def = adef;
+  item->skills[item->num_skills++] = adef->skill;
+
+  item->ability = ABILITY_ARMOR_SAVE;
+  item->dr = GameCalloc("DefineArmor",1,sizeof(damage_reduction_t));
+  *item->dr = adef->dr_base;
+  strcpy(item->name, adef->name);
+  material_spec_d *mspec = MaterialsGetEntry(LevelMaterials(), adef->mat);
+
+  if(mspec->id > 0 && mspec->id < MAT_ALL){
+    material_data_t data = MATERIAL_DATA[mspec->id];
+
+    item->cost = data.vals[VAL_WORTH];
+    item->weight = data.vals[VAL_SCORE];
+  }
+
+  item->cost += adef->vals[VAL_WORTH];
+  item->weight += adef->vals[VAL_SCORE];
+
+  return item;
+
+}
+
+item_def_t* DefineWeapon(weapon_def_t* wdef){
+  item_def_t* item = GameCalloc("DefineWeapon", 1,sizeof(item_def_t));
+
+  item->category = ITEM_WEAPON;
+  item->type = wdef->type;
+  item->props = wdef->i_props;
+  item->t_props = wdef->w_props;
+  item->type_def = wdef;
+  item->ability = wdef->ability;
+  item->skills[item->num_skills++] = wdef->skill;
+  strcpy(item->name, wdef->name);
+  material_spec_d *mspec = MaterialsGetEntry(LevelMaterials(), wdef->mat);
+
+  if(mspec->id > 0 && mspec->id < MAT_ALL){
+    material_data_t data = MATERIAL_DATA[mspec->id];
+
+    item->cost = data.vals[VAL_WORTH];
+    item->weight = data.vals[VAL_SCORE];
+  }
+
+  item->cost += wdef->vals[VAL_WORTH];
+  item->weight += wdef->vals[VAL_SCORE];
+
+  return item;
+}
 item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_props){
   item_def_t* item = GameCalloc("DefineWeaponByType", 1,sizeof(item_def_t));
   item->category = ITEM_WEAPON;
@@ -500,36 +674,12 @@ item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_prop
   item->t_props = w_props;
   weapon_def_t temp = WEAPON_TEMPLATES[t];
   item->type_def = &WEAPON_TEMPLATES[t];
-  //TODO CHANGE TO VALUE_T
-  //item->weight = temp.weight;
 
   strcpy(item->name, temp.name);
-  /*
-     item->values[VAL_WORTH] = InitValue(VAL_WORTH,temp.cost);
-     item->values[VAL_WEIGHT] = InitValue(VAL_WEIGHT,temp.weight);
-     item->values[VAL_PENN] = InitValue(VAL_PENN,temp.penn);
-     item->values[VAL_DURI] = InitValue(VAL_DURI,temp.durability);
-     item->values[VAL_REACH] = InitValue(VAL_REACH,temp.reach_bonus);
+  item->ability = temp.ability;
 
-     item->values[VAL_ADV_HIT] = InitValue(VAL_ADV_HIT,0);
-     item->values[VAL_ADV_DMG] = InitValue(VAL_ADV_DMG,0);
 
-     item->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp.size);
-
-     ApplyItemProps(item, props, w_props);
-     item->skills[item->num_skills++] = temp.skill; 
-
-     for(int i = 0; i < VAL_ALL; i++){
-     if(!item->values[i])
-     continue;
-
-     item->values[i]->val = ValueRebase(item->values[i]);
-     } 
-
-*/
-  item->ability = temp.ability; 
   return item;
-
 }
 
 bool ItemDestroy(value_t* v, void* ctx){
@@ -635,7 +785,7 @@ bool ItemApplyStats(struct ent_s* owner, item_t* item){
   }
 }
 
-ability_sim_t* AbilitySimHeal(ent_t* owner,  ability_t* a, ent_t* target){
+ability_sim_t* AbilitySimHeal(ent_t* owner,  ability_t* a){
   ability_sim_t* res = GameCalloc("AbilitySimDmg", 1,sizeof(ability_sim_t));
   res->id = a->id;
   res->type = a->type;
@@ -649,7 +799,7 @@ ability_sim_t* AbilitySimHeal(ent_t* owner,  ability_t* a, ent_t* target){
   return res;
 }
 
-ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a, ent_t* target){
+ability_sim_t* AbilitySimDmg(ent_t* owner,  ability_t* a){
   ability_sim_t* res = GameCalloc("AbilitySimDmg", 1,sizeof(ability_sim_t));
 
   res->id = a->id;
@@ -714,8 +864,8 @@ ability_t* InitAbilityInnate(ent_t* e, AbilityID id, define_natural_armor_t* def
   return NULL;
 }
 
-bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult result){
-
+bool AbilitySkillup(ent_t* owner, ability_t* a, local_ctx_t* ctx, InteractResult result){
+  
   int cr = 0;
   switch(a->type){
     case AT_KNOWLEDGE:
@@ -727,7 +877,16 @@ bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult re
 
       cr*=a->rank;
       break;
+    case AT_SKILL:
+      cr = a->last_use_cr;
+      break;
     default:
+      if(ctx->other.type_id != DATA_ENTITY)
+        return false;
+
+      ent_t* target = ParamRead(&ctx->other, ent_t);
+
+
       aggro_t* e = LocalGetAggro(owner->local,target->gouid);
 
       if(e==NULL)
@@ -750,12 +909,17 @@ bool AbilitySkillup(ent_t* owner, ability_t* a, ent_t* target, InteractResult re
   for(int i = 0; i < 3; i++){
     if(a->skills[i] == SKILL_NONE)
       break;
-    SkillUse(owner->skills[a->skills[i]],owner->uid,target->uid,cr,result);
+    SkillUse(owner->skills[a->skills[i]],owner->uid,ctx->gouid,cr,result);
   }
   return true;
 }
 
-InteractResult AbilityGrantExp(ent_t* owner,  ability_t* a, ent_t* target){
+InteractResult AbilityGrantExp(ent_t* owner,  ability_t* a, local_ctx_t* ctx){
+  if(ctx->other.type_id != DATA_ENTITY)
+    return IR_NONE;
+
+  ent_t* target = ParamRead(&ctx->other, ent_t);
+
   int res[a->dc->num_die];
   int exp = a->dc->roll(a->dc, res);
   skill_t* s = target->skills[a->chain_id];
@@ -832,7 +996,63 @@ void AbilityApplyValues(ability_t* self, value_t* v){
   }
 }
 
-bool ItemAddAbility(struct ent_s* owner, item_t* item){
+bool ItemAddUse(ent_t* owner, item_t* item){
+  if(item->def->category != ITEM_TOOL)
+    return false;
+
+  tool_def_t* def = item->def->type_def;
+
+  if(def->use == 0)
+    return false;
+
+  item->on_use = NULL;
+
+  ability_t* a =  GameCalloc("ItemAddUse", 1,sizeof(ability_t));
+  *a = AbilityLookup(def->use);
+
+  a->owner = owner;
+  for(int i = 0; i < VAL_WORTH; i++){
+    a->values[i] = InitValue(i, a->vals[i]);
+    a->values[i]->val = ValueRebase(a->values[i]);
+  }
+  a->stats[STAT_REACH] = STAT(STAT_REACH, a->values[VAL_REACH]->val);
+  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,a->values[VAL_DMG_BONUS]->val,a->mod);
+
+  a->hit = Die(a->values[VAL_HIT]->val, 1);
+
+  int side = a->values[VAL_DMG]->val;
+  int die = a->values[VAL_DMG_DIE]->val;
+  a->dc = Die(side,die);
+
+  int j = 0;
+  for(int i = 0; i < item->num_skills; i){
+    if(a->skills[j] != SKILL_NONE){
+      j++;
+      continue;
+    }
+    a->skills[j++] = item->skills[i++];
+  }
+
+  WorldEvent(EVENT_LEARN, a, owner->gouid);
+  for (int i = 0; i < STAT_DONE; i++){
+    if(!a->stats[i])
+      continue;
+    a->stats[i]->owner = owner;
+  }
+
+
+  a->item = item;
+  item->ability = a;
+  item->use_fn = ItemAbilityUse;
+
+  a->on_use_cb = AbilitySkillup;
+  a->sim_fn = AbilitySimDmg;
+
+  return ActionSlotAddAbility(owner, a);
+
+}
+
+bool ItemAddAbility(ent_t* owner, item_t* item){
   ability_t* a = InitAbility(owner, item->def->ability);
   //  a->cost = def->
   for(int i = 0; i < VAL_WORTH; i++){
@@ -924,6 +1144,25 @@ bool ItemSkillup(ent_t* owner, item_t* item, InteractResult result){
   return true;
 }
 
+local_ctx_t* AbilityTargetFilter(ent_t* e, CtxProps props, GameObjectParam param, uint64_t filter){
+
+  local_ctx_t* filtered[32] = {0};
+
+  CtxProps targeting = props & CTX_TAR_MASK;
+  param_t f = ParamMake(DATA_UINT64, sizeof(CtxProps), &targeting);
+  GameObjectParam p =  PARAM_PROPS;
+  int count = LocalContextFilter(e->local, 32, filtered, f, p, ParamCompareAnd, 0);
+
+  for(int i = 0; i < count; i++){
+    uint64_t *params = ParamRead(&filtered[i]->params[param], uint64_t);
+    if(((*params) & filter) > 0)
+      return filtered[i];
+
+  }
+
+  return NULL;
+}
+
 BehaviorStatus AbilityExecute(ability_t* a, ent_t* e){
   local_ctx_t* tar = NULL;
 
@@ -943,11 +1182,15 @@ BehaviorStatus AbilityExecute(ability_t* a, ent_t* e){
       ScreenActivateSelector(e->pos, amnt, true, InputSetTarget);
       return BEHAVIOR_RUNNING;
       break;
+    case DES_REQ:
+      tar = AbilityTargetFilter(e, a->req, PARAM_RESOURCE, a->params[PARAM_RESOURCE]);
+      break;
   }
 
   if(!tar)
     return BEHAVIOR_FAILURE;
-  
+ 
+  debug = tar->other.data; 
   player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_ABILITY] = ParamMakeObj(DATA_ABILITY, a->id , a);
 
 
@@ -955,7 +1198,6 @@ BehaviorStatus AbilityExecute(ability_t* a, ent_t* e){
   player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_TAR] = p;
 
   action_t* act = InitActionByDecision(player_input.decisions[ACTION_ATTACK], ACTION_ATTACK);
-  ;
 
   if(ActionExecute(ACTION_ATTACK, act) == BEHAVIOR_SUCCESS){
     WorldEvent(EVENT_PLAYER_INPUT, act, player->gouid);
@@ -966,17 +1208,126 @@ BehaviorStatus AbilityExecute(ability_t* a, ent_t* e){
 
 }
 
-InteractResult AbilityLearn(ent_t* owner,  ability_t* a, ent_t* target){
+void EntAddResource(ent_t* e, local_ctx_t* tar, resource_t* res){
+
+  if(res->amount == 0)
+    return;
+  int amnt = res->amount;
+  Resource r = res->type;
+  item_def_t* def = DefineMaterialByResource(r, res->spec, amnt);
+  item_t* item = InitItem(def);
+
+  ValueSet(item->values[VAL_QUANT], amnt);
+  
+  EntAddItem(e, item, false);
+}
+
+InteractResult ExtractResource(ent_t* owner,  ability_t* a, local_ctx_t* target){
+  uint64_t matches = target->resource & a->params[PARAM_RESOURCE];
+  
+  if(matches == 0)
+    return IR_NONE;
+
+  a->last_use_cr = 0;
+
+  int results[a->dc->num_die];
+
+  a->stats[STAT_DAMAGE]->start(a->stats[STAT_DAMAGE]);
+
+  StatMaxOut(a->stats[STAT_DAMAGE]);
+
+  skill_t* skill = owner->skills[a->skills[0]];
+  ability_sim_t* sim = a->sim_fn(owner, a);
+  int amnt = sim->final_dmg;
+
+  while(matches && amnt > 0){
+    Resource r = matches & -matches;
+    matches &= matches -1;
+
+    resource_t* extract = NULL;
+
+    env_t* env = NULL;
+    switch(target->other.type_id){
+      case DATA_ENV:
+        env = ParamRead(&target->other, env_t);
+        extract = env->resources[__builtin_ctzll(r)];
+        break;
+    }
+
+    material_extraction_t* ext = ResourceExtract(extract, amnt, skill);
+    int take = 0;
+    for(int i = 0; i < ext->num_mats; i++)
+      take+= ext->output[i].amnt;
+
+    amnt -= take;
+
+    a->last_use_cr += extract->cr;
+    if(take == 0)
+      return IR_ALMOST;
+    for(int i = 0; i < ext->num_mats; i++){
+      material_composition_t comp = ext->output[i];
+
+      resource_t* add = InitResourceByMat(r, comp.id, comp.amnt);
+      EntAddResource(owner, target, add);
+  
+    }
+    TraceLog(LOG_INFO, "==== EXTRACT RESOURCE ===\n remaining resource %i", extract->amount);
+  }
+
+
+  return IR_SUCCESS;
+}
+
+InteractResult InteractionExtract(ent_t* owner,  ability_t* a, local_ctx_t* target){
+  CtxProp has = a->req & CTX_HAS_MASK;
+
+  switch(has){
+    case CTX_HAS_RESOURCE:
+      return ExtractResource(owner, a, target);
+      break;
+    default:
+      return IR_NONE;
+      break;
+  }
+}
+
+InteractResult AbilityProcess(ent_t* e,  ability_t* a, local_ctx_t* target){
+
+}
+
+InteractResult AbilityInteract(ent_t* e,  ability_t* a, local_ctx_t* target){
+  int cost = a->values[VAL_DRAIN]->val;
+  if(a->resource>STAT_NONE && cost > 0)
+    if(!StatChangeValue(e,e->stats[a->resource],-1*cost))
+      return IR_NONE;
+
+  CtxProp method = a->req & CTX_METHOD_MASK;
+  switch(method){
+    case CTX_METHOD_EXTRACT:
+      return InteractionExtract(e, a, target);
+      break;
+    default:
+      return IR_NONE;
+  }
+
+
+}
+
+InteractResult AbilityLearn(ent_t* owner,  ability_t* a, local_ctx_t* ctx){
+  if(ctx->other.type_id != DATA_ENTITY)
+    return IR_FAIL;
+
+  ent_t* target = ParamRead(&ctx->other, ent_t);
   ability_t* abi = InitAbility(owner, a->chain_id);
   bool result = ActionSlotAddAbility(target, abi);
 
   InteractResult ires = result?IR_SUCCESS: IR_FAIL;
   if(a->on_use_cb)
-    a->on_use_cb(owner, a, target, ires);
+    a->on_use_cb(owner, a, ctx, ires);
 
   if(result){
     if(a->on_success_cb)
-      a->on_success_cb(owner, a, target, ires);
+      a->on_success_cb(owner, a, ctx, ires);
 
     WorldEvent(EVENT_LEARN, abi, owner->gouid);
   }
@@ -1126,8 +1477,8 @@ item_def_t* GenerateArmor(ArmorType type, ItemProps props, ArmorProps a_props, p
   item_def_t* i = BuildArmor(type, props, a_props);
 
   armor_def_t* a = i->type_def;
-  i->cost = a->cost + (2 * (1+a->type));
-  i->weight = a->weight + 10;
+//  i->cost = a->cost + (2 * (1+a->type));
+  //i->weight = a->weight + 10;
 
   return i;
 }
@@ -1137,10 +1488,54 @@ item_def_t* GenerateWeapon(WeaponType type, ItemProps props, WeaponProps w_props
   item_def_t* i = BuildWeapon(type, props, w_props);
 
   weapon_def_t *w = i->type_def;
-  i->cost = w->cost;
-  i->weight = w->weight + 20;
+  i->cost = w->vals[VAL_WORTH];
+
+  i->weight = w->vals[VAL_SCORE];
 
   return i;
+}
+
+item_def_t* DefineTool(tool_def_t* def){
+  item_def_t* item = GameCalloc("DefineTool", 1, sizeof(item_def_t));
+
+  item->category = ITEM_TOOL;
+  item->type = def->type;
+  item->t_props = def->t_props;
+  item->props = def->i_props;
+
+  item->ability = def->ability;
+  item->type_def = def;
+  item->weight = def->vals[VAL_SCORE];
+  item->cost = def->vals[VAL_WORTH];
+  strcpy(item->name, def->name);
+
+  item->flags = LF_TOOL;
+  return item;
+}
+
+item_def_t* DefineMaterialByResource(Resource res, MaterialSpec spec, int amnt){
+
+  item_type_d* itype = ItemPoolGetEntry(Level.item_defs, spec);
+  if(!itype)
+    return NULL;
+
+  return DefineMaterial(&itype->data.mat);
+}
+
+item_def_t* DefineMaterial(material_def_t *def){
+  item_def_t* item = GameCalloc("DefineeMaterial", 1, sizeof(item_def_t));
+
+  //item->id = data.id;
+  item->type = def->type;
+  item->category = ITEM_MATERIAL;
+
+  item->type_def = def;
+
+  item->t_props = def->m_props;
+
+  strcpy(item->name, def->name);
+
+  return item;
 }
 
 item_def_t* BuildWeaponForMob(ent_t* e, RaceProps props, WeaponType type){
@@ -1205,7 +1600,6 @@ item_def_t* GenerateItem(param_t params[LOOT_PARAM_END]){
       item->flags |= LF_CONS;
       break;
   }
-
 
   return item;
 }
@@ -1296,6 +1690,9 @@ bool AbilityCanTarget(ability_t* a, local_ctx_t* target){
 
   ent_t* e = a->stats[STAT_REACH]->owner;
 
+  if(e == player)
+    DO_NOTHING();
+  
   if(a->resource != STATE_NONE){
     int res = e->stats[a->resource]->current;
     if(a->cost > res)
@@ -1307,6 +1704,9 @@ bool AbilityCanTarget(ability_t* a, local_ctx_t* target){
 
   int reach = a->stats[STAT_REACH]->current;
   int dist = cell_distance(e->pos, target->pos);
+
+  if(dist != target->dist)
+    DO_NOTHING();
 
   if(dist <= reach)
     return true;

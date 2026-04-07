@@ -5,7 +5,7 @@
 #define BASE_ATTR_VAL 4
 #define MAX_NAME_LEN 64
 #define NUM_CLASS 15
-
+#define NUM_MAT 21
 #define NUM_ITEM_PROPS 18
 #define NUM_WEAP_PROPS 8
 #define NUM_ARMOR_PROPS 8
@@ -278,26 +278,52 @@ typedef enum{
   RES_WOOD  = BIT64(5),
   RES_WATER = BIT64(6),
   RES_BLOOD = BIT64(7),
-  RES_DONE = 8
+  RES_HIDE  = BIT64(8),
+  RES_FUR   = BIT64(9),
+  RES_SCALE = BIT64(10),
+  RES_DONE = 11
 }Resource;
 typedef uint64_t Resources;
 
 typedef struct{
-  const char* name;
-  Resource    type;
-  Resource    attached;
-  int         smell;
-  uint64_t    amount;
-}resource_t;
+  uint64_t    flag;
+  uint64_t    other;
+}flag_map_t;
+
+typedef struct{
+  int         e;
+  uint64_t    other;
+}enum_map_t;
+
+extern flag_map_t RES_FLAG_MAP[RES_DONE];
+extern enum_map_t MAT_RES_MAP[MAT_DONE];
+
+typedef struct resource_s resource_t;
+typedef void (*ResourceCb)(game_object_uid_i, resource_t* r, int amnt);
+struct resource_s{
+  const char*       name;
+  Resource          type;
+  Resource          attached;
+  int               smell, cr;
+  uint64_t          amount;
+  game_object_uid_i owner;
+  MaterialSpec      spec;
+  SkillType         skill;
+  ResourceCb        on_change, on_empty;
+};
+void ResourceDestroyOwner(game_object_uid_i, resource_t*, int amnt);
 
 typedef struct{
   const char*     name;
   Resource        type;
   ObjectCategory  cat;
   uint64_t        cat_flags, exc_flags;
-  int             quantity, smell;      
+  float           quantity;  
+  int             smell, base_cr;
   Resource        attached;
 }define_resource_t;
+
+resource_t* InitResourceByMat(Resource, MaterialID, int);
 extern define_resource_t DEF_RES[20];
 static inline define_resource_t* GetResourceDef(Resource type){
   for(int i = 0; i < NUM_RES_DEF; i++){
@@ -330,20 +356,22 @@ static inline define_resource_t* GetResourceByCatFlags(Resource type, ObjectCate
 }
 
 typedef enum{
-  LF_NONE     = 0,
-  LF_WEAP     = BIT64(0),
-  LF_ARMOR    = BIT64(1),
-  LF_CONS     = BIT64(2),
-  LF_TOME     = BIT64(3), 
-  LF_SCROLL   = BIT64(4),
-  LF_MANUAL   = BIT64(5),
-  LF_POT      = BIT64(6),
-  LF_TRASH    = BIT64(7),
-  LF_POOR     = BIT64(8),
-  LF_COMMON   = BIT64(9),
-  LF_MATERIAL = BIT64(10),
-  LF_MAT_BONE = BIT64(11),
-  LF_MAT_HIDE = BIT64(12),
+  LF_NONE       = 0,
+  LF_WEAP       = BIT64(0),
+  LF_ARMOR      = BIT64(1),
+  LF_CONS       = BIT64(2),
+  LF_TOME       = BIT64(3), 
+  LF_SCROLL     = BIT64(4),
+  LF_MANUAL     = BIT64(5),
+  LF_POT        = BIT64(6),
+  LF_TOOL       = BIT64(7),
+  LF_TRASH      = BIT64(8),
+  LF_POOR       = BIT64(9),
+  LF_COMMON     = BIT64(10),
+  LF_MATERIAL   = BIT64(11),
+  LF_MAT_BONE   = BIT64(12),
+  LF_MAT_CLOTH  = BIT64(13),
+  LF_MAT_HIDE   = BIT64(14),
 }LootFlag;
   
 typedef uint64_t LootFlags;
@@ -407,7 +435,6 @@ typedef struct{
   uint64_t    eats;
   mob_flags_t flags;
   LootFlags   loot;
-  MaterialSpecs materials;
 }mob_define_t;
 
 typedef struct{
@@ -602,6 +629,12 @@ typedef struct{
   SkillType     skill;
   bool          skills[SKILL_DONE];
 }skill_relation_t;
+
+typedef struct{
+  SkillType       related;
+  SkillCategory   cat;
+  Magnitude       mag;
+}skill_category_relation_t;
 
 typedef struct{
   SkillRank     rank;
@@ -1949,7 +1982,12 @@ typedef enum{
   PROP_MAT_WOOD       = BIT64(14),
   PROP_MAT_STONE      = BIT64(15),
   PROP_MAT_METAL      = BIT64(16),
-  PROP_MAT_LIQUID     = BIT64(17), 
+  PROP_MAT_GEM        = BIT64(17), 
+  PROP_MAT_LIQUID     = BIT64(18),
+
+  PROP_TIER_ONE       = BIT64(19),
+  PROP_TIER_TWO       = BIT64(20),
+  PROP_TIER_THREE     = BIT64(21)
 }ItemProp;
 
 static int QualityIndex(uint64_t props) {
@@ -1982,7 +2020,11 @@ typedef enum{
 typedef enum{
   PROP_MAT_NONE         = 0,
   PROP_MAT_HAS_RESOURCE = BIT64(0),
-}MaterialProps;
+  PROP_MAT_RAW          = BIT64(1),
+  PROP_MAT_TOOLING      = BIT64(2),
+  PROP_MAT_BLADE        = BIT64(3),
+  PROP_MAT_CLOTHING     = BIT64(4),
+}MaterialProp;
 
 typedef enum{
   PROP_CONS_NONE       = 0,
@@ -2002,22 +2044,26 @@ typedef uint64_t ArmorProps;
 typedef uint64_t ConsumeProps;
 typedef uint64_t ContainerProps;
 typedef uint64_t WeaponProps;
+typedef uint64_t MaterialProps;
+
 typedef struct{
   ArmorType          type;
   char               name[MAX_NAME_LEN];
-  int                armor_class;
   damage_reduction_t dr_base,dr_rarity;
-  int                weight,cost,durability;
   AttributeType      modifier,required;
   int                mod_max, req_min;
   ItemProps          i_props;
+  ArmorProps         a_props;
+  MaterialProp       m_props;
   SkillType          skill;
   StorageMethod      primary;
   int                prio[STORE_DONE];
-  uint16_t           size;
+  MaterialSpec       mat;
+  int                vals[VAL_ALL];
 }armor_def_t;
 
 typedef struct{
+  char            name[MAX_NAME_LEN];
   ItemSlot        slot;
   int             weight, cost,slots;
   ItemProps       i_props;
@@ -2028,14 +2074,15 @@ typedef struct{
 typedef struct{
   WeaponType      type;
   char            name[MAX_NAME_LEN];
-  int             cost,weight,penn,drain,reach_bonus,durability;
   ItemProps       i_props;
   WeaponProps     w_props;
+  MaterialProp    m_props;
   AbilityID       ability;
   SkillType       skill;
   StorageMethod   primary;
   int             prio[STORE_DONE];
-  uint16_t           size;
+  int             vals[VAL_ALL];
+  MaterialSpec    mat;
 }weapon_def_t;
 
 WeaponType GetWeapTypeBySkill(SkillType s);
@@ -2066,12 +2113,66 @@ typedef struct{
   Resources       resources;
   MaterialSpec    spec;
   int             vals[VAL_ALL];
+  int             score, cost;
+  char            name[MAX_NAME_LEN];
+  Icons           icon;
+  EnvTile         tile;
+  Color           col;
 }material_def_t;
 extern material_def_t MATERIAL_TEMPLATES[MAT_DONE];
 
-size_t GetMaterialByBiome(MaterialType, material_def_t**, size_t*, size_t);
+typedef struct{
+  MaterialID      id;
+  int             ratio, cr, mul, amnt;
+  SkillType       method;
+}material_composition_t;
 
 typedef struct{
+  MaterialID             id;
+  int                    num_composition;
+  material_composition_t composition[6];
+  choice_pool_t*         distribute;
+}material_properties_t;
+
+typedef struct{
+  MaterialID            id;
+  MaterialType          type;
+  char                  name[MAX_NAME_LEN];
+  MaterialProps         props;
+  Color                 col;
+  Icons                 icon;
+  EnvTile               tile;
+  int                   vals[VAL_ALL];
+}material_data_t;
+
+typedef struct{
+  int         num_mats;
+  material_composition_t  output[6];
+}material_extraction_t;
+
+extern material_data_t MATERIAL_DATA[MAT_ALL];
+extern material_properties_t MATERIAL_COMP[MAT_ALL];
+
+typedef struct{
+  ToolType      type;
+  char          name[MAX_NAME_LEN];
+  ItemProps     i_props;
+  uint64_t      t_props;
+  int           vals[VAL_ALL];
+  SkillType     skills[3];
+  AbilityID     ability, use;
+  Resources     reagents;
+  MaterialSpec  material;
+  Icons         icon;
+  Color         col;
+}tool_def_t;
+extern tool_def_t TOOL_TEMPLATES[TOOL_DONE];
+tool_def_t* ToolGenerate(ToolType type, MaterialSpec);
+armor_def_t* ArmorGenerate(armor_def_t*, material_def_t*);
+weapon_def_t* WeaponGenerate(weapon_def_t*, material_def_t*);
+
+typedef struct{
+  game_object_uid_i gouid;
   ItemCategory  cat;
   union {
     armor_def_t     armor;
@@ -2079,17 +2180,19 @@ typedef struct{
     consume_def_t   cons;
     weapon_def_t    weap;
     material_def_t  mat;
+    tool_def_t      tool;
   }data;
   LootFlags         flags;
 }item_type_d;
 
 typedef struct{
   int     cap, count;
-  item_type_d  *entries; 
+  item_type_d  *entries;
+  hash_map_t   map;
 }item_gen_pool;
 
 item_gen_pool* InitItemGenPool(int cap);
-
+item_type_d* ItemPoolGetEntry(item_gen_pool*, uint64_t uid);
 item_type_d* ItemGenAdd(item_gen_pool*, ItemCategory, void*);
 
 extern armor_def_t ARMOR_TEMPLATES[ARMOR_DONE];
@@ -2125,8 +2228,11 @@ struct value_affix_s{
 typedef struct{
   int            propID;
   int            num_aff;
-  value_affix_t  val_change[4];
+  value_affix_t  val_change[7];
   SkillType      add_skill;
+  ArmorProps     aprops;
+  WeaponProps    wprops;
+  ItemProps      props;
 }item_prop_mod_t;
 
 value_affix_t* InitValueAffixFromMod(value_affix_t mod);
@@ -2207,6 +2313,130 @@ static item_prop_mod_t PROP_MODS[ITEM_DONE][NUM_ITEM_PROPS]={
     {PROP_WEAP_AMMO},
   },
   [ITEM_ARMOR] = {
+
+  }
+};
+
+static item_prop_mod_t MAT_MODS[ITEM_DONE][MAT_ALL]={
+  [ITEM_WEAPON] = {
+    [MAT_STONE_CHERT] = { MAT_STONE_CHERT, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 105},
+        {VAL_DURI, AFF_MUL, 125},
+        {VAL_WEIGHT, AFF_MUL, 110},
+      }
+    },
+    [MAT_STONE_FLINT] = {MAT_STONE_FLINT, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 105},
+        {VAL_DURI, AFF_MUL, 125},
+        {VAL_WEIGHT, AFF_MUL, 110},
+      }
+    },
+    [MAT_STONE_OBSIDIAN] = {MAT_STONE_OBSIDIAN, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 120},
+        {VAL_DURI, AFF_MUL, 150},
+        {VAL_WEIGHT, AFF_MUL, 105},
+      }
+    },
+    [MAT_METAL_ADAMANT] = {MAT_METAL_ADAMANT, 6,
+      {
+        {VAL_WORTH, AFF_MUL,  1000},
+        {VAL_DURI, AFF_MUL,   600},
+        {VAL_WEIGHT, AFF_MUL, 450},
+        {VAL_ADV_SAVE, AFF_ADD, 2},
+        {VAL_SAVE, AFF_ADD,     2},
+        {VAL_ADV_DMG, AFF_ADD,  2}
+      },
+      .props = PROP_QUAL_SUPER,
+      .wprops = PROP_WEAP_HEAVY,
+
+    },
+ 
+    [MAT_METAL_BRONZE] = {MAT_METAL_BRONZE, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 225},
+        {VAL_DURI, AFF_MUL, 300},
+        {VAL_WEIGHT, AFF_MUL, 410}
+      }
+    },
+    [MAT_METAL_COPPER] = {MAT_METAL_COPPER, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 200},
+        {VAL_DURI, AFF_MUL, 250},
+        {VAL_WEIGHT, AFF_MUL, 450}
+      }
+    },
+    [MAT_METAL_IRON] = {MAT_METAL_IRON, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 250},
+        {VAL_DURI, AFF_MUL, 325},
+        {VAL_WEIGHT, AFF_MUL, 340}
+      }
+    },
+    [MAT_METAL_MITHRIL] = {MAT_METAL_MITHRIL, 5,
+      {
+        {VAL_WORTH, AFF_MUL, 1000},
+        {VAL_DURI, AFF_MUL, 500},
+        {VAL_WEIGHT, AFF_MUL, 200},
+        {VAL_ADV_SAVE, AFF_ADD, 2},
+        {VAL_ADV_HIT, AFF_ADD,  2}
+      },
+      .props = PROP_QUAL_SUPER
+    },
+    [MAT_METAL_ORICHAL] = {MAT_METAL_ORICHAL, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 750},
+        {VAL_DURI, AFF_MUL,  300},
+        {VAL_WEIGHT, AFF_MUL, 440},
+      },
+      .props = PROP_QUAL_FINE,
+    },
+    [MAT_METAL_STEEL] = {MAT_METAL_STEEL, 5,
+      {
+        {VAL_WORTH, AFF_MUL, 275},
+        {VAL_DURI, AFF_MUL, 350},
+        {VAL_WEIGHT, AFF_MUL, 330},
+        {VAL_HIT,    AFF_ADD, 1},
+        {VAL_SAVE,   AFF_ADD, 1},
+      },
+      .props = PROP_QUAL_WELL,
+    },
+    [MAT_METAL_WOLFRAM] = { MAT_METAL_WOLFRAM, 5,
+      {
+        {VAL_WORTH, AFF_MUL,  350},
+        {VAL_DURI,  AFF_MUL,  400},
+        {VAL_WEIGHT, AFF_MUL, 575},
+        {VAL_DRAIN, AFF_ADD,    1},
+        {VAL_ADV_SAVE, AFF_ADD, 1}
+      },
+      .props = PROP_QUAL_WELL
+
+    }
+  },
+  [ITEM_TOOL] = {
+    [MAT_STONE_CHERT] = { MAT_STONE_CHERT, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 110},
+        {VAL_DURI, AFF_MUL, 125},
+        {VAL_WEIGHT, AFF_MUL, 110},
+      }
+    },
+    [MAT_STONE_FLINT] = {MAT_STONE_FLINT, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 110},
+        {VAL_DURI, AFF_MUL, 125},
+        {VAL_WEIGHT, AFF_MUL, 110},
+      }
+    },
+    [MAT_STONE_OBSIDIAN] = {MAT_STONE_OBSIDIAN, 3,
+      {
+        {VAL_WORTH, AFF_MUL, 150},
+        {VAL_DURI, AFF_MUL, 150},
+        {VAL_WEIGHT, AFF_MUL, 105},
+      }
+    }
 
   }
 };

@@ -1,5 +1,7 @@
 #ifndef __GAME_UTIL__
 #define __GAME_UTIL__
+
+#include "game_common.h"
 #include <execinfo.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -8,7 +10,6 @@
 #define MAX_PLAYERS 32
 #define MAX_BEHAVIOR_TREE 12
 #define MAX_CONTEXT 8192
-#include "game_common.h"
 
 #define COMBO_KEY(a, b) ((a << 8) | b)
 #define CALL_FUNC(type, ptr, ...) ((type)(ptr))(__VA_ARGS__)
@@ -20,6 +21,15 @@
 {name((T)p);}
 
 #define ParamRead(o, T) ((T*)((o)->data))
+
+#define CTX_METHOD_MASK (\
+    CTX_METHOD_PROCESS | CTX_METHOD_EXTRACT)
+
+#define CTX_HAS_MASK (\
+    CTX_HAS_RESOURCE)
+
+#define CTX_TAR_MASK (\
+    CTX_TAR_ENV)
 
 typedef struct ability_s ability_t;
 typedef struct local_ctx_s local_ctx_t;
@@ -184,6 +194,7 @@ static bool ParamCompareGreater(param_t *a, param_t *b){
   }
   return GREATER_THAN(aval, bval);
 }
+
 static bool ParamCompareAnd(param_t *a, param_t *b){
   uint64_t abits = *ParamRead(a, uint64_t);
   uint64_t bbits = *ParamRead(b, uint64_t);
@@ -194,7 +205,6 @@ static bool ParamCompareAnd(param_t *a, param_t *b){
 static bool ParamCompareLesser(param_t *a, param_t *b){
   return LESS_THAN(*ParamRead(a, int) ,*ParamRead(b, int));
 }
-
 
 static bool ParamCompare(param_t *a, param_t *b, ParamCompareFn fn){
   assert(a->type_id == b->type_id);
@@ -269,6 +279,7 @@ void DiscardChoice(choice_pool_t* pool, choice_t* self);
 typedef choice_t* (*ChoiceFn)(choice_pool_t *pool);
 choice_t* ChooseBest(choice_pool_t* pool);
 choice_t* ChooseByWeight(choice_pool_t* pool);
+choice_t* ChooseByFlagsWeighted(choice_pool_t* pool);
 choice_t* ChooseByBudget(choice_pool_t* pool);
 choice_t* ChooseBestFitByFlags(choice_pool_t* pool);
 choice_t* ChooseByWeightInBudget(choice_pool_t* pool);
@@ -320,6 +331,7 @@ choice_pool_t* StartChoice(choice_pool_t** pool, int size, ChoiceFn fn, bool* re
 void EndChoice(choice_pool_t* pool, bool reset);
 choice_pool_t* InitChoicePool(int size, ChoiceFn fn);
 bool AddChoice(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn);
+bool AddChoiceFlags(choice_pool_t *pool, int id, int score, void *ctx, OnChosen fn, uint64_t flags);
 bool AddPurchase(choice_pool_t *pool, int id, int score, int cost, void *ctx, OnChosen fn);
 bool AddFilter(choice_pool_t *pool, int id, void *ctx);
 bool AddPurchaseFlags(choice_pool_t *pool, int id, int cost, void *ctx, uint64_t flags, OnChosen fn);
@@ -392,6 +404,15 @@ bool AddEnemy(decision_pool_t* t, local_ctx_t* ctx);
 bool AddAbility(decision_pool_t* t, local_ctx_t* tar, ability_t* a);
 void OnActionSuccess(EventType event, void* data, void* user);
 
+typedef enum{
+  CTX_HAS_RESOURCE    = BIT64(0),
+  CTX_METHOD_EXTRACT  = BIT64(1),
+  CTX_METHOD_PROCESS  = BIT64(2),
+  CTX_TAR_ENV         = BIT64(3),
+}CtxProp;
+
+typedef uint64_t CtxProps;
+
 struct local_ctx_s{
   param_t             other, need;
   path_cache_entry_t* path;
@@ -411,6 +432,7 @@ struct local_ctx_s{
   int                 prio, dist, index;
   uint32_t            ctx_revision;
   int                 last_update;
+  CtxProps            props;
 };
 
 typedef struct{
@@ -434,7 +456,7 @@ void LocalSync(local_table_t* s, bool sort);
 void LocalSyncCtx(local_table_t* s, local_ctx_t*);
 bool LocalCheck(local_ctx_t* ctx);
 void LocalPruneCtx(local_table_t* t, game_object_uid_i other);
-int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_t filter, GameObjectParam type, ParamCompareFn);
+int LocalContextFilter(local_table_t*, int num, local_ctx_t* pool[num], param_t, GameObjectParam, ParamCompareFn, float);
 void LocalSortByDist(local_table_t* table);
 aggro_t* LocalAggroByCtx(local_ctx_t* ctx);
 int LocalAddAggro(local_table_t* t, ent_t* e, int threat, float mul, bool init);

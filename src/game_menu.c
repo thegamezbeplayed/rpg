@@ -660,6 +660,7 @@ bool ElementAbilityUse(ui_element_t* e){
   if(!a)
     return false;
 
+  TraceLog(LOG_INFO,"== ELEMENT USE ABILITY %i", a->id);
   InteractResult res = AbilityExecute(a, a->owner);
 }
 
@@ -672,7 +673,8 @@ bool ElementItemUse(ui_element_t* e){
 
   InteractResult res = IR_NONE;
   TraceLog(LOG_INFO, "%s %i - use item %s: %i", e->name, e->index, item->def->name, item->gouid);
-  return item->use_fn( item, player);
+  return item->use_fn(item, WorldGetContext(DATA_ENTITY, player->gouid));
+
 }
 
 bool ElementTabToggle(ui_element_t* e){
@@ -1228,6 +1230,31 @@ element_value_t* GetContextStat(ui_element_t* e, param_t context){
   return ev;
 
 }
+
+element_value_t* GetDebugContext(ui_element_t* e,  param_t context){
+  if (context.type_id != DATA_LOCAL_CTX)
+    return NULL;
+
+  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
+
+  element_value_t *ev = GameCalloc("GetContext", 1,sizeof(element_value_t));
+
+  ev->num_ln = SetCtxDebug(ctx, ev->l, e->params[0]);
+}
+
+element_value_t* GetContext(ui_element_t* e,  param_t context){
+  if (context.type_id != DATA_LOCAL_CTX)
+    return NULL;
+
+  local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
+
+  if( ctx->gouid != e->ctx.gouid){
+  e->ctx = context;
+  ElementSetState(e, ELEMENT_IDLE);
+  }
+  
+}
+
 element_value_t* GetContextDescription(ui_element_t* e,  param_t context){
   element_value_t *ev = GameCalloc("game_menu: GetContextDescription", 1,sizeof(element_value_t));
   ev->rate = FETCH_TURN;
@@ -1646,6 +1673,15 @@ void UIInputEvent(EventType event, void* data, void* user){
   }
 }
 
+void UIEventActivate(EventType event, void* data, void* user){
+  ui_element_t* e = user;
+  local_ctx_t* ctx = data;
+
+  param_t p = ParamMakeObj(DATA_LOCAL_CTX, ctx->gouid, ctx);
+  if(e->set_val)
+    e->set_val(e, p);
+}
+
 void UIItemEvent(EventType event, void* data, void* user){
   ui_element_t* e = user;
   switch(event){
@@ -1747,7 +1783,7 @@ bool ElementInputContext(ui_element_t* e){
 
 bool ElementScreenContext(ui_element_t* e){
   //TODO FIX
-  //WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
+  WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
 
   return ui.contexts[SCREEN_CTX_HOVER];
 }

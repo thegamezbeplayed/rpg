@@ -9,6 +9,14 @@
 #define MAX_SONGS 4
 #define MAX_SPRITES 64
 
+#define RUST          (Color) {180, 64, 16, 255}
+#define REDDISHBROWN  (Color) {96, 80, 80, 255}
+#define LIMESTONE     (Color) {232, 248, 160, 255}
+#define SANDSTONE     (Color) {192, 168, 120, 255}
+#define BRONZE        (Color) {188, 136, 32, 255}
+#define COPPER        (Color) {208, 128, 88, 255}
+#define SILVER        (Color) {192, 192, 192, 255}
+
 struct ent_s;
 void InitResources();
 

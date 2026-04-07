@@ -106,8 +106,6 @@ void LevelEntityEvent(EventType event, void* data, void* user){
       LootDrops(e);
       break;
   }
-
-
 }
 
 level_t* InitLevel(void){
@@ -116,10 +114,12 @@ level_t* InitLevel(void){
   InitRng(&Level.rng, Level.seed);
   Level.paths = InitPathPool(MAX_ENVS);
 
+  Level.materials = InitMaterialTable(ENV_DONE + ENT_DONE);
+
   WorldSubscribe(EVENT_ROOM_READY, OnLevelReady, &Level);
   WorldSubscribe(EVENT_MAP_LOADED, OnLevelReady, &Level);
 
-  Level.item_defs = InitItemGenPool(ENT_DONE + ABILITY_DONE + SKILL_DONE);
+  Level.item_defs = InitItemGenPool(ENV_DONE + ENT_DONE + ABILITY_DONE + SKILL_DONE);
 
   for(int i = 0; i < ABILITY_DONE; i++){
     if(CLASS_ABILITIES[i].tome && CLASS_ABILITIES[i].lvl == 0)
@@ -159,8 +159,7 @@ void LevelReady(map_grid_t* m){
     for(int y = 0; y < m->height; y++){
       map_cell_t* mc = &m->tiles[x][y];
       Cell c = CELL_NEW(x,y);
-      //if(!HasLOS(m, player->pos, c))
-        //continue;
+      
       WorldTargetSubscribe(EVENT_ENT_STEP, MapVisEvent, mc, player->gouid);      
       mc->vis = VIS_UNSEEN;
     }
@@ -175,15 +174,62 @@ void LevelReady(map_grid_t* m){
   ctx->enemy_cr = iround(mgen.diff);
   ctx->seed = hash_combine_64(Level.seed, mgen.biome);
 
-  material_def_t* mats[MAX_ENTS];
-  size_t num_mats = 0; 
-  for (int i = 0; i < MAT_DONE; i++)
-  GetMaterialByBiome(i, mats, &num_mats, MAX_ENTS);
+  material_def_t *mats[Level.materials->count];
+  for(int i = 0; i < Level.materials->count; i++){  
+    material_spec_d* spec = &Level.materials->entries[i];
+    material_def_t base = MATERIAL_TEMPLATES[spec->type];
+    material_def_t* mdef = InitMaterial(base, spec);
+    mats[i] = mdef;
+    ItemGenAdd(Level.item_defs, ITEM_MATERIAL, mdef);
+  }
 
-  for(int i = 0; i < num_mats; i++)
-      ItemGenAdd(Level.item_defs, ITEM_MATERIAL, mats[i]);
+  for (int i = 2; i < TOOL_DONE; i++){
+    Resources res = TOOL_TEMPLATES[i].reagents;
 
-  Level.loot = GenerateLootPool((num_mats * 4) + Level.item_defs->count, ctx);
+    for(int j = 0; j < Level.materials->count; j++){
+      material_def_t *mat = mats[j];
+      if((mat->m_props & PROP_MAT_TOOLING) == 0)
+        continue;
+
+      if((MAT_RES_MAP[mat->type].other & res) == 0)
+        continue;
+
+      tool_def_t* tdef = ToolGenerate(i, mat->spec);
+      TraceLog(LOG_INFO, "=== TOOL GEN ====\n %s", tdef->name);
+      ItemGenAdd(Level.item_defs, ITEM_TOOL, tdef);
+    }
+
+  }
+  for (int i = 1; i < WEAP_DAGGER; i++){
+    weapon_def_t* weap = &WEAPON_TEMPLATES[i];
+     for(int j = 0; j < Level.materials->count; j++){
+       material_def_t *mat = mats[j];
+       if((mat->m_props & weap->m_props) < weap->m_props)
+         continue;
+
+       weapon_def_t *wdef = WeaponGenerate(weap, mat);
+       TraceLog(LOG_INFO, "=== WEAP GEN ====\n %s", wdef->name);
+       ItemGenAdd(Level.item_defs, ITEM_WEAPON, wdef);
+     }
+  }
+
+  for (int i = 2; i < ARMOR_DONE; i++){
+    armor_def_t* armor = &ARMOR_TEMPLATES[i];
+    for (int j = 0; j < Level.materials->count; j++){
+      material_def_t *mat = mats[j];
+      if((mat->m_props & armor->m_props) < armor->m_props)
+        continue;
+
+      if((mat->i_props & armor->i_props) == 0)
+        continue;
+
+      armor_def_t *adef = ArmorGenerate(armor, mat);
+      TraceLog(LOG_INFO, "=== ARMOR GEN ====\n %s", adef->name);
+      ItemGenAdd(Level.item_defs, ITEM_ARMOR, adef);
+
+    }
+  }
+  Level.loot = GenerateLootPool(Level.materials->count + Level.item_defs->count, ctx);
 
   WorldSubscribe(EVENT_ENT_DEATH, LevelEntityEvent, &Level);
 
@@ -256,94 +302,44 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
 
   lp->rules = ctx;
 
-  /*
-     choice_pool_t *cp = StartChoice(&lp->flags, count * 2, ChooseByWeightInBudget, &result);
-     */
   bool ready = false;
   choice_pool_t* dp;
 
   dp = StartChoice(&lp->drops, count, WeightedPurchaseByFlags, &ready);
 
-  while(num_weapon < 15 && num_armor < 25){
-    param_t p[LOOT_PARAM_END] = {0};
-
-    int cat = RngRoll(Level.rng, ITEM_WEAPON, ITEM_DONE);
-    p[LOOT_PARAM_CATEGORY] = ParamMake(DATA_INT, sizeof(int),&cat);
-    int start = 0, end = 0;
-    int type_prop_end = -1;
-    LootParams type_param = -1;
-    switch (cat){
-      case ITEM_WEAPON:
-        start = WEAP_MACE;
-        end =  WEAP_DAGGER;
-        type_prop_end = 9;
-        type_param = LOOT_PARAM_WEAP;
-        num_weapon++;
-        break;
-      case ITEM_ARMOR:
-        start = ARMOR_NATURAL;
-        end = ARMOR_SHIELD-1;
-        type_prop_end = 0;
-        type_param = LOOT_PARAM_ARMOR;
-        num_armor++;
-        break;
-      default:
-        continue;
-        break;
-
-    }
-
-    int type = RngRoll(Level.rng, start, end);
-    uint64_t type_props = RngRollUID(Level.rng, 0, type_prop_end);
-
-    p[LOOT_PARAM_TYPE] = ParamMake(DATA_INT, sizeof(int), &type);
-    p[type_param] = ParamMake(DATA_UINT64, sizeof(uint64_t), &type_props);
-
-    uint64_t qual = RngRollUID(Level.rng, QUAL_BIT_START, QUAL_BIT_START+QUAL_BIT_COUNT);
-    uint64_t mat = RngRollUID(Level.rng, MAT_BIT_START, MAT_BIT_START+MAT_BIT_COUNT);
-
-    uint64_t props = qual | mat;
-    p[LOOT_PARAM_PROPS] = ParamMake(DATA_UINT64, sizeof(uint64_t), &props);
-    int amnt = RngRoll(Level.rng, 1, 4);
-
-    p[LOOT_PARAM_AMNT] = ParamMake(DATA_INT, sizeof(int), &amnt);
-
-    item_def_t* item = GenerateItem(p);
-
-    if(!ItemCurate(item))
-      continue;
-
-    switch(qual){
-      case PROP_QUAL_TRASH:
-        item->flags |= LF_TRASH;
-        break;
-      case PROP_QUAL_POOR:
-        item->flags |= LF_POOR;
-        break;
-      default:
-        item->flags |= LF_COMMON;
-        break;
-    }
-    switch(mat){
-      case PROP_MAT_BONE:
-        item->flags |= LF_MAT_BONE;
-        break;
-      case PROP_MAT_LEATHER:
-        item->flags |= LF_MAT_HIDE;
-        break;
-    }
-
-    AddChoiceCostFlags(dp, type, item->weight, item->cost, item, item->flags, ChoiceReduceScore);
-  }
-
   for (int i = 0; i < Level.item_defs->count; i++){
     item_type_d* item = &Level.item_defs->entries[i];
-
-    item_def_t* def = DefineConsumableByDef(&item->data.cons);
-    int weight = item->data.cons.weight;
+    item_def_t* def;
+    int weight = 0, cost = 0;
+    switch(item->cat){
+      case ITEM_CONSUMABLE:
+        def = DefineConsumableByDef(&item->data.cons);
+        weight = item->data.cons.weight;
+        def->cost = item->data.cons.cost;
+        break;
+      case ITEM_MATERIAL:
+        def = DefineMaterial(&item->data.mat);
+        weight = def->weight;
+        cost = def->cost;
+        break;
+      case ITEM_TOOL:
+        def = DefineTool(&item->data.tool);
+        weight = def->weight;
+        cost = def->cost;
+        break;
+      case ITEM_WEAPON:
+        def = DefineWeapon(&item->data.weap);
+        weight = def->weight;
+        cost = def->cost;
+        break;
+      case ITEM_ARMOR:
+        def = DefineArmor(&item->data.armor);
+        weight = def->weight;
+        cost = def->cost;
+        break;
+    }
     def->flags |= item->flags;
-    def->cost = item->data.cons.cost;
- TraceLog(LOG_INFO, "%s: score %i cost %i", def->name, weight, def->cost);  
+ TraceLog(LOG_INFO, "%s: score %i cost %i", def->name, weight, cost);  
     def->id = item->data.cons.chain_id; 
       
     AddChoiceCostFlags(dp, def->id, weight, def->cost, def, def->flags, ChoiceReduceScore);

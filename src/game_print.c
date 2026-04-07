@@ -291,6 +291,68 @@ int CtxGetStat(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
 
 }
 
+int GetMaterialDesc(line_item_t** li, item_t* item){
+  element_value_t* name = GameCalloc("GetMaterialDesc", 1,sizeof(element_value_t));
+  element_value_t* base[1];
+
+  int count = 0;
+
+  name->type = VAL_CHAR;
+  name->rate = FETCH_ONCE;
+  name->c = strdup(item->def->name);
+  name->get_val = NULL;
+  base[0] = name;
+  li[count++] = InitLineItem(base, 1, "%s");
+
+  element_value_t* quant[1];
+  element_value_t* weight[1];
+  element_value_t* worth[2];
+
+  int amnt = item->values[VAL_QUANT]->val;
+  int mass = item->values[VAL_WEIGHT]->val;
+  int value = item->values[VAL_WORTH]->val * amnt;
+
+  element_value_t* amount = GameCalloc("GetMaterialDesc", 1,sizeof(element_value_t));
+
+  amount->type = VAL_INT;
+  amount->rate = FETCH_TURN;
+  amount->i = GameMalloc("GetMaterialDesc", sizeof(int));
+  *amount->i = amnt;
+
+  element_value_t* kg = GameCalloc("GetMaterialDesc", 1,sizeof(element_value_t));
+
+  kg->type = VAL_FLOAT;
+  kg->rate = FETCH_TURN;
+  kg->f = GameMalloc("GetMaterialDesc", sizeof(float));
+  *kg->f = mass/1000;
+
+  element_value_t* gold = GameCalloc("GetMaterialDesc", 1,sizeof(element_value_t));
+  element_value_t* silver = GameCalloc("GetMaterialDesc", 1,sizeof(element_value_t));
+
+  gold->type = VAL_INT;
+  gold->rate = FETCH_TURN;
+  gold->i = GameMalloc("GetMaterialDesc", sizeof(int));
+  *gold->i = value/100;
+
+
+  silver->type = VAL_INT;
+  silver->rate = FETCH_TURN;
+  silver->i = GameMalloc("GetMaterialDesc", sizeof(int));
+  *silver->i = value%100;
+
+  quant[0] = amount;
+  weight[0] = kg;
+  worth[0] = gold;
+  worth[1] = silver;
+
+  li[count++] = InitLineItem(quant, 1, "Quantity: %i");
+  li[count++] = InitLineItem(weight, 1, "Weight: %f kg");
+  li[count++] = InitLineItem(worth, 2, "Worth: %i G / %i S");
+
+  return count;
+  //worth[1] = silver;
+}
+
 int GetConsumeDesc(line_item_t** li, item_t* item){
   element_value_t* name = GameCalloc("GetConsumeDesc", 1,sizeof(element_value_t));
   element_value_t* base[MAX_LINE_VAL];
@@ -406,21 +468,20 @@ int GetAbilityDesc(line_item_t** li, ability_t* a){
 
   element_value_t* school[1];
 
-  element_value_t* type = GameCalloc("GetWeapDesc",1,sizeof(element_value_t));
+  element_value_t* type = GameCalloc("GetAbilityDesc",1,sizeof(element_value_t));
 
   type->type = VAL_CHAR;
   type->rate = FETCH_ONCE;
   type->c = strdup(SKILL_NAMES[a->skills[0]]);
-
  
   element_value_t* dmg = GameCalloc("GetAbilityDesc", 1,sizeof(element_value_t));
 
   dmg->type = VAL_CHAR;
   dmg->rate = FETCH_ONCE;
   dmg->c = strdup(DAMAGE_STRING[a->school]);
- element_value_t* min_dmg = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
+ element_value_t* min_dmg = GameCalloc("GetAbilityDesc", 1,sizeof(element_value_t));
   min_dmg->i = GameMalloc("GetAbilityDesc",sizeof(int));
-  element_value_t* max_dmg = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
+  element_value_t* max_dmg = GameCalloc("GetAbilityDesc", 1,sizeof(element_value_t));
 
 
   max_dmg->i = GameMalloc("GetAbilityDesc",sizeof(int));
@@ -481,7 +542,11 @@ int GetAbilityDesc(line_item_t** li, ability_t* a){
   costs[1] = resource;
   li[count++] = InitLineItem(base, 1, "%s");
 
-  li[count++] = InitLineItem(school, 1, "School of %s");
+  char *action_str = strdup(ACTION_STRINGS[a->action]);
+  
+  if(action_str && action_str[0] != '\0')
+    li[count++] = InitLineItem(school, 1, action_str);
+
   li[count++] = InitLineItem(costs, 2, "Costs %i %s");
   li[count++] = InitLineItem(vals, 4, "Deals %i - %i %s damage %s.");
   li[count++] = InitLineItem(ranges, 1, "Range: %i tiles");
@@ -523,13 +588,33 @@ int GetWeapDesc(line_item_t** li, item_t* item){
   type->rate = FETCH_ONCE;
   type->c = strdup(DAMAGE_STRING[item->ability->school]);
   
-  element_value_t* dmg[MAX_LINE_VAL];
-  element_value_t* hit[MAX_LINE_VAL];
+  element_value_t* dmg[3];
+  element_value_t* hit[3];
   
   dmg[0] = min_dmg;
   dmg[1] = max_dmg;
   dmg[2] = type;
+
+  element_value_t* duri[2];
+
+  element_value_t* base_d = GameCalloc("GetWeapDesc",1,sizeof(element_value_t));
+
+  element_value_t* cur_d = GameCalloc("GetWeapDesc",1,sizeof(element_value_t));
+
+  base_d->type = VAL_INT;
+  base_d->rate  = FETCH_TURN;
+  base_d->i = GameCalloc("GetWeapDesc",1,sizeof(int));
+
+  cur_d->type = VAL_INT;
+  cur_d->rate  = FETCH_TURN;
+  cur_d->i = GameCalloc("GetWeapDesc",1,sizeof(int));
+
+  *cur_d->i = item->values[VAL_DURI]->val;
+  *base_d->i = item->values[VAL_DURI]->base;
+  duri[0] = cur_d;
+  duri[1] = base_d;
   li[count++] = InitLineItem(dmg, 3, "Deals %i to %i %s Damage");
+  li[count++] = InitLineItem(duri, 2, "Duribility %i out of %i");
   return count;
 }
 
@@ -602,6 +687,9 @@ int CtxGetItemDesc(element_value_t **fill, void* ctx, GameObjectParam p){
       break;
 
   }
+}
+
+int CtxGetStatRelated(element_value_t **fill, local_ctx_t* ctx, GameObjectParam p){
 
 
 }
@@ -611,6 +699,12 @@ int CtxGetStatDetails(element_value_t **fill, local_ctx_t* ctx, GameObjectParam 
     return 0;
 
   stat_t* stat = ParamRead(&ctx->params[p], stat_t);
+ 
+ /* 
+  if(stat->related != STAT_NONE){
+    return CtxGetStatRelated(fill, ctx, p);
+  }
+  */
   element_value_t* lbl = GameCalloc("CtxGetStatDetails", 1,sizeof(element_value_t));
 
   lbl->type = VAL_CHAR;
@@ -926,12 +1020,19 @@ int SetCtxDescription(param_t ctx , line_item_t** li, int pad[UI_POSITIONING]){
           break;
         default:
           break;
-
+        case ITEM_MATERIAL:
+          lines = GetMaterialDesc(li, item);
+          break;
       }
       break;
     case DATA_ABILITY:
       ability_t *a = ParamRead(&ctx, ability_t);
-      lines = GetAbilityDesc(li, a);
+      switch(a->action){
+        case ACTION_MAGIC:
+        case ACTION_WEAPON:
+        lines = GetAbilityDesc(li, a);
+        break;
+      }
       break;
   }
 
@@ -1021,6 +1122,20 @@ int SetParamDescription(line_item_t** li, int count, param_t param){
   }
 
   return 1;
+}
+
+int SetCtxDebug(local_ctx_t* ctx, line_item_t** li, GameObjectParam p){
+
+  switch(p){
+    case PARAM_NAME:
+      break;
+    case PARAM_STATE:
+      break;
+    case PARAM_PRIO:
+      break;
+    case PARAM_ACTION:
+      break;
+  }
 }
 
 int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool combo){
@@ -1144,7 +1259,7 @@ char* ParseString(const char* fmt, char* buffer, size_t buf_size, int num_tokens
             break;
 
           case DATA_FLOAT:
-            snprintf(tmp, sizeof(tmp), "%.1f", ParamReadFloat(p));
+            snprintf(tmp, sizeof(tmp), "%f", ParamReadFloat(p));
             str = tmp;
             break;
         }
@@ -1158,7 +1273,7 @@ char* ParseString(const char* fmt, char* buffer, size_t buf_size, int num_tokens
 
     buffer[out++] = fmt[i];
     //buffer[out] = 0;
-  }
+ }
 }
 char* ParseActivity(activity_t* act, char* buffer, size_t buf_size){
   activity_format_t a = ACT_LOG_FMT[act->kind];

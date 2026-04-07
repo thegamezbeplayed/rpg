@@ -10,7 +10,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 #define ENV_IMAGE_PATH      "asset_env.png"
-#define ATLAS_ASSET_ENV_SPRITE_COUNT    27
+#define ATLAS_ASSET_ENV_SPRITE_COUNT    ENV_DONE
 
 // Atlas sprites array
 static sub_texture_t ENVIRO_SPRITES[ENV_DONE] = {
@@ -31,28 +31,26 @@ static sub_texture_t ENVIRO_SPRITES[ENV_DONE] = {
   { ENV_TREE_PINE, 8, 8, 96, 16, 16, 16, DARKGREEN, 0, 0, 0, 0 },
   { ENV_ROAD, 8, 8, 112, 16, 16, 16, BROWN, 0, 0, 0, 0 },
   { ENV_ROAD_CROSS, 8, 8, 0, 32, 16, 16, BROWN, 0, 0, 0, 0 },
-  { ENV_ROAD_FORK, 8, 8, 16, 32, 16, 16, BROWN, 0, 0, 0, 0 },
-  { ENV_ROAD_TURN, 8, 8, 32, 32, 16, 16, BROWN, 0, 0, 0, 0 },
-  { ENV_TREE_BIGLEAF, 8, 8, 48, 32, 16, 16,DARKGREEN, 0, 0, 0, 0 },
-  { ENV_TREE_CEDAR, 8, 8, 64, 32, 16, 16, DARKGREEN, 0, 0, 0, 0 },
-  { ENV_TREE_DEAD, 8, 8, 80, 32, 16, 16, DARKGRAY, 0, 0, 0, 0 },
-  { ENV_TREE_DYING, 8, 8, 96, 32, 16, 16, DARKGRAY, 0, 0, 0, 0 },
-  { ENV_TREE_FELLED, 8, 8, 112, 32, 16, 16, DARKGRAY, 0, 0, 0, 0 },
-  { ENV_TREE_FIR, 8, 8, 0, 48, 16, 16, DARKGREEN, 0, 0, 0, 0 },
-  { ENV_FOREST, 8, 8, 16, 48, 16, 16, DARKGREEN, 0, 0, 0, 0 },
-  { ENV_WEB, 8, 8, 32, 48, 16, 16, WHITE, 0, 0, 0, 0 },
-  { ENV_DIRT_PATCH, 8, 8, 48, 48, 16, 16, BEIGE, 0, 0, 0, 0 },
-  { ENV_DIRT, 8, 8, 64, 48, 16, 16, BEIGE, 0, 0, 0, 0 },
-  { ENV_CAMP, 8, 8, 80, 48, 16, 16, RED, 0, 0, 0, 0 },
-  { ENV_FLOOR_DUNGEON, 8, 8, 96, 48, 16, 16,GRAY, 0, 0, 0, 0 },
-  { ENV_STONE_WALL, 8, 8, 112, 48, 16, 16, GRAY, 0, 0, 0, 0 },
-  { ENV_WALL_DUNGEON, 8, 8, 0, 64, 16, 16, DARKBROWN, 0, 0, 0, 0 },
-  { ENV_WALL_RUIN, 8, 8, 16, 64, 16, 16,GRAY, 0, 0, 0, 0 },
-  { ENV_DOOR_DUNGEON, 8, 8, 32, 64, 16, 16, DARKGRAY, 0, 0, 0, 0 },
-  { ENV_DOOR_HEAVY, 8, 8, 48, 64, 16, 16, BROWN, 0, 0, 0, 0 },
-  { ENV_DOOR_VAULT, 8, 8, 64, 64, 16, 16, LIGHTGRAY ,0,0, 0, 0 },
-  { ENV_BORDER_DUNGEON, 8, 8, 80, 64, 16, 16,BLACK, 0, 0, 0, 0 },
-  { ENV_FURNITURE_CHAIR , 8, 8, 96, 64, 16, 16, BROWN, 0, 0, 0, 0 },
-  { ENV_EXIT, 8, 8, 112, 64, 16, 16, BLUE},
-
+  { ENV_ROAD_FORK,      8, 8, 16, 32, 16, 16, BROWN},
+  { ENV_ROAD_TURN,      8, 8, 32, 32, 16, 16, BROWN},
+  { ENV_TREE_BIGLEAF,   8, 8, 48, 32, 16, 16,DARKGREEN, 0, 0, 0, 0 },
+  { ENV_TREE_CEDAR,     8, 8, 64, 32, 16, 16, DARKGREEN, 0, 0, 0, 0 },
+  { ENV_TREE_DEAD,      8, 8, 80, 32, 16, 16, DARKGRAY, 0, 0, 0, 0 },
+  { ENV_TREE_DYING,     8, 8, 96, 32, 16, 16, DARKGRAY, 0, 0, 0, 0 },
+  { ENV_TREE_FELLED,    8, 8, 112, 32, 16, 16, DARKGRAY, 0, 0, 0, 0 },
+  { ENV_TREE_FIR,       8, 8, 0, 48, 16, 16, DARKGREEN, 0, 0, 0, 0 },
+  { ENV_FOREST,         8, 8, 16, 48, 16, 16, DARKGREEN, 0, 0, 0, 0 },
+  { ENV_WEB,            8, 8, 32, 48, 16, 16, WHITE, 0, 0, 0, 0 },
+  { ENV_DIRT_PATCH,     8, 8, 48, 48, 16, 16, BEIGE },
+  { ENV_DIRT,           8, 8, 64, 48, 16, 16, BEIGE},
+  { ENV_CAMP,           8, 8, 80, 48, 16, 16, RED},
+  { ENV_FLOOR_DUNGEON,  8, 8, 96, 48, 16, 16,GRAY},
+  { ENV_STONE_WALL,     8, 8, 112, 48, 16, 16, GRAY},
+  { ENV_WALL_DUNGEON,   8, 8, 0, 64, 16, 16, DARKBROWN},
+  { ENV_WALL_RUIN,      8, 8, 16, 64, 16, 16,GRAY},
+  { ENV_DOOR_DUNGEON,   8, 8, 32, 64, 16, 16, DARKGRAY},
+  { ENV_DOOR_HEAVY,     8, 8, 48, 64, 16, 16, BROWN},
+  { ENV_DOOR_VAULT,     8, 8, 64, 64, 16, 16, LIGHTGRAY},
+  { ENV_STONES,         8, 8, 80, 64, 16, 16, GRAY},
+  { ENV_OXIDE,          8, 8, 96, 64, 16, 16, DARKBROWN}
 };

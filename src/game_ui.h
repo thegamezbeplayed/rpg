@@ -14,7 +14,7 @@
 
 #define UI_GRID_WIDTH 6
 #define UI_GRID_HEIGHT 3
-#define ELE_COUNT 41
+#define ELE_COUNT 43
 #if defined(PLATFORM_ANDROID)
 #define DEFAULT_MENU_SIZE (Vector2){GetScreenWidth()/2, GetScreenHeight()/2}
 #define DEFAULT_MENU_THIN_SIZE (Vector2){GetScreenWidth(), 64*UI_SCALE}
@@ -198,6 +198,7 @@ element_value_t* SkillGetPretty(element_value_t* self, param_t context);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
 int SetParamDescription(line_item_t** li, int count, param_t param);
 int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
+int SetCtxDebug(local_ctx_t* , line_item_t**, GameObjectParam);
 element_value_t* SetCtxIcon(param_t, GameObjectParam params[4], int);
 int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
@@ -373,6 +374,8 @@ bool ElementSetActiveTab(ui_element_t* e);
 struct ui_menu_s;
 typedef bool (*MenuCallback)(struct ui_menu_s* self);
 
+element_value_t* GetContext(ui_element_t* e,  param_t context);
+element_value_t* GetDebugContext(ui_element_t* e,  param_t context);
 element_value_t* GetContextParams(ui_element_t* e, param_t context);
 element_value_t* GetSkillContext(ui_element_t* e, param_t context);
 element_value_t* GetContextProgress(ui_element_t* e, param_t context);
@@ -511,6 +514,7 @@ typedef enum{
   TOKE_QUAL,
   TOKE_NAME,
   TOKE_DESC,
+  TOKE_ITEM,
   TOKE_ALL,
 }ParseToken;
 

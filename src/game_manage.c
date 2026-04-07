@@ -107,14 +107,15 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
       act = GameCalloc("InitActivity", 1, sizeof(activity_t));
       act->kind = ACT_STAT_RESTORE;
       stat_t* stat = inter->ctx;
-      if(!stat)
-        DO_NOTHING();
-      name = ParamMakeString(stat->owner->name);
+      ent_t* owner = stat->owner;
+      stat_t* relate = owner->stats[stat->related];
+      
+      name = ParamMakeString(owner->name);
 
       act->tokens[TOKE_OWNER] = name;
       act->tokens[TOKE_AGG] = name;
-      act->tokens[TOKE_STAT] = ParamMakeString(STAT_STRING[stat->related].name);
-      act->tokens[TOKE_AMNT] = ParamMake(DATA_INT, sizeof(int), &stat->current);
+      act->tokens[TOKE_STAT] = ParamMakeString(STAT_STRING[relate->related].name);
+      act->tokens[TOKE_AMNT] = ParamMake(DATA_FLOAT, sizeof(float), &relate->current);
       break;
     case EVENT_LEARN:
       act = GameCalloc("InitActivity", 1, sizeof(activity_t));
@@ -142,6 +143,17 @@ activity_t* InitActivity(EventType event, interaction_t* inter){
       act->str_len+= sname.size;
       act->str_len+= rname.size;
       act->str_len+= name.size;
+      break;
+    case EVENT_ITEM_STORE:
+      act = GameCalloc("InitActivity", 1, sizeof(activity_t));
+      act->kind = ACT_INV;
+      item_t* item = inter->ctx;
+      name = ParamMakeString(item->def->name);
+      act->tokens[TOKE_ITEM] = name;
+      param_t oname = ParamMakeString(item->owner->name);
+      act->tokens[TOKE_WHO] = aname;
+      param_t quant = ParamMake(DATA_INT, sizeof(int), &item->values[VAL_QUANT]->val);
+      act->tokens[TOKE_AMNT] = quant;
       break;
   }
   if(!act)
@@ -176,6 +188,11 @@ void OnActivityEvent(EventType event, void* data, void* user){
       ability_t* a = data;
       inter->uid = a->id;
       inter->ctx = a;
+      break;
+    case EVENT_ITEM_STORE:
+      item_t* item = data;
+      inter->uid = item->gouid;
+      inter->ctx = item;
       break;
   }
       
@@ -231,7 +248,7 @@ void InitActivities(int cap){
   ACT_TRACK.cap = cap;
   WorldTargetSubscribe(EVENT_COMBAT, OnActivityCombat, &ACT_TRACK, player->gouid);
   WorldTargetSubscribe(EVENT_STAT_RESTORE, OnActivityEvent, &ACT_TRACK, player->gouid);
-  WorldTargetSubscribe(EVENT_ITEM_ACQUIRE, OnActivityEvent, &ACT_TRACK, player->gouid);
+  WorldTargetSubscribe(EVENT_ITEM_STORE, OnActivityEvent, &ACT_TRACK, player->gouid);
   WorldTargetSubscribe(EVENT_LEARN, OnActivityEvent, &ACT_TRACK, player->gouid);
   WorldTargetSubscribe(EVENT_SKILL_RANK, OnActivityEvent, &ACT_TRACK, player->gouid);
 }
@@ -391,7 +408,6 @@ InteractResult CombatCalcDmg(combat_t* c){
   
   param_t p_agg = c->cctx[IM_AGGR]->ctx[IP_OWNER];
   local_ctx_t* a_ctx = ParamReadCtx(&p_agg);
-  ent_t* agg = ParamReadEnt(&a_ctx->other);
   param_t p_tar = c->cctx[IM_TAR]->ctx[IP_OWNER];
 
   local_ctx_t* t_ctx = ParamReadCtx(&p_tar);
@@ -399,7 +415,7 @@ InteractResult CombatCalcDmg(combat_t* c){
 
   InteractResult dres = IR_FAIL;
   if(dr)
-    dres = AbilityUse(tar, dr, agg, sim);
+    dres = AbilityUse(tar, dr, a_ctx, sim);
 
   if(dres == IR_TOTAL_SUCC)
     return IR_CRITICAL_FAIL;
@@ -436,9 +452,9 @@ InteractResult CombatCalcHit(combat_t* c){
 
   StatMaxOut(atk->stats[STAT_DAMAGE]);
 
-  ability_sim_t* sim = atk->sim_fn(agg,atk,tar);
+  ability_sim_t* sim = atk->sim_fn(agg,atk);
   c->cctx[IM_AGGR]->ctx[IP_DMG] = ParamCopyObj(DATA_DMG, atk->id, sim, sizeof(ability_sim_t));
-  switch(AbilityUse(tar,save, agg, sim)){
+  switch(AbilityUse(tar,save, a_ctx, sim)){
     case IR_FAIL:
       res = IR_SUCCESS;
       break;

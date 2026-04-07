@@ -34,6 +34,18 @@ static Color col[MAX_ANCHOR_NODES]={
   BROWN
 };
 
+void OnMapCellEvent(EventType event, void* data, void* user){
+  map_cell_t* mc = user;
+
+  switch(event){
+    case EVENT_ENV_DEATH:
+      env_t *e = data;
+      mc->flags &= TILEFLAG_SOLID | TILEFLAG_OBSTRUCT;
+      mc->status = TILE_EMPTY;
+      break;
+  }
+}
+
 Cell PLAYER_SPAWN(void){
   return world_map.player_start;
 }
@@ -60,7 +72,7 @@ void MapCellTurnStep(map_cell_t* m){
   env_t* env = m->tile;
 
   if(m->tile && m->tile->has_resources == 0)
-    EnvSetStatus(m->tile, ENV_STATUS_DEAD);
+    return;
 
   uint64_t occid = occ?occ->gouid:0;
   uint64_t envid = env?env->gouid:0;
@@ -155,7 +167,7 @@ void MapRender(map_grid_t* m){
 }
 
 
-bool MapContextSetTile(Cell c, RoomFlags f){
+bool MapContextSetTile(Cell c, TileFlags f){
   world_map.tiles[c.x][c.y] = f;
 
   return true;
@@ -175,10 +187,10 @@ bool InitMap(void){
   mark_spr[markers++] = InitSpriteByID(ENV_WALL_DUNGEON, SHEET_ENV);
   mark_spr[markers++] = InitSpriteByID(ENV_DOOR_DUNGEON, SHEET_ENV);
   mark_spr[markers++] = InitSpriteByID(ENV_FLOOR_DUNGEON, SHEET_ENV);
-  mark_spr[markers++] = InitSpriteByID(ENV_BORDER_DUNGEON, SHEET_ENV);
+  //mark_spr[markers++] = InitSpriteByID(ENV_BORDER_DUNGEON, SHEET_ENV);
   ctx->level = BoundsFromRec(Rect(99,99,-99,-99));
   ctx->player_start = CELL_UNSET;
-  ctx->decor_density = 15;  
+  ctx->decor_density = 10;  
   bool gen = MapGenerate(ctx);
   
   if(gen){
@@ -239,7 +251,7 @@ void MapRoomSpawn(map_grid_t* m, EntityType data, int room){
   if(RegisterEnt(e)){
     e->map = m;
     EntPrepare(e);
-    m->materials |= MONSTER_MASH[e->type].materials;
+//    m->materials |= MONSTER_MASH[e->type].materials;
 
     SetState(e,STATE_SPAWN,NULL);
   }
@@ -373,7 +385,7 @@ map_room_t* InitMapRoom(map_context_t* ctx, room_t* r){
 
 void WorldMapLoaded(map_grid_t* m){
   map_gen_t mgen = MAPS[m->id];
-  m->materials = BIOME[mgen.biome].materials;
+
   for(int i = 0; i < world_map.num_rooms; i++){
     map_room_t* mr = InitMapRoom(&world_map,world_map.rooms[i]);
   
@@ -704,15 +716,36 @@ Cell MapApplyContext(map_grid_t* m){
   m->height = world_map.height;
   Cell out = CELL_UNSET;
 
+  Biome biome = world_map.map_rules->biome;
+  bool ready = false;
+  choice_pool_t* cp = StartChoice(&m->mat_distri, MAT_ALL, ChooseByFlagsWeighted, &ready);
+  if(!ready){
+    for (int i = 0; i < MAT_ALL; i++){
+      if( BIOME[biome].materials[i] == 0)
+        continue;
+
+      TileFlags f = -1;
+      if(i < MAT_WOOD_END)
+        f = TILEFLAG_TREE; 
+      else if(i > MAT_STONE_START)
+        f = TILEFLAG_STONE;
+
+      MaterialID *mat = GameMalloc("MapApplyContext", sizeof(MaterialID));
+      *mat = i;
+      AddChoiceFlags(cp, i, BIOME[biome].materials[i], mat, NULL, f);
+    }
+  }
   for(int x = 0; x < world_map.width; x++){
     m->tiles[x] = GameCalloc("MapApplyContext", m->height, sizeof(map_cell_t));
     for(int y = 0; y < world_map.height; y++){
       map_cell_t* mc = RegisterMapCell(x,y);
 
       m->tiles[x][y] = *mc;
-      env_t* e = MapSpawn(world_map.tiles[x][y],x,y);
-      if(e)
+      env_t* e = MapSpawn(m, world_map.tiles[x][y],x,y);
+      if(e){
         RegisterEnv(e);
+        WorldTargetSubscribe(EVENT_ENV_DEATH, OnMapCellEvent, &m->tiles[x][y], e->gouid);
+      }
     }
   }
   for(int r = 0; r < world_map.num_rooms; r++)
@@ -984,32 +1017,103 @@ void RoomSpawnMob(map_grid_t* m, room_t* r){
   }
 }
 
+EnvTile MapGetDecor(map_grid_t* m, map_gen_t* gen){
+  EnvTile tile = -1;
 
-env_t* MapSpawn(TileFlags flags, int x, int y){
+  bool ready = false;
+  choice_pool_t* cp = StartChoice(&m->decor, ENV_DONE, ChooseByWeight, &ready);
+  uint32_t decor = TILEFLAG_DEBRIS | TILEFLAG_DECOR;
 
-  if(flags == TILEFLAG_EMPTY)
+  if(!ready){
+    for (int i = 0; i < ENV_DONE; i++){
+      if((EnvTileFlags[i] & gen->map_flag) == 0)
+        continue;
+
+      if((EnvTileFlags[i] & decor) == 0)
+        continue;
+
+      int score = 0;
+
+      TileFlags size = EnvTileFlags[i] & TILE_SIZE_MASK;
+      switch(size){
+        case TILEFLAG_SIZE_XS:
+          score += 1;
+          break;
+        case TILEFLAG_SIZE_SM:
+          score += 25;
+          break;
+        case TILEFLAG_SIZE_MED:
+          score += 12;
+          break;
+        case TILEFLAG_SIZE_L:
+          score += 5;
+          break;
+        case TILEFLAG_SIZE_XL:
+          score += 2;
+          break;
+        default:
+          continue;
+          break;
+      }
+
+      if(EnvTileFlags[i] & TILEFLAG_SOLID)
+        score -= 10;
+
+      if(EnvTileFlags[i] & TILEFLAG_OBSTRUCT)
+        score -= 5;
+
+      AddChoice(cp, i, score, &i, NULL);
+    }
+  }
+  choice_t* c = cp->choose(cp);
+
+  if(c)
+    tile = c->id;
+
+  return tile;
+}
+
+env_t* MapSpawn(map_grid_t* m, TileFlags flags, int x, int y){
+
+  if(flags == TILEFLAG_NONE)
     return NULL;
 
-  EnvTile t = GetTileByFlags(flags|world_map.map_rules->map_flag);
+  if((flags & (TILEFLAG_BORDER | TILEFLAG_EMPTY)) > 0)
+    return NULL;
+
+  EnvTile t = -1;
+  if((flags & (TILEFLAG_DECOR | TILEFLAG_DEBRIS)) > 0)
+    t = MapGetDecor(m, world_map.map_rules);
+  else
+    t = GetTileByFlags(flags|world_map.map_rules->map_flag);
 
   Cell pos = {x,y};
  
-  if(flags & TILEFLAG_BORDER)
-    return NULL;
-
   uint32_t tflags = EnvTileFlags[t];
+
   uint32_t size = GetEnvSize(tflags);
-  env_t* env = InitEnv(t,pos);
+  env_t* env = NULL;
+  m->mat_distri->flags = tflags;
+  MaterialID *mat = GameCalloc("MapSpawn", 1, sizeof(MaterialID));
+  choice_t* mc = m->mat_distri->choose(m->mat_distri);
+  if(mc){
+    mat = mc->context;
+    env = InitEnvFromData(t,pos, *mat, size);
+  }
+  else
+    env = InitEnv(t,pos);
+  
   if(size==0 && ((flags * TILEFLAG_BORDER) == 0))
     return env;
   
   for (int i = 0; i < RES_DONE; i++){
     define_resource_t* temp = GetResourceByCatFlags(BIT64(i), OBJ_ENV, tflags);
-    resource_t *res = GameCalloc("MapSpawn", 1,sizeof(resource_t));
-    env->resources[i] = res;
-    if(!temp)
+
+    if(!temp || env->resources[i])
       continue;
 
+    resource_t *res = GameCalloc("MapSpawn", 1,sizeof(resource_t));
+    env->resources[i] = res;
     res->name = temp->name;
     res->type = temp->type;
     env->has_resources |= temp->type;
@@ -1019,11 +1123,21 @@ env_t* MapSpawn(TileFlags flags, int x, int y){
     *res = (resource_t){
       .type = temp->type,
         .amount = amnt,
-        .attached = temp->attached
+        .attached = temp->attached,
+        .cr       = temp->base_cr,
     };
+    
+    if(env->material > MAT_NO_ID){
+      res->spec = RegisterMaterialByID(env->material, DATA_ENV);
+    }
+    else{
+      MaterialType m = MapMaterialResource(temp->type);
+
+      if (m > 0 && m < MAT_DONE)
+        res->spec = RegisterMaterial(m, DATA_ENV, t, env->name);
+    }
 
     env->smell += temp->smell;
-    env->resources[i]->amount+=amnt;
   }
 
   return env;
@@ -2013,7 +2127,8 @@ MapNodeResult MapGenNodeScan(map_context_t *ctx, map_node_t *node){
     else{
      char* purtext = GetPurposeName(best->flags);
 
-     switch(GetRoomLayout(best->flags)){
+     GetRoomLayout(best->flags);
+     /*
        case ROOM_LAYOUT_HALL:
          TraceLog(LOG_INFO,"%s Hallway placed",purtext);
          break;
@@ -2034,6 +2149,7 @@ MapNodeResult MapGenNodeScan(map_context_t *ctx, map_node_t *node){
          break;
 
      }
+     */
      if(GetRoomLayout(best->flags)==ROOM_LAYOUT_HALL)
        HALL_SCORE *= .8;
 
@@ -2346,10 +2462,6 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   r->num_mobs+=built;
   NUM_MOBS+=built;//r->num_mobs;
   
-  if(built>0){
-
-    TraceLog(LOG_INFO,"NUM MOBS %i",NUM_MOBS);
-  }
   return (built>0);
 }
 
@@ -2360,8 +2472,72 @@ MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node) {
       if(!RoomPlaceSpawns(ctx, ctx->rooms[r]))
         attempts++;
     }
-    TraceLog(LOG_INFO, "====== Spawn Attempts %i =====\n", attempts);
     //EndChoice(ctx->mob_pool,true);
+  }
+
+  return MAP_NODE_SUCCESS;
+}
+
+MapNodeResult MapDecor(map_context_t *ctx, map_node_t *node) {
+  int tile_choices = ctx->width * ctx->height;
+  choice_pool_t* mp = InitChoicePool(tile_choices, ChooseByWeight);
+
+  for(int i = 0; i < ctx->num_rooms; i++){
+    room_t* r =  ctx->rooms[i];
+
+    Rectangle rec = RecFromBounds(&r->bounds);
+    int weight = rec.width * rec.height;
+
+    if(r->is_root)
+      weight += NUM_ANCHORS;
+
+    if(weight < ctx->decor_density)
+      continue;
+
+    int x = r->bounds.min.x;
+    int y = r->bounds.min.y;
+    int wid = r->bounds.max.x;
+    int hei = r->bounds.max.y;
+
+    int cx = r->bounds.center.x;
+    int cy = r->bounds.center.y;
+
+    int dx = r->openings[0]->pos.x;
+    int dy = r->openings[0]->pos.y;
+    
+    for(x; x < wid; x++){
+      weight += abs(cx - x);
+      for(y; y < hei; y++){
+        if(x == dx && y == dy)
+          continue;
+
+        weight += abs(cy - y);
+        Cell *c = GameMalloc("MapDecor", sizeof(Cell));
+        c->x = x;
+        c->y = y;
+        if(TileFlagHas(ctx->tiles[x][y], TILEFLAG_NONE | TILEFLAG_FLOOR))
+          AddChoice(mp, IntGridIndex(x,y), weight, c, DiscardChoice);
+      }
+    }
+  }
+
+  int count = ctx->decor_density;
+
+  uint32_t decor = TILEFLAG_DEBRIS | TILEFLAG_DECOR;
+  int attempts = 0;
+  while(count > 0 && attempts < 20){
+    choice_t* rc = mp->choose(mp);
+
+
+    if(!rc || !rc->context)
+      break;
+
+    Cell* cell = rc->context;
+
+    if(MapContextSetTile(*cell, decor))
+      count--;
+    else
+      attempts++;
   }
 
   return MAP_NODE_SUCCESS;
@@ -2607,7 +2783,6 @@ void MapAssignChallenges(map_context_t *ctx, room_t** rooms, int count){
       if(score<5)
         score+=RoomScore(r);
     }
-    TraceLog(LOG_INFO,"====CHALLENGE====\nscore %i",score);
     AddChoice(picker, i, score, r, DiscardChoice);
   }
 
@@ -2656,7 +2831,6 @@ void MapAssignLairs(map_context_t *ctx, room_t** rooms, int count){
       if(score<5)
         score+=RoomScore(r);
     }
-    TraceLog(LOG_INFO,"===LAIR===\nscore %i",score);
     AddChoice(picker, i, score, r, DiscardChoice);
   }     
       
@@ -2823,7 +2997,6 @@ MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node)
   ctx->height = abs(maxy) + abs(miny);// + ctx->map_rules->border;;
 
 
-  TraceLog(LOG_INFO,"\n=====MAP SIZE ===\n===== WIDTH %i====\n====HEIGHT %i ====\n",ctx->width,ctx->height);
 
   Cell offset = CELL_NEW(-minx,-miny);
 
@@ -2928,20 +3101,6 @@ void MapAddNodeOption(node_option_t opt){
 }
 
 uint64_t MapGetMaterials(map_grid_t* m, MaterialType type){
-  uint64_t mask;
-  switch(type){
-    case MAT_WOOD:
-      mask = MAT_WOOD_MASK;
-      break;
-    case MAT_STONE:
-      mask = MAT_STONE_MASK;
-      break;
-    case MAT_HIDE:
-      mask = MAT_HIDE_MASK;
-      break;
-  }
-
-  return m->materials & mask; 
 }
 
 int GetNeighborFlags(map_context_t* ctx, Cell c, RoomFlags f, Cell *filter){

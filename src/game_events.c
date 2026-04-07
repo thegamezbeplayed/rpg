@@ -553,6 +553,7 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
   LocalEnsureCap(s);
   local_ctx_t* e = &s->entries[s->count++];
 
+  CtxProps props = 0;
   e->other = *entry; 
   switch(entry->type_id){
     case DATA_ENTITY:
@@ -596,6 +597,8 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->resource = tile->has_resources;
       e->dist = cell_distance(pos, tile->pos);
       WorldTargetSubscribe(EVENT_ENV_DEATH, OnWorldByGOUID, s, tile->gouid);
+      props |= CTX_TAR_ENV;
+
       break;
     case DATA_MAP_CELL:
       PRUNES++;
@@ -612,9 +615,13 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       e->dist  = cell_distance(pos, CELL_EMPTY); 
       break;
   }
-  
+  if(e->resource > 0)
+    props |= CTX_HAS_RESOURCE;
+
+  e->params[PARAM_PROPS] = ParamMake(DATA_UINT64, sizeof(CtxProps), &props);
   WorldTargetSubscribe(EVENT_UPDATE_LOCAL_CTX, OnWorldByGOUID, s, e->gouid);
   e->params[PARAM_RESOURCE] = ParamMake(DATA_UINT64, sizeof(e->resource), &e->resource);
+  
   HashPut(&s->ctx_by_gouid, e->gouid, e);
   WorldEvent(EVENT_ADD_LOCAL_CTX, e, 0);
   return e;
@@ -825,7 +832,7 @@ void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
   local_ctx_t* lctx;
 
   ent_t* e = s->owner;
-  
+ 
   switch(ctx->other.type_id){
     case DATA_ENTITY:
       ent_t* ent = ParamReadEnt(&ctx->other);
@@ -851,7 +858,14 @@ void AddLocalFromCtx(local_table_t *s, local_ctx_t* ctx){
   if(lctx){
     lctx->path = NULL;
     lctx->scores[SCORE_PATH] = -1;
-    lctx->params[PARAM_RESOURCE] = ctx->params[PARAM_RESOURCE];
+
+    for(int i = 0; i < PARAM_ALL; i++){
+      if(ctx->params[i].type_id != DATA_NONE
+          && lctx->params[i].type_id == DATA_NONE)
+      lctx->params[i] = ctx->params[i];
+    }
+
+    lctx->props = ctx->props;
     lctx->last_update = -1;
     HashPut(&s->ctx_by_gouid, lctx->gouid, lctx);
     lctx->ctx_revision = -1;
@@ -1183,7 +1197,7 @@ bool LocalContextCheck(local_ctx_t* ctx){
   }
 }
 
-int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_t filter, GameObjectParam type, ParamCompareFn fn){
+int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_t filter, GameObjectParam type, ParamCompareFn fn, float awareness){
 
   if(!t || t->count == 0)
     return 0;
@@ -1196,7 +1210,7 @@ int LocalContextFilter(local_table_t* t, int num, local_ctx_t* pool[num], param_
     local_ctx_t* ctx = &t->entries[k];
 
     i++;
-    if(ctx->awareness < 1)
+    if(ctx->awareness < awareness)
       continue;
 
     if(ctx->params[type].type_id != filter.type_id)

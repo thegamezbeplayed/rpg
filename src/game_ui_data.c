@@ -421,15 +421,14 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     .num_children = 1, .kids = {"CONTEXT_SHEET"},
   },
   {"CONTEXT_SHEET", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_CONTAINER,
-    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_CENTER, NULL,
-    ElementGetScreenSelection, 
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_CENTER, GetContext,
+    ElementPresetContext, 
     {
       [ELEMENT_LOAD] = ElementScreenContext,
-      [ELEMENT_IDLE] = ElementSyncContext,
+      [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
     },
-    .num_children = 3, .kids = {
-      "NAME_LABEL",
+    .num_children = 1, .kids = {
       "CHARACTER_LINE_NAME_VAL",
       "CHARACTER_LINE_NAME_VAL"
     },
@@ -461,10 +460,11 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowPrimary,
     },
-    .num_children = 2, .kids = "ABILITY_LIST",
+    .num_children = 3, .kids = "ABILITY_LIST",
     .params = {
       {PARAM_SLOT_SPELL},
       {PARAM_SLOT_ATTACK},
+      {PARAM_SLOT_ITEM}
     }
   },
   {"ABILITY_LIST", VECTOR2_ZERO, VECTOR2_ZERO, UI_GROUP,
@@ -536,6 +536,28 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_LOAD] = ElementActivityContext,
       [ELEMENT_IDLE] = ElementShowContext,
     }
+  },
+  {"DEBUG_SHEET", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_BOT,
+    NULL, ElementGetOwnerContext,
+    .cb = {
+      [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementActivateChildren,
+    },
+    .num_children = 4, .kids = {"DEBUG_LINE"},
+    .params = {
+      {PARAM_NAME},
+      {PARAM_STATE},
+      {PARAM_PRIO},
+      {PARAM_ACTION},
+    }
+  },
+  {"DEBUG_LINE", VECTOR2_ZERO, LABEL_LOG, UI_LABEL,
+    ELEMENT_NONE, LAYOUT_HORIZONTAL, ALIGN_LEFT,
+    GetDebugContext, ElementGetOwnerContext,
+    .cb = {
+      [ELEMENT_LOAD] = ElementSetContext,
+    }
   }
 };
 
@@ -552,7 +574,9 @@ activity_format_t ACT_LOG_FMT[ACT_ALL] = {
   {ACT_LEARN, NARRATE_FIRST, TENSE_PRESENT,
     "{WHO} {LEARN} {ABILITY} rank {QUAL}"},
   {ACT_SKILL, NARRATE_FIRST, TENSE_PRESENT,
-  "{WHO} has reached rank {RANK} in {SKILL}"}
+  "{WHO} has reached rank {RANK} in {SKILL}"},
+  {ACT_INV, NARRATE_FIRST, TENSE_PRESENT,
+    "{WHO} has acquired {AMNT} {ITEM}"}
 };
 
 token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
@@ -580,5 +604,6 @@ token_lookup_t TOKEN_TABLE[TOKE_ALL] = {
   {"DOES",   TOKE_DOES},
   {"USES",   TOKE_USES},
   {"QUAL",   TOKE_QUAL},
-  {"DESC",   TOKE_DESC}
+  {"DESC",   TOKE_DESC},
+  {"ITEM",   TOKE_ITEM}
 };

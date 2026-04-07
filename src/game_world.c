@@ -302,6 +302,11 @@ bool RegisterEnv( env_t *e){
  if(res)
    e->map_cell->in_ctx = true;
 
+ for(int i = 0; i < RES_DONE; i++){
+   if(e->resources[i])
+     e->resources[i]->owner = e->gouid;
+ }
+
  world.map->updates = true;
  return true;
 }
@@ -401,6 +406,7 @@ void OnWorldByGOUID(EventType event, void* data, void* user){
   switch(event){
     case EVENT_ENV_DEATH:
     case EVENT_ENT_DEATH:
+    case EVENT_DEL_LOCAL_CTX:
       LocalPruneCtx(table, *gouid);
       break;
     case EVENT_UPDATE_LOCAL_CTX:
@@ -502,10 +508,11 @@ void WorldInitOnce(){
   InitInput(player);
 
   LootDraw(player, LF_WEAP, true, 1000, 1);
+  LootDraw(player, LF_TOOL, false, 1500, 1);
   LootDraw(player, LF_ARMOR, true, 30, 1);
-  LootDraw(player, LF_TOME, false, 1000, 6);
+  LootDraw(player, LF_TOME, false, 1000, 2);
   //LootDraw(player, LF_SCROLL, false, 1000, 2);
-  //LootDraw(player, LF_MANUAL, false, 1000, 2);
+  LootDraw(player, LF_MANUAL, false, 1000, 4);
   LootDraw(player, LF_POT, false, 1000, 4);
   WorldValidateContext();
   WorldEvent(EVENT_ENT_STEP, player, player->gouid);
@@ -620,13 +627,6 @@ void PrepareWorldRegistry(void){
 
   world.items = InitItemPool(); 
 
-  for (int i = 0; i < GEAR_DONE; i++){
-    if(room_items[i].id== GEAR_DONE)
-      break;
-
-    RegisterItem(room_items[i]);
-  }
-
   int f_count = ARRAY_COUNT(FACTION_DEFS);
   for(int i = 0; i < f_count; i++){
     RegisterFaction(FACTION_DEFS[i].name);
@@ -648,7 +648,7 @@ void PrepareWorldRegistry(void){
 
 void InitWorld(void){
   if(MapGetStatus()==GEN_DONE){
-    world.level = InitLevel();
+    world.level = &Level;
     world.map =  InitMapGrid();
     Cell player_pos = MapApplyContext(world.map);
     

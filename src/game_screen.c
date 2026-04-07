@@ -308,7 +308,7 @@ void ScreenSyncMouse(void){
 
   //TODO TURN BACK ON AND FIX
   mousectrl.pos = GetMousePosition();
-  //ScreenMouseFindContext();
+  ScreenMouseFindContext();
   /*
   if(!mousectrl.target && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
 

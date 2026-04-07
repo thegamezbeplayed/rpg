@@ -2,8 +2,6 @@
 #define __GAME_LIST__
 #include "game_define.h"
 
-
-
 static faction_t FACTION_DEFS[3] = {
   {"Dark Legion",
     SPEC_GOBLINOID | SPEC_ORC | SPEC_SULKING,
@@ -191,6 +189,7 @@ static skill_rate_relation_t SKILLRATE_LOOKUP[RATE_DONE]={
       [SKILL_ARMOR_LEATHER] = true,
       [SKILL_ARMOR_CHAIN] = true,
       [SKILL_ARMOR_PLATE] = true,
+      [SKILL_STONE]       = true,
     }
   },
   {RATE_ALL_OR_NOTHING,
@@ -1128,7 +1127,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {75,67}, 3,
     .65,
     SOC_INSTINCTIVE,
-    RES_BLOOD,
+    RES_BLOOD | RES_SCALE,
     RES_BLOOD,
   },
   {ENT_SPIDER, "Spider",
@@ -1171,14 +1170,13 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {32,0}, 2,
       .975,
       SOC_FERAL,
-      RES_MEAT | RES_BONE | RES_BLOOD,
+      RES_MEAT | RES_BONE | RES_BLOOD | RES_HIDE | RES_FUR,
       RES_MEAT|RES_BONE,
       .flags = {
         PQ_LARGE | PQ_DENSE_MUSCLE | PQ_LARGE_HANDS,
       0, PQ_SHARP_CLAWS | PQ_SHARP_TEETH | PQ_TOUGH_CLAWS,
       PQ_THICK_FUR | PQ_TOUGH_HIDE
       },
-      .materials = MAT_HIDE_BEAR
   },
   {ENT_WOLF, "Wolf",
       MOB_SPAWN_LAIR | MOB_SPAWN_CHALLENGE |
@@ -1189,12 +1187,11 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {64,0}, 1,
       0.65,
       SOC_FERAL,
-      RES_MEAT | RES_BONE | RES_BLOOD,
-      RES_MEAT|RES_BONE,
+      RES_MEAT | RES_BONE | RES_BLOOD | RES_HIDE | RES_FUR,
+      RES_MEAT | RES_BONE,
       .flags = {
         PQ_SENSITIVE_NOSE
       },
-      .materials = MAT_HIDE_WOLF
   },
   {ENT_RAT, "Rat",
       MOB_MOD_ENLARGE |
@@ -1206,9 +1203,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       {24,69}, 1,
       .25,
       SOC_HIVE,
-      RES_MEAT | RES_BONE | RES_BLOOD,
+      RES_MEAT | RES_BONE | RES_BLOOD | RES_HIDE | RES_FUR,
       RES_BLOOD | RES_VEG,
-      .materials = MAT_HIDE_RAT
   },
   {ENT_SKELETON,"Skeleton",
     MOB_THEME_MONSTER
@@ -1223,9 +1219,8 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {60,0}, 2,
     0.375,
     SOC_FAMILY,
-    RES_MEAT | RES_BONE | RES_BLOOD,
+    RES_MEAT | RES_BONE | RES_BLOOD | RES_HIDE | RES_FUR,
     RES_VEG,
-    .materials = MAT_HIDE_DEER
   },
   {ENT_KOBOLD, "Kobold",
     MOB_MOD_WEAPON | MOB_LOC_FOREST | MOB_LOC_CAVE |
@@ -1252,7 +1247,7 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     {54,8}, 3,
     1.25,
     SOC_PRIMITIVE,
-    RES_MEAT | RES_BONE | RES_BLOOD,
+    RES_MEAT | RES_BONE | RES_BLOOD | RES_HIDE | RES_FUR,
     RES_MEAT|RES_BONE,
     .flags = {
       PQ_LARGE_HANDS | PQ_LARGE_NOSE | PQ_TALL | PQ_DENSE_MUSCLE | PQ_LONG_LIMB,
@@ -1521,6 +1516,7 @@ static skill_relation_t SKILLUP_RELATION[MAG_DONE] = {
     .skills = {
       [SKILL_STEALTH]          = true,
       [SKILL_SURV]             = true,
+      [SKILL_SKIN]             = true,
       [SKILL_THEFT]            = true,
       [SKILL_WEAP_MACE]        = true,
       [SKILL_WEAP_SWORD]       = true,
@@ -1566,6 +1562,9 @@ static skill_relation_t SKILLUP_RELATION[MAG_DONE] = {
   }
 
 };
+static skill_category_relation_t SKILL_CAT_REL[SKILL_DONE] = {
+  [SKILL_SURV] = {SKILL_SURV, SKILL_CAT_ADVENTURE, MAG_MINOR},
+}; 
 
 static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {
   {SLOT_ATTACK,
@@ -1579,7 +1578,7 @@ static define_slot_actions SLOTS_ALLOWED[SLOT_ALL] = {
       [ACTION_PASSIVE] = true,  
     }
   },
-  {SLOT_ITEM, {[ACTION_ITEM]=true}},
+  {SLOT_ITEM, {[ACTION_ITEM]=true, [ACTION_INTERACT] = true}},
   {SLOT_SPELL, {[ACTION_MAGIC]=true}, STAT_ENERGY},
   {SLOT_SAVE, {[ACTION_SAVE]=true}},
 };
@@ -1600,6 +1599,14 @@ static define_burden_t BURDEN_LIMITS[INV_DONE][6] = {
     {PQ_HUGE, 30000},
     {PQ_GIG, 60000},
     {0, 12000},
+  },
+  [INV_BELT] = {
+    {PQ_TINY,   1000},
+    {PQ_SMALL, 2000},
+    {PQ_LARGE, 5000},
+    {PQ_HUGE, 7500},
+    {PQ_GIG, 15000},
+    {0, 4000}
   },
   [INV_PACK] = {
     {PQ_TINY, 3000},
@@ -1637,9 +1644,9 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
   },
   {INV_BELT,
     {
-      [ITEM_CONSUMABLE]=4, [ITEM_CONTAINER]=2, [ITEM_WEAPON] = 2
+      [ITEM_TOOL] = 2, [ITEM_CONSUMABLE]=4, [ITEM_CONTAINER]=2, [ITEM_WEAPON] = 2
     },
-    0,
+    5,
     12,
     0x1000
   },
@@ -1660,7 +1667,7 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
     0x0050
   },
   {INV_PACK,
-    {[ITEM_CONSUMABLE] = 10},
+    {[ITEM_MATERIAL] = 20, [ITEM_CONSUMABLE] = 10, [ITEM_TOOL] = 2},
     .cap = 10, .max = 20,
     .base_size = 0xA000
   },
@@ -1730,8 +1737,8 @@ static skill_proficiency_bonus_t GRANTS_PB[SKILL_DONE] = {
   [SKILL_NATURE]        =  {SKILL_NATURE, SKILL_CAT_ADVENTURE},         
   [SKILL_PAINT]         =  {SKILL_PAINT, SKILL_CAT_CRAFT,},          
   [SKILL_PERCEPT]       =  {SKILL_PERCEPT, SKILL_CAT_SOCIAL,
-    10,
     SKILL_STEALTH,
+    10,
     ATTR_WIS,
     PC_HIT
   },        
@@ -1741,7 +1748,9 @@ static skill_proficiency_bonus_t GRANTS_PB[SKILL_DONE] = {
   [SKILL_POISON]        =  {SKILL_POISON, SKILL_CAT_CRAFT,},         
   [SKILL_POTT]          =  {SKILL_POTT, SKILL_CAT_CRAFT,},           
   [SKILL_RELIG]         =  {SKILL_RELIG, SKILL_CAT_EDU},          
+  [SKILL_SKIN]          =  {SKILL_SKIN, SKILL_CAT_GATHER},
   [SKILL_SLEIGHT]       =  {SKILL_SLEIGHT, SKILL_CAT_ADVENTURE},        
+  [SKILL_SMELT]         =  {SKILL_SMELT, SKILL_CAT_CRAFT,},          
   [SKILL_SMITH]         =  {SKILL_SMITH, SKILL_CAT_CRAFT,},          
 
   [SKILL_SPELL_ABJ]     =  {SKILL_SPELL_ABJ, SKILL_CAT_SPELL,},      
@@ -1759,7 +1768,12 @@ static skill_proficiency_bonus_t GRANTS_PB[SKILL_DONE] = {
     ATTR_DEX,
     PC_SAVE
   },        
-  [SKILL_STONE]         =  {SKILL_STONE, SKILL_CAT_CRAFT,},          
+  [SKILL_STONE]         =  {SKILL_STONE, SKILL_CAT_GATHER,
+    SKILL_NONE,
+    5,
+    ATTR_STR,
+    PC_HIT
+  },          
   [SKILL_SURV]          =  {SKILL_SURV, SKILL_CAT_ADVENTURE,},           
   [SKILL_TINK]          =  {SKILL_TINK, SKILL_CAT_CRAFT,},           
   [SKILL_THEFT]         =  {SKILL_THEFT, SKILL_CAT_ADVENTURE,},          
@@ -1803,5 +1817,4 @@ static define_skill_gain_t SKILL_GAIN[AT_DONE][10] = {
   }
 
 };
-
 #endif

@@ -6,6 +6,7 @@
 
 #include "game_helpers.h"
 #include "game_strings.h"
+
 ent_t* ParamReadEnt(const param_t* o) {
   if(o && o->type_id == DATA_ENTITY)
     return (ent_t*)o->data;
@@ -97,41 +98,66 @@ define_resource_t DEF_RES[20] = {
   {"Bone", RES_BONE,
     OBJ_ENV,
     TILEFLAG_BONE, TILEFLAG_BORDER,
-    2, 1
+    1, 1, 5,
   },
   {"Wood", RES_WOOD,
     OBJ_ENV,
     TILEFLAG_TREE | TILEFLAG_FOREST,
     TILEFLAG_BORDER,
-    3, 3
+    2, 3, 2
   },
   {"Vegetation", RES_VEG,
     OBJ_ENV,
     TILEFLAG_NATURAL,
     TILEFLAG_TREE | TILEFLAG_FOREST,
-    2, 5,
+    1, 5, 3,
     RES_WATER
   },
   {"Water", RES_WATER,
     OBJ_ENV,
     TILEFLAG_NATURAL, TILEFLAG_BORDER,
-    1, 2
+    1, 2, 3
   },
   {"Stone", RES_STONE,
     OBJ_ENV,
     TILEFLAG_STONE, TILEFLAG_BORDER,
-    2, 1
+    0.75f, 1, 3
   },
   {"Flesh", RES_MEAT,
     OBJ_ENT,
     TILEFLAG_NONE,TILEFLAG_BORDER,
-    .smell = 5
+    .smell = 5,
+    .base_cr = 5
   },
   {"Blood", RES_BLOOD,
     OBJ_ENT,
     TILEFLAG_NONE,TILEFLAG_BORDER,
-    .smell = 5
+    .smell = 5,
+    .base_cr = 7
   },
+  {"Hide", RES_HIDE,
+    OBJ_ENT,
+    TILEFLAG_NONE,TILEFLAG_BORDER,
+    .smell = 4,
+    .base_cr = 4
+  },
+  {"Fur", RES_FUR,
+    OBJ_ENT,
+    TILEFLAG_NONE,TILEFLAG_BORDER,
+    .smell = 6,
+    .base_cr = 2,
+  },
+  {"Scale", RES_SCALE,
+    OBJ_ENT,
+    TILEFLAG_NONE,TILEFLAG_BORDER,
+    .smell = 1,
+    .base_cr = 4
+  },
+  {"Ore", RES_METAL,
+    OBJ_ENV,
+    TILEFLAG_NONE,TILEFLAG_BORDER,
+    0.125f, 2, 10
+  }
 };
 
 species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)] = {
@@ -271,7 +297,7 @@ ability_t ABILITIES[ABILITY_DONE]={
    .image_id = SPELL_MISSILE,
    .vals = {[VAL_QUANT] = 3}
  },
-  {ABILITY_ELDRITCH_BLAST, AT_DMG,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_FACING, 30, 8, 14, 1, 10, 3, 2, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
+  {ABILITY_ELDRITCH_BLAST, AT_DMG,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SEL_TAR, 30, 8, 14, 3, 3, 3, 2, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
    .skills = SKILL_SPELL_EVO,
    .image_id = SPELL_FLARE
   },
@@ -358,6 +384,36 @@ ability_t ABILITIES[ABILITY_DONE]={
 
   
   },
+  {ABILITY_TOOL_SKIN, AT_SKILL, ACTION_INTERACT,
+   .targeting = DES_REQ, ATTR_NONE, ATTR_DEX,
+    .skills = SKILL_SKIN, .use_fn = AbilityInteract,
+    .params = {[PARAM_RESOURCE] = RES_HIDE | RES_FUR | RES_MEAT},
+    .req = CTX_METHOD_EXTRACT | CTX_HAS_RESOURCE | CTX_TAR_ENV,
+    .vals = {
+      [VAL_DMG] = 6, [VAL_DMG_DIE] = 2, [VAL_HIT] = 12,
+      [VAL_DRAIN] = 1, [VAL_REACH] = 1, [VAL_DMG_BONUS] = 1
+    }
+  },
+  {ABILITY_TOOL_MINE, AT_SKILL, ACTION_INTERACT,
+    .targeting = DES_REQ, ATTR_NONE, ATTR_STR,
+    .skills = SKILL_STONE, .use_fn = AbilityInteract,
+    .req = CTX_METHOD_EXTRACT | CTX_HAS_RESOURCE | CTX_TAR_ENV,
+    .params = {[PARAM_RESOURCE] = RES_STONE},
+    .vals = {
+      [VAL_DMG] = 6, [VAL_DMG_DIE] = 4, [VAL_HIT] = 12,
+      [VAL_DRAIN] = 2, [VAL_REACH] = 1, [VAL_DMG_BONUS] = 2
+    }
+  },
+  {ABILITY_TOOL_SMELT, AT_SKILL, ACTION_INTERACT,
+    .targeting = DES_INTERFACE, ATTR_NONE, ATTR_WIS,
+    .skills = SKILL_SMELT, .use_fn = AbilityProcess,
+    .req = CTX_METHOD_PROCESS | CTX_HAS_RESOURCE,
+    .params = {[PARAM_RESOURCE] = RES_STONE},
+    .vals = {
+      [VAL_DRAIN] = 2,
+
+    }
+  }
 };
 
 item_fn_t item_funcs[ITEM_DONE] = {
@@ -370,60 +426,198 @@ item_fn_t item_funcs[ITEM_DONE] = {
   },
   {ITEM_CONSUMABLE, .num_equip = 1, .num_use = 1, .on_equip = ItemAddAbility, .on_use =ItemSkillup},
   {ITEM_CONTAINER},
+  [ITEM_TOOL] = {ITEM_TOOL,.num_equip = 1, .on_equip = ItemAddAbility, .on_acquire = ItemAddUse},
   {ITEM_DONE}
 };
 
 weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
   {WEAP_NONE},
   {WEAP_MACE, "Mace",
-    550,1250,0,1,0, 50,
+    PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
+    PROP_WEAP_NONE,
+    PROP_MAT_TOOLING,
     .ability = ABILITY_WEAP_BLUDGEON,
     .skill = SKILL_WEAP_MACE,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
-    0x0200
+    .vals = {
+      [VAL_WORTH]   = 250,
+      [VAL_PENN]    = 0,
+      [VAL_SCORE]   = 25,
+      [VAL_WEIGHT]  = 1250,
+      [VAL_SIZE]    = 512,
+      [VAL_STORAGE] = 512,
+      [VAL_DURI]    = 64,
+      [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 0, 
+      [VAL_HIT]     = 14,
+    }
   },
   {WEAP_SWORD, "Sword",
-    900,1000,0,1,0, 30,
+    PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
+    PROP_WEAP_NONE,
+    PROP_MAT_TOOLING | PROP_MAT_BLADE,
     .ability = ABILITY_WEAP_SLASH,
     .skill = SKILL_WEAP_SWORD,
      STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
-    0x0400
+    .vals = {
+      [VAL_WORTH]   = 600,
+      [VAL_PENN]    = 0,
+      [VAL_SCORE]   = 10,
+      [VAL_WEIGHT]  = 1000,
+      [VAL_SIZE]    = 1024,
+      [VAL_STORAGE] = 1024,
+      [VAL_DURI]    = 32,
+      [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 0,
+      [VAL_HIT]     = 9,
+    }
   },
   {WEAP_AXE,"Axe",
-    650,1250,1,0,1, 50,
+    PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
+    PROP_WEAP_NONE,
+    PROP_MAT_TOOLING | PROP_MAT_BLADE,
     .ability = ABILITY_WEAP_CHOP, 
     .skill = SKILL_WEAP_AXE,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
-    0x0300
+    .vals = {
+      [VAL_WORTH]   = 300,
+      [VAL_PENN]    = 1,
+      [VAL_SCORE]   = 20,
+      [VAL_WEIGHT]  = 1250,
+      [VAL_SIZE]    = 768,
+      [VAL_STORAGE] = 768,
+      [VAL_DURI]    = 48,
+      [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 0,
+      [VAL_HIT]     = 13,
+    }
   },
   {WEAP_DAGGER, "Dagger",
-    200, 500,0, 1,0, 40,
+    PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
+    PROP_WEAP_NONE,
+    PROP_MAT_TOOLING | PROP_MAT_BLADE,
     .ability = ABILITY_WEAP_STAB,
     .skill = SKILL_WEAP_DAGGER,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
-    0x0100
+    .vals = {
+      [VAL_WORTH]   = 275,
+      [VAL_PENN]    = 0,
+      [VAL_SCORE]   = 15,
+      [VAL_WEIGHT]  = 500,
+      [VAL_SIZE]    = 256,
+      [VAL_STORAGE] = 256,
+      [VAL_DURI]    = 32,
+      [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 0,
+      [VAL_HIT]     = 12,
+    }
   },
   {WEAP_JAVELIN, "Javelin",
-    5, 850, 0, 1, 2, 20,
+    PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
+    PROP_WEAP_NONE,
+    PROP_MAT_TOOLING | PROP_MAT_BLADE,
     .ability = ABILITY_WEAP_PIERCE,
     .skill = SKILL_WEAP_SPEAR,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
-    0x0300
+    .vals = {
+      [VAL_WORTH]   = 5,
+      [VAL_PENN]    = 0,
+      [VAL_SCORE]   = 5,
+      [VAL_WEIGHT]  = 750,
+      [VAL_SIZE]    = 768,
+      [VAL_STORAGE] = 768,
+      [VAL_DURI]    = 4,
+      [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 2,
+    }
+
   },
   {WEAP_BOW, "Bow",
-    2500,1250,0,2,0, 50,
-    .w_props = PROP_WEAP_AMMO | PROP_WEAP_TWO_HANDED,
+    PROP_MAT_WOOD,
+    PROP_WEAP_AMMO | PROP_WEAP_TWO_HANDED,
+    PROP_MAT_TOOLING,
     .ability = ABILITY_WEAP_RANGE_PIERCE,
     .skill = SKILL_WEAP_BOW,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
-    0x0600
+    .vals = {
+      [VAL_WORTH]   = 300,
+      [VAL_PENN]    = 0,
+      [VAL_SCORE]   = 10,
+      [VAL_WEIGHT]  = 1250,
+      [VAL_SIZE]    = 1536,
+      [VAL_STORAGE] = 1536,
+      [VAL_DURI]    = 128,
+      [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 2,
+    }
   },
+};
+
+tool_def_t TOOL_TEMPLATES[TOOL_DONE] = {
+  [TOOL_KNIFE] = {TOOL_KNIFE, "Carving Knife",
+    PROP_MAT_STONE | PROP_MAT_METAL | PROP_MAT_BONE,
+    0,
+    .vals = {
+      [VAL_DMG]     = 4,
+      [VAL_DMG_DIE] = 1,
+      [VAL_ADV_HIT] = -1,
+      [VAL_ADV_DMG] = -1,
+      [VAL_REACH]   = 1,
+      [VAL_WEIGHT]  = 400,
+      [VAL_SIZE]    = 0x0100,
+      [VAL_WORTH]   = 150,
+      [VAL_SCORE]   = 25,
+      [VAL_DRAIN]   = 1,
+      [VAL_STORAGE] = 0x0080
+    },
+    .skills = {SKILL_WEAP_DAGGER},
+    .ability = ABILITY_WEAP_STAB,
+    .use = ABILITY_TOOL_SKIN,
+    .reagents = RES_BONE | RES_STONE | RES_METAL,
+    .icon = ICON_KNIFE
+  },
+  [TOOL_PICKAXE] = { TOOL_PICKAXE, "Pickaxe",
+    PROP_MAT_STONE | PROP_MAT_METAL,
+    0,
+    .vals = {
+      [VAL_DMG]     = 4,
+      [VAL_DMG_DIE] = 1,
+      [VAL_ADV_HIT] = -1,
+      [VAL_ADV_DMG] = -1,
+      [VAL_REACH]   = 1,
+      [VAL_WEIGHT]  = 700,
+      [VAL_SIZE]    = 0x0300,
+      [VAL_WORTH]   = 250,
+      [VAL_SCORE]   = 25,
+      [VAL_DRAIN]   = 2,
+      [VAL_STORAGE] = 0x0100
+    },
+    .skills = {SKILL_WEAP_PICK},
+    .use = ABILITY_TOOL_MINE,
+    .reagents = RES_STONE | RES_METAL,
+    .icon = ICON_PICK
+  },
+  [TOOL_CRUCIBLE] = { TOOL_CRUCIBLE, "Crucible",
+    PROP_MAT_STONE,
+    .vals = {
+      [VAL_SIZE]    = 1024,
+      [VAL_WEIGHT]  = 768,
+      [VAL_STORAGE] = 512,
+      [VAL_WORTH]   = 150,
+      [VAL_SCORE]   = 20,
+      [VAL_DMG]     = 4,
+      [VAL_DMG_DIE] = 1
+    },
+    .skills = {SKILL_SURV},
+    .use = ABILITY_TOOL_SMELT,
+    .icon = ICON_BUCKET,
+  }
 };
 
 WeaponType GetWeapTypeBySkill(SkillType s){
@@ -435,53 +629,108 @@ WeaponType GetWeapTypeBySkill(SkillType s){
 
 armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
   {ARMOR_NONE},
-  {ARMOR_NATURAL,"", 4,
+  {ARMOR_NATURAL,"", 
     .skill = SKILL_ARMOR_NATURAL,
+    .vals = {
+      [VAL_SAVE] = 4,
+    }
   },
-  {ARMOR_CLOTH, "Shirt", 6,
+  {ARMOR_CLOTH, "Shirt",
     {},
     {},
-    1, 5, 50, ATTR_NONE, ATTR_NONE, 0, 0,
+    ATTR_NONE, ATTR_NONE, 0, 0,
+    .i_props = PROP_MAT_CLOTH,
+    .m_props = PROP_MAT_CLOTHING,
     .skill = SKILL_ARMOR_CLOTH,
     STORE_WORN,
     {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
-    0x0700 
+    .vals = {
+      [VAL_SAVE]    = 6,
+      [VAL_WEIGHT]  = 1,
+      [VAL_WORTH]   = 5,
+      [VAL_DURI]    = 50,
+      [VAL_STORAGE] = 1792, 
+      [VAL_SIZE]    = 1792, 
+      [VAL_SCORE]   = 25,
+    }
   },
-  {ARMOR_PADDED, "Shirt", 8,
+  {ARMOR_PADDED, "Shirt",
     {},
     {},
-    1, 5, 100, ATTR_DEX,ATTR_NONE,10,0,
+    ATTR_DEX,ATTR_NONE,10,0,
+   .i_props = PROP_MAT_CLOTH | PROP_MAT_FUR,
+    .m_props = PROP_MAT_CLOTHING,
    .skill = SKILL_ARMOR_PADDED,
     STORE_WORN,
     {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
-    0x1000
+    .vals = {
+      [VAL_SAVE]    = 8,
+      [VAL_WEIGHT]  = 2,
+      [VAL_WORTH]   = 6,
+      [VAL_DURI]    = 100,
+      [VAL_STORAGE] = 4096,
+      [VAL_SIZE]    = 4096,
+      [VAL_SCORE]   = 20,
+    }
   },
-  {ARMOR_LEATHER, "Vest", 10, 
+  {ARMOR_LEATHER, "Vest", 
     {{[DMG_SLASH]=1,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
-    4,10,200,ATTR_DEX,ATTR_NONE,10,0,
+    ATTR_DEX,ATTR_NONE,10,0,
+    .i_props = PROP_MAT_LEATHER | PROP_MAT_HIDE,
+    .m_props = PROP_MAT_CLOTHING,
     .skill = SKILL_ARMOR_LEATHER,
     STORE_WORN,
     {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
-    0x1000
+    .vals = {
+      [VAL_SAVE]    = 10,
+      [VAL_WEIGHT]  = 4,
+      [VAL_WORTH]   = 10,
+      [VAL_DURI]    = 200,
+      [VAL_STORAGE] = 4096,
+      [VAL_SIZE]    = 4096,
+      [VAL_SCORE]   = 15,
+    }
   },
-  {ARMOR_CHAIN, "Mail Shirt", 12, 
+  {ARMOR_CHAIN, "Mail Shirt", 
     {{[DMG_SLASH]=2,[DMG_PIERCE]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1},{}},
-    8,25,400,ATTR_DEX,ATTR_STR,2,9,
+    ATTR_DEX,ATTR_STR,2,9,
+    .i_props = PROP_MAT_METAL,
+    .m_props = PROP_MAT_CLOTHING,
     .skill = SKILL_ARMOR_CHAIN,
     STORE_WORN,
     {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
-    0x0800
+    .vals = {
+      [VAL_SAVE]    = 12,
+      [VAL_WEIGHT]  = 8,
+      [VAL_WORTH]   = 25,
+      [VAL_DURI]    = 400,
+      [VAL_STORAGE] = 2048,
+      [VAL_SIZE]    = 2048,
+      [VAL_SCORE]   = 10,
+      [VAL_DRAIN]   = 1,
+    }
   },
-  {ARMOR_PLATE, "Curaiss", 16,
+  {ARMOR_PLATE, "Curaiss",
     {{[DMG_SLASH]=2,[DMG_PIERCE]=2,[DMG_BLUNT]=1},{}},
     {{[DMG_SLASH]=1,[DMG_PIERCE]=1}},
     20,100,800,ATTR_NONE,ATTR_STR,0,12,
+    .i_props = PROP_MAT_METAL,
+    .m_props = PROP_MAT_CLOTHING,
     .skill = SKILL_ARMOR_PLATE,
     STORE_WORN,
     {[STORE_CARRY] = 3, [STORE_CONTAINER]=1},
-    0x1000
+    .vals = {
+      [VAL_SAVE]    = 16,
+      [VAL_WEIGHT]  = 16,
+      [VAL_WORTH]   = 100,
+      [VAL_DURI]    = 800,
+      [VAL_STORAGE] = 4096,
+      [VAL_SIZE]    = 4096,
+      [VAL_SCORE]   = 5,
+      [VAL_DRAIN]   = 2
+    }
   },
 };
 
@@ -537,7 +786,7 @@ container_def_t CONTAINER_TEMPLATES[INV_DONE]={
   {INV_WORN},
   {INV_BACK},
   {INV_BELT},
-  {INV_SLING, 1250, 25, 4, .size = 0x0100, 0x0020}
+  {"Sling", INV_SLING, 1250, 25, 4, .size = 0x0100, 0x0020}
 };
 define_natural_armor_t NAT_ARMOR_TEMPLATES[13] = {
   {PQ_FUR, ARMOR_NATURAL, 5,
@@ -569,33 +818,291 @@ define_natural_armor_t NAT_ARMOR_TEMPLATES[13] = {
   },
 
 };
+material_data_t MATERIAL_DATA[MAT_ALL] = {
+  [MAT_WOOD_ASH]        = {MAT_WOOD_ASH, MAT_WOOD, "Ash"},
+  [MAT_WOOD_BEECH]      = {MAT_WOOD_BEECH, MAT_WOOD, "Beech"},
+  [MAT_WOOD_BIRCH]      = {MAT_WOOD_BIRCH, MAT_WOOD, "Birch"},
+  [MAT_WOOD_CEDAR]      = {MAT_WOOD_CEDAR, MAT_WOOD, "Cedar"},
+  [MAT_WOOD_CHERRY]     = {MAT_WOOD_CHERRY, MAT_WOOD, "Cherry"},
+  [MAT_WOOD_CYPRESS]    = {MAT_WOOD_CYPRESS, MAT_WOOD, "Cypress"},
+  [MAT_WOOD_ELM]        = {MAT_WOOD_ELM, MAT_WOOD, "Elm"},
+  [MAT_WOOD_FIR]        = {MAT_WOOD_FIR, MAT_WOOD, "Fir"},
+  [MAT_WOOD_HICKORY]    = {MAT_WOOD_HICKORY, MAT_WOOD, "Hickory"},
+  [MAT_WOOD_MAPLE]      = {MAT_WOOD_MAPLE, MAT_WOOD, "Maple"},
+  [MAT_WOOD_OAK]        = {MAT_WOOD_OAK, MAT_WOOD, "Oak"},
+  [MAT_WOOD_PINE]       = {MAT_WOOD_PINE, MAT_WOOD, "Pine"},
+  [MAT_WOOD_POPLAR]     = {MAT_WOOD_POPLAR, MAT_WOOD, "Poplar"},
+  [MAT_WOOD_REDWOOD]    = {MAT_WOOD_REDWOOD, MAT_WOOD, "Redwood"},
+  [MAT_WOOD_SPRUCE]     = {MAT_WOOD_SPRUCE, MAT_WOOD, "Spruce"},
+  [MAT_WOOD_WALNUT]     = {MAT_WOOD_WALNUT, MAT_WOOD, "Walnut"},
+  
+  [MAT_STONE_CASSITERITE] = {MAT_STONE_CASSITERITE, MAT_STONE,
+    "Cassiterite",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    SILVER, ICON_SHARD, ENV_OXIDE,
+    .vals = {
+      [VAL_WORTH] = 16,
+      [VAL_WEIGHT] = 6850
+    }
+  },
+  [MAT_STONE_CHALCOPY]   = {MAT_STONE_CHALCOPY, MAT_STONE, 
+    "Chalcopyrite",
+     PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+     COPPER, ICON_SHARD, ENV_OXIDE,
+     .vals = {
+       [VAL_WORTH] = 14,
+       [VAL_WEIGHT] = 4150
+     }
+  },
+  [MAT_STONE_CHERT]       = {MAT_STONE_CHERT, MAT_STONE, "Chert",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE |PROP_MAT_TOOLING,
+    BEIGE, ICON_SHARD, ENV_OXIDE,
+    .vals = {
+      [VAL_WORTH] = 8,
+      [VAL_WEIGHT] = 2750
+    }
+  },
+  [MAT_STONE_DOLOMITE]  = {MAT_STONE_DOLOMITE, MAT_STONE, "Dolomite",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    RAYWHITE, 0,
+    .vals = {
+      [VAL_WORTH] = 3,
+      [VAL_WEIGHT] = 2850
+    }
+  },  
+  [MAT_STONE_FELDSPAR] = {MAT_STONE_FELDSPAR, MAT_STONE, "Feldspar",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    BRONZE, 0,
+    .vals = {
+      [VAL_WORTH] = 2,
+      [VAL_WEIGHT] = 2600
+    }
+  },
+  [MAT_STONE_FLINT]  = {MAT_STONE_FLINT, MAT_STONE, "Obsidian",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE |PROP_MAT_TOOLING,
+    DARKGRAY, .icon = ICON_SHARD,
+    .vals = {
+      [VAL_WORTH] = 10,
+      [VAL_WEIGHT] = 2750
+    }
+  },
+  [MAT_STONE_GNEISS]    = {MAT_STONE_GNEISS, MAT_STONE, "Gneiss",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    .col = LIGHTGRAY,
+    .vals = {
+      [VAL_WORTH] = 5
+    }
+  },
+  [MAT_STONE_GRANITE]   = {MAT_STONE_GRANITE, MAT_STONE, "Granite",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    .col = REDDISHBROWN,
+    .vals = {
+      [VAL_WORTH] = 5,
+      [VAL_WEIGHT] = 2800
+    }
+  },
+  [MAT_STONE_HEMATITE] = {MAT_STONE_HEMATITE, MAT_STONE, "Hematite",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    RUST, ICON_SHARD, ENV_OXIDE,
+    .vals = {
+      [VAL_WEIGHT] = 4950,
+      [VAL_WORTH] = 18
+    }
+  },
+  [MAT_STONE_MALCHITE] = {MAT_STONE_MALCHITE, MAT_STONE, "Malachite",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    GREEN, ICON_SHARD, ENV_OXIDE,
+    .vals = {
+      [VAL_WORTH] = 28,
+      [VAL_WEIGHT] = 3750
+    }
+  },
+  [MAT_STONE_MAGNETITE] = {MAT_STONE_MAGNETITE, MAT_STONE, "Magnetite",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    REDDISHBROWN, ICON_SHARD, ENV_OXIDE,
+    .vals = {
+      [VAL_WEIGHT] = 5150,
+      [VAL_WORTH]  = 16
+    }
+  },
+  [MAT_STONE_OBSIDIAN]  = {MAT_STONE_OBSIDIAN, MAT_STONE, "Obsidian",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE | PROP_MAT_TOOLING,
+    .col = BLACK, .icon = ICON_SHARD,
+    .vals = {
+      [VAL_WEIGHT] = 2250,
+      [VAL_WORTH]  = 12,
+    }
+  },
+  [MAT_STONE_LIMESTONE] = {MAT_STONE_LIMESTONE, MAT_STONE, "Limestone",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    .col = LIMESTONE
+  },
+  [MAT_STONE_SANDSTONE] = {MAT_STONE_SANDSTONE, MAT_STONE, "Sandstone",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    .col = SANDSTONE,
+    .vals = {
+      [VAL_WORTH] = 2,
+      [VAL_WEIGHT] = 2800
+    }
+  },
+  [MAT_STONE_WOLFRAMITE] = {MAT_STONE_WOLFRAMITE, MAT_STONE, "Wolframite",
+        PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+        DARKGRAY, ICON_SHARD, ENV_OXIDE,
+        .vals = {
+          [VAL_WORTH] = 21,
+          [VAL_WEIGHT] 7450
+        }
+  },
+  [MAT_METAL_ADAMANT]   = {MAT_METAL_ADAMANT, MAT_METAL, "Adamant",
+    PROP_MAT_TOOLING | PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    .col = SKYBLUE,
+    .vals = {
+      [VAL_WORTH] = 250,
+      [VAL_WEIGHT] = 9000
+    }
+  },
+  [MAT_METAL_BRONZE]    = {MAT_METAL_BRONZE, MAT_METAL, "Bronze",
+    PROP_MAT_TOOLING | PROP_MAT_BLADE,
+   .col =  BRONZE,
+   .vals = {
+     [VAL_WEIGHT] = 8800,
+     [VAL_WORTH]  = 400, 
+   },
+  },
+  [MAT_METAL_COPPER]    = {MAT_METAL_COPPER, MAT_METAL, "Copper",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE | PROP_MAT_TOOLING | PROP_MAT_BLADE,
+    .col = COPPER,
+    .vals = {
+      [VAL_WEIGHT] = 8900,
+      [VAL_WORTH]  = 10
+    }
+  },
+  [MAT_METAL_IRON]      = { MAT_METAL_IRON, MAT_METAL, "Iron",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE | PROP_MAT_TOOLING | PROP_MAT_BLADE,
+    .col = GRAY,
+    .vals = {
+      [VAL_WEIGHT] = 7850,
+      [VAL_WORTH]  = 25
+    }
+  },
+  [MAT_METAL_MITHRIL]   = { MAT_METAL_MITHRIL, MAT_METAL, "Mithril",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE | PROP_MAT_TOOLING | PROP_MAT_BLADE,
+    .col = RAYWHITE,
+    .vals = {
+      [VAL_WEIGHT] = 4750,
+      [VAL_WORTH]  = 700,
+    }
+  },
+  [MAT_METAL_ORICHAL]   = {MAT_METAL_ORICHAL, MAT_METAL, "Orichalcum",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE | PROP_MAT_TOOLING | PROP_MAT_BLADE,
+    .col = REDDISHBROWN,
+    .vals = {
+      [VAL_WEIGHT] = 8800,
+      [VAL_WORTH]  = 550,
+    }
+  },
+  [MAT_METAL_STEEL]     = {MAT_METAL_STEEL, MAT_METAL, "Steel",
+    PROP_MAT_TOOLING | PROP_MAT_BLADE,
+    .col = LIGHTGRAY,
+    .vals = {
+      [VAL_WORTH] = 120,
+      [VAL_WEIGHT] 7850
+    }
+  },
+  [MAT_METAL_TIN]       = { MAT_METAL_TIN, MAT_METAL, "Tin",
+    PROP_MAT_TOOLING,
+    SILVER,
+    .vals = {
+      [VAL_WORTH] = 30,
+      [VAL_WEIGHT] = 7300
+    }
+  },
+  [MAT_METAL_WOLFRAM]   = { MAT_METAL_WOLFRAM, MAT_METAL, "Wolfram",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE | PROP_MAT_TOOLING, 
+    .col = DARKGRAY,
+    .vals = {
+      [VAL_WEIGHT] = 11350,
+      [VAL_WORTH]  = 700
+    }
+  },
+  [MAT_GEM_CALCITE] = {MAT_GEM_CALCITE, MAT_GEM, "Calcite",
+    .vals = {
+      [VAL_WEIGHT] = 2700,
+      [VAL_WORTH]  = 3
+    }
+  },
+  [MAT_GEM_MALACHITE] = {MAT_GEM_MALACHITE, MAT_GEM, "Malachite",
+    .vals = {
+      [VAL_WEIGHT] = 3600,
+      [VAL_WORTH]  = 30
+    }
+  },
+  [MAT_GEM_PYRITE] = {MAT_GEM_PYRITE, MAT_GEM, "Pyrite",
+    .vals = {
+      [VAL_WEIGHT] = 4850,
+      [VAL_WORTH] = 3
+    }
+  },
+  [MAT_GEM_QUARTZ] = {MAT_GEM_QUARTZ, MAT_GEM, "Quartz",
+    .vals = {
+      [VAL_WEIGHT] = 2650,
+      [VAL_WORTH] = 4
+    }
+  },
+  [MAT_GEM_TOPAZ] = {MAT_GEM_TOPAZ, MAT_GEM, "Topaz",
+  .vals = {
+      [VAL_WEIGHT] = 3500,
+      [VAL_WORTH] = 50
+    }
+  },
+  [MAT_GEM_TOURMALINE] = {MAT_GEM_TOURMALINE, MAT_GEM, "Tourmaline",
+    .vals = {
+      [VAL_WEIGHT] = 3150,
+      [VAL_WORTH] = 100
+    }
+  },
+};
 
 material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
   {MAT_CLOTH,
     PROP_MAT_CLOTH,
+    PROP_MAT_CLOTHING,
     .vals ={
       [VAL_STORAGE] = 400,
       [VAL_WEIGHT]  = 15,
-    }
+    },
+    .score = 25,
+    .cost = 50,
   },
   {MAT_HIDE,
+    PROP_MAT_HIDE,
+    PROP_MAT_CLOTHING,
     .vals ={
       [VAL_STORAGE] = 400,
       [VAL_WEIGHT]  = 50,
-    }
+    },
+    .score = 50,
+    .cost = 30,
   },
   {MAT_FUR,
+    PROP_MAT_FUR,
+    PROP_MAT_CLOTHING,
     .vals ={
       [VAL_STORAGE] = 400,
       [VAL_WEIGHT]  = 25, 
-    }
+    },
+    .score = 40,
+    .cost = 20,
   },
   {MAT_LEATHER,
     PROP_MAT_LEATHER,
+    PROP_MAT_CLOTHING,
     .vals ={
       [VAL_STORAGE] = 400,
       [VAL_WEIGHT]  = 50,
-    }
+    },
+    .score = 30,
+    .cost = 20,
   },
   {MAT_BONE,
     PROP_MAT_BONE,
@@ -603,8 +1110,11 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
     RES_BONE,
     .vals ={
       [VAL_STORAGE] = 200,
-      [VAL_WEIGHT]  = 250,
-    }
+      [VAL_WEIGHT]  = 1500,
+      [VAL_WORTH]   = 10
+    },
+    .score = 20,
+    .cost = 25,
   },
   {MAT_WOOD,
     PROP_MAT_WOOD,
@@ -613,18 +1123,145 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
     .vals ={
       [VAL_STORAGE] = 2000,
       [VAL_WEIGHT]  = 1500,
-    }
+    },
+    .score = 100,
+    .cost = 10,
   },
   {MAT_STONE,
     PROP_MAT_STONE,
     PROP_MAT_HAS_RESOURCE,
     RES_STONE,
+    .icon = ICON_ROCKS,
     .vals ={
       [VAL_STORAGE] = 1000,
       [VAL_WEIGHT]  = 3000,
+      [VAL_WORTH]   = 1
+    },
+    .score = 50,
+    .cost = 10,
+  },
+  {MAT_GEM,
+    PROP_MAT_GEM,
+  },
+  {MAT_METAL,
+    PROP_MAT_METAL,
+    PROP_MAT_CLOTHING,
+    RES_METAL,
+    .icon = ICON_INGOT,
+    .vals = {
+      [VAL_STORAGE] = 1000,
+      [VAL_WEIGHT]  = 7000,
+      [VAL_WORTH]   = 5,
+    },
+    .score = 20,
+    .cost = 50
+  }
+};
+
+material_properties_t MATERIAL_COMP[MAT_ALL] = {
+  [MAT_STONE_DOLOMITE] = {MAT_STONE_DOLOMITE, 1,
+    {
+      {MAT_STONE_DOLOMITE, 50, 0, 1, 
+        .method = SKILL_STONE}
+    }
+  },
+  [MAT_STONE_FELDSPAR] = {MAT_STONE_FELDSPAR, 1,
+    {
+      {MAT_STONE_FELDSPAR, 50, 0, 1, .method=SKILL_STONE}
+    }
+  },
+  [MAT_STONE_FLINT] = {MAT_STONE_FLINT, 1,
+    {
+      {MAT_STONE_FLINT, 24, 1, 2, .method=SKILL_STONE}
+    }
+  },
+  [MAT_STONE_CHERT] = {MAT_STONE_CHERT, 1,
+    {
+      {MAT_STONE_CHERT, 24, 1, 2, .method=SKILL_STONE}
+    }
+  },
+
+  [MAT_STONE_GNEISS] = {MAT_STONE_GNEISS, 1,
+    {
+      {MAT_STONE_GNEISS, 54, 0, 1, .method=SKILL_STONE}
+    }
+  },
+  [MAT_STONE_GRANITE] = {MAT_STONE_GRANITE, 1,
+    {
+      {MAT_STONE_GRANITE, 54, 0, 1, .method=SKILL_STONE}
+    }
+  },
+  [MAT_STONE_OBSIDIAN] = {MAT_STONE_OBSIDIAN, 1,
+    {
+      {MAT_STONE_OBSIDIAN, 17, 2, 3, .method=SKILL_STONE}
+    }
+  },
+  [MAT_STONE_LIMESTONE] = {MAT_STONE_LIMESTONE, 1,
+    {
+      {MAT_STONE_LIMESTONE, 54, 0, 1, .method=SKILL_STONE}
+    }
+  },
+  [MAT_STONE_SANDSTONE] = {MAT_STONE_SANDSTONE, 1,
+    {
+      {MAT_STONE_SANDSTONE, 54, 0, 1, .method=SKILL_STONE}
+    }
+  },
+  [MAT_STONE_CHALCOPY] = {MAT_STONE_CHALCOPY, 6,
+    {
+      {MAT_METAL_COPPER, 7, 1, 3, .method=SKILL_SMELT},
+      {MAT_STONE_CHALCOPY, 14, 3, 3, .method=SKILL_STONE},
+      {MAT_STONE_LIMESTONE, 33, 0, 1, .method=SKILL_STONE},
+      {MAT_STONE_DOLOMITE, 17, 0, 1, .method=SKILL_STONE},
+      {MAT_GEM_PYRITE, 17, 1, 3, .method=SKILL_JEWL},
+      {MAT_GEM_QUARTZ, 33, 0, 2, .method=SKILL_JEWL},
+    } 
+  },
+  [MAT_STONE_MALCHITE] =  {MAT_STONE_MALCHITE, 6,
+    {
+      {MAT_METAL_COPPER, 14, 1, 2, .method=SKILL_SMELT},
+      {MAT_STONE_MALCHITE, 28, 2, 3, .method=SKILL_STONE},
+      {MAT_STONE_DOLOMITE, 33, 0, 1, .method=SKILL_STONE},
+      {MAT_GEM_QUARTZ, 17, 0, 1, .method=SKILL_JEWL},
+      {MAT_GEM_MALACHITE, 33, 1, 4, .method=SKILL_JEWL},
+      {MAT_GEM_CALCITE, 33, 0, 1, .method=SKILL_JEWL},
+    }
+  },
+  [MAT_STONE_MAGNETITE] = {MAT_STONE_MAGNETITE, 4,
+    {
+      {MAT_METAL_IRON, 17, 2, 4, .method=SKILL_SMELT},
+      {MAT_STONE_MAGNETITE, 34, 4, 3, .method=SKILL_STONE},
+      {MAT_GEM_QUARTZ, 33, 0, 1, .method=SKILL_JEWL},
+      {MAT_STONE_FELDSPAR, 33, 0, 1, .method=SKILL_STONE},
+    }
+  },
+  [MAT_STONE_HEMATITE] = {MAT_STONE_HEMATITE, 5,
+    {
+      {MAT_METAL_IRON, 11, 2, 3, .method=SKILL_SMELT},
+      {MAT_STONE_HEMATITE, 24, 4, 3, .method=SKILL_STONE},
+      {MAT_GEM_QUARTZ, 17, 0, 1, .method=SKILL_JEWL},
+      {MAT_STONE_FELDSPAR, 33, 0, 1, .method=SKILL_STONE},
+      {MAT_GEM_CALCITE, 17, 1, 2, .method=SKILL_JEWL}
+    }
+  },
+  [MAT_STONE_WOLFRAMITE] = {MAT_STONE_WOLFRAMITE, 5,
+    {
+      {MAT_METAL_WOLFRAM, 3, 7, 5,.method=SKILL_SMELT},
+      {MAT_STONE_WOLFRAMITE, 7, 5, 3, .method=SKILL_STONE},
+      {MAT_GEM_QUARTZ, 34, 0, 1, .method=SKILL_JEWL},
+      {MAT_STONE_FELDSPAR, 33, 0, 1, .method=SKILL_STONE},
+      {MAT_STONE_CASSITERITE, 17, 7, 1, .method=SKILL_STONE}
+    }
+  },
+  [MAT_STONE_CASSITERITE] = {MAT_STONE_CASSITERITE, 6,
+    {
+      {MAT_METAL_TIN, 1, 5, 4, .method=SKILL_SMELT},
+      {MAT_STONE_CASSITERITE, 4, 4, 3, .method=SKILL_STONE},
+      {MAT_GEM_TOPAZ, 3, 5, 4, .method=SKILL_JEWL},
+      {MAT_GEM_TOURMALINE, 4, 5, 4, .method=SKILL_JEWL},
+      {MAT_GEM_QUARTZ, 34, 0, 1, .method=SKILL_JEWL},
+      {MAT_STONE_FELDSPAR, 34, 0, 1, .method=SKILL_STONE}
     }
   }
-
 };
 
 define_mobtype_t MOB_THEME[MT_DONE] = {
@@ -646,7 +1283,15 @@ biome_t BIOME[BIO_DONE] = {
     0.1f, 0.15f, 0.05f, 0.1f, 0.05f,
     .ratios = {
       [MT_PREY] = .40f, [MT_PRED] = .08f, [MT_CRITTER] = .20f, [MT_BUG] = .12f, [MT_FACTION] = .0f, [MT_MONSTER] = 0.07f, [MT_LOCALS] = .13f},
-  .materials = MAT_STONE_GRANITE | MAT_STONE_SANDSTONE | MAT_WOOD_SPRUCE | MAT_WOOD_OAK | MAT_WOOD_PINE
+    .materials = {
+      [MAT_STONE_GNEISS] = 1, [MAT_STONE_CHERT] = 2,
+      [MAT_STONE_GRANITE] = 5, [MAT_STONE_LIMESTONE] = 5, 
+      [MAT_STONE_SANDSTONE] = 5, [MAT_STONE_FLINT] = 4,
+      [MAT_WOOD_BEECH] = 25, [MAT_WOOD_SPRUCE] = 30, 
+      [MAT_WOOD_OAK] = 5, [MAT_WOOD_FIR] = 15,
+      [MAT_STONE_CASSITERITE] = 2, [MAT_STONE_MAGNETITE] = 2, 
+      [MAT_STONE_WOLFRAMITE] = 1
+    }
   },
 };
 
@@ -727,12 +1372,22 @@ sense_quality_t SENSE_QUAL[SEN_DONE] = {
     }
   },
 };
-
   
 static sense_t SENSE_BASE[SEN_DONE] = {
   {SEN_HEAR, SKILL_PERCEPT, ATTR_WIS, MOD_SQRT},
   {SEN_SEE, SKILL_PERCEPT, ATTR_WIS, MOD_CBRT},
   {SEN_SMELL, SKILL_PERCEPT, ATTR_WIS, MOD_SQRT}
+};
+
+enum_map_t MAT_RES_MAP[MAT_DONE] = {
+  {MAT_CLOTH},
+  {MAT_HIDE,    RES_HIDE},
+  {MAT_FUR,     RES_FUR},
+  {MAT_LEATHER, RES_HIDE},
+  {MAT_BONE,    RES_BONE},
+  {MAT_WOOD,    RES_WOOD},
+  {MAT_STONE,   RES_STONE},
+  {MAT_METAL,   RES_METAL},
 };
 
 Faction FactionMakeHashID(int count, param_t* params[count]){
@@ -964,6 +1619,11 @@ value_t* InitValue(ValueCategory cat, int base){
   };
 
   return v;
+}
+
+void ValueSet(value_t* self, int amnt){
+  self->base = amnt;
+  self->val = ValueRebase(self);
 }
 
 void ValueDecrease(value_t* self, int amnt){
@@ -1508,6 +2168,30 @@ int SkillCheckGetVal(skill_t* s, ValueCategory val){
   return s->checks->vals[val];
 }
 
+InteractResult SkillCheckVal(skill_t* s, int cr){
+  skill_check_t* checks = s->checks;
+  if(s->ovrd)
+    checks = s->ovrd;
+
+  if(checks == NULL) 
+    return IR_CRITICAL_FAIL;
+
+  int hits[1];
+
+  dice_roll_t* dr = checks->die;
+  if(checks->vals[VAL_ADV_HIT]!=0){
+    dr->cb = GREATER_THAN;
+    dr->roll = RollDieAdvantage;
+    dr->advantage = checks->vals[VAL_ADV_HIT];
+  }
+  int hit = dr->roll(dr, hits);
+
+
+  s->ovrd = NULL;
+
+  return (hit > cr)?IR_SUCCESS:IR_FAIL;
+
+}
 InteractResult SkillCheck(skill_t* s, skill_t* against){
   skill_check_t* checks = s->checks;
   if(s->ovrd)
@@ -1564,7 +2248,6 @@ bool SkillIncrease(struct skill_s* s, int amnt){
 
   s->threshold+= 100/s->val;
   
-  //TraceLog(LOG_INFO,"%s has reached %s rank %i",s->owner->name, SKILL_NAMES[s->id], s->val);
   if(s->on_skill_up)
     s->on_skill_up(s,old,s->val);
 
@@ -1593,9 +2276,6 @@ void SkillupRelated(skill_t* self, float old, float cur){
     if (rel == SKILL_NONE)
       continue;
     SkillIncrease(self->owner->skills[rel], inc);
-    if(self->owner->type == ENT_PERSON)
-      TraceLog(LOG_INFO, "%s %0f exp till level %i",self->owner->name,
-          self->threshold - self->point, self->val+1);
   }
 }
 
@@ -1804,24 +2484,34 @@ item_gen_pool* InitItemGenPool(int cap){
   p->cap = cap;
   p->entries = GameCalloc("InitItemGenPool", cap, sizeof(item_type_d));
 
+  HashInit(&p->map, next_pow2_int(cap*2));
   return p;
+}
+
+item_type_d* ItemPoolGetEntry(item_gen_pool *p, uint64_t uid){
+  return HashGet(&p->map, uid);
 }
 
 item_type_d* ItemGenAdd(item_gen_pool* p, ItemCategory cat, void* def){
   item_type_d* idef = &p->entries[p->count++];
 
+  TraceLog(LOG_INFO,"==== ITEM GEN ADD ====\n %i out of %i", p->count, p->cap);
+
   switch(cat){
     case ITEM_WEAPON:
       idef->data.weap = *(weapon_def_t*) def;
       idef->flags |= LF_WEAP;
+      idef->gouid = GameObjectMakeUID(idef->data.weap.name, cat, WorldGetTime());
       break;
     case ITEM_ARMOR:
       idef->data.armor = *(armor_def_t*) def;
       idef->flags |= LF_ARMOR;
+      idef->gouid = GameObjectMakeUID(idef->data.armor.name, cat, WorldGetTime());
       break;
     case ITEM_CONSUMABLE:
       idef->data.cons = *(consume_def_t*) def;
       idef->flags |= LF_CONS;
+      idef->gouid = GameObjectMakeUID(idef->data.cons.name, cat, WorldGetTime());
       switch(idef->data.cons.type){
         case CONS_SCROLL:
           idef->flags |= LF_SCROLL;
@@ -1839,21 +2529,34 @@ item_type_d* ItemGenAdd(item_gen_pool* p, ItemCategory cat, void* def){
       break;
     case ITEM_CONTAINER:
       idef->data.cont = *(container_def_t*) def;
+      idef->gouid = GameObjectMakeUID(idef->data.cont.name, cat, WorldGetTime());
       break;
     case ITEM_MATERIAL:
       idef->data.mat = *(material_def_t*) def;
       idef->flags |= LF_MATERIAL;
+      idef->gouid = idef->data.mat.spec;
       switch(idef->data.mat.type){
         case MAT_CLOTH:
+          idef->flags |= LF_MAT_CLOTH;
+          break;
         case MAT_HIDE:
+          idef->flags |= LF_MAT_HIDE;
+          break;
+        case MAT_BONE:
+          idef->flags |= LF_MAT_BONE;
+          break;
         case MAT_FUR:
         case MAT_LEATHER:
-        case MAT_BONE:
         case MAT_WOOD:
         case MAT_STONE:
         case MAT_METAL:
           break;
       }
+      break;
+    case ITEM_TOOL:
+      idef->data.tool = *(tool_def_t*)def;
+      idef->flags |= LF_TOOL;
+      idef->gouid = GameObjectMakeUID(idef->data.tool.name, cat, WorldGetTime());
       break;
     default:
       return NULL;
@@ -1861,6 +2564,7 @@ item_type_d* ItemGenAdd(item_gen_pool* p, ItemCategory cat, void* def){
 
   idef->cat = cat;
 
+  HashPut(&p->map, idef->gouid, idef);
   return idef;
 }
 consume_def_t* ConsumeGenerateKnowledge(int id, ConsumeType type){
@@ -1928,28 +2632,85 @@ consume_def_t* ConsumeGeneratePotion(StatType stat){
   return def;
 }
 
-material_def_t* InitMaterial(material_def_t base, MaterialType type, MaterialSpec spec){
+tool_def_t* ToolGenerate(ToolType type, MaterialSpec spec){
+  tool_def_t* def = GameCalloc("ToolGenerate", 1, sizeof(tool_def_t));
+
+  tool_def_t base = TOOL_TEMPLATES[type];
+
+  memcpy(def, &base, sizeof(tool_def_t));
+
+  def->material = spec;
+  material_spec_d *mspec = MaterialsGetEntry(LevelMaterials(), spec);
+  if(mspec->id > MAT_NO_ID){
+    material_data_t data = MATERIAL_DATA[mspec->id];
+    sprintf(def->name, "%s %s", data.name, base.name);
+    if(data.col.a == 255)
+      def->col = data.col;
+/*
+    for(int i = 0; i < VAL_ALL; i++){
+      if (data.vals[i] == 0)
+        continue;
+
+      def->vals[i] = data.vals[i];
+    }
+    */
+  }
+  else
+    sprintf(def->name, "%s %s - %s", mspec->root, mspec->mat, base.name);
+
+  return def;
+}
+
+material_def_t* InitMaterial(material_def_t base, material_spec_d* spec){
   material_def_t* mat = GameCalloc("InitMaterial", 1, sizeof(material_def_t));
 
-  mat->type = type;
-  mat->spec = spec;
+  mat->type = spec->type;
   mat->i_props = base.i_props;
   mat->m_props = base.m_props;
   mat->resources = base.resources;
+  mat->cost = base.cost;
+  mat->score = base.score;
+  mat->spec = spec->spec;
+  mat->icon = base.icon;
+
+  sprintf(mat->name,"%s %s",spec->root, spec->mat);
   memcpy(mat->vals, base.vals, sizeof(base.vals));
 
+  if(spec->id > MAT_NO_ID){
+    material_data_t data = MATERIAL_DATA[spec->id];
+    memcpy(mat->vals, data.vals, sizeof(data.vals));
+    if(data.icon > 0)
+      mat->icon = data.icon;
+    if(data.col.a > 0)
+      mat->col = data.col;
+    if(data.tile > 0)
+      mat->tile = data.tile;
+    mat->m_props |= data.props;
+  }
   return mat;
 }
 
-size_t GetMaterialByBiome(MaterialType type, material_def_t** defs, size_t *count, size_t cap){
-  material_def_t base = MATERIAL_TEMPLATES[type];
+weapon_def_t* WeaponGenerate(weapon_def_t* base, material_def_t* mat){
+  weapon_def_t* def = GameCalloc("WeaponGenerate", 1, sizeof(weapon_def_t));
 
-  uint64_t mats = MapGetMaterials(WorldGetMap(), type);
+  memcpy(def, base, sizeof(weapon_def_t));
 
-  while(mats){
-    uint64_t mat = mats & -mats;
-    mats &= mats -1;
+  def->mat = mat->spec;
 
-    defs[(*count)++] = InitMaterial(base, type, mat);
-  }
+  ItemMaterialGetName(mat->spec, ITEM_WEAPON, base->name, def->name);
+
+  return def;
+}
+
+armor_def_t* ArmorGenerate(armor_def_t* base, material_def_t* mat){
+  armor_def_t* def = GameCalloc("ArmorGenerate", 1, sizeof(armor_def_t));
+
+  memcpy(def, base, sizeof(armor_def_t));
+
+  def->mat = mat->spec;
+
+  ItemMaterialGetName(mat->spec, ITEM_ARMOR, base->name, def->name);
+
+  return def;
+
 }
