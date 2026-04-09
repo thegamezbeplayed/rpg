@@ -33,6 +33,7 @@ typedef enum{
 typedef enum{
   SCORE_RES,
   SCORE_CR,
+  SCORE_VAL,
   SCORE_PATH,
   SCORE_THREAT,
   SCORE_ALL,

@@ -5,7 +5,6 @@
 
 #include <stdio.h>
 
-static ent_t* debug;
 static int NUM_ITEMS = 0;
 
 void ItemApplyMaterial(item_t* item){

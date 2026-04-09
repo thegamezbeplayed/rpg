@@ -678,7 +678,6 @@ void WorldRender(){
   MapRender(world.map);
 
   WorldContextRender(OBJ_ITEM);
-  ScreenRender(); 
 }
 
 void InitGameProcess(){

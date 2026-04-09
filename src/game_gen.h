@@ -671,6 +671,9 @@ struct map_grid_s{
   choice_pool_t *mat_distri, *decor;
 };
 
+static Rectangle MapBounds(map_grid_t* m){
+  return (Rectangle){m->x, m->y, m->width, m->height};
+}
 bool InitMap(void);
 void WorldMapLoaded(map_grid_t* m);
 map_grid_t* InitMapGrid(void);

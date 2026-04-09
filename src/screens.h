@@ -34,7 +34,8 @@ param_t ScreenSelectContext(void*);
 
 typedef struct{
   bool    is_dragging;
-  Vector2 offset,pos;
+  Vector2       offset,pos, vcoords;
+  Cell          cell,coords;
   local_ctx_t   *ctx[SCREEN_CTX_ALL];
 }mouse_controller_t;
 

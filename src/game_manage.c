@@ -388,7 +388,7 @@ InteractResult CombatDamage(combat_t *c, bool init){
     if(StatIsEmpty(damaged))
       result = IR_TOTAL_SUCC;
     else
-      EntAddAggro(tar, agg, damage, agg->props->base_diff, init);
+      EntAddAggro(tar, agg, sim->final_dmg, agg->props->base_diff, init);
     
     if(init)
       WorldEvent(EVENT_DAMAGE_TAKEN, atk, tar->gouid);

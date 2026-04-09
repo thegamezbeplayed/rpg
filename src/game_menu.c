@@ -1238,8 +1238,14 @@ element_value_t* GetDebugContext(ui_element_t* e,  param_t context){
   local_ctx_t* ctx = ParamRead(&context, local_ctx_t);
 
   element_value_t *ev = GameCalloc("GetContext", 1,sizeof(element_value_t));
+  ev->type = VAL_LN;
+  ev->rate = FETCH_EVENT;
 
   ev->num_ln = SetCtxDebug(ctx, ev->l, e->params[0]);
+
+  ElementValueSyncSize(e, ev);
+
+  return ev;
 }
 
 element_value_t* GetContext(ui_element_t* e,  param_t context){
@@ -1678,8 +1684,11 @@ void UIEventActivate(EventType event, void* data, void* user){
   local_ctx_t* ctx = data;
 
   param_t p = ParamMakeObj(DATA_LOCAL_CTX, ctx->gouid, ctx);
+  e->ctx = p;
   if(e->set_val)
     e->set_val(e, p);
+
+  ElementSetState(e, ELEMENT_SHOW);
 }
 
 void UIItemEvent(EventType event, void* data, void* user){
@@ -1781,11 +1790,10 @@ bool ElementInputContext(ui_element_t* e){
   return (e->ctx.type_id != DATA_NONE);
 }
 
-bool ElementScreenContext(ui_element_t* e){
-  //TODO FIX
-  WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
+param_t ElementScreenContext(void* p){
+  ui_element_t* e = p;
 
-  return ui.contexts[SCREEN_CTX_HOVER];
+  WorldSubscribe(SCREEN_EVENT_SELECT, UIEventActivate, e);
 }
 
 

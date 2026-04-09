@@ -365,6 +365,7 @@ void LootDraw(ent_t* e, LootFlags flags, bool equip, int budget, int amnt){
 
     item_def_t* def = choice->context;
     if(EntAddItem(e, InitItem(def), equip)){
+      Level.loot->drops->budget += choice->cost;
       i++;
       TraceLog(LOG_INFO, "Added item - %s", def->name);
     }

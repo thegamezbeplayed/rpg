@@ -176,6 +176,8 @@ void InputSync(TurnPhase phase, int turn){
 void InputReset(void){
   player_input.active = true;
   player_input.redo = true;
+    
+  TraceLog(LOG_WARNING, "=== GAME INPUT ===\n RESET INPUT");
 }
 
 bool InputCheck(TurnPhase phase, int turn){
@@ -183,8 +185,8 @@ bool InputCheck(TurnPhase phase, int turn){
     moncontrol(1);
 
   if(player_input.redo){
-    TraceLog(LOG_WARNING, "=== GAME INPUT ===\n INPUT REDO");
     player_input.redo = false;
+    TraceLog(LOG_WARNING, "=== GAME INPUT ===\n INPUT REDO");
   }
   else{
     if(!player_input.active)
@@ -196,7 +198,7 @@ bool InputCheck(TurnPhase phase, int turn){
     if(ActionMan.round[phase].status != ACT_STATUS_NONE)
       return false;
   }
-    for(int i = 0; i < ACTION_DONE; i++){
+  for(int i = 0; i < ACTION_DONE; i++){
     action_key_t akey = player_input.actions[i];
 
     for (int j = 0; j< akey.num_keys; j++){
@@ -211,5 +213,4 @@ bool InputCheck(TurnPhase phase, int turn){
       TraceLog(LOG_INFO,"%i",WorldGetTime());
     }
   }
-
 }

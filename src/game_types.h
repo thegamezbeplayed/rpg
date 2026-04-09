@@ -22,22 +22,22 @@ typedef struct ability_s ability_t;
 typedef struct ability_sim_s ability_sim_t;
 typedef struct item_s item_t;
 
+static ent_t* debug;
+
 typedef struct{
   ent_t* ally;          
   SpeciesRelate relation;
-  float  danger;        // how threatened they are
-  float  need;          // how badly they need help
-  float  offense;       // how dangerous they are if supported
-  float  defense;       // how much cover / tanking they provide
+  float   danger;        // how threatened they are
+  float   need;          // how badly they need help
+  float   offense;       // how dangerous they are if supported
+  float   defense;       // how much cover / tanking they provide
 
-  float  distance;      // tiles away
-  float  exposure;      // how exposed helping them makes me
+  float   exposure;      // how exposed helping them makes me
 
-  float  cost;          // total cost to help
-  float  value;         // total value gained
-  float  score;         // value - cost
-
-  int    last_eval_turn;
+  float   cost;          // total cost to help
+  float   value;         // total value gained
+  float   score;         // value - cost
+  int     distance, last_eval_turn;
 }ally_context_t;
 
 typedef struct{
@@ -51,6 +51,9 @@ void InitAllyTable(ally_table_t* t, int cap, ent_t* owner);
 static void AllyEnsureCapacity(ally_table_t* t);
 int AllyAdd(ally_table_t* t, ent_t* source, int dist);
 void AllySync(void* params);
+void AllyUpdate(ally_table_t*, ally_context_t*);
+ally_context_t* AllyGetEntry(ally_table_t* t, game_object_uid_i id);
+void OnAllyEvent(EventType event, void* data, void* user);
 
 typedef struct{
   SpeciesType   race;

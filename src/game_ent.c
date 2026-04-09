@@ -300,8 +300,7 @@ ent_t* InitEntCommoner(mob_define_t def, define_prof_t* sel){
   }
   
   e->stats[STAT_HEALTH]->on_stat_empty = EntKill;
-
- 
+  
   if(sel->id >= PROF_LABORER){
     int num_w = 0;
     for (int i = SKILL_RANGE_WEAP.x; i < SKILL_RANGE_WEAP.y; i++){
@@ -654,6 +653,7 @@ void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
     int sr = 1 + e->skills[a->skills[0]]->val;
     a->weight+=sr*def_ab.priority;
     if(ActionSlotAddAbility(e,a)){
+      /*
       switch(a->action){
         case ACTION_ATTACK:
         case ACTION_WEAPON:
@@ -669,6 +669,7 @@ void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
             e->control->behave_traits |= TRAIT_CAN_HEAL;
           break;
       }
+      */
     }
   }
 
@@ -1235,23 +1236,6 @@ void EntPrepare(ent_t* e){
 
 }
 
-void EntBuildAllyTable(ent_t* e){
-  AllyAdd(e->allies, e, 0);
-
-  /*
-  for (int i = 0; i < e->local->count; i++){
-    local_ctx_t* ctx = RemoveEntryByRel(e->local, SPEC_KIN);
-    if(ctx == NULL || ctx->other.type_id != DATA_ENTITY)
-      break;
-
-    ent_t* ally = ParamReadEnt(&ctx->other);
-    int dist = cell_distance(e->pos, ally->pos);
-    AllyAdd(e->allies, ally, dist);
-
-  }
-*/
-}
-
 void EntInitOnce(ent_t* e){
   EntSync(e);
   
@@ -1271,7 +1255,6 @@ void EntInitOnce(ent_t* e){
   WorldTargetSubscribe(EVENT_DAMAGE_TAKEN, DamageEvent, e, e->gouid);
 
   WorldTargetSubscribe(EVENT_ENT_STEP, LocalSyncPos, e, e->gouid);
-  EntBuildAllyTable(e);
 }
 
 void EntApplyTraits(ent_t* e){
@@ -1354,7 +1337,7 @@ void EntDestroy(ent_t* e){
     SpriteSetAnimState(e->sprite,ANIM_KILL);
   }
 
-  e->control = NULL;
+  //e->control = NULL;
 }
 
 InteractResult AbilityConsume(ent_t* owner,  ability_t* a, local_ctx_t* target){
@@ -1393,10 +1376,15 @@ int EntAddAggro(ent_t* owner, ent_t* source, int threat, float mul, bool init){
   param_t gouid = ParamMake(DATA_UINT64, sizeof(uint64_t), &owner->gouid);
   for (int i = 0; i < owner->allies->count; i++){
     ent_t* e = owner->allies->entries[i].ally;
-    Cell next;
     if(EntCanDetect(e, owner,SEN_SEE)){
+
+      ally_context_t* ctx = AllyGetEntry(e->allies, owner->gouid);
+
+      if(!ctx)
+        continue;
+
       PriorityAdd(e->control->priorities, PRIO_HELP, gouid);
-      LocalAddAggro(e->local, source, threat, 0.1f, init);
+      LocalAddAggro(e->local, source, threat, ctx->danger, init);
     }
   } 
 
@@ -1610,7 +1598,7 @@ controller_t* InitController(ent_t* e){
   ctrl->priorities = InitPriorities(e, N_DONE + 20);
   ctrl->turn = -1;
   ctrl->phase = TURN_NONE;
-  ctrl->behave_traits = e->props->traits & TRAIT_CAP_MASK;
+  //ctrl->behave_traits = e->props->traits & TRAIT_CAP_MASK;
   for(int i = 0; i < N_DONE; i++){
     need_t* n =  InitNeed(i,e);
     e->needs[i] = n;
@@ -1808,7 +1796,7 @@ void EntSetCell(ent_t *e, Cell pos){
 }
 
 void EntControlStep(ent_t *e, int turn, TurnPhase phase){
-  if(!e->control) 
+  if(!CheckEntAlive(e)) 
     return;
 
   if(turn != e->control->turn){

@@ -56,7 +56,7 @@
 #define FIXED_DETAILS_BOX     (Vector2){264, 48}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){316, 704}
+#define UI_PANEL_BOT (Vector2){316, 696}
 #define UI_PANEL_TOP (Vector2){316, 0}
 
 #define UI_LOG_HOR (Vector2){640, 220}
@@ -254,7 +254,7 @@ param_t ElementOwnerTextAt(void*);
 param_t ElementPresetContext(void*);
 param_t ElementGetScreenSelection(void* p);
 param_t ElementIndexContext(void* p);
-bool ElementScreenContext(ui_element_t* e);
+param_t ElementScreenContext(void* p);
 bool ElementInputContext(ui_element_t* e);
 bool ElementActivityContext(ui_element_t* e);
 bool ElementInventoryContext(ui_element_t* e);

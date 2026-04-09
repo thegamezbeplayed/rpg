@@ -445,6 +445,48 @@ void StepEvents(events_t* pool){
   }
 }
 
+void AllyRemoveEntry(ally_table_t* t, game_object_uid_i id){
+  for( int i = 0; i < t->count; i++){
+    if(t->entries[i].ally->gouid == id){
+      t->entries[i] = t->entries[t->count--];
+      return;
+    }
+
+  }
+}
+
+ally_context_t* AllyGetEntry(ally_table_t* t, game_object_uid_i id){
+  for( int i = 0; i < t->count; i++){
+    if(t->entries[i].ally->gouid == id)
+      if(CheckEntAlive(t->entries[i].ally))
+        return &t->entries[i];
+      else
+        return NULL;
+
+  }
+
+  return NULL;
+}
+
+void OnAllyEvent(EventType event, void* data, void* user){
+  ally_table_t* t = user;
+
+  local_ctx_t* ctx = data;
+
+  if(ctx->other.type_id != DATA_ENTITY)
+    return;
+
+  ally_context_t* ally = AllyGetEntry(t, ctx->gouid);
+  switch(event){
+    case EVENT_ENT_DEATH:
+      AllyRemoveEntry(t, ctx->gouid);
+      break;
+    default:
+      AllyUpdate(t, ally);
+      break;
+  }
+}
+
 void InitAllyTable(ally_table_t* t, int cap, ent_t* owner){
   t->owner = owner;
   t->count = 0;
@@ -472,6 +514,17 @@ static void AllyEnsureCapacity(ally_table_t* t){
       t->cap * sizeof(ally_context_t));
 }
 
+void AllyUpdate(ally_table_t* t, ally_context_t* ctx){
+  if(!ctx)
+    return;
+
+  ctx->danger = 1 - RATIO(ctx->ally->stats[STAT_HEALTH]);
+
+  ctx->distance = cell_distance(t->owner->pos, ctx->ally->pos);
+  ctx->cost = ctx->distance * 10;
+  ctx->last_eval_turn = WorldGetTurn();
+}
+
 int AllyAdd(ally_table_t* t, ent_t* source, int dist){
 
   AllyEnsureCapacity(t);
@@ -492,7 +545,13 @@ int AllyAdd(ally_table_t* t, ent_t* source, int dist){
   e->cost = cost;
   e->value = value;
   e->score = value - cost;
+  
+  WorldTargetSubscribe(EVENT_DAMAGE_TAKEN, OnAllyEvent, t, source->gouid);
 
+  WorldTargetSubscribe(EVENT_ENT_STEP, OnAllyEvent, t, source->gouid);
+  WorldTargetSubscribe(EVENT_ENT_DEATH, OnAllyEvent, t, source->gouid);
+
+  TraceLog(LOG_INFO,"==== ALLY ADDED ====\n %s - %i", source->name, source->uid); 
   return e->score;
 }
 
@@ -796,7 +855,10 @@ local_ctx_t* LocalAddEnt(local_table_t* s, ent_t* e, SpeciesRelate rel){
 
     ctx->treatment[i] = t;
   }
-  
+
+  if(rel == SPEC_KIN)
+    AllyAdd(s->owner->allies, e, 0);
+
   return ctx;
 }
 
@@ -903,6 +965,8 @@ void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   if(rel == SPEC_RELATE_POSITIVE && ctx->awareness <= 0)
     ctx->awareness = f_safe_divide(1,1+ctx->dist);
 
+  if(ctx->gouid == player->gouid)
+    DO_NOTHING();
 
   float base = -0.5f;
   bool detect = ctx->awareness > 1;

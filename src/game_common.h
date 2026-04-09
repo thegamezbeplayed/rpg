@@ -373,7 +373,7 @@ void ValueSet(value_t* self, int amnt);
 struct stat_s;
 typedef void (*StatFormula)(struct stat_s* self);
 
-typedef bool (*StatOwnerCallback)(struct ent_s* owner);
+typedef bool (*StatOwnerCallback)(struct ent_s* owner, void*);
 typedef void (*StatCallback)(struct stat_s* self, float old, float cur);
 typedef float (*StatGetter)(struct stat_s* self);
 typedef struct stat_s{
@@ -392,8 +392,10 @@ typedef struct stat_s{
   struct ent_s  *owner;
   StatClassif   classif;
   StatGetter ratio;
-  Needs         need;
-  StatCallback on_stat_change,on_stat_full, on_stat_empty,on_turn;
+  Needs             need;
+  void*             on_change_data;
+  StatOwnerCallback on_change;
+  StatCallback      on_stat_change, on_stat_full, on_stat_empty,on_turn;
 } stat_t;
 
 typedef struct{ 

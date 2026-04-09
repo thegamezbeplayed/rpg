@@ -7,6 +7,79 @@
 
 #include <stdio.h>
 
+int CtxGetDebugState(element_value_t **fill, local_ctx_t* ctx){
+  EntityState curs, prevs, nexts;
+  switch(ctx->other.type_id){
+    case DATA_ENTITY:
+      ent_t* e = ctx->other.data;
+      curs = e->state;
+      prevs = e->previous;
+      nexts = e->control->next;
+      break;
+    default:
+      return 0;
+      break;
+  }
+  
+  element_value_t* state = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
+  element_value_t* prev = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
+  element_value_t* next = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
+
+  state->type = VAL_CHAR;
+  state->rate = FETCH_UPDATE;
+  state->c = strdup( STATE_STRING[curs]);
+
+  prev->type = VAL_CHAR;
+  prev->rate = FETCH_UPDATE;
+  prev->c = strdup( STATE_STRING[prevs]);
+
+  next->type = VAL_CHAR;
+  next->rate = FETCH_UPDATE;
+  next->c = strdup( STATE_STRING[nexts]);
+
+  fill[0] = state;
+  fill[1] = prev;
+  fill[2] = next;
+
+
+  return 3;
+}
+
+
+
+int CtxGetDebugID(element_value_t **fill, local_ctx_t* ctx){
+
+  element_value_t* txt = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
+  element_value_t* id = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
+
+  txt->type = VAL_CHAR;
+
+  id->type = VAL_INT;
+
+  int uid = -1;
+
+  switch(ctx->other.type_id){
+    case DATA_ENTITY:
+      ent_t* e = ctx->other.data;
+      uid = e->uid;
+      break;
+  }
+
+  id->i = GameCalloc("CtxGetDebug", 1, sizeof(int));
+  *id->i = uid;
+  txt->c = GameCalloc("CtxGetDebug", MAX_NAME_LEN, sizeof(char));
+  strncpy(txt->c, ParamReadString(&ctx->params[PARAM_NAME]), MAX_NAME_LEN -1);
+  txt->c[MAX_NAME_LEN-1] = '\0';
+  txt->rate = FETCH_NONE;
+  id->rate = FETCH_NONE;
+
+  fill[0] = txt;
+  fill[1] = id;
+
+  return 2;
+}
+
+
 line_item_t* InitLineItem(element_value_t **val, int num_val, const char* format){
   line_item_t* ln = GameCalloc("InitLineItem", 1,sizeof(line_item_t));
 
@@ -1126,16 +1199,39 @@ int SetParamDescription(line_item_t** li, int count, param_t param){
 
 int SetCtxDebug(local_ctx_t* ctx, line_item_t** li, GameObjectParam p){
 
+  int count = 0;
+  int lines = 1;
+  element_value_t* base[MAX_LINE_ITEMS];
+
+  char* fmt;
   switch(p){
     case PARAM_NAME:
+      fmt = "%s %i";
+      count = CtxGetDebugID(base, ctx);
       break;
     case PARAM_STATE:
+      fmt = "%s";
+      count = CtxGetDebugState(base, ctx);
+      lines = 3;
       break;
     case PARAM_PRIO:
       break;
     case PARAM_ACTION:
       break;
   }
+  if(count > 0){
+
+    li[0] = InitLineItem(base, count, fmt);
+    PrintSyncLine(li[0],FETCH_ONCE);
+    const char* ln = TextFormatLineItem(li[0]);
+    TraceLog(LOG_INFO, "MEASURE: %s", ln);
+
+    Vector2 size = MeasureTextEx(ui.font, ln, ui.text_size, ui.text_spacing);
+    li[0]->r_wid = size.x;
+    li[0]->r_hei = size.y;
+
+  }
+  return lines;
 }
 
 int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool combo){

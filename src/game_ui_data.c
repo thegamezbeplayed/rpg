@@ -68,7 +68,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
     },
-    .num_children = 3, .kids= {"ACTION_PANEL", "PLAYER_PANEL_L","ACTIVITY_PANEL", "CONTEXT_PANEL_R"},
+    .num_children = 4, .kids= {"ACTION_PANEL", "PLAYER_PANEL_L","ACTIVITY_PANEL", "CONTEXT_PANEL_R"},
     .params = { {PARAM_NONE}, {PARAM_NONE}, {PARAM_NAME }}
   },
   {"PLAYER_PANEL_L", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
@@ -414,17 +414,18 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
   },
 
   {"CONTEXT_PANEL_R", UI_PANEL_RIGHT, STAT_SHEET_PANEL_VER, UI_PANEL,
-    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_RIGHT, NULL, ScreenSelectContext,
+    ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, NULL,
     {
-      [ELEMENT_IDLE] = ElementLoadChildren,
+      [ELEMENT_IDLE] = ElementShow,
+      [ELEMENT_SHOW] = ElementActivateChildren,
     },
-    .num_children = 1, .kids = {"CONTEXT_SHEET"},
+    .num_children = 1, .kids = {"DEBUG_SHEET"},
   },
   {"CONTEXT_SHEET", VECTOR2_ZERO, STAT_SHEET_PANEL_VER, UI_CONTAINER,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_CENTER, GetContext,
     ElementPresetContext, 
     {
-      [ELEMENT_LOAD] = ElementScreenContext,
+      [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_IDLE] = ElementActivateChildren,
       [ELEMENT_SHOW] = ElementShowChildren,
     },
@@ -539,12 +540,12 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
   },
   {"DEBUG_SHEET", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_BOT,
-    NULL, ElementGetOwnerContext,
+    NULL, ElementScreenContext,
     .cb = {
       [ELEMENT_LOAD] = ElementSetContext,
-      [ELEMENT_IDLE] = ElementActivateChildren,
+      [ELEMENT_SHOW] = ElementActivateChildren,
     },
-    .num_children = 4, .kids = {"DEBUG_LINE"},
+    .num_children = 2, .kids = {"DEBUG_LINE"},
     .params = {
       {PARAM_NAME},
       {PARAM_STATE},
@@ -557,6 +558,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     GetDebugContext, ElementGetOwnerContext,
     .cb = {
       [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_IDLE] = ElementShow,
     }
   }
 };

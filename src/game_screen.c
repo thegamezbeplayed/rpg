@@ -20,11 +20,12 @@ void InitPlayArea(void){
   play_area.sizes[SIZE_GRID] = GRID_WIDTH * scale;
   play_area.sizes[SIZE_CELL] = CELL_WIDTH * scale;
 
-  play_area.area[AREA_PLAY] = Rect(ROOM_WIDTH/2,ROOM_HEIGHT/2, ROOM_WIDTH, ROOM_HEIGHT);
+  play_area.area[AREA_PLAY] = Rect(cam->bounds.x + ROOM_WIDTH/2,ROOM_HEIGHT/2, ROOM_WIDTH, ROOM_HEIGHT);
   play_area.area[AREA_SCREEN] = Rect(0,0, DESIGN_WIDTH, DESIGN_HEIGHT);
   play_area.area[AREA_UI] = Rect(0,0,DESIGN_WIDTH*scale,DESIGN_HEIGHT * scale);
   for(int i = 0; i < ELEMENT_COUNT; i++)
     play_area.screen_icons[i] = InitSpriteByID(i,SHEET_UI);
+ 
 }
 
 void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target){
@@ -36,11 +37,11 @@ void InitCamera(float zoom, float rot, Vector2 offset, Vector2 target){
   raycam->rotation = rot;
   raycam->zoom = zoom;
 
-  cam->size = CellScale(offset,1/16);
   raycam->target = target;
 
   float hei_disp = 0;
   cam->bounds = Rect(offset.x, hei_disp, ROOM_WIDTH, ROOM_HEIGHT);
+  cam->size = vec_to_cell(RectSize(cam->bounds), CELL_WIDTH);
   cam->view = Rect(0, 0, ROOM_WIDTH, -ROOM_HEIGHT);
   cam->render = LoadRenderTexture(cam->bounds.width, cam->bounds.height);
   cam->target = CELL_UNSET;
@@ -90,20 +91,21 @@ bool ScreenCameraSyncView(Cell target){
 void ScreenCameraSync(Cell target){
   Vector2 vpos =  CellToVector2(target,CELL_WIDTH);
 
-  if(Vector2Distance(cam->camera->target,vpos) < 64){
+  if(Vector2Distance(cam->camera->target,vpos) < 64)
     cam->camera->target = vpos;
-    return;
-  }
-  
-  cam->camera->target = Vector2Lerp(cam->camera->target,vpos,0.2);
+  else 
+    cam->camera->target = Vector2Lerp(cam->camera->target,vpos,0.2);
 
   cam->target = target;
 
+  cam->pos.x = target.x - cam->size.x/2;
+  cam->pos.y = target.y - cam->size.y/2;
 
 }
 
 void ScreenRender(void){
-  
+ 
+  DrawSpriteAtPos(play_area.screen_icons[UI_GRID_CELL], mousectrl.vcoords); 
   if(!keyctrl.active)
     return;
 
@@ -138,10 +140,12 @@ void ScreenCalcAreas(void){
 void InitScreenInteractive(void){
   mousectrl = (mouse_controller_t) {
     .is_dragging = false,
+      .coords = cam->target,
       .pos = GetMousePosition(),
-      .offset = VECTOR2_ZERO,
+      .offset = RectXY(play_area.area[AREA_PLAY]),
   };
 
+  play_area.screen_icons[UI_GRID_CELL]->is_visible = true;
   keyctrl = (key_controller_t) {0};
 }
 
@@ -179,7 +183,8 @@ void ScreenApplyContext(local_ctx_t* ctx[SCREEN_CTX_ALL]){
 }
 
 param_t ScreenSelectContext(void* p){
-  local_ctx_t *ctx = mousectrl.ctx[SCREEN_CTX_TAR];
+  local_ctx_t *ctx = mousectrl.ctx[SCREEN_CTX_HOVER];
+  
   return ParamMakeObj(DATA_LOCAL_CTX, ctx->gouid, ctx);
 }
 
@@ -236,7 +241,6 @@ void ClearMouse(void){
   for(int i = 0; i < SCREEN_CTX_ALL; i++)
     mousectrl.ctx[i] = NULL;
   
-  mousectrl.offset = VECTOR2_ZERO;
   mousectrl.is_dragging = false;
 }
 
@@ -280,16 +284,11 @@ bool SetHoverContext(local_ctx_t* ctx){
 }
 
 bool ScreenMouseFindContext(void){
-  Cell c = vec_to_cell(mousectrl.pos,CELL_WIDTH); 
-
-  Vector2 pos = GetScreenToWorld2D(mousectrl.pos,*cam->camera);
-
-  Cell tile = vec_to_cell(pos, CELL_WIDTH);
-
-  map_cell_t* mc = MapGetTile(WorldGetMap(), tile);
+  map_cell_t* mc = MapGetTile(WorldGetMap(), mousectrl.cell);
   if(!mc || mc->vis < VIS_HAS)
     return false;
 
+  mousectrl.coords = mc->coords;
   local_ctx_t* tar = {0};
   if(mc->occupant)
     tar = WorldGetContext(DATA_ENTITY, mc->occupant->gouid); 
@@ -298,7 +297,7 @@ bool ScreenMouseFindContext(void){
     tar = WorldGetContext(DATA_ENV, mc->tile->gouid);
 */
  
-  if(!tar)
+  if(!tar || tar->gouid == player->gouid)
     return false;
   return SetHoverContext(tar); 
 
@@ -308,8 +307,12 @@ void ScreenSyncMouse(void){
 
   //TODO TURN BACK ON AND FIX
   mousectrl.pos = GetMousePosition();
-  ScreenMouseFindContext();
-  /*
+  mousectrl.cell = CellInc(cam->target,vec_to_cell(Vector2Subtract(mousectrl.pos, mousectrl.offset), CELL_WIDTH));
+  if(cell_in_rect(mousectrl.cell, MapBounds(WorldGetMap())))
+  ScreenMouseFindContext();  
+    
+  mousectrl.vcoords = CellToVector2(mousectrl.coords, CELL_WIDTH);
+    /*
   if(!mousectrl.target && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
 
   //  mousectrl.target = ScreenEntMouseCollision();

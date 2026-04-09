@@ -53,6 +53,7 @@ void DrawGameplayScreen(void)
 
   WorldRender();
 
+  ScreenRender();
   ScreenCameraToggle();
   DrawTextEx(ui.font,GetWorldTime(),Vector2XY(VECTOR2_CENTER_SCREEN.x, 32) ,28,1,BLUE);
 

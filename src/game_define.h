@@ -886,26 +886,7 @@ typedef uint64_t Feats;
 typedef uint64_t Traits;
 
 typedef enum{
-  /* -------------------------------------------------- */
-  /* Capability flags (0–15) */
-  /* -------------------------------------------------- */
-  TRAIT_CAN_MELEE     = BIT64(0),
-  TRAIT_CAN_CAST      = BIT64(1),
-  TRAIT_CAN_HEAL      = BIT64(2),
-  TRAIT_CAN_SHOOT     = BIT64(3),
-  TRAIT_CAN_STEALTH   = BIT64(4),
-  TRAIT_CAN_DEFEND    = BIT64(5),
-
-  TRAIT_PREF_MELEE    = BIT64(6),
-  TRAIT_PREF_CAST     = BIT64(7),
-  TRAIT_PREF_HEAL     = BIT64(8),
-  TRAIT_PREF_SHOOT    = BIT64(9),
-  TRAIT_PREF_COVER    = BIT64(10),
-  TRAIT_PREF_SNEAK    = BIT64(11),
-
-  TRAIT_CAP_MASK      = (BIT64(16) - 1),   /* bits 0–15 */
-
-
+  TRAIT_CAUTIOUS      = BIT64(0),
   /* -------------------------------------------------- */
   /* Resistance category tags (16–23) */
   /* -------------------------------------------------- */
@@ -993,9 +974,10 @@ typedef struct{
 static const qualities_benefits_t MIND[25] = {
   {MQ_SIMPLE, TRAIT_ADV_FEAR | TRAIT_ADV_CHARM},
   {MQ_OBLIVIOUS, TRAIT_ADV_CHARM},
-  {MQ_ALERT,0,
+  {MQ_ALERT, TRAIT_CAUTIOUS,
     FEAT_ALERT | FEAT_DODGE
   },
+  {MQ_CAUTIOUS, TRAIT_CAUTIOUS},
   {MQ_CUNNING,0,FEAT_STEALTHY | FEAT_FOCUSED_MIND},
   {MQ_AGGRESSIVE, 0, 0, 1, ABILITY_DASH},
 };

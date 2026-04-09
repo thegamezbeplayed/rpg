@@ -121,7 +121,7 @@ define_resource_t DEF_RES[20] = {
   {"Stone", RES_STONE,
     OBJ_ENV,
     TILEFLAG_STONE, TILEFLAG_BORDER,
-    0.75f, 1, 3
+    0.5f, 1, 3
   },
   {"Flesh", RES_MEAT,
     OBJ_ENT,
@@ -1790,31 +1790,16 @@ void StatIncreaseValue(stat_t* self, float old, float cur){
   StatChangeValue(self->owner, self, self->increment);
 }
 
-bool StatIncrementValue(stat_t* attr,bool increase){
-  float inc = attr->increment;
+bool StatIncrementValue(stat_t* s, bool increase){
+  float inc = s->increment;
   if(!increase)
     inc*=-1;
 
-  float old = attr->current;
-  if(old+inc<attr->min)
+  float old = s->current;
+  if(old+inc<s->min)
     return false;
 
-  attr->current+=inc;
-  attr->current = CLAMPF(attr->current,attr->min, attr->max);
-  float cur = attr->current;
-
-  if(attr->current == attr->max && old != attr->max)
-    if(attr->on_stat_full)
-      attr->on_stat_full(attr,old,cur);
-
-  if(StatIsEmpty(attr)&& attr->on_stat_empty)
-    attr->on_stat_empty(attr,old,cur);
-
-  if(attr->current != old)
-    if(attr->on_stat_change != NULL)
-      attr->on_stat_change(attr,old, cur);
-
-  return true;
+  return StatChangeValue(s->owner, s, inc);
 }
 
 bool StatChangeValue(struct ent_s* owner, stat_t* s, float val){
@@ -1825,12 +1810,18 @@ bool StatChangeValue(struct ent_s* owner, stat_t* s, float val){
   if(s->current == old) 
     return false;
 
-  if(s->need>N_NONE)
+  if(!owner)
+    return true;
+
+  if(owner->needs && s->need>N_NONE)
     NeedIncrement(owner->needs[s->need], s->owner, val);
 
   if(s->on_stat_change != NULL)
     s->on_stat_change(s,old, cur);
   
+  if(s->on_change && s->on_change_data)
+    s->on_change(owner, s->on_change_data);
+
   if(s->current == s->min && s->on_stat_empty!=NULL)
     s->on_stat_empty(s,old,cur);
   
