@@ -50,6 +50,7 @@ void OnMapEvent(EventType event, void* data, void* user){
       MB->grid = InitMapGrid();
       Cell player_pos = MapApplyContext(MB->grid);
 
+      WorldSetMap(MB->grid);
       if(player)
         player->pos = player_pos;
 
@@ -662,7 +663,7 @@ void DrawNode(room_node_t* node, Color col){
 }
 
 void MapGenRender(void){
-  if(!MB)
+  //if(!MB)
     return;
   Rectangle sect = RectScale(RecFromBounds(&MB->ctx->level),GEN_SCALE);
   sect.x*=GEN_SCALE;
@@ -2583,6 +2584,8 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
     built += EntBuild(def,mob_rules,r->mobs);
     attempts++;
     if(built>0){
+      TraceLog(LOG_INFO, "===MAP GEN SPAWN===\n Spawn %i %s", 
+	  built, def.name);
       MapUpdateBiome(ctx, built, &def);
       break;
     }

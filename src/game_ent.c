@@ -841,7 +841,12 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
 
     define_prof_t* sel = chosen->context;
 
-    ent_t* e = InitEntCommoner(def, sel);
+    ent_t* e;
+    if(sel && sel->id != PROF_NONE)
+    e = InitEntCommoner(def, sel);
+    else
+      e = InitEntByRace(def);
+
     if(e == NULL)
       continue;
 
