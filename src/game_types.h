@@ -8,7 +8,7 @@
 #include "game_control.h"
 
 #define MAX_ENTS 128  
-#define MAX_ENVS 4096  
+#define MAX_ENVS 8192  
 #define CARRY_SIZE 4
 #define NUM_ABILITIES 6
 #define MAX_ABILITIES 16
@@ -21,8 +21,6 @@ typedef struct ent_s ent_t;
 typedef struct ability_s ability_t;
 typedef struct ability_sim_s ability_sim_t;
 typedef struct item_s item_t;
-
-static ent_t* debug;
 
 typedef struct{
   ent_t* ally;          
@@ -79,7 +77,7 @@ void  PropAddFeat(ent_t* e, FeatFlag f, SkillType skill);
 typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, local_ctx_t* target, InteractResult result);
 typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, local_ctx_t* target);
 typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a);
-bool AbilityCanTarget(ability_t* a, local_ctx_t* target);
+ActionStatus AbilityCanTarget(ability_t* a, local_ctx_t* target);
 InteractResult AbilityConsume(ent_t*,  ability_t*, local_ctx_t*);
 InteractResult AbilityGrantExp(ent_t*,  ability_t*, local_ctx_t* target);
 InteractResult AbilityLearn(ent_t* owner,  ability_t* a, local_ctx_t*);
@@ -269,6 +267,7 @@ typedef struct{
   uint64_t                behave_traits;
   initiative_t*           speed[ACTION_PASSIVE];
   choice_pool_t           *choices[ACTION_PASSIVE];
+  param_t                 target;
 }controller_t;
 
 controller_t* InitController(ent_t* e);

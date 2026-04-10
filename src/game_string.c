@@ -130,10 +130,7 @@ line_item_t* StringDetailsFormat(const char *fmt, int num_tokens, param_t params
   val->c = GameMalloc("StringDetailsFormat", buf * sizeof(char));
   ParseDetails(fmt, val->c, buf, params);
   
-
-  element_value_t* vals[1];
-  vals[0] = val;
-  return InitLineItem(vals, 1, "%s");
+  return InitLineItem(val, "%s");
 }
 
 
@@ -173,7 +170,7 @@ void StringBounds(Rectangle *b, char* buff){
   ptrs[2] = &vals[2];
   ptrs[3] = &vals[3];
 
-  line_item_t* li = InitLineItem(ptrs, 4, "[%f , %f] [%f , %f]");
+  line_item_t* li = InitLineItems(ptrs, 4, "[%f , %f] [%f , %f]");
 
   strcpy(buff, TextFormatLineItem(li));
 }
@@ -193,7 +190,7 @@ void StringUIBounds(ui_bounds_t *b, char* buff){
 
   }
 
-  line_item_t* li = InitLineItem(ptrs, 4, "[%i , %i] [%i , %i]");
+  line_item_t* li = InitLineItems(ptrs, 4, "[%i , %i] [%i , %i]");
 
   strcpy(buff, TextFormatLineItem(li));
 }

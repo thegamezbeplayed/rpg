@@ -336,6 +336,40 @@ void CastLight(map_grid_t *m, Cell pos, int row, float start, float end, int rad
   }
 }
 
+int NumNeighbors(map_context_t* m, Cell start, TileFlagHasFn fn){
+  int count = 0;
+  for(int x = -1; x < 2; x++){
+    for(int y = -1; y < 2; y++){
+      int mx = start.x + x;
+      int my = start.y + y;
+      
+      TileFlags nei = m->tiles[mx][my] ;
+      if(fn(nei))
+        count++;
+    }
+  }
+
+  return count;
+
+
+}
+
+int NumNeighborsCell(map_grid_t* m, map_cell_t* c, TileBlock fn){
+  int count = 0;
+  for(int x = -1; x < 2; x++){
+    for(int y = -1; y < 2; y++){
+      int mx = c->coords.x + x;
+      int my = c->coords.y + y;
+      
+      map_cell_t* nei = &m->tiles[mx][my];
+      if(fn(nei))
+        count++;
+    }
+  }
+
+  return count;
+}
+
 bool IsDiagBlocked(map_grid_t* m, map_cell_t* cc, map_cell_t* nc, TileBlock fn){
 
   int dx = cc->coords.x - nc->coords.x;

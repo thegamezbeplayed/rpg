@@ -580,7 +580,6 @@ int EnhanceEnts(ent_t** pool, MobRules rule, int count ){
       }
     }
 
-    TraceLog(LOG_INFO,"====MOB ENHANCED===\n %s challenge rating now %i, from %i",e->name, cr, e->props->cr);
     e->props->cr = cr;
     total_cr += cr;
 
@@ -1358,16 +1357,10 @@ InteractResult AbilityConsume(ent_t* owner,  ability_t* a, local_ctx_t* target){
 
   stat_t* damage_to = e->stats[a->damage_to];
  
-  if(StatChangeValue(e, damage_to, base)){
-    TraceLog(LOG_INFO,"%s consumes potion %s now %0.0f / %0.0f",
-        e->name,
-        STAT_STRING[a->damage_to].name,
-        damage_to->current,
-        damage_to->max);
-
-  }
-
+  if(StatChangeValue(e, damage_to, base))
   return ires;
+
+  return IR_ALMOST;
 }
 
 int EntAddAggro(ent_t* owner, ent_t* source, int threat, float mul, bool init){
@@ -1404,9 +1397,6 @@ int EntConsume(ent_t* e, param_t goal, Resource res){
     case DATA_ENV:
       env_t* env = ParamReadEnv(&goal);
       consumed = EnvExtractResource(env, e, res);
-      //goal->resource = env->has_resources;
-      if(consumed >0)
-        TraceLog(LOG_INFO,"%s eats %i grams of food", e->name, consumed);
       break;
   }
 
@@ -1562,7 +1552,6 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, local_ctx_t* ctx){
 
   if(a->resource>STAT_NONE && a->cost > 0)
     if(!StatChangeValue(e,e->stats[a->resource],-1*a->cost)){
-      TraceLog(LOG_INFO,"%s not enough %s",e->name, STAT_STRING[a->resource].name);
       success = false;
     }
 
@@ -1638,11 +1627,6 @@ InteractResult AbilityUse(ent_t* owner, ability_t* a, local_ctx_t* target, abili
    if(a->on_use_cb)
     a->on_use_cb(owner, a, target, ires);
 
-   if(owner == player && a->item){
-   
-     TraceLog(LOG_INFO, "%i", a->id);
-     TraceLog(LOG_INFO, "%s", a->item->def->name);
-   }
    if(a->item && a->item->on_use)
      a->item->on_use(owner, a->item, ires);
    
@@ -2239,7 +2223,7 @@ bool EntCheckRange(ent_t* e, decision_t* d){
       if(ctx->dist < 2)
         return true;
 
-      return AbilityCanTarget(a, ctx);
+      return (AbilityCanTarget(a, ctx)< ACT_STATUS_ERROR);
       break;
   }
 

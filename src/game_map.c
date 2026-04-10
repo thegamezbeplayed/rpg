@@ -4,19 +4,12 @@
 #include <limits.h>
 
 
-static int APPLIED = 0;
-static int ATTEMPTS = 0;
-static int FIX_ATTEMPTS = 0;
-static int HALL_SCORE = 55;
-static int CAP = 0;
-static int NUM_ANCHORS = 0;
-static int NUM_MOBS = 0;
 static sprite_t* mark_spr[16];
 static int markers;
-static int PAUSE = 1;
-static node_option_pool_t NODE_OPTIONS;
-static map_context_t world_map;
 static int GEN_SCALE = 16;
+
+static map_build_t* MB;
+map_builder_t* MBR;
 
 static map_room_t* best_lair;
 static map_room_t* best_challenge;
@@ -34,6 +27,47 @@ static Color col[MAX_ANCHOR_NODES]={
   BROWN
 };
 
+map_build_t* MapBuildGetEntry(MapID id, float lvl){
+  map_gen_t map = MAPS[id];
+  uint64_t hash = hash_string_64(map.name);
+  game_object_uid_i gouid = hash_combine_64(hash, hash_float(lvl));
+
+  for(int i = 0; i < MBR->count; i++){
+    if(MBR->maps[i].gouid == gouid)
+      return &MBR->maps[i];
+  }
+
+  return InitMapBuild(MBR, id, lvl);
+}
+
+void OnMapEvent(EventType event, void* data, void* user){
+  map_context_t* ctx = data;
+
+  switch(event){
+    case EVENT_MAP_NEXT:
+
+      WorldClear();
+      MB->grid = InitMapGrid();
+      Cell player_pos = MapApplyContext(MB->grid);
+
+      if(player)
+        player->pos = player_pos;
+
+      break;
+
+  }
+}
+
+void MapCellExit(map_cell_t* mc, ent_t* e){
+  if(e != player)
+    return;
+
+  map_build_t* next = MapBuildGetEntry(MB->gen->id, MB->lvl*1.5f);
+  WorldTargetSubscribe(EVENT_MAP_NEXT, OnMapEvent, MB, next->gouid);
+      InitMap(MB->gen->id, 2.5f);
+  TraceLog(LOG_INFO, "you found the end!");
+}
+
 void OnMapCellEvent(EventType event, void* data, void* user){
   map_cell_t* mc = user;
 
@@ -47,7 +81,38 @@ void OnMapCellEvent(EventType event, void* data, void* user){
 }
 
 Cell PLAYER_SPAWN(void){
-  return world_map.player_start;
+  return MB->ctx->player_start;
+}
+
+map_build_t* InitMapBuild(map_builder_t* mb, MapID map, float lvl){
+  map_build_t* m = &mb->maps[mb->count++];
+
+  m->id = map;
+
+  m->gen = GameMalloc("InitMapBuild", sizeof(map_gen_t));
+  *m->gen = MAPS[map];
+
+  uint64_t hash = hash_string_64(m->gen->name);
+  m->gouid = hash_combine_64(hash, (uint32_t)lvl);
+
+  return m;
+}
+
+map_builder_t* InitMapLoads(int cap, MapID first){
+
+  mark_spr[markers++] = InitSpriteByID(ENV_WALL_DUNGEON, SHEET_ENV);
+  mark_spr[markers++] = InitSpriteByID(ENV_DOOR_DUNGEON, SHEET_ENV);
+  mark_spr[markers++] = InitSpriteByID(ENV_FLOOR_DUNGEON, SHEET_ENV);
+  
+  map_builder_t* b = GameCalloc("InitMapLoads", 1, sizeof(map_builder_t));
+
+  b->cap = cap;
+
+  b->maps = GameCalloc("InitMapLoads", cap, sizeof(map_build_t));
+
+  MBR = b;
+  InitMapBuild(b, first, 1);
+  return b;
 }
 
 map_grid_t* InitMapGrid(void){
@@ -59,8 +124,8 @@ map_grid_t* InitMapGrid(void){
 
   m->x = 0;
   m->y = 0;
-  m->width = world_map.width;
-  m->height = world_map.height;
+  m->width = MB->ctx->width;
+  m->height = MB->ctx->height;
   m->floor = DARKBROWN;
   GEN_SCALE = 4;
   //MapApplyContext(m);
@@ -168,34 +233,40 @@ void MapRender(map_grid_t* m){
 
 
 bool MapContextSetTile(Cell c, TileFlags f){
-  world_map.tiles[c.x][c.y] = f;
+  MB->ctx->tiles[c.x][c.y] = f;
 
   return true;
 
 }
 
 GenStatus MapGetStatus(void){
-  return world_map.status;
+  return MB->ctx->status;
 }
 
-bool InitMap(void){
-  map_context_t* ctx =&world_map;
-  memset(ctx, 0, sizeof(*ctx));
-  ctx->map_rules = GameMalloc("InitMap", sizeof(map_gen_t));
-  *ctx->map_rules = MAPS[DARK_FOREST];
+bool InitMap(MapID id, float cr){
+  map_build_t* build = MapBuildGetEntry(id, cr);
+  MB = build;
+  bool gen = false;
+  map_context_t* ctx;
+  if(build->ctx)
+    ctx = build->ctx;
+  else{
+    build->ctx = GameCalloc("InitMap", 1, sizeof(map_context_t));
+    ctx = build->ctx;
 
-  mark_spr[markers++] = InitSpriteByID(ENV_WALL_DUNGEON, SHEET_ENV);
-  mark_spr[markers++] = InitSpriteByID(ENV_DOOR_DUNGEON, SHEET_ENV);
-  mark_spr[markers++] = InitSpriteByID(ENV_FLOOR_DUNGEON, SHEET_ENV);
-  //mark_spr[markers++] = InitSpriteByID(ENV_BORDER_DUNGEON, SHEET_ENV);
-  ctx->level = BoundsFromRec(Rect(99,99,-99,-99));
-  ctx->player_start = CELL_UNSET;
-  ctx->decor_density = 10;  
-  bool gen = MapGenerate(ctx);
-  
-  if(gen){
+    if(build->gen && build->gen->diff != cr){
+      build->gen->diff = cr;
+      build->gen->max_diff = cr * 1.5f;
+    }
+    ctx->level = BoundsFromRec(Rect(99,99,-99,-99));
+    ctx->player_start = CELL_UNSET;
+    ctx->decor_density = 10;  
+    ctx->status = MapGenerate(ctx);
+  } 
+  if(ctx->status == GEN_DONE){
+    WorldEvent(EVENT_MAP_NEXT, ctx, MB->gouid);
+    gen = true;
     TraceLog(LOG_INFO,"===Generate Complete!====");
-    ctx->status = GEN_DONE;
     /* char grid[ctx->height][ctx->width+1];
        MapToCharGrid(ctx, grid);
        SaveCharGrid( ctx->width, ctx->height, grid, "map.txt");
@@ -269,8 +340,6 @@ void MapRoomRunSpawner(map_room_t* r, spawner_t* s){
     map_cell_t* c = MapRoomPlacement(r);
 
     Cell pos = c->coords;
-    TraceLog(LOG_INFO,
-        "===== LEVEL SPAWN ROOM  %i MOB COUNT %i=====\n", r->id, r->num_mobs);
 
     if(r->num_mobs < MOB_ROOM_MAX)
     r->mobs[r->num_mobs++] = InitMob(mob, pos);
@@ -284,10 +353,7 @@ void MapRoomRunSpawner(map_room_t* r, spawner_t* s){
       continue;
     e->map = r->map;
     EntPrepare(e);
-    if(SetState(e,STATE_SPAWN,NULL))
-      TraceLog(LOG_INFO,
-          "===== LEVEL SPAWN ROOM  %i at (%i, %i) =====\n %i: %s",
-          r->id, e->pos.x, e->pos.y, i, e->name);
+    SetState(e,STATE_SPAWN,NULL);
 
   }
 }
@@ -356,8 +422,6 @@ void OnRoomMobEvent(EventType event, void* data, void* user){
 
 }
 
-
-
 map_room_t* InitMapRoom(map_context_t* ctx, room_t* r){
   map_room_t *mr = GameCalloc("InitMapRoom", 1,sizeof(map_room_t));  
 
@@ -386,8 +450,8 @@ map_room_t* InitMapRoom(map_context_t* ctx, room_t* r){
 void WorldMapLoaded(map_grid_t* m){
   map_gen_t mgen = MAPS[m->id];
 
-  for(int i = 0; i < world_map.num_rooms; i++){
-    map_room_t* mr = InitMapRoom(&world_map,world_map.rooms[i]);
+  for(int i = 0; i < MB->ctx->num_rooms; i++){
+    map_room_t* mr = InitMapRoom(MB->ctx,MB->ctx->rooms[i]);
   
     mr->id = GameObjectMakeUID("MAP_ROOM", i, WorldGetTime());
     m->rooms[m->num_rooms++] = mr;
@@ -427,9 +491,9 @@ bool MapUpdateBiome(map_context_t* ctx, int count, mob_define_t* e){
 }
 
 MapNodeResult MapBuildBiome(map_context_t* ctx, map_node_t *node){
-  map_gen_t* gen = ctx->map_rules;
+  map_gen_t* gen = MB->gen;
   ctx->eco = &BIOME[gen->biome];
-  MobRules mob_rules = GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_LOC_MASK);
+  MobRules mob_rules = GetMobRulesByMask(MB->gen->mobs.rules,MOB_LOC_MASK);
   mob_define_t mob_pool[MOB_MAP_MAX];
   int mobs = GetMobsByRules(mob_rules,mob_pool);
 
@@ -450,7 +514,7 @@ MapNodeResult MapBuildBiome(map_context_t* ctx, map_node_t *node){
 
       MobType mt  = MobTypeByFlags(theme, spec);
       int desired = ctx->eco->desired[mt];
-      int score =  mob_pool[i].weight[ctx->map_rules->id];
+      int score =  mob_pool[i].weight[MB->gen->id];
       for(int j = 0; j < desired; j++)
         AddPurchase(ctx->mob_pool, mob_pool[i].id, score, mob_pool[i].cost, &mob_pool[i], DiscardChoice);
     }
@@ -464,15 +528,15 @@ MapNodeResult MapGraphNodes(map_context_t *ctx, map_node_t *node){
   bool success =  MapGenNodeScan(ctx,NULL)==MAP_NODE_SUCCESS;
   RefreshNodeOptions();
   if(success){
-    APPLIED++;
-    TraceLog(LOG_INFO, "====New Node added nodes count %i",APPLIED);
-    return APPLIED>CAP?MAP_NODE_SUCCESS:MAP_NODE_RUNNING;
+    MB->applied++;
+    TraceLog(LOG_INFO, "====New Node added nodes count %i",MB->applied);
+    return MB->applied>MB->cap?MAP_NODE_SUCCESS:MAP_NODE_RUNNING;
   }
 
-  if( CAP > APPLIED )
+  if( MB->cap > MB->applied )
     return MAP_NODE_RUNNING;
-  TraceLog(LOG_WARNING,"======= MAP GEN FIND OPTIONS ATTEMPTS ====\n =====  %i =====",ATTEMPTS);
-  if (ATTEMPTS > MAX_ATTEMPTS)
+  TraceLog(LOG_WARNING,"======= MAP GEN FIND OPTIONS MB->attempts ====\n =====  %i =====",MB->attempts);
+  if (MB->attempts > MAX_ATTEMPTS)
     return MAP_NODE_SUCCESS;
 }
 
@@ -489,6 +553,11 @@ room_t* ConvertNodeToRoom(map_context_t* ctx, room_node_t* node){
   r->is_root = node->is_root;
   r->is_reachable = node->is_reachable;
   r->depth = node->depth;
+
+  RoomFlags purpose = r->flags&ROOM_PURPOSE_MASK;
+  
+  if((purpose&ROOM_PURPOSE_EXIT)>0)
+    DO_NOTHING();
 
   node->applied = true;
 
@@ -593,18 +662,20 @@ void DrawNode(room_node_t* node, Color col){
 }
 
 void MapGenRender(void){
-  Rectangle sect = RectScale(RecFromBounds(&world_map.level),GEN_SCALE);
+  if(!MB)
+    return;
+  Rectangle sect = RectScale(RecFromBounds(&MB->ctx->level),GEN_SCALE);
   sect.x*=GEN_SCALE;
   sect.y*=GEN_SCALE;
 
   DrawRectangleLinesEx(sect,4,BLACK);
-  if(world_map.status == GEN_DONE){
-    for(int x = 0; x < world_map.width; x++){
-      for(int y = 0; y < world_map.height; y++){
-        if(world_map.tiles[x][y] <1)
+  if(MB->ctx->status == GEN_DONE){
+    for(int x = 0; x < MB->ctx->width; x++){
+      for(int y = 0; y < MB->ctx->height; y++){
+        if(MB->ctx->tiles[x][y] <1)
           continue;
 
-        int tile = GetTileByFlags(world_map.tiles[x][y] |world_map.map_rules->map_flag);
+        int tile = GetTileByFlags(MB->ctx->tiles[x][y] |MB->gen->map_flag);
         Cell pos = CELL_NEW(x,y);
         Vector2 vpos = CellToVector2(pos, GEN_SCALE);
 
@@ -621,13 +692,13 @@ void MapGenRender(void){
     }
   }
   
-  for(int i = 0; i < NUM_ANCHORS; i++){
-    if(world_map.anchors[i])
-      DrawNode(world_map.anchors[i],world_map.anchors[i]->col);
+  for(int i = 0; i < MB->num_anchors; i++){
+    if(MB->ctx->anchors[i])
+      DrawNode(MB->ctx->anchors[i],MB->ctx->anchors[i]->col);
   }
 
-  for(int i = 0; i < world_map.num_conn; i++){
-    room_connection_t* issue = world_map.connections[i];
+  for(int i = 0; i < MB->ctx->num_conn; i++){
+    room_connection_t* issue = MB->ctx->connections[i];
     Rectangle problem = RectScale(RecFromBounds(&issue->opening->range),GEN_SCALE);
     problem.x*=GEN_SCALE;
     problem.y*=GEN_SCALE;
@@ -710,13 +781,13 @@ map_node_t* MapCreateSequence( MapNodeID id, map_node_t **children, int count){
 }
 
 Cell MapApplyContext(map_grid_t* m){
-  m->id = world_map.map_rules->id;
-  m->tiles = GameMalloc("MapApplyContext", world_map.width * sizeof(map_cell_t*));
-  m->width = world_map.width;
-  m->height = world_map.height;
+  m->id = MB->gen->id;
+  m->tiles = GameMalloc("MapApplyContext", MB->ctx->width * sizeof(map_cell_t*));
+  m->width = MB->ctx->width;
+  m->height = MB->ctx->height;
   Cell out = CELL_UNSET;
 
-  Biome biome = world_map.map_rules->biome;
+  Biome biome = MB->gen->biome;
   bool ready = false;
   choice_pool_t* cp = StartChoice(&m->mat_distri, MAT_ALL, ChooseByFlagsWeighted, &ready);
   if(!ready){
@@ -735,24 +806,45 @@ Cell MapApplyContext(map_grid_t* m){
       AddChoiceFlags(cp, i, BIOME[biome].materials[i], mat, NULL, f);
     }
   }
-  for(int x = 0; x < world_map.width; x++){
+  
+
+  int num_exits = 0;
+  env_t* exits[4];
+  for(int r = 0; r < MB->ctx->num_rooms; r++)
+    num_exits += RoomSpawnPOI(m, MB->ctx->rooms[r], exits);
+
+
+  for(int x = 0; x < MB->ctx->width; x++){
     m->tiles[x] = GameCalloc("MapApplyContext", m->height, sizeof(map_cell_t));
-    for(int y = 0; y < world_map.height; y++){
+    for(int y = 0; y < MB->ctx->height; y++){
       map_cell_t* mc = RegisterMapCell(x,y);
 
       m->tiles[x][y] = *mc;
-      env_t* e = MapSpawn(m, world_map.tiles[x][y],x,y);
+      env_t* e =  NULL;
+      for(int i = 0; i < num_exits; i++){
+        if(!cell_compare(exits[i]->pos, mc->coords))
+          continue;
+
+        e = exits[i];
+        m->tiles[x][y].on_enter = MapCellExit;
+        TraceLog(LOG_INFO, "====MAP CONTEXT===\n exit at [%i, %i]",e->pos.x, e->pos.y); 
+        break;
+      }
+      if(!e)
+        e = MapSpawn(m, MB->ctx->tiles[x][y],x,y);
+      
       if(e){
         RegisterEnv(e);
         WorldTargetSubscribe(EVENT_ENV_DEATH, OnMapCellEvent, &m->tiles[x][y], e->gouid);
       }
     }
   }
-  for(int r = 0; r < world_map.num_rooms; r++)
-    RoomSpawnMob(m, world_map.rooms[r]);
+  
+  for(int r = 0; r < MB->ctx->num_rooms; r++)
+    RoomSpawnMob(m, MB->ctx->rooms[r]);
 
-  if(!cell_compare(world_map.player_start,CELL_UNSET))
-    out = world_map.player_start;
+  if(!cell_compare(MB->ctx->player_start,CELL_UNSET))
+    out = MB->ctx->player_start;
 
   return out;
 }
@@ -813,8 +905,10 @@ TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c){
   mc->props->resources |= EntGetScents(e);
   mc->props->scents[0]|=e->gouid;
 
-  WorldDebugCell(c, GREEN);
   e->map = m;
+  if(mc->on_enter)
+    mc->on_enter(mc, e);
+
   return TILE_SUCCESS;
 }
 
@@ -847,7 +941,6 @@ TileStatus MapRemoveOccupant(map_grid_t* m, Cell c){
 
   m->tiles[c.x][c.y].status = TILE_EMPTY;
 
-  WorldDebugCell(c, YELLOW);
   return TILE_SUCCESS;
 }
 
@@ -989,6 +1082,39 @@ int RoomFindClosestOpening(map_context_t* ctx, room_t* r){
   return cindex;
 }
 
+
+int RoomSpawnPOI(map_grid_t* m, room_t* r, env_t** out){
+  RoomFlag purpose = r->flags & ROOM_PURPOSE_MASK;
+
+  int count = 0;
+ 
+  switch(purpose){
+    case ROOM_PURPOSE_EXIT:
+      choice_pool_t* cp = InitChoicePool(r->num_children, ChooseBest);
+      for(int i = 0; i < r->num_children; i++){
+        room_opening_t* o = r->openings[i];
+
+        if(o->sub)
+          continue;
+
+        AddChoice(cp, i, NumNeighbors(MB->ctx, o->pos, TileFlagBlocksMovement), &o->pos, NULL); 
+         
+      }
+      choice_t* c = cp->choose(cp);
+      if(!c || !c->context)
+        return 0;
+
+      Cell* pos = c->context;
+      env_t* tile = InitEnv(ENV_FOREST_EXIT, *pos);
+      out[count++] = tile;
+      break;
+    default:
+      break;
+  }
+
+  return count;
+}
+
 void RoomSpawnMob(map_grid_t* m, room_t* r){
   Rectangle bounds = RecFromBounds(&r->bounds);
   int area = bounds.width * bounds.height;
@@ -1074,18 +1200,18 @@ EnvTile MapGetDecor(map_grid_t* m, map_gen_t* gen){
 }
 
 env_t* MapSpawn(map_grid_t* m, TileFlags flags, int x, int y){
-
   if(flags == TILEFLAG_NONE)
     return NULL;
 
-  if((flags & (TILEFLAG_BORDER | TILEFLAG_EMPTY)) > 0)
+  if((flags & ( TILEFLAG_EMPTY)) > 0)
     return NULL;
 
   EnvTile t = -1;
+  
   if((flags & (TILEFLAG_DECOR | TILEFLAG_DEBRIS)) > 0)
-    t = MapGetDecor(m, world_map.map_rules);
-  else
-    t = GetTileByFlags(flags|world_map.map_rules->map_flag);
+    t = MapGetDecor(m, MB->gen);
+   else
+    t = GetTileByFlags(flags|MB->gen->map_flag);
 
   Cell pos = {x,y};
  
@@ -1103,7 +1229,7 @@ env_t* MapSpawn(map_grid_t* m, TileFlags flags, int x, int y){
   else
     env = InitEnv(t,pos);
   
-  if(size==0 && ((flags * TILEFLAG_BORDER) == 0))
+  if(size==0)
     return env;
   
   for (int i = 0; i < RES_DONE; i++){
@@ -1162,7 +1288,7 @@ MapNodeResult MapNodeRunSequence(map_context_t *ctx, map_node_t *node){
 }
 
 bool MapGenerate(map_context_t *ctx){
-  map_node_t *root = MapBuildNodeRules(ctx->map_rules->node_rules);
+  map_node_t *root = MapBuildNodeRules(MB->gen->node_rules);
   bool success = root->run(ctx, root) == MAP_NODE_SUCCESS;
 
   return success;
@@ -1377,15 +1503,15 @@ bool RoomCarveDoor(map_context_t *ctx, room_connection_t* conn){
 
   bool status = false;
   if(TileCellBlocksMovement(ctx, in_pos))
-    status = MapContextSetTile(in_pos, ctx->map_rules->opening_flag);
-  else if(TileCellHasFlag(ctx,in_pos, ctx->map_rules->opening_flag))
+    status = MapContextSetTile(in_pos, MB->gen->opening_flag);
+  else if(TileCellHasFlag(ctx,in_pos, MB->gen->opening_flag))
     status = true;
 
   if(!cell_compare(in_pos,out_pos)){
-    RoomFlags out_flag = status?TILEFLAG_EMPTY:ctx->map_rules->opening_flag;
+    RoomFlags out_flag = status?TILEFLAG_EMPTY:MB->gen->opening_flag;
     if(TileCellBlocksMovement(ctx, out_pos))
       status = status || MapContextSetTile(out_pos, out_flag);
-    else if(TileCellHasFlag(ctx,out_pos, ctx->map_rules->opening_flag))
+    else if(TileCellHasFlag(ctx,out_pos, MB->gen->opening_flag))
       status = true;
   }
   
@@ -1416,7 +1542,7 @@ MapNodeResult MapApplyFixes(map_context_t *ctx, map_node_t *node){
       conn->status = RS_GTG;
       continue;
     }
-    usleep(1*PAUSE);
+    usleep(1*MB->pause);
 
     issue = true;
     switch(conn->status){
@@ -1439,9 +1565,9 @@ MapNodeResult MapApplyFixes(map_context_t *ctx, map_node_t *node){
         break;
     }
     if(issue)
-      FIX_ATTEMPTS++;
+      MB->fix_attempts++;
   }
-  if(issue && FIX_ATTEMPTS < MAX_ATTEMPTS)
+  if(issue && MB->fix_attempts < MAX_ATTEMPTS)
     result = MAP_NODE_RUNNING;
   
   return result;
@@ -1453,7 +1579,7 @@ MapNodeResult MapFixIssues(map_context_t *ctx, map_node_t *node){
     room_connection_t* conn = ctx->connections[i];
     if(conn->status > RS_NO_ISSUE)
      continue; 
-    usleep(1*PAUSE);
+    usleep(1*MB->pause);
     bool issue = RoomOpeningCheckPairs(ctx,conn);
     if(!issue)
       continue;
@@ -1476,14 +1602,14 @@ MapNodeResult MapFixIssues(map_context_t *ctx, map_node_t *node){
         break;
     }
     if(issue){
-      FIX_ATTEMPTS++;
+      MB->fix_attempts++;
       result = MAP_NODE_RUNNING;
     }
   }
 
-  if(FIX_ATTEMPTS > MAX_ATTEMPTS){
+  if(MB->fix_attempts > MAX_ATTEMPTS){
     result = MAP_NODE_SUCCESS;
-    FIX_ATTEMPTS = 0;
+    MB->fix_attempts = 0;
   }
   return result;//MAP_NODE_SUCCESS;
 }
@@ -1515,7 +1641,7 @@ void AlignNodeConnections(map_context_t *ctx, room_node_t* rn){
 }
 
 MapNodeResult MapAlignNodes(map_context_t *ctx, map_node_t *node){
-  for(int i = 0; i < NUM_ANCHORS; i++){
+  for(int i = 0; i < MB->num_anchors; i++){
     room_node_t* r = ctx->anchors[i];
 
     AlignNodeConnections(ctx, r);
@@ -1572,7 +1698,7 @@ bool ConnectAnchorOrphan(room_node_t* anchor, room_node_t* orphan){
 }
 
 bool MapOptionsConnectAnchors(map_context_t *ctx, room_node_t* root, room_node_t* dest){
-  while(NODE_OPTIONS.count < root->max_children*1.5){
+  while(MB->options.count < root->max_children*1.5){
     for(int i = 0; i < root->max_children; i++){
       if(root->children[i]->used)
         continue;
@@ -1629,7 +1755,7 @@ bool MapAnchorLayoutOptions(map_context_t* ctx, room_node_t* root){
 
 MapNodeResult MapGridLayout(map_context_t *ctx, map_node_t *node){
 
-  if(NUM_ANCHORS==0)
+  if(MB->num_anchors==0)
     return MAP_NODE_FAILURE;
 
   bool result = MapAnchorLayoutOptions(ctx,ctx->anchors[0]);
@@ -1705,7 +1831,7 @@ bool AdjustChildNodePosition(room_node_t* root, room_node_t* child, node_connect
    if(child->entrance_index < 0)
      return false;
 
-  world_map.room_bounds[world_map.num_bounds++] = RecFromBounds(&child->bounds);
+  MB->ctx->room_bounds[MB->ctx->num_bounds++] = RecFromBounds(&child->bounds);
 
   return true;
 }
@@ -1719,15 +1845,15 @@ int GetRootNode(node_connector_t* conn, room_node_t* out, int* count){
 }
 
 void CalcLevelSize(room_node_t* root){
-  if(root->section.min.x < world_map.level.min.x)
-    world_map.level.min.x = root->section.min.x;
-  if(root->section.min.y < world_map.level.min.y)
-    world_map.level.min.y = root->section.min.y;
+  if(root->section.min.x < MB->ctx->level.min.x)
+    MB->ctx->level.min.x = root->section.min.x;
+  if(root->section.min.y < MB->ctx->level.min.y)
+    MB->ctx->level.min.y = root->section.min.y;
 
-  if(root->section.max.x > world_map.level.max.x)
-    world_map.level.max.x = root->section.max.x;
-  if(root->section.max.y > world_map.level.max.y)
-    world_map.level.max.y = root->section.max.y;
+  if(root->section.max.x > MB->ctx->level.max.x)
+    MB->ctx->level.max.x = root->section.max.x;
+  if(root->section.max.y > MB->ctx->level.max.y)
+    MB->ctx->level.max.y = root->section.max.y;
 
 }
 
@@ -1761,13 +1887,13 @@ void RootNodeIncreaseTotal(room_node_t* node, int amnt, room_node_t* new){
 }
 
 bool RoomCheckNeighborSections(room_node_t* node, node_connector_t* conn){
-  Rectangle r_rec = RecFromBounds(&world_map.anchors[node->sector]->section);
+  Rectangle r_rec = RecFromBounds(&MB->ctx->anchors[node->sector]->section);
 
-  for(int i = 0; i < NUM_ANCHORS; i++){
+  for(int i = 0; i < MB->num_anchors; i++){
     if(i == node->sector)
       continue;
 
-    Rectangle n_rec = RecFromBounds(&world_map.anchors[i]->section);
+    Rectangle n_rec = RecFromBounds(&MB->ctx->anchors[i]->section);
     Vector2 v_pen = VEC_UNSET;
     bool overlap = GetRectOverlap(n_rec, r_rec, &v_pen);
     if(!overlap)
@@ -1778,7 +1904,7 @@ bool RoomCheckNeighborSections(room_node_t* node, node_connector_t* conn){
       .connect = conn,
       .context = node,
     };
-    NODE_OPTIONS.items[NODE_OPTIONS.count++] = opt;
+    MB->options.items[MB->options.count++] = opt;
   } 
 }
 
@@ -2107,12 +2233,12 @@ bool NodeFindOptions(room_node_t* node, bool ignore_depth){
 }
 
 MapNodeResult MapGenNodeScan(map_context_t *ctx, map_node_t *node){
-  for(int i = 0; i < NUM_ANCHORS; i++)  
+  for(int i = 0; i < MB->num_anchors; i++)  
     NodeFindOptions(ctx->anchors[i],true);
 
   bool applied = false;
   int attempts = 0;
-    usleep(9*PAUSE);
+    usleep(9*MB->pause);
   while(!applied && attempts < 20){
     attempts++;
     node_option_t* best = PickBestNodeOption();
@@ -2121,7 +2247,7 @@ MapNodeResult MapGenNodeScan(map_context_t *ctx, map_node_t *node){
       return MAP_NODE_FAILURE;
 
     if(!ApplyNode(best)){
-      ATTEMPTS++;  
+      MB->attempts++;  
       best->score = 0;
     }
     else{
@@ -2151,14 +2277,14 @@ MapNodeResult MapGenNodeScan(map_context_t *ctx, map_node_t *node){
      }
      */
      if(GetRoomLayout(best->flags)==ROOM_LAYOUT_HALL)
-       HALL_SCORE *= .8;
+       MB->hall_score *= .8;
 
      return MAP_NODE_SUCCESS;
     }
 
   }
 
-  return APPLIED<ctx->map_rules->min_rooms?MAP_NODE_FAILURE: MAP_NODE_SUCCESS; 
+  return MB->applied<MB->gen->min_rooms?MAP_NODE_FAILURE: MAP_NODE_SUCCESS; 
 }
 
 void NodeGetUsedConnections(room_node_t* node, node_connector_t **conn_pool, int *count){
@@ -2215,17 +2341,17 @@ room_node_t* BuildNodeFromData(map_context_t *ctx, room_gen_t* data, Cell pos){
   RoomFlags flags = data->flags;
   room_node_t* root = MapBuildNode(flags, pos);
   root->is_root = true;
-  root->sector = NUM_ANCHORS;
+  root->sector = MB->num_anchors;
   root->cap = data->cap;
   root->section = root->bounds;
   //root->is_reachable = true;
 
-  CAP+=root->cap;
+  MB->cap+=root->cap;
   ctx->room_bounds[ctx->num_bounds++] = RecFromBounds(&root->bounds);
 
-  int index = NUM_ANCHORS;
+  int index = MB->num_anchors;
   root->col=col[index];
-  ctx->anchors[NUM_ANCHORS++]= root;
+  ctx->anchors[MB->num_anchors++]= root;
 
   if(GetRoomPurpose(flags) == ROOM_PURPOSE_EXIT)
     RoomSetExit(ctx, root);
@@ -2239,12 +2365,12 @@ room_node_t* BuildNodeFromData(map_context_t *ctx, room_gen_t* data, Cell pos){
 }
 
 MapNodeResult MapGenerateRooms(map_context_t *ctx, map_node_t *node){
-  map_gen_t *gen = ctx->map_rules;
+  map_gen_t *gen = MB->gen;
   Cell pos = CELL_NEW(35,30);
   room_gen_t* rgen = &gen->root;
   room_node_t* anchor = BuildNodeFromData(ctx,rgen, pos);
 
-  return NUM_ANCHORS>0 ? MAP_NODE_SUCCESS : MAP_NODE_FAILURE;
+  return MB->num_anchors>0 ? MAP_NODE_SUCCESS : MAP_NODE_FAILURE;
 }
 
 void RoomCarveTiles(map_context_t* ctx, room_t* r){
@@ -2261,8 +2387,10 @@ void RoomCarveTiles(map_context_t* ctx, room_t* r){
         floor = TILEFLAG_FLOOR;
       else if (r < ctx->decor_density *2)
         floor =  TILEFLAG_FLOOR|TILEFLAG_SIZE_XS;
-      if(ctx->tiles[x][y])
-      ctx->tiles[x][y] = border ? TILEFLAG_WALL : floor;
+      if(ctx->tiles[x][y]){
+        Cell c = CELL_NEW(x,y);
+      MapContextSetTile(c, border ? TILEFLAG_WALL : floor);
+      }
     }
   }
 }
@@ -2274,20 +2402,20 @@ void RoomCarveOpenings(map_context_t* ctx, room_t* r){
     Cell pos = r->openings[i]->pos;
     TileFlags opening = TILEFLAG_FLOOR;
     if(r->openings[i]->entrance)
-      opening = ctx->map_rules->opening_flag;;
+      opening = MB->gen->opening_flag;;
 
 
     bool opened = false;
     if(ctx->tiles[pos.x][pos.y]==TILEFLAG_WALL){
       opened = true;
-      ctx->tiles[pos.x][pos.y] = opening;
+      MapContextSetTile(pos, opening);
     }
     else{
       pos = CellInc(r->openings[i]->pos, r->openings[i]->dir);
-        if(ctx->tiles[pos.x][pos.y]==TILEFLAG_WALL){
-          opened = true;
-          ctx->tiles[pos.x][pos.y] = opening;
-        }
+      if(ctx->tiles[pos.x][pos.y]==TILEFLAG_WALL){
+        opened = true;
+        MapContextSetTile(pos, opening);
+      }
     }
 
     RoomStatus s = opened?RS_CARVED:RS_WHERE_IS_THE_DOOR;
@@ -2302,8 +2430,10 @@ void RoomCarveOpenings(map_context_t* ctx, room_t* r){
 MapNodeResult MapCarveTiles(map_context_t *ctx, map_node_t *node) {
   // clear
   for (int y = 0; y < ctx->height; y++)
-    for (int x = 0; x < ctx->width; x++)
-      ctx->tiles[x][y] = TILEFLAG_BORDER;
+    for (int x = 0; x < ctx->width; x++){
+      Cell c = CELL_NEW(x, y);
+      MapContextSetTile(c, TILEFLAG_BORDER);
+    }
 
   // rooms
   for (int r = 0; r < ctx->num_rooms; r++)
@@ -2323,7 +2453,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
 
   RoomFlags purpose = r->flags & ROOM_PURPOSE_MASK;
 
-  float diff = ctx->map_rules->diff; 
+  float diff = MB->gen->diff; 
   int num_spawns = 0; 
   if(purpose > ROOM_PURPOSE_CONNECT)
     return true;
@@ -2333,7 +2463,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   RoomFlags orient = r->flags & ROOM_ORIENT_MASK;
   RoomFlags shape = r->flags & ROOM_SHAPE_MASK;
 
-  MobRules mob_rules = GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_LOC_MASK);
+  MobRules mob_rules = GetMobRulesByMask(MB->gen->mobs.rules,MOB_LOC_MASK);
 
  int importance = size>>10; 
 
@@ -2396,7 +2526,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   }
 
     
-  MobRules grouping = GetMobRulesByMask(ctx->map_rules->mobs.rules, MOB_GROUPING_MASK);
+  MobRules grouping = GetMobRulesByMask(MB->gen->mobs.rules, MOB_GROUPING_MASK);
   num_spawns+=size>>11;
 
   if(num_spawns < 9)
@@ -2424,7 +2554,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
  for(int i = 0; i < filtered; i++)
     AddFilter(ctx->mob_pool, filtered_pool[i].id,  &filtered_pool[i]);
  
-  mob_rules |= GetMobRulesByMask(ctx->map_rules->mobs.rules,MOB_MOD_MASK);
+  mob_rules |= GetMobRulesByMask(MB->gen->mobs.rules,MOB_MOD_MASK);
   mob_rules |= grouping;
   int built = 0;
 
@@ -2434,7 +2564,7 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
   budget+=r->depth;
 
   importance+=filtered+num_spawns;
-  importance-=(NUM_MOBS - MOB_MAP_MAX);
+  importance-=(MB->num_mobs - MOB_MAP_MAX);
   int rcheck = RandRange(num_spawns,100);
   if(rcheck>importance)
     return false;
@@ -2460,14 +2590,14 @@ bool RoomPlaceSpawns(map_context_t *ctx, room_t *r){
       DO_NOTHING();
   }
   r->num_mobs+=built;
-  NUM_MOBS+=built;//r->num_mobs;
+  MB->num_mobs+=built;//r->num_mobs;
   
   return (built>0);
 }
 
 MapNodeResult MapPlaceSpawns(map_context_t *ctx, map_node_t *node) {
   int attempts = 0;
-  while(NUM_MOBS<ctx->map_rules->min_mobs && attempts < MAX_ATTEMPTS){
+  while(MB->num_mobs<MB->gen->min_mobs && attempts < MAX_ATTEMPTS){
     for (int r = 0; r < ctx->num_rooms; r++){
       if(!RoomPlaceSpawns(ctx, ctx->rooms[r]))
         attempts++;
@@ -2489,7 +2619,7 @@ MapNodeResult MapDecor(map_context_t *ctx, map_node_t *node) {
     int weight = rec.width * rec.height;
 
     if(r->is_root)
-      weight += NUM_ANCHORS;
+      weight += MB->num_anchors;
 
     if(weight < ctx->decor_density)
       continue;
@@ -2614,7 +2744,7 @@ void RoomAddTreasure(room_t* r, int score){
 }
 
 void MapAssignTreasures(map_context_t *ctx, room_t** rooms, int count){
-  int cap = ctx->num_rooms * BIOME[ctx->map_rules->biome].r_treasure;
+  int cap = ctx->num_rooms * BIOME[MB->gen->biome].r_treasure;
 
   if(cap < 1)
     return;
@@ -2672,12 +2802,12 @@ int RoomScoreByMobs(room_t* r, MobRules spawn, MobRules rules, RaceProps props){
 
 void RoomAddMobs(map_context_t* ctx, room_t* r, int score, MobRules rule){
   int beef = r->depth+1;
-  int max_cr = score + (75*beef) * ctx->map_rules->diff;
-  int min_cr = score + ((75*beef) * ctx->map_rules->diff);
+  int max_cr = score + (75*beef) * MB->gen->diff;
+  int min_cr = score + ((75*beef) * MB->gen->diff);
 
   choice_pool_t* picker = InitChoicePool(ENT_DONE, ChooseByWeight);
 
-  MobRules loc = ctx->map_rules->mobs.rules&MOB_LOC_MASK;
+  MobRules loc = MB->gen->mobs.rules&MOB_LOC_MASK;
 
   int count = 0;
   for(int i = 0; i < ENT_DONE; i++){
@@ -2694,7 +2824,7 @@ void RoomAddMobs(map_context_t* ctx, room_t* r, int score, MobRules rule){
     if(theme < MOB_THEME_MARTIAL)
       continue;
 
-    if(AddChoice(picker, i, def.weight[ctx->map_rules->biome], &MONSTER_MASH[i], NULL))
+    if(AddChoice(picker, i, def.weight[MB->gen->biome], &MONSTER_MASH[i], NULL))
       count++;
   }
 
@@ -2743,8 +2873,8 @@ void RoomEnhanceMobs(map_context_t* ctx, room_t* r, int score, MobRules rule){
   }
 
   int beef = r->depth+1;
-  int max_cr = score + ((75*beef) * ctx->map_rules->max_diff);
-  int min_cr = score + ((75*beef) * ctx->map_rules->diff);
+  int max_cr = score + ((75*beef) * MB->gen->max_diff);
+  int min_cr = score + ((75*beef) * MB->gen->diff);
 
   int total_cr = 0, cr_cap = max_cr*r->num_mobs, cr_min = min_cr*r->num_mobs;
 
@@ -2761,7 +2891,7 @@ void RoomEnhanceMobs(map_context_t* ctx, room_t* r, int score, MobRules rule){
 
 
 void MapAssignChallenges(map_context_t *ctx, room_t** rooms, int count){
-  int cap = ctx->num_rooms * BIOME[ctx->map_rules->biome].r_chall;
+  int cap = ctx->num_rooms * BIOME[MB->gen->biome].r_chall;
 
   if(cap < 1)
     return;
@@ -2810,7 +2940,7 @@ void MapAssignSecrets(map_context_t *ctx, room_t** rooms, int count){
 }
 
 void MapAssignLairs(map_context_t *ctx, room_t** rooms, int count){
-  int cap = ctx->num_rooms * BIOME[ctx->map_rules->biome].r_lairs;
+  int cap = ctx->num_rooms * BIOME[MB->gen->biome].r_lairs;
 
   if(cap < 1)
     return;
@@ -2982,7 +3112,7 @@ MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node)
   }
 
   // Expand slightly if you want padding around the dungeon:
-  int padding = 8;//ctx->map_rules->border;
+  int padding = 8;//MB->gen->border;
   minx -= padding;
   miny -= padding;
   maxx += padding;
@@ -2993,8 +3123,8 @@ MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node)
   ctx->level.max.x = maxx;
   ctx->level.max.y = maxy;
   // --- 2. Compute width + height of final map ---
-  ctx->width  = abs(maxx) + abs(minx);// + ctx->map_rules->border;
-  ctx->height = abs(maxy) + abs(miny);// + ctx->map_rules->border;;
+  ctx->width  = abs(maxx) + abs(minx);// + MB->gen->border;
+  ctx->height = abs(maxy) + abs(miny);// + MB->gen->border;;
 
 
 
@@ -3002,12 +3132,17 @@ MapNodeResult MapComputeBounds(map_context_t *ctx, map_node_t *node)
 
   for (int i = 0; i < ctx->num_rooms; i++) {
 
-    usleep(4*PAUSE);
+    usleep(4*MB->pause);
 
     RoomAdjustPosition(ctx->rooms[i],offset,false);
-
   }
 
+  for (int i = 0; i < 4; i++){
+    if(!ctx->exits[i])
+      continue;
+
+    CellInc(ctx->exits[i]->conn->pos, offset);
+  }
   for(int i = 0; i < ctx->num_conn; i++){
     ConnectionSetIID(ctx->connections[i]);
   }
@@ -3095,8 +3230,8 @@ TileFlags RoomSpecialDecor(RoomFlags p) {
 }
 
 void MapAddNodeOption(node_option_t opt){ 
-  if (NODE_OPTIONS.count < MAX_OPTIONS) {
-    NODE_OPTIONS.items[NODE_OPTIONS.count++] = opt;
+  if (MB->options.count < MAX_OPTIONS) {
+    MB->options.items[MB->options.count++] = opt;
   }
 }
 
@@ -3163,29 +3298,29 @@ bool ApplyNode(node_option_t *opt){
 }
 
 void RefreshNodeOptions(void){
-  NODE_OPTIONS.count = 0;
+  MB->options.count = 0;
 }
 
 node_option_t *PickBestNodeOption(void){
-  if (NODE_OPTIONS.count == 0) return NULL;
+  if (MB->options.count == 0) return NULL;
 
   int best_index = 0;
 
-  for (int i = 1; i < NODE_OPTIONS.count; i++) {
-    if (NODE_OPTIONS.items[i].score > NODE_OPTIONS.items[best_index].score) {
+  for (int i = 1; i < MB->options.count; i++) {
+    if (MB->options.items[i].score > MB->options.items[best_index].score) {
       best_index = i;
     }
   }
 
-  return &NODE_OPTIONS.items[best_index];
+  return &MB->options.items[best_index];
 }
 
 
 bool MapCheckOverlap(Rectangle bounds, Vector2 *overlap){
-  for (int i = 0; i < world_map.num_bounds; i++){
-    if(!GetRectOverlap(bounds, world_map.room_bounds[i], overlap))
+  for (int i = 0; i < MB->ctx->num_bounds; i++){
+    if(!GetRectOverlap(bounds, MB->ctx->room_bounds[i], overlap))
       continue;
-    if(Vector2Length(*overlap) < world_map.map_rules->margin_error)
+    if(Vector2Length(*overlap) < MB->gen->margin_error)
       continue;
 
     return true;
@@ -3228,11 +3363,11 @@ int ConnectionsByIID(room_connection_t* conn, room_connection_t** pairs){
 
   int index = IntGridIndex(pos.x,pos.y);
 
-  for(int i = 0; i < world_map.num_conn; i++){
-    if(world_map.connections[i]->grid_iid!= index)
+  for(int i = 0; i < MB->ctx->num_conn; i++){
+    if(MB->ctx->connections[i]->grid_iid!= index)
       continue;
 
-    pairs[count++] = world_map.connections[i];
+    pairs[count++] = MB->ctx->connections[i];
   }
 
   return count;
@@ -3251,15 +3386,15 @@ int ConnectionGetNeighbors(room_connection_t* conn, room_connection_t** pairs, i
   Rectangle rec = RecFromBounds(&conn->opening->range);    
   int index = IntGridIndex(pos.x,pos.y);
   
-  for(int i = 0; i < world_map.num_conn; i++){
+  for(int i = 0; i < MB->ctx->num_conn; i++){
     if(count>=cap)
       break;
-    room_connection_t* nei = world_map.connections[i];
+    room_connection_t* nei = MB->ctx->connections[i];
     if(nei->grid_iid==index)
       continue;
 
     if(cell_compare(nei->opening->pos,pos)){
-      pairs[count++] = world_map.connections[i];
+      pairs[count++] = MB->ctx->connections[i];
       continue;
     }
     
@@ -3273,14 +3408,14 @@ int ConnectionGetNeighbors(room_connection_t* conn, room_connection_t** pairs, i
     bool overlap = GetRectOverlap(rec,n_rec,&dist);
 
     if(overlap){
-      pairs[count++] = world_map.connections[i];
+      pairs[count++] = MB->ctx->connections[i];
       continue;
     }
 
     float n_dist = Vector2Length(dist);
 
     if(n_dist <= range){
-pairs[count++] = world_map.connections[i];
+pairs[count++] = MB->ctx->connections[i];
       continue;
     }
   }
@@ -3291,11 +3426,11 @@ pairs[count++] = world_map.connections[i];
 void ConnectionSetStatus(Cell pos, RoomStatus status){
   int index = IntGridIndex(pos.x,pos.y);
 
-  for(int i = 0; i < world_map.num_conn; i++){
-    if(world_map.connections[i]->grid_iid!= index)
+  for(int i = 0; i < MB->ctx->num_conn; i++){
+    if(MB->ctx->connections[i]->grid_iid!= index)
       continue;
 
-    world_map.connections[i]->status = status;
+    MB->ctx->connections[i]->status = status;
   }
 }
 

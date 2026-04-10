@@ -704,11 +704,13 @@ bool MakeDecision(decision_pool_t* t, DecisionSortFn fn){
     t->selected = &t->entries[0];
   else
     t->selected = fn(t);
- 
+
+ /* 
   if(t->selected->score < 0){
     t->selected = NULL;
     return false; 
   }
+  */
   return t->selected != NULL;
 }
 
@@ -848,7 +850,9 @@ bool AddAbility(decision_pool_t* t, local_ctx_t* ctx, ability_t* a){
 
   d->cat = a->cat;
   d->params[ACT_PARAM_ABILITY] = ParamMakeObj(DATA_ABILITY, a->id, a);
-  if(!AbilityCanTarget(a, ctx)){
+  d->status = AbilityCanTarget(a, ctx);
+
+  if(d->status >= ACT_STATUS_ERROR){
     d->cost = 999;
     d->score = -1;
     return true;
@@ -866,8 +870,8 @@ bool AddAbility(decision_pool_t* t, local_ctx_t* ctx, ability_t* a){
     chain = ca->chain_id;
   }
 
-  d->score = hit*dmg;;
-  d->cost = a->cost;
+  d->score = 1+ hit*dmg;;
+  d->cost = 1 + a->cost;
 
   return true;
 }

@@ -202,10 +202,15 @@ typedef struct world_s{
   render_text_t   *texts[MAX_EVENTS];
   bool            floatytext_used[MAX_EVENTS];
   events_t        *events[STEP_DONE];
-  debug_info_t    debug[DEBUG_ALL][MAX_DEBUG_ITEMS];
+  //debug_info_t    debug[DEBUG_ALL][MAX_DEBUG_ITEMS];
   world_context_t *ctx;
+  ent_t*          debug;
 } world_t;
 extern world_t world;
+
+static void WorldSetDebug(ent_t* e){
+  world.debug = e;
+}
 
 static const run_seed WorldSeed(void){
   return world.seed;
@@ -228,6 +233,12 @@ Cell GetWorldCoordsFromIntGrid(Cell pos, float len);
 ent_t* WorldGetEntAtTile(Cell tile);
 map_cell_t* WorldGetTile(Cell pos);
 map_grid_t* WorldGetMap(void);
+void WorldClear(void);
+static void WorldSetMap(map_grid_t* m){
+  world.map = m;
+  player->map = m;
+}
+
 static level_t* WorldLevel(void){
   return world.level;
 }

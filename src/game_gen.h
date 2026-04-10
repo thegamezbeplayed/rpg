@@ -38,7 +38,6 @@
     ROOM_PURPOSE_CAMP)
 
 #define GROUPING_SHIFT (__builtin_ctzll(MOB_GROUPING_MASK))
-
 typedef struct map_grid_s map_grid_t;
 typedef struct choice_pool_s choice_pool_t;
 typedef struct local_ctx_s local_ctx_t;
@@ -228,7 +227,9 @@ typedef enum {
     ROOM_SPAWN_MAX = 0x07000000,
     ROOM_SPAWN_MASK = 0x0F000000,
 
-} RoomFlags;
+} RoomFlag;
+
+typedef uint64_t RoomFlags;
 
 static int room_size_weights[7] = {0,9,16,21,67,82,96};
 static int room_layout_weights[6] = {0,25,70,75,80,98};
@@ -431,11 +432,13 @@ struct room_node_s{
 
 typedef struct{
   MapID           id;
+  char            name[32];
   Biome           biome;
   float           diff,max_diff;
   TileFlags       map_flag;
   int             density,min_rooms,min_mobs;
   TileFlags       opening_flag;
+  EnvTile         exit_tile;
   spawn_rules_t   mobs;
   int             margin_error;
   room_gen_t      root;
@@ -457,7 +460,6 @@ typedef struct{
 
 typedef struct {
   GenStatus   status;
-  map_gen_t   *map_rules;
   biome_t     *eco;
   int         width, height, num_rooms;
   room_node_t *anchors[MAX_ANCHOR_NODES];
@@ -498,6 +500,27 @@ typedef struct {
   node_option_t  items[MAX_OPTIONS];
   int count; 
 }node_option_pool_t;
+
+typedef struct{
+  MapID              id;
+  float              lvl;
+  game_object_uid_i  gouid;
+  map_context_t*     ctx;
+  map_gen_t*         gen;
+  map_grid_t*        grid;
+  int                applied, attempts, hall_score;
+  int                cap, num_anchors, num_mobs, pause;
+  int                fix_attempts;
+  node_option_pool_t options;
+}map_build_t;
+
+typedef struct{
+  int          cap, count;
+  map_build_t* maps;
+}map_builder_t;
+extern map_builder_t* MBR;
+map_builder_t* InitMapLoads(int cap, MapID first);
+map_build_t* InitMapBuild(map_builder_t* mb, MapID map, float lvl);
 
 bool HasFloorNeighbor(map_context_t* ctx, int x, int y);
 struct map_node_s;
@@ -627,7 +650,11 @@ typedef struct{
   uint64_t  scents[SATUR_MAX];
 }site_properties_t;
 
-typedef struct{
+typedef struct map_cell_s map_cell_t;
+
+typedef void (*MapCellFn)(map_cell_t* mc, ent_t* e);
+
+struct map_cell_s{
   game_object_uid_i   gouid;
   int                 index;
   Cell                coords;
@@ -639,7 +666,10 @@ typedef struct{
   Color               fow;
   site_properties_t*  props;
   bool                in_ctx, updates, explored;
-}map_cell_t;
+  MapCellFn           on_enter;
+};
+
+void MapCellExit(map_cell_t* mc, ent_t* e);
 
 typedef struct{
   map_grid_t*     map;
@@ -674,7 +704,7 @@ struct map_grid_s{
 static Rectangle MapBounds(map_grid_t* m){
   return (Rectangle){m->x, m->y, m->width, m->height};
 }
-bool InitMap(void);
+bool InitMap(MapID id, float cr);
 void WorldMapLoaded(map_grid_t* m);
 map_grid_t* InitMapGrid(void);
 void MapRoomSpawn(map_grid_t* m, EntityType data, int room);
@@ -692,6 +722,7 @@ void MapBuilderSetFlags(TileFlags flags, int x, int y,bool safe);
 env_t* MapSpawn(map_grid_t*, TileFlags flags, int x, int y);
 void MapSpawnMob(map_grid_t* m, int x, int y);
 void RoomSpawnMob(map_grid_t* m, room_t* r);
+int RoomSpawnPOI(map_grid_t* m, room_t* r, env_t**);
 Cell MapApplyContext(map_grid_t* m);
 void MapVisEvent(EventType event, void* data, void* user);
 uint64_t MapGetMaterials(map_grid_t*, MaterialType);
@@ -717,6 +748,7 @@ static void NavMarkDirty(void) {
 }
 
 typedef bool (*TileBlock)(map_cell_t *c);
+typedef bool (*TileFlagHasFn)(TileFlags f);
 
 static const int mult[8][4] = {
   { 1, 0, 0, 1 }, { 0, 1, 1, 0 },
@@ -796,7 +828,8 @@ static int ScorePathCell(map_grid_t *m, Cell sc, Cell tc, int depth){
 
 bool room_has_access(map_context_t* ctx, cell_bounds_t room,Cell *access);
 bool IsDiagBlocked(map_grid_t* m, map_cell_t* cc, map_cell_t* nc, TileBlock fn);
-
+int NumNeighbors(map_context_t* m, Cell start, TileFlagHasFn fn);
+int NumNeighborsCell(map_grid_t* m, map_cell_t* c, TileBlock fn);
 static int PathCost(int tx, int ty) {
     return nodes[tx][ty].gCost;
 }

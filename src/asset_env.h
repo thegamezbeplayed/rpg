@@ -52,5 +52,6 @@ static sub_texture_t ENVIRO_SPRITES[ENV_DONE] = {
   { ENV_DOOR_HEAVY,     8, 8, 48, 64, 16, 16, BROWN},
   { ENV_DOOR_VAULT,     8, 8, 64, 64, 16, 16, LIGHTGRAY},
   { ENV_STONES,         8, 8, 80, 64, 16, 16, GRAY},
-  { ENV_OXIDE,          8, 8, 96, 64, 16, 16, DARKBROWN}
+  { ENV_OXIDE,          8, 8, 96, 64, 16, 16, DARKBROWN},
+  [ENV_FOREST_EXIT] =  { ENV_FOREST_EXIT,    8, 8, 112, 64, 16, 16, PINK}
 };

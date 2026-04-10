@@ -6,13 +6,16 @@
 #define RAYGUI_IMPLEMENTATION
 void* GenerateMap(void* arg){
  GameProcess pid = GP_MAP_GEN;
- if( InitMap())
+ if( InitMap(DARK_FOREST, 1))
    WorldEvent(EVENT_PROCESS_READY, &pid, pid); 
 }
 
 // Options Screen Initialization logic
 void InitOptionsScreen(void)
 {
+
+  InitMapLoads(5, DARK_FOREST);
+
   pthread_t t;
   //MenuSetState(&ui.menus[MENU_OPTIONS],MENU_ACTIVE);
   InitLevel();

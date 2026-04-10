@@ -444,6 +444,15 @@ local_ctx_t* WorldGetContext(DataType type, game_object_uid_i gouid){
   return LocalGetEntry(world.ctx->tables[cat], gouid);
 }
 
+void WorldContextClear(){
+  for(int i = 0; i < OBJ_ALL; i++){
+    HashClear(&world.ctx->tables[i]->ctx_by_gouid);
+  }
+
+  param_t p = ParamMakeObj(DATA_ENTITY, player->gouid, player);
+  MakeLocalContext(world.ctx->tables[OBJ_ENT], &p, player->pos);
+}
+
 void WorldContextRender(ObjectCategory cat){
 
   for (int i = 0; i < world.ctx->tables[cat]->count; i++)
@@ -493,9 +502,6 @@ void WorldContextInitOnce(void){
 
 void WorldInitOnce(){
   WorldMapLoaded(world.map);
-  //MapRoomSpawn(world.map, ENT_DEER, 5);
-  //MapRoomSpawn(world.map, ENT_BEAR, 3);
-  //MapRoomSpawn(world.map, ENT_RAT, 3);
 
   SetState(player, STATE_IDLE, NULL);
   WorldContextInitOnce();
@@ -828,15 +834,11 @@ int WorldGetTurn(void){
   return world.ctx->turn;
 }
 
-bool WorldDebugInsert(debug_info_t d){
-  for(int i = 0; i < MAX_DEBUG_ITEMS; i++){
-    if(world.debug[d.type][i].type != DEBUG_NONE)
-      continue;
+void WorldClear(void){
+  world.num_ent = 0;
+  world.num_env = 0;
 
-    world.debug[d.type][i] = d;
-  }
-}
+  world.ents[world.num_ent++] = player;
 
-void WorldDebugCell(Cell c, Color col){
-  return;
+  WorldContextClear();
 }

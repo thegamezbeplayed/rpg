@@ -80,7 +80,6 @@ void OnLevelReady(EventType event, void* data, void* user){
 }
 
 void LootDrops(ent_t* e){
-  TraceLog(LOG_INFO, "%s base challenge %f", e->name, e->props->base_diff);
   int budget = e->props->base_diff * 100;
 
   mob_define_t mdef =  MONSTER_MASH[e->type];
@@ -91,7 +90,6 @@ void LootDrops(ent_t* e){
   if(flags == 0 || amnt < 1)
    return;
 
-  TraceLog(LOG_INFO, "Generate %i loot with budget %i", amnt, budget);
   Rectangle area = {e->pos.x -2, e->pos.y -2, 5, 5};
   LootDrop(flags, budget, amnt, area);
 
@@ -195,7 +193,6 @@ void LevelReady(map_grid_t* m){
         continue;
 
       tool_def_t* tdef = ToolGenerate(i, mat->spec);
-      TraceLog(LOG_INFO, "=== TOOL GEN ====\n %s", tdef->name);
       ItemGenAdd(Level.item_defs, ITEM_TOOL, tdef);
     }
 
@@ -208,7 +205,6 @@ void LevelReady(map_grid_t* m){
          continue;
 
        weapon_def_t *wdef = WeaponGenerate(weap, mat);
-       TraceLog(LOG_INFO, "=== WEAP GEN ====\n %s", wdef->name);
        ItemGenAdd(Level.item_defs, ITEM_WEAPON, wdef);
      }
   }
@@ -224,7 +220,6 @@ void LevelReady(map_grid_t* m){
         continue;
 
       armor_def_t *adef = ArmorGenerate(armor, mat);
-      TraceLog(LOG_INFO, "=== ARMOR GEN ====\n %s", adef->name);
       ItemGenAdd(Level.item_defs, ITEM_ARMOR, adef);
 
     }
@@ -339,7 +334,6 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
         break;
     }
     def->flags |= item->flags;
- TraceLog(LOG_INFO, "%s: score %i cost %i", def->name, weight, cost);  
     def->id = item->data.cons.chain_id; 
       
     AddChoiceCostFlags(dp, def->id, weight, def->cost, def, def->flags, ChoiceReduceScore);

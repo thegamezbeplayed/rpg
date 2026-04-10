@@ -75,6 +75,7 @@ typedef struct {
 } hash_map_t;
 void HashInit(hash_map_t* m, uint32_t cap);
 void HashFree(hash_map_t* m);
+void HashClear(hash_map_t* m);
 void* HashGet(hash_map_t* m, hash_key_t key);
 void HashPut(hash_map_t* m, hash_key_t key, void* value);
 void HashRemove(hash_map_t* m, hash_key_t key);
@@ -91,6 +92,20 @@ static inline uint64_t Hash64(uint64_t x) {
     x *= 0xc4ceb9fe1a85ec53ULL;
     x ^= x >> 33;
     return x;
+}
+
+static uint32_t hash_float(float f) {
+    uint32_t bits;
+    memcpy(&bits, &f, sizeof(float)); // safe bit copy
+
+    // simple mix (you can improve this)
+    bits ^= bits >> 16;
+    bits *= 0x7feb352d;
+    bits ^= bits >> 15;
+    bits *= 0x846ca68b;
+    bits ^= bits >> 16;
+
+    return bits;
 }
 
 static inline uint64_t hash_combine_64(uint64_t h, uint64_t v) {

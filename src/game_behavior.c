@@ -125,8 +125,11 @@ BehaviorStatus BehaviorCheckAggro(behavior_params_t *params){
 
   if (MakeDecision( e->control->decider[s], DecisionSortEconomic)){
     e->control->next = STATE_AGGRO;
+    e->control->target = e->control->decider[s]->selected->params[ACT_PARAM_TAR];
     return BEHAVIOR_SUCCESS;
   }
+  else
+    e->control->target = EMPTY_PARAM;
   
   return BEHAVIOR_FAILURE;
 }

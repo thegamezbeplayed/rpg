@@ -7,6 +7,11 @@ void HashInit(hash_map_t* m, uint32_t cap) {
     m->slots = GameCalloc("HashInit", cap, sizeof(hash_slot_t));
 }
 
+void HashClear(hash_map_t* m){
+  free(m->slots);
+  m->count = 0;
+}
+
 void HashFree(hash_map_t* m) {
     free(m->slots);
     memset(m, 0, sizeof(*m));

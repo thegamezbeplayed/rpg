@@ -551,7 +551,6 @@ int AllyAdd(ally_table_t* t, ent_t* source, int dist){
   WorldTargetSubscribe(EVENT_ENT_STEP, OnAllyEvent, t, source->gouid);
   WorldTargetSubscribe(EVENT_ENT_DEATH, OnAllyEvent, t, source->gouid);
 
-  TraceLog(LOG_INFO,"==== ALLY ADDED ====\n %s - %i", source->name, source->uid); 
   return e->score;
 }
 

@@ -184,7 +184,8 @@ typedef struct{
   line_item_t *left, *right;
 }progress_item_t;
 
-line_item_t* InitLineItem(element_value_t **val, int num_val, const char* format);
+line_item_t* InitLineItems(element_value_t **val, int num_val, const char* format);
+line_item_t* InitLineItem(element_value_t *val, const char* format);
 const char* PrintLine(line_item_t* ln);
 char *TextFormatLineItem(line_item_t *item);
 void PrintMobDetail(ent_t* e);
@@ -195,10 +196,13 @@ element_value_t* InventoryGetItem(element_value_t* self, param_t context);
 element_value_t* AttrGetPretty(element_value_t* self, param_t context);
 element_value_t* StatGetPretty(element_value_t* self, param_t context);
 element_value_t* SkillGetPretty(element_value_t* self, param_t context);
+element_value_t* DebugGetPrio(element_value_t* ev, param_t p);
+element_value_t* DebugGetAction(element_value_t* ev, param_t p);
+element_value_t* DebugGetTarget(element_value_t* ev, param_t p);
 void PrintSyncLine(line_item_t* ln, FetchRate poll);
 int SetParamDescription(line_item_t** li, int count, param_t param);
 int SetCtxParams(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);
-int SetCtxDebug(local_ctx_t* , line_item_t**, GameObjectParam);
+int SetCtxDebug(local_ctx_t* , param_t, line_item_t**, GameObjectParam);
 element_value_t* SetCtxIcon(param_t, GameObjectParam params[4], int);
 int SetActivityLines(element_value_t*, int pad[UI_POSITIONING]);
 int SetCtxDetails(local_ctx_t* , line_item_t**, const char f[PARAM_ALL][MAX_NAME_LEN], int pad[UI_POSITIONING], bool);

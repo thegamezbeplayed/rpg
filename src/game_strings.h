@@ -42,6 +42,21 @@ static char* MAT_STRINGS[MAT_DONE] = {
   [MAT_GEM]     = "",
 };
 
+static char* ACTIONTYPE_STRINGS[ACTION_DONE] = {
+  "None Action",
+  "Move",
+  "Attack",
+  "Technique",
+  "Item",
+  "Spell",
+  "Cantrip",
+  "Interact",
+  "Passive",
+  "Save",
+  "Slotted",
+  "Select"
+};
+
 static char* ACTION_STRINGS[ACTION_DONE] = {
   [ACTION_WEAPON] = "%s Fighting",
   [ACTION_MAGIC]  = "School of %s"
@@ -89,7 +104,8 @@ static char* ENV_STRINGS[ENV_DONE] = {
   [ENV_OXIDE]           = "%s Oxide", 
   [ENV_BORDER_DUNGEON]  = "Dungeon",
   [ENV_FURNITURE_CHAIR] = "Chair",
-  [ENV_EXIT]            = "Exit"
+  [ENV_EXIT]            = "Exit",
+  [ENV_FOREST_EXIT]     = "Exit"
 };
 
 static char* INV_STRINGS[INV_DONE] = {
@@ -106,7 +122,9 @@ static const char* STATE_STRING[STATE_END + 1]={
   "NONE",
   "SPAWN",
   "IDLE",
+  "ACTION",
   "AGGRO",
+  "ATTACK",
   "NEED",
   "SELECT",
   "DIE",
@@ -148,6 +166,13 @@ static stat_name_t STAT_STRING[STAT_ENT_DONE]={
   {STAT_ENERGY_REGEN_RATE, "Spell Regen Rate"},
   [STAT_HEALTH_REGEN] = {STAT_HEALTH_REGEN, "Health Regen"},
   [STAT_HEALTH_REGEN_RATE] = {STAT_HEALTH_REGEN_RATE, "Health Regen Rate"}
+};
+
+static const char* PRIO_STRINGS[PRIO_DONE] = {
+  "Needs",
+  "Threat",
+  "Flee",
+  "Help"
 };
 
 static const char* NEED_STRINGS[N_DONE] = {

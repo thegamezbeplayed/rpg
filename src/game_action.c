@@ -246,8 +246,7 @@ ActionStatus ActionValidate(action_t* a){
       local_ctx_t* tar = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
 
       ability_t* abi = ParamRead(&a->params[ACT_PARAM_ABILITY],ability_t);
-      if(!AbilityCanTarget(abi, tar))
-       status = ACT_STATUS_BAD_ATTACK;
+      status = AbilityCanTarget(abi, tar);
       break;
     case ACTION_INTERACT:
       break;

@@ -413,7 +413,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     .spacing = {[UI_MARGIN_LEFT] = 16, [UI_MARGIN_TOP] = -8, [UI_PADDING_LEFT] = 4}
   },
 
-  {"CONTEXT_PANEL_R", UI_PANEL_RIGHT, STAT_SHEET_PANEL_VER, UI_PANEL,
+  {"CONTEXT_PANEL_R", UI_PANEL_RIGHT, STAT_SHEET_PANEL_VER, UI_CONTAINER,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT, NULL, NULL,
     {
       [ELEMENT_IDLE] = ElementShow,
@@ -538,19 +538,21 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
       [ELEMENT_IDLE] = ElementShowContext,
     }
   },
-  {"DEBUG_SHEET", VECTOR2_ZERO, VECTOR2_ZERO, UI_CONTAINER,
+  {"DEBUG_SHEET", VECTOR2_ZERO, VECTOR2_ZERO, UI_PANEL,
     ELEMENT_NONE, LAYOUT_VERTICAL, ALIGN_LEFT | ALIGN_BOT,
     NULL, ElementScreenContext,
     .cb = {
       [ELEMENT_LOAD] = ElementSetContext,
       [ELEMENT_SHOW] = ElementActivateChildren,
     },
-    .num_children = 2, .kids = {"DEBUG_LINE"},
+    .num_children = 6, .kids = {"DEBUG_LINE"},
     .params = {
       {PARAM_NAME},
+      {PARAM_POS},
       {PARAM_STATE},
       {PARAM_PRIO},
       {PARAM_ACTION},
+      {PARAM_AGGRO}
     }
   },
   {"DEBUG_LINE", VECTOR2_ZERO, LABEL_LOG, UI_LABEL,
@@ -558,6 +560,7 @@ ui_element_d ELEM_DATA[ELE_COUNT] = {
     GetDebugContext, ElementGetOwnerContext,
     .cb = {
       [ELEMENT_LOAD] = ElementSetContext,
+      [ELEMENT_SHOW] = ElementSetContext,
       [ELEMENT_IDLE] = ElementShow,
     }
   }

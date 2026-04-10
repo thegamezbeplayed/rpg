@@ -1189,7 +1189,6 @@ BehaviorStatus AbilityExecute(ability_t* a, ent_t* e){
   if(!tar)
     return BEHAVIOR_FAILURE;
  
-  debug = tar->other.data; 
   player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_ABILITY] = ParamMakeObj(DATA_ABILITY, a->id , a);
 
 
@@ -1677,40 +1676,34 @@ int AbilitySimulate(ability_t* a, local_ctx_t* ctx){
   return sim->final_dmg;
 }
 
-bool AbilityCanTarget(ability_t* a, local_ctx_t* target){
+ActionStatus AbilityCanTarget(ability_t* a, local_ctx_t* target){
   if(!a)
-    return false;
+    return ACT_STATUS_BAD_ATTACK;
 
   if(!target)
-    return false;
+    return ACT_STATUS_BAD_DATA;
 
   if(a->type == SLOT_SAVE)
-    return false;
+    return ACT_STATUS_MISQUEUE;
 
   ent_t* e = a->stats[STAT_REACH]->owner;
 
-  if(e == player)
-    DO_NOTHING();
-  
   if(a->resource != STATE_NONE){
     int res = e->stats[a->resource]->current;
     if(a->cost > res)
-      return false;
+      return ACT_STATUS_RESOURCE;
   }
 
   if(!HasLOS(e->map, e->pos, target->pos))
-    return false;
+    return ACT_STATUS_BLOCK;
 
   int reach = a->stats[STAT_REACH]->current;
   int dist = cell_distance(e->pos, target->pos);
 
-  if(dist != target->dist)
-    DO_NOTHING();
-
   if(dist <= reach)
-    return true;
+    return ACT_STATUS_NONE;
 
-  return false;
+  return ACT_STATUS_INVALID;
 }
 
 void DamageEvent(EventType ev, void* edata, void* udata){

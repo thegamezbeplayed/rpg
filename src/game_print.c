@@ -4,10 +4,274 @@
 #include "game_systems.h"
 #include "game_strings.h"
 #include "game_helpers.h"
+#include "game_process.h"
 
 #include <stdio.h>
 
-int CtxGetDebugState(element_value_t **fill, local_ctx_t* ctx){
+line_item_t* InitLineItem(element_value_t *val, const char* format){
+  line_item_t* ln = GameCalloc("InitLineItem", 1,sizeof(line_item_t));
+
+  ln->values[ln->num_val++]=val;
+
+  ln->text_format = strdup(format);
+
+  return ln;
+}
+
+int CtxGetDebugAction(line_item_t **fill, local_ctx_t* ctx, param_t vctx){
+  if(ctx->other.type_id != DATA_ENTITY)
+    return 0;
+ 
+  ent_t* e = ctx->other.data;
+
+  if(!e->control || !e->control->actions)
+    return 0;
+
+  int count = 0;
+  for(int i = 0; i < ACT_DONE; i++){
+    action_queue_t* q = e->control->actions->queues[i];
+
+    if(q->count < 1)
+      continue;
+
+    for(int j = 0; j < q->count; j++){
+      action_t* a = &q->entries[j];
+  
+      element_value_t* acts[4];
+
+      element_value_t* turn = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+      turn->context = vctx;
+      turn->type = VAL_INT;
+      turn->rate = FETCH_UPDATE;
+      turn->i = GameCalloc("CtxGetDebugPrio", 1, sizeof(int));
+      *turn->i = a->turn;
+
+      element_value_t* score = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+      score->context = vctx;
+      score->type = VAL_INT;
+      score->rate = FETCH_UPDATE;
+      score->i = GameCalloc("CtxGetDebugPrio", 1, sizeof(int));
+      *score->i = a->score;
+
+      element_value_t* initiative = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+      initiative->type = VAL_INT;
+      initiative->context = vctx;
+      initiative->rate = FETCH_UPDATE;
+      initiative->i = GameCalloc("CtxGetDebugPrio", 1, sizeof(int));
+      *initiative->i = a->initiative;
+
+
+
+      element_value_t* name = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+      name->type = VAL_CHAR;
+      name->rate = FETCH_UPDATE;
+      name->c = strdup(ACTIONTYPE_STRINGS[a->type]);
+
+      acts[0] = turn;
+      acts[1] = score; 
+      acts[2] = name;
+      acts[3] = initiative;
+
+      line_item_t* line = InitLineItems(acts, 4,
+          "Turn %i | Score: %i | Action: %s | Speed: %i");
+   
+       element_value_t* item = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+      item->index = count;
+      item->type = VAL_LN;
+      item->rate = FETCH_UPDATE;
+      item->context = vctx;
+      item->get_val = DebugGetAction;
+      item->l[0] = line;
+      
+     fill[count++] = InitLineItem(item, "%l"); 
+    }
+  }
+
+  return count;
+}
+
+int CtxGetDebugPrio(line_item_t **fill, local_ctx_t* ctx, param_t vctx){
+  if(ctx->other.type_id != DATA_ENTITY)
+    return 0;
+ 
+  ent_t* e = ctx->other.data;
+
+  if(!e->control || !e->control->priorities)
+    return 0;
+
+  int count = 0;
+  int total = imin(MAX_SUB_ELE, e->control->priorities->count);
+  for(int i = 0; i < total; i++){
+    priority_t* p = &e->control->priorities->entries[i];
+
+    if(p->score < 1 || p->prune)
+      continue;
+
+    element_value_t* prio[3];
+
+    element_value_t* index = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+    index->type = VAL_INT;
+    index->rate = FETCH_UPDATE;
+    index->i = GameCalloc("CtxGetDebugPrio", 1, sizeof(int));
+    *index->i = count;
+
+    element_value_t* name = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+    name->type = VAL_CHAR;
+    name->rate = FETCH_UPDATE;
+    name->c = strdup(NEED_STRINGS[p->type]);
+
+    element_value_t* score = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+    score->type = VAL_INT;
+    score->rate = FETCH_UPDATE;
+    score->i = GameCalloc("CtxGetDebugPrio", 1, sizeof(int));
+    *score->i = p->score; 
+
+    prio[0] = index;
+    prio[1] = name; 
+    prio[2] = score;
+    
+    line_item_t* line = InitLineItems(prio, 3, "Priority %i: %s score: %i");
+    element_value_t* item = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+      item->index = count;
+      item->type = VAL_LN;
+      item->rate = FETCH_UPDATE;
+      item->context = vctx;
+      item->get_val = DebugGetPrio;
+      item->l[0] = line;
+
+     fill[count++] = InitLineItem(item, "%l");
+
+  }
+
+  return count;
+}
+
+element_value_t* DebugGetPrio(element_value_t* ev, param_t p){
+  if(p.type_id != DATA_LOCAL_CTX)
+    return ev;
+
+  local_ctx_t* ctx = p.data;
+  if(ctx->other.type_id != DATA_ENTITY)
+    return ev;
+
+  ent_t* e = ctx->other.data;
+  if(ev->index > e->control->priorities->count){
+    ev = NULL;
+    return NULL;
+  }
+
+  priority_t* prio = &e->control->priorities->entries[ev->index];
+
+  if(prio->score < 1 || prio->prune){
+    ev = NULL;
+    return NULL;
+  }
+  element_value_t* vals[3];
+
+  element_value_t* index = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+  index->type = VAL_INT;
+  index->rate = FETCH_UPDATE;
+  index->i = GameCalloc("CtxGetDebugPrio", 1, sizeof(int));
+  *index->i = ev->index;
+
+  element_value_t* name = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+  name->type = VAL_CHAR;
+  name->rate = FETCH_UPDATE;
+  name->c = strdup(PRIO_STRINGS[prio->type]);
+
+  element_value_t* score = GameCalloc("CtxGetDebugPrio", 1,sizeof(element_value_t));
+
+  score->type = VAL_INT;
+  score->rate = FETCH_UPDATE;
+  score->i = GameCalloc("CtxGetDebugPrio", 1, sizeof(int));
+  *score->i = prio->score;
+
+  vals[0] = index;
+  vals[1] = name; 
+  vals[2] = score;
+
+  ev->l[0]  = InitLineItems(vals, 3, "Priority %i: %s score: %i");  
+
+
+  return ev;
+}
+
+element_value_t* DebugGetAction(element_value_t* ev, param_t p){
+  if(p.type_id != DATA_LOCAL_CTX)
+    return ev;
+
+  ev->num_ln = CtxGetDebugAction(ev->l, p.data, p);
+
+  return ev;
+
+}
+
+
+
+element_value_t* DebugGetState(element_value_t* ev, param_t p){
+   local_ctx_t* ctx = p.data;
+
+   if(ctx->other.type_id != DATA_ENTITY)
+     return ev;
+
+   ent_t* e = ctx->other.data;
+
+   switch(ev->index){
+     case 0:
+      ev->c = strdup( STATE_STRING[e->state]);
+      break;
+     case 1:
+      ev->c = strdup( STATE_STRING[e->previous]);
+      break;
+     case 2:
+      ev->c = strdup( STATE_STRING[e->control->next]);
+      break;
+   }
+
+   return ev;
+}
+
+int CtxGetDebugPos(line_item_t **fill, local_ctx_t* ctx, param_t vctx){
+  
+  element_value_t* x = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
+  element_value_t* y = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
+
+  x->type = VAL_INT;
+  x->rate = FETCH_TURN;
+  x->i = GameCalloc("CtxGetDebugPos", 1, sizeof(int));
+  x->context = vctx;
+  x->index = 0;
+  *x->i = ctx->pos.x;
+
+  y->type = VAL_INT;
+  y->rate = FETCH_TURN;
+  y->context = vctx;
+  y->index = 1;
+
+  y->i = GameCalloc("CtxGetDebugPos", 1, sizeof(int));
+  *y->i = ctx->pos.y;
+  element_value_t* pos[2];
+  pos[0] = x;
+  pos[1] = y; 
+  fill[0] = InitLineItems(pos, 2, "Cell: [%i, %i]");
+
+  return 1;
+}
+
+
+
+int CtxGetDebugState(line_item_t **fill, local_ctx_t* ctx, param_t vctx){
   EntityState curs, prevs, nexts;
   switch(ctx->other.type_id){
     case DATA_ENTITY:
@@ -26,39 +290,129 @@ int CtxGetDebugState(element_value_t **fill, local_ctx_t* ctx){
   element_value_t* next = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
 
   state->type = VAL_CHAR;
-  state->rate = FETCH_UPDATE;
+  state->rate = FETCH_TURN;
   state->c = strdup( STATE_STRING[curs]);
+  state->context = vctx;
+  state->index = 0;
 
   prev->type = VAL_CHAR;
-  prev->rate = FETCH_UPDATE;
+  prev->rate = FETCH_TURN;
   prev->c = strdup( STATE_STRING[prevs]);
+  prev->context = vctx;
+  prev->index = 1;
 
   next->type = VAL_CHAR;
-  next->rate = FETCH_UPDATE;
+  next->rate = FETCH_TURN;
   next->c = strdup( STATE_STRING[nexts]);
+  next->context = vctx;
+  next->index = 2;
 
-  fill[0] = state;
-  fill[1] = prev;
-  fill[2] = next;
-
+  state->get_val = DebugGetState;
+  prev->get_val = DebugGetState;
+  next->get_val = DebugGetState;
+  
+  fill[0] = InitLineItem(state, "Current State: %s");
+  fill[1] = InitLineItem(prev, "Previous State: %s");
+  fill[2] = InitLineItem(state, "Next State:    %s");
 
   return 3;
 }
 
 
+element_value_t* DebugGetTarget(element_value_t* ev, param_t p){
+  local_ctx_t* ctx = p.data;
 
-int CtxGetDebugID(element_value_t **fill, local_ctx_t* ctx){
+  if(ctx->other.type_id != DATA_ENTITY)
+   return NULL;
+
+  ent_t* e = ctx->other.data;
+  if(!e || !CheckEntAlive(e) || e->control->target.type_id == DATA_NONE)
+    return NULL;
+
+  local_ctx_t* tartx = e->control->target.data;
+
+  if(!tartx)
+    return NULL;
+
+  switch(ev->type){
+    case VAL_INT:
+      int uid = -1;
+
+      switch(tartx->other.type_id){
+        case DATA_ENTITY:
+          ent_t* tar = tartx->other.data;
+          uid = tar->uid;
+          break;
+      }
+      *ev->i = uid;
+      break;
+    case VAL_CHAR:
+      strncpy(ev->c, ParamReadString(&tartx->params[PARAM_NAME]), MAX_NAME_LEN -1);
+
+      break;
+  }
+
+}
+
+element_value_t* DebugGetID(element_value_t* e, param_t p){
+  local_ctx_t* ctx = p.data;
+  switch(e->type){
+    case VAL_INT:
+      int uid = -1;
+
+      switch(ctx->other.type_id){
+        case DATA_ENTITY:
+          ent_t* e = ctx->other.data;
+          uid = e->uid;
+          break;
+      }
+      *e->i = uid;
+      break;
+    case VAL_CHAR:
+      strncpy(e->c, ParamReadString(&ctx->params[PARAM_NAME]), MAX_NAME_LEN -1);
+
+      break;
+  }
+
+}
+
+int CtxGetDebugAggro(line_item_t **fill, local_ctx_t* ctx, param_t vctx){
+
+  if(ctx->other.type_id != DATA_ENTITY)
+    return 0;
+
+  ent_t* e = ctx->other.data;
+  local_ctx_t* tartx = NULL;
+  switch(e->control->target.type_id){
+    case DATA_LOCAL_CTX:
+      tartx = e->control->target.data;
+      break;
+    case DATA_NONE:
+      return 0;
+    default:
+      return 0;
+      break;
+  }
+  if(!tartx || tartx->other.type_id != DATA_ENTITY)
+    return 0;
+
 
   element_value_t* txt = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
   element_value_t* id = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
 
   txt->type = VAL_CHAR;
+  txt->get_val = DebugGetTarget;
+  txt->context = e->control->target;
+
 
   id->type = VAL_INT;
+  id->get_val = DebugGetTarget;
+
+  id->context = e->control->target;
 
   int uid = -1;
 
-  switch(ctx->other.type_id){
+  switch(tartx->other.type_id){
     case DATA_ENTITY:
       ent_t* e = ctx->other.data;
       uid = e->uid;
@@ -68,26 +422,71 @@ int CtxGetDebugID(element_value_t **fill, local_ctx_t* ctx){
   id->i = GameCalloc("CtxGetDebug", 1, sizeof(int));
   *id->i = uid;
   txt->c = GameCalloc("CtxGetDebug", MAX_NAME_LEN, sizeof(char));
-  strncpy(txt->c, ParamReadString(&ctx->params[PARAM_NAME]), MAX_NAME_LEN -1);
+  strncpy(txt->c, ParamReadString(&tartx->params[PARAM_NAME]), MAX_NAME_LEN -1);
   txt->c[MAX_NAME_LEN-1] = '\0';
-  txt->rate = FETCH_NONE;
-  id->rate = FETCH_NONE;
+  txt->rate = FETCH_UPDATE;
+  id->rate = FETCH_UPDATE;
 
-  fill[0] = txt;
-  fill[1] = id;
+  element_value_t* debid[2];
+  debid[0] = txt;
+  debid[1] = id;
+  fill[0] = InitLineItems(debid, 2, "Target: %s - %i");
 
-  return 2;
+  return 1;
 }
 
 
-line_item_t* InitLineItem(element_value_t **val, int num_val, const char* format){
-  line_item_t* ln = GameCalloc("InitLineItem", 1,sizeof(line_item_t));
+int CtxGetDebugID(line_item_t **fill, local_ctx_t* ctx, param_t vctx){
+
+  element_value_t* txt = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
+  element_value_t* id = GameCalloc("CtxGetString", 1,sizeof(element_value_t));
+
+  txt->type = VAL_CHAR;
+  txt->get_val = DebugGetID;
+  txt->context = vctx;
+
+
+  id->type = VAL_INT;
+  id->get_val = DebugGetID;
+  id->context = vctx;
+
+
+  int uid = -1;
+
+  switch(ctx->other.type_id){
+    case DATA_ENTITY:
+      ent_t* e = ctx->other.data;
+      WorldSetDebug(e);
+      uid = e->uid;
+      break;
+  }
+
+  id->i = GameCalloc("CtxGetDebug", 1, sizeof(int));
+  *id->i = uid;
+  txt->c = GameCalloc("CtxGetDebug", MAX_NAME_LEN, sizeof(char));
+  strncpy(txt->c, ParamReadString(&ctx->params[PARAM_NAME]), MAX_NAME_LEN -1);
+  txt->c[MAX_NAME_LEN-1] = '\0';
+  txt->rate = FETCH_UPDATE;
+  id->rate = FETCH_UPDATE;
+
+  element_value_t* debid[2];
+  debid[0] = txt;
+  debid[1] = id;
+  fill[0] = InitLineItems(debid, 2, "%s - %i");
+
+  return 1;
+}
+
+
+line_item_t* InitLineItems(element_value_t **val, int num_val, const char* format){
+  line_item_t* ln = GameCalloc("InitLineItems", 1,sizeof(line_item_t));
 
   for (int i = 0; i < num_val; i++)
     ln->values[ln->num_val++]=val[i];
 
   ln->text_format = strdup(format);
 
+  return ln;
 }
 void PrintSyncLine(line_item_t* ln, FetchRate poll){
     for(int i = 0; i < ln->num_val; i++){
@@ -159,7 +558,12 @@ char *TextFormatLineItem(line_item_t *item) {
               strcat(buffer, "<BAD%F>");
             }
             break;
-
+          case 'l':
+            if(val->type == VAL_LN)
+              strcat(buffer, TextFormatLineItem(val->l[0]));
+            else
+              strcat(buffer, "<BAD LINE>");
+            break;
           default:
             // Copy unknown sequence literally
             strncat(buffer, &fmt[i], 2);
@@ -375,7 +779,7 @@ int GetMaterialDesc(line_item_t** li, item_t* item){
   name->c = strdup(item->def->name);
   name->get_val = NULL;
   base[0] = name;
-  li[count++] = InitLineItem(base, 1, "%s");
+  li[count++] = InitLineItems(base, 1, "%s");
 
   element_value_t* quant[1];
   element_value_t* weight[1];
@@ -418,9 +822,9 @@ int GetMaterialDesc(line_item_t** li, item_t* item){
   worth[0] = gold;
   worth[1] = silver;
 
-  li[count++] = InitLineItem(quant, 1, "Quantity: %i");
-  li[count++] = InitLineItem(weight, 1, "Weight: %f kg");
-  li[count++] = InitLineItem(worth, 2, "Worth: %i G / %i S");
+  li[count++] = InitLineItems(quant, 1, "Quantity: %i");
+  li[count++] = InitLineItems(weight, 1, "Weight: %f kg");
+  li[count++] = InitLineItems(worth, 2, "Worth: %i G / %i S");
 
   return count;
   //worth[1] = silver;
@@ -436,7 +840,7 @@ int GetConsumeDesc(line_item_t** li, item_t* item){
   name->c = strdup(item->def->name);
   name->get_val = NULL;
   base[0] = name;
-  li[count++] = InitLineItem(base, 1, "%s");
+  li[count++] = InitLineItems(base, 1, "%s");
   
   detail_format_t fmt = ITEM_FORMAT[ITEM_CONSUMABLE][item->def->type]; 
   consume_def_t *def = item->def->type_def;
@@ -613,16 +1017,16 @@ int GetAbilityDesc(line_item_t** li, ability_t* a){
 
   costs[0] = cost;
   costs[1] = resource;
-  li[count++] = InitLineItem(base, 1, "%s");
+  li[count++] = InitLineItems(base, 1, "%s");
 
   char *action_str = strdup(ACTION_STRINGS[a->action]);
   
   if(action_str && action_str[0] != '\0')
-    li[count++] = InitLineItem(school, 1, action_str);
+    li[count++] = InitLineItems(school, 1, action_str);
 
-  li[count++] = InitLineItem(costs, 2, "Costs %i %s");
-  li[count++] = InitLineItem(vals, 4, "Deals %i - %i %s damage %s.");
-  li[count++] = InitLineItem(ranges, 1, "Range: %i tiles");
+  li[count++] = InitLineItems(costs, 2, "Costs %i %s");
+  li[count++] = InitLineItems(vals, 4, "Deals %i - %i %s damage %s.");
+  li[count++] = InitLineItems(ranges, 1, "Range: %i tiles");
 
     return count;
 }
@@ -638,7 +1042,7 @@ int GetWeapDesc(line_item_t** li, item_t* item){
   name->c = strdup(item->def->name);
 
   base[0] = name;
-  li[count++] = InitLineItem(base, 1, "%s");
+  li[count++] = InitLineItems(base, 1, "%s");
 
   element_value_t* min_dmg = GameCalloc("GetWeapDesc", 1,sizeof(element_value_t));
   min_dmg->i = malloc(sizeof(int));
@@ -686,8 +1090,8 @@ int GetWeapDesc(line_item_t** li, item_t* item){
   *base_d->i = item->values[VAL_DURI]->base;
   duri[0] = cur_d;
   duri[1] = base_d;
-  li[count++] = InitLineItem(dmg, 3, "Deals %i to %i %s Damage");
-  li[count++] = InitLineItem(duri, 2, "Duribility %i out of %i");
+  li[count++] = InitLineItems(dmg, 3, "Deals %i to %i %s Damage");
+  li[count++] = InitLineItems(duri, 2, "Duribility %i out of %i");
   return count;
 }
 
@@ -701,7 +1105,7 @@ int GetArmorDesc(line_item_t** li, item_t* item){
   name->c = strdup(item->def->name);
 
   base[0] = name;
-  li[count++] = InitLineItem(base, 1, "%s");
+  li[count++] = InitLineItems(base, 1, "%s");
 
   
   element_value_t* ac = GameCalloc("GetArmorDesc", 1,sizeof(element_value_t));
@@ -715,7 +1119,7 @@ int GetArmorDesc(line_item_t** li, item_t* item){
   element_value_t* base_ac[1];
  
   base_ac[0] = ac;
-  li[count++] = InitLineItem(base_ac, 1, "Armor Class: %i");
+  li[count++] = InitLineItems(base_ac, 1, "Armor Class: %i");
 
  
   for (int i = 0; i < DMG_DONE; i++){
@@ -735,7 +1139,7 @@ int GetArmorDesc(line_item_t** li, item_t* item){
     *dr->i = item->def->dr->resist_types[i];
     fill[0] = tag;
     fill[1] = dr;
-    li[count++] = InitLineItem(fill, 2, "%s Damage Reduction: %i");
+    li[count++] = InitLineItems(fill, 2, "%s Damage Reduction: %i");
   }
 
   return count;
@@ -890,7 +1294,7 @@ element_value_t* SkillGetDetailed(element_value_t* self, param_t context){
   element_value_t* val[1];
   val[0] = cur;
 
-  self->l[self->num_ln++] = InitLineItem(val, 1, "Level %i");
+  self->l[self->num_ln++] = InitLineItems(val, 1, "Level %i");
 
   for (int i = 0; i < self->num_ln; i++){
     PrintSyncLine(self->l[i],FETCH_EVENT);
@@ -984,7 +1388,7 @@ element_value_t* SkillGetPretty(element_value_t* self, param_t context){
       thresh->context.gouid = 3;
       right[0] = cur;
       right[1] = thresh;
-      self->p->right = InitLineItem(right, 2, "%i / %i");
+      self->p->right = InitLineItems(right, 2, "%i / %i");
  
       lvl->type = VAL_INT;
       lvl->rate = FETCH_EVENT;
@@ -995,7 +1399,7 @@ element_value_t* SkillGetPretty(element_value_t* self, param_t context){
       *lvl->i = (int)skill->val;
 
       left[0] = lvl;
-      self->p->left = InitLineItem(left, 1, "Level: %i");
+      self->p->left = InitLineItems(left, 1, "Level: %i");
       
       PrintSyncLine(self->p->left,FETCH_EVENT);
       PrintSyncLine(self->p->right,FETCH_EVENT);
@@ -1043,7 +1447,7 @@ int SetCtxDetails(local_ctx_t* ctx , line_item_t** li, const char fmt[PARAM_ALL]
         break;
     }
 
-    li[count] = InitLineItem(base,items,format);
+    li[count] = InitLineItems(base,items,format);
     PrintSyncLine(li[count],FETCH_ONCE);
     const char* ln = TextFormatLineItem(li[count]);
     TraceLog(LOG_INFO, "MEASURE: %s", ln);
@@ -1134,7 +1538,7 @@ int SetActivityLines(element_value_t* ev, int pad[UI_POSITIONING]){
 
   int *pos = ParamRead(&ev->context, int);
   int items = ActivitiesAssignValues(base, *pos);
-  ev->l[0] = InitLineItem(base, items, fmt);
+  ev->l[0] = InitLineItems(base, items, fmt);
 
   int des_len = 128;
   int p_left = pad[UI_PADDING_LEFT];
@@ -1180,7 +1584,7 @@ int SetParamDescription(line_item_t** li, int count, param_t param){
     case DATA_INV:
       lines = GetInventoryDetails(base, param);
 
-      li[count] = InitLineItem(base,lines,"%s: %i");
+      li[count] = InitLineItems(base,lines,"%s: %i");
       PrintSyncLine(li[count],FETCH_ONCE);
       const char* ln = TextFormatLineItem(li[count]);
       TraceLog(LOG_INFO, "MEASURE: %s", ln);
@@ -1197,38 +1601,41 @@ int SetParamDescription(line_item_t** li, int count, param_t param){
   return 1;
 }
 
-int SetCtxDebug(local_ctx_t* ctx, line_item_t** li, GameObjectParam p){
+int SetCtxDebug(local_ctx_t* ctx, param_t vctx, line_item_t** li, GameObjectParam p){
 
-  int count = 0;
   int lines = 1;
   element_value_t* base[MAX_LINE_ITEMS];
 
   char* fmt;
   switch(p){
     case PARAM_NAME:
-      fmt = "%s %i";
-      count = CtxGetDebugID(base, ctx);
+      lines = CtxGetDebugID(li, ctx, vctx);
       break;
     case PARAM_STATE:
-      fmt = "%s";
-      count = CtxGetDebugState(base, ctx);
-      lines = 3;
+      lines = CtxGetDebugState(li, ctx, vctx);
       break;
     case PARAM_PRIO:
+      lines = CtxGetDebugPrio(li, ctx, vctx);
       break;
     case PARAM_ACTION:
+      lines = CtxGetDebugAction(li, ctx, vctx);
+      break;
+    case PARAM_AGGRO:
+      lines = CtxGetDebugAggro(li, ctx, vctx);
+      break;
+    case PARAM_POS:
+      lines = CtxGetDebugPos(li, ctx, vctx);
       break;
   }
-  if(count > 0){
-
-    li[0] = InitLineItem(base, count, fmt);
-    PrintSyncLine(li[0],FETCH_ONCE);
-    const char* ln = TextFormatLineItem(li[0]);
+    
+  for (int i = 0; i < lines; i++){
+    PrintSyncLine(li[i],FETCH_ONCE);
+    const char* ln = TextFormatLineItem(li[i]);
     TraceLog(LOG_INFO, "MEASURE: %s", ln);
 
     Vector2 size = MeasureTextEx(ui.font, ln, ui.text_size, ui.text_spacing);
-    li[0]->r_wid = size.x;
-    li[0]->r_hei = size.y;
+    li[i]->r_wid = size.x;
+    li[i]->r_hei = size.y;
 
   }
   return lines;
@@ -1277,7 +1684,7 @@ int SetCtxParams(local_ctx_t* ctx, line_item_t** li, const char fmt[PARAM_ALL][M
         break;
     }
         
-    li[count] = InitLineItem(base,items,fmt[i]);
+    li[count] = InitLineItems(base,items,fmt[i]);
     PrintSyncLine(li[count],FETCH_ONCE);
     const char* ln = TextFormatLineItem(li[count]);
     TraceLog(LOG_INFO, "MEASURE: %s", ln);

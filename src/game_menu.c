@@ -1239,10 +1239,25 @@ element_value_t* GetDebugContext(ui_element_t* e,  param_t context){
 
   element_value_t *ev = GameCalloc("GetContext", 1,sizeof(element_value_t));
   ev->type = VAL_LN;
-  ev->rate = FETCH_EVENT;
+  ev->rate = FETCH_UPDATE;
+  ev->context = context;
+  ev->num_ln = SetCtxDebug(ctx, context, ev->l, e->params[0]);
 
-  ev->num_ln = SetCtxDebug(ctx, ev->l, e->params[0]);
-
+  switch(e->params[0]){
+    case PARAM_PRIO:
+      ev->get_val = DebugGetPrio;
+      break;
+    case PARAM_ACTION:
+      ev->get_val = DebugGetAction;
+      break;
+    case PARAM_AGGRO:
+      ev->get_val = DebugGetTarget;
+      ev->rate = FETCH_TURN;
+    default:
+      ev->rate = FETCH_TURN;
+      break;
+  }
+  e->sync_val = ElementSyncVal;
   ElementValueSyncSize(e, ev);
 
   return ev;

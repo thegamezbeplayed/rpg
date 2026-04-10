@@ -2486,8 +2486,6 @@ item_type_d* ItemPoolGetEntry(item_gen_pool *p, uint64_t uid){
 item_type_d* ItemGenAdd(item_gen_pool* p, ItemCategory cat, void* def){
   item_type_d* idef = &p->entries[p->count++];
 
-  TraceLog(LOG_INFO,"==== ITEM GEN ADD ====\n %i out of %i", p->count, p->cap);
-
   switch(cat){
     case ITEM_WEAPON:
       idef->data.weap = *(weapon_def_t*) def;
