@@ -2059,7 +2059,7 @@ typedef struct{
   ItemProps       i_props;
   WeaponProps     w_props;
   MaterialProp    m_props;
-  AbilityID       ability;
+  AbilityID       abilities[4];
   SkillType       skill;
   StorageMethod   primary;
   int             prio[STORE_DONE];

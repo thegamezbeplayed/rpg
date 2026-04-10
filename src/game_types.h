@@ -181,7 +181,7 @@ typedef struct item_def_s{
   void*               type_def;
   ItemCategory        category;        // weapon / armor / potion / scroll
   damage_reduction_t  *dr; //TODO MOVE TO VALUE_T
-  AbilityID           ability;
+  AbilityID           abilities[4];
   int                 cost, weight;
   int                 num_skills;
   SkillType           skills[3];

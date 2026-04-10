@@ -513,8 +513,8 @@ void WorldInitOnce(){
 
   InitInput(player);
 
-  LootDraw(player, LF_WEAP, true, 1000, 1);
-  LootDraw(player, LF_TOOL, false, 1500, 1);
+  //LootDraw(player, LF_WEAP, true, 1000, 1);
+  LootDraw(player, LF_TOOL, true, 1500, 1);
   LootDraw(player, LF_ARMOR, true, 30, 1);
   LootDraw(player, LF_TOME, false, 1000, 2);
   //LootDraw(player, LF_SCROLL, false, 1000, 2);

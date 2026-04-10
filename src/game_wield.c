@@ -594,7 +594,6 @@ item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps a){
   item->type = t;
   item->dr = GameCalloc("DefineArmorByType dr",1,sizeof(damage_reduction_t));
 
-  item->ability = ABILITY_NONE;
   armor_def_t temp = ARMOR_TEMPLATES[t];
   item->type_def = &ARMOR_TEMPLATES[t];
 
@@ -605,7 +604,7 @@ item_def_t* DefineArmorByType(ArmorType t, ItemProps p, ArmorProps a){
 
   //item->weight = temp.weight;
 
-  item->ability = ABILITY_ARMOR_SAVE;
+  item->abilities[0] = ABILITY_ARMOR_SAVE;
   item->skills[item->num_skills++] = temp.skill;
   return item;
 
@@ -620,7 +619,7 @@ item_def_t* DefineArmor(armor_def_t* adef){
   item->type_def = adef;
   item->skills[item->num_skills++] = adef->skill;
 
-  item->ability = ABILITY_ARMOR_SAVE;
+  item->abilities[0] = ABILITY_ARMOR_SAVE;
   item->dr = GameCalloc("DefineArmor",1,sizeof(damage_reduction_t));
   *item->dr = adef->dr_base;
   strcpy(item->name, adef->name);
@@ -648,7 +647,10 @@ item_def_t* DefineWeapon(weapon_def_t* wdef){
   item->props = wdef->i_props;
   item->t_props = wdef->w_props;
   item->type_def = wdef;
-  item->ability = wdef->ability;
+
+  for(int i = 0; i < 4; i++)
+    item->abilities[i] = wdef->abilities[i];
+
   item->skills[item->num_skills++] = wdef->skill;
   strcpy(item->name, wdef->name);
   material_spec_d *mspec = MaterialsGetEntry(LevelMaterials(), wdef->mat);
@@ -675,7 +677,8 @@ item_def_t* DefineWeaponByType(WeaponType t, ItemProps props, WeaponProps w_prop
   item->type_def = &WEAPON_TEMPLATES[t];
 
   strcpy(item->name, temp.name);
-  item->ability = temp.ability;
+  for(int i = 0; i < 4; i++)
+  item->abilities[i] = temp.abilities[i];
 
 
   return item;
@@ -704,7 +707,7 @@ item_def_t* DefineConsumableByDef(consume_def_t *def){
 
   item->type_def = GameMalloc("consume_def", sizeof(consume_def_t));
   memcpy(item->type_def, def, sizeof(consume_def_t));
-  item->ability = def->ability;
+  item->abilities[0] = def->ability;
 
   return item;
 }
@@ -730,7 +733,7 @@ item_def_t* DefineConsumable(ItemInstance data){
 
      item->skills[item->num_skills++] = temp.skill;
      */
-  item->ability = temp.ability;
+  item->abilities[0] = temp.ability;
 
   strcpy(item->name, strcat(temp.name, ABILITY_STRINGS[temp.ability].name));
 
@@ -748,17 +751,19 @@ item_def_t* DefineItem(ItemInstance data){
   switch(data.cat){
     case ITEM_ARMOR:
       item->type_def = &ARMOR_TEMPLATES[data.equip_type];
-      item->ability = ABILITY_ARMOR_SAVE;
+      item->abilities[0] = ABILITY_ARMOR_SAVE;
       break;
     case ITEM_WEAPON:
       item->type_def = &WEAPON_TEMPLATES[data.equip_type];
-      item->ability = WEAPON_TEMPLATES[data.equip_type].ability;
+      for(int i = 0; i < 4; i++)
+      item->abilities[i] = WEAPON_TEMPLATES[data.equip_type].abilities[i];
+      
       break;
     case ITEM_CONSUMABLE:
       item->type_def = &CONSUME_TEMPLATES[data.equip_type];
-      item->ability = CONSUME_TEMPLATES[data.equip_type].ability;
+      item->abilities[0] = CONSUME_TEMPLATES[data.equip_type].ability;
       strcpy(item->name, CONSUME_TEMPLATES[data.equip_type].name);
-      strcat(item->name, ABILITY_STRINGS[item->ability].name);
+      strcat(item->name, ABILITY_STRINGS[item->abilities[0]].name);
       break;
     case ITEM_CONTAINER:
       item->type_def = &CONTAINER_TEMPLATES[data.equip_type];
@@ -1052,7 +1057,11 @@ bool ItemAddUse(ent_t* owner, item_t* item){
 }
 
 bool ItemAddAbility(ent_t* owner, item_t* item){
-  ability_t* a = InitAbility(owner, item->def->ability);
+  for(int i = 0; i < 4; i++){
+    if(item->def->abilities[i] == ABILITY_NONE)
+      continue;
+
+  ability_t* a = InitAbility(owner, item->def->abilities[i]);
   //  a->cost = def->
   for(int i = 0; i < VAL_WORTH; i++){
     if(item->values[i]==NULL)
@@ -1073,7 +1082,7 @@ bool ItemAddAbility(ent_t* owner, item_t* item){
       case VAL_REACH:
         a->values[i]->on_change = ValueUpdateStat;
       default:
-        break;
+	break;
     }
 
     AbilityApplyValues(a, item->values[i]);
@@ -1093,11 +1102,11 @@ bool ItemAddAbility(ent_t* owner, item_t* item){
   if(a->chain){
     for(int i = 0; i < 3; i++){
       if(a->skills[j] != SKILL_NONE)        
-        continue;
+	continue;
 
       a->chain->skills[i] = item->skills[0];
     }
-  
+
     if(a->chain->type == AT_DR){
       a->chain->dr = item->def->dr;
       ActionSlotAddAbility(owner,a->chain);
@@ -1109,17 +1118,17 @@ bool ItemAddAbility(ent_t* owner, item_t* item){
     case AT_DMG:
     case AT_HEAL:
       if(a->action != ACTION_ITEM){
-        WorldEvent(EVENT_LEARN, a, owner->gouid);
+	WorldEvent(EVENT_LEARN, a, owner->gouid);
 
-        a->weight+=pref;
+	a->weight+=pref;
       }
       break;
     case AT_KNOWLEDGE:
       if(item->def->category == ITEM_CONSUMABLE){
-        if(item->def->type_def){
-          consume_def_t* c_def = item->def->type_def;
-          a->chain_id = c_def->chain_id;
-        }
+	if(item->def->type_def){
+	  consume_def_t* c_def = item->def->type_def;
+	  a->chain_id = c_def->chain_id;
+	}
       }
       break;
     default:
@@ -1129,7 +1138,9 @@ bool ItemAddAbility(ent_t* owner, item_t* item){
   item->ability = a;
   item->use_fn = ItemAbilityUse;
 
-  return ActionSlotAddAbility(owner, a);
+  ActionSlotAddAbility(owner, a);
+  }
+  return true;
 }
 
 bool ItemSkillup(ent_t* owner, item_t* item, InteractResult result){
@@ -1501,12 +1512,12 @@ item_def_t* DefineTool(tool_def_t* def){
   item->t_props = def->t_props;
   item->props = def->i_props;
 
-  item->ability = def->ability;
   item->type_def = def;
   item->weight = def->vals[VAL_SCORE];
   item->cost = def->vals[VAL_WORTH];
   strcpy(item->name, def->name);
 
+  item->abilities[0] = def->ability;
   item->flags = LF_TOOL;
   return item;
 }

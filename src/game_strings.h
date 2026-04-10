@@ -317,6 +317,7 @@ static ability_strings_d ABILITY_STRINGS[ABILITY_DONE] = {
 
   [ABILITY_TOOL_SKIN]           = {ABILITY_TOOL_SKIN, {"SOMETHING", "SOMETHINGS"}, "Skin"},
   [ABILITY_TOOL_MINE]           = {ABILITY_TOOL_MINE, {"SOMETHING", "SOMETHINGS"}, "Mine"},
+  [ABILITY_TOOL_FELL]           = {ABILITY_TOOL_FELL, {"SOMETHING", "SOMETHINGS"}, "Chop Wood"},
 };
 
 static token_strings_d TOKEN_STRINGS[TOKE_ALL] = {

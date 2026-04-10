@@ -201,6 +201,7 @@ static skill_rate_relation_t SKILLRATE_LOOKUP[RATE_DONE]={
   {RATE_RISK,
     {
       [SKILL_ARCANA] = true,
+      [SKILL_STEALTH] = true,
       [SKILL_WEAP_SIMP] = true,
     }
   },

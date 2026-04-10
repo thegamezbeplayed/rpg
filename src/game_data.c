@@ -413,6 +413,16 @@ ability_t ABILITIES[ABILITY_DONE]={
       [VAL_DRAIN] = 2,
 
     }
+  },
+  {ABILITY_TOOL_FELL, AT_SKILL, ACTION_INTERACT,
+    .targeting = DES_REQ, ATTR_NONE, ATTR_STR,
+    .skills = SKILL_WOOD, .use_fn = AbilityInteract,
+    .req = CTX_METHOD_EXTRACT | CTX_HAS_RESOURCE | CTX_TAR_ENV,
+    .params = {[PARAM_RESOURCE] = RES_WOOD},
+    .vals = {
+      [VAL_DMG] = 4, [VAL_DMG_DIE] = 2, [VAL_HIT] = 14,
+      [VAL_DRAIN] = 4, [VAL_REACH] = 1, [VAL_DMG_BONUS] = 1
+    }
   }
 };
 
@@ -436,7 +446,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
     PROP_WEAP_NONE,
     PROP_MAT_TOOLING,
-    .ability = ABILITY_WEAP_BLUDGEON,
+    .abilities = ABILITY_WEAP_BLUDGEON,
     .skill = SKILL_WEAP_MACE,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
@@ -457,7 +467,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
     PROP_WEAP_NONE,
     PROP_MAT_TOOLING | PROP_MAT_BLADE,
-    .ability = ABILITY_WEAP_SLASH,
+    .abilities = {ABILITY_WEAP_SLASH},
     .skill = SKILL_WEAP_SWORD,
      STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
@@ -478,14 +488,14 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
     PROP_WEAP_NONE,
     PROP_MAT_TOOLING | PROP_MAT_BLADE,
-    .ability = ABILITY_WEAP_CHOP, 
+    .abilities = {ABILITY_WEAP_CHOP, ABILITY_TOOL_FELL}, 
     .skill = SKILL_WEAP_AXE,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
     .vals = {
       [VAL_WORTH]   = 300,
       [VAL_PENN]    = 1,
-      [VAL_SCORE]   = 20,
+      [VAL_SCORE]   = 200,
       [VAL_WEIGHT]  = 1250,
       [VAL_SIZE]    = 768,
       [VAL_STORAGE] = 768,
@@ -499,7 +509,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
     PROP_WEAP_NONE,
     PROP_MAT_TOOLING | PROP_MAT_BLADE,
-    .ability = ABILITY_WEAP_STAB,
+    .abilities = {ABILITY_WEAP_STAB},
     .skill = SKILL_WEAP_DAGGER,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
@@ -520,7 +530,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
     PROP_WEAP_NONE,
     PROP_MAT_TOOLING | PROP_MAT_BLADE,
-    .ability = ABILITY_WEAP_PIERCE,
+    .abilities = {ABILITY_WEAP_PIERCE},
     .skill = SKILL_WEAP_SPEAR,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
@@ -541,7 +551,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     PROP_MAT_WOOD,
     PROP_WEAP_AMMO | PROP_WEAP_TWO_HANDED,
     PROP_MAT_TOOLING,
-    .ability = ABILITY_WEAP_RANGE_PIERCE,
+    .abilities = {ABILITY_WEAP_RANGE_PIERCE},
     .skill = SKILL_WEAP_BOW,
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
@@ -603,6 +613,32 @@ tool_def_t TOOL_TEMPLATES[TOOL_DONE] = {
     .reagents = RES_STONE | RES_METAL,
     .icon = ICON_PICK
   },
+  [TOOL_HATCHET] = { TOOL_HATCHET, "Hatchet",
+        PROP_MAT_STONE | PROP_MAT_METAL,
+    0,
+    .vals = {
+      [VAL_DMG]     = 4,
+      [VAL_DMG_DIE] = 1,
+      [VAL_ADV_HIT] = -1,
+      [VAL_ADV_DMG] = -1,
+      [VAL_REACH]   = 1,
+      [VAL_WEIGHT]  = 700,
+      [VAL_SIZE]    = 0x0300,
+      [VAL_WORTH]   = 325,
+      [VAL_SCORE]   = 500,
+      [VAL_DRAIN]   = 2,
+      [VAL_STORAGE] = 0x0100
+    },
+    .skills = {SKILL_WEAP_AXE},
+    .ability = ABILITY_WEAP_CHOP,
+    .use = ABILITY_TOOL_FELL,
+    .reagents = RES_STONE | RES_METAL,
+    .icon = ICON_HATCHET
+  },
+
+
+
+
   [TOOL_CRUCIBLE] = { TOOL_CRUCIBLE, "Crucible",
     PROP_MAT_STONE,
     .vals = {
@@ -1159,6 +1195,11 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
 };
 
 material_properties_t MATERIAL_COMP[MAT_ALL] = {
+  [MAT_WOOD_BEECH] = {MAT_WOOD_BEECH, 1,
+    {
+      {MAT_WOOD_BEECH, 75, 1, 1, .method = SKILL_WOOD}
+    }
+  },
   [MAT_STONE_DOLOMITE] = {MAT_STONE_DOLOMITE, 1,
     {
       {MAT_STONE_DOLOMITE, 50, 0, 1, 
