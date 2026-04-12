@@ -29,7 +29,7 @@ local_ctx_t* ParamReadCtx(const param_t* o){
 }
 
 affect_t AFFECTS[NUM_AFFECTS] = {
-  {AFFECT_WEAP_SAP, AFF_ABI,
+  {AFFECT_SAP, AFF_ABI,
     {EVENT_DAMAGE_DEALT, PARAM_WEAP_TYPE, {DATA_INT, .id = WEAP_MACE}},
     {EVENT_ROLL_DMG, PARAM_ABILITY, -1},
     AffectHitRoll,
@@ -40,7 +40,7 @@ affect_t AFFECTS[NUM_AFFECTS] = {
 
 feat_t FEATS[NUM_FEATS] = {
   {FEAT_WEAPON_MASTERY, SKILL_WEAP_MACE, 4, 1,
-    {{AFF_MOD_ABI, AFFECT_WEAP_SAP, 4,0}}
+    {{AFF_MOD_ABI, AFFECT_SAP, 4,0}}
   }
 
 };
@@ -104,7 +104,7 @@ define_resource_t DEF_RES[20] = {
     OBJ_ENV,
     TILEFLAG_TREE | TILEFLAG_FOREST,
     TILEFLAG_BORDER,
-    2, 3, 2
+    .75, 3, 2
   },
   {"Vegetation", RES_VEG,
     OBJ_ENV,
@@ -265,167 +265,6 @@ species_relation_t SPEC_ALIGN[__builtin_ctzll(SPEC_DONE)] = {
     }   
 };
 
-ability_t ABILITIES[ABILITY_DONE]={
-  {ABILITY_NONE},
-  {ABILITY_PUNCH,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 0, 1, 3,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
-    .skills[0] = SKILL_WEAP_NONE},
-  {ABILITY_RAM,AT_DMG,ACTION_ATTACK, DMG_BLUNT,STAT_STAMINA, DES_NONE, 25,2, 0, 1, 3,2, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
-    .skills[0] = SKILL_WEAP_NONE},
-  {ABILITY_BITE, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 20,1, 0, 1, 4,4, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR,
-    .skills = SKILL_WEAP_NONE,
-    .rankup = {[VAL_PENN] = 1, [VAL_DMG_BONUS] = 2}
-  },
-  {ABILITY_CHEW, AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,2, 8, 1, 2,0, 1, STAT_ARMOR, ATTR_NONE, ATTR_NONE, ABILITY_GNAW, 
-    .skills = SKILL_WEAP_NONE},
-  {ABILITY_GNAW,AT_DMG,ACTION_ATTACK, DMG_PIERCE,STAT_STAMINA, DES_NONE, 25,1, 0, 1, 2,0, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
-    .skills = SKILL_WEAP_NONE},
-  {ABILITY_CLAW,AT_DMG,ACTION_ATTACK, DMG_SLASH, STAT_STAMINA, DES_NONE, 50,2, 0, 2, 3, 1, 1, STAT_HEALTH, ATTR_NONE, ATTR_STR, 
-    .skills = SKILL_WEAP_NONE},
-  {ABILITY_SWIPE, AT_DMG,ACTION_ATTACK, DMG_SLASH,STAT_STAMINA, DES_NONE, 50,2,0, 2, 6, 3,1, STAT_HEALTH, ATTR_STR,
-    .skills = SKILL_WEAP_NONE},
-
-  {ABILITY_BITE_POISON, AT_DMG,ACTION_ATTACK, DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1, 0, 1, 2, 0,1, STAT_HEALTH, ATTR_NONE, ATTR_STR,ABILITY_POISON, .skills = SKILL_WEAP_NONE,
-  },
-  {ABILITY_POISON, AT_DMG, ACTION_NONE, DMG_POISON, STAT_NONE, DES_NONE, 25,1, 9, 1, 3,0,1,STAT_HEALTH, ATTR_CON, ATTR_NONE,
-    .skills = SKILL_POISON,
-    .image_id = SPELL_BUBBLE
-  },
-  {ABILITY_ACID_SPLASH, AT_DMG, ACTION_MAGIC, DMG_ACID, STAT_ENERGY,
-    DES_AREA, 11, 12, 0, 1, 6, 0, 2, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
-    .skills = SKILL_SPELL_EVO, .image_id = SPELL_BUBBLES},
- {ABILITY_MAGIC_MISSLE, AT_DMG, ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TAR, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .skills = SKILL_SPELL_EVO,
-   .image_id = SPELL_MISSILE,
-   .vals = {[VAL_QUANT] = 3}
- },
-  {ABILITY_ELDRITCH_BLAST, AT_DMG,ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_SEL_TAR, 30, 8, 14, 3, 3, 3, 2, STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
-   .skills = SKILL_SPELL_EVO,
-   .image_id = SPELL_FLARE
-  },
-  {ABILITY_RESISTANCE,
-    .skills = SKILL_SPELL_ABJ, .image_id = SPELL_SHIELD
-  },
-  {ABILITY_CHILL_TOUCH, AT_DMG, ACTION_MAGIC, DMG_NECROTIC, STAT_ENERGY,
-    DES_IMBUE, 24, 6, 0, 1, 10, 0, 0, STAT_HEALTH, ATTR_NONE, ATTR_NONE,
-    .skills = SKILL_SPELL_NECRO, .image_id = SPELL_BONE
-  },
-  {ABILITY_GUIDING_BOLT, AT_DMG, ACTION_MAGIC, DMG_RADIANT, STAT_ENERGY, DES_SEL_TAR, 20, 4, 0, 1, 6, 0, STAT_HEALTH, ATTR_NONE, ATTR_WIS,
-    .skills = SKILL_SPELL_EVO, .image_id = SPELL_MISSILE },
-  {ABILITY_SACRED_FLAME, AT_DMG,ACTION_MAGIC, DMG_RADIANT, STAT_ENERGY, DES_SEL_TAR, 25, 8, 4, 1, 8, 0, 5, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
-    .skills = SKILL_SPELL_EVO, .image_id = SPELL_FLARE},
-  {ABILITY_STARRY_WISP, AT_DMG,ACTION_MAGIC,DMG_RADIANT, STAT_ENERGY, DES_SEL_TAR, 25, 8, 14 , 1, 8, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_WIS,
-  .skills = SKILL_SPELL_EVO, .image_id = SPELL_WISP},
-  {ABILITY_MAGIC_STONE, AT_DMG,ACTION_MAGIC,DMG_BLUNT, STAT_ENERGY, DES_MULTI_TAR, 25, 3, 15, 1, 6, 0, 5, STAT_HEALTH, ATTR_NONE, ATTR_INT,
-  .skills = SKILL_SPELL_TRANS, .image_id = SPELL_ROCK},
-  {ABILITY_POISON_SPRAY, AT_DMG,ACTION_MAGIC,DMG_POISON, STAT_ENERGY, DES_SEL_TAR, 25, 8, 14, 1,10,0,3, STAT_HEALTH, ATTR_CON, ATTR_NONE,
-  .skills = SKILL_SPELL_NECRO, .image_id = SPELL_BUBBLE},
-  {ABILITY_FIRE_BOLT, AT_DMG, ACTION_MAGIC,DMG_FIRE, STAT_ENERGY, DES_SEL_TAR, 20, 8, 2, 1,12,0,4, STAT_HEALTH, ATTR_NONE, ATTR_INT,
-  .skills = SKILL_SPELL_EVO, .image_id = SPELL_MISSILE},
-  {ABILITY_FROST_BITE, AT_DMG, ACTION_MAGIC, DMG_COLD, STAT_ENERGY,
-    DES_SEL_TAR, 12, 10, 0, 1, 6, STAT_HEALTH, ATTR_CON, ATTR_INT,
-    .skills = SKILL_SPELL_EVO, .image_id = SPELL_GLIMMER},
-  {ABILITY_DISSONANT_WHISPERS, AT_DMG, ACTION_MAGIC, DMG_PSYCHIC,
-    STAT_ENERGY, DES_SEL_TAR, 15, 8, 0, 3, 6, 0, 2, STAT_HEALTH, ATTR_WIS, ATTR_CHAR,
-    .skills = SKILL_SPELL_ENCH, .image_id = SPELL_EYE
-  },
-  {ABILITY_THUNDER_WAVE, AT_DMG, ACTION_MAGIC, DMG_THUNDER, STAT_ENERGY,
-    DES_ORIGIN, 15, 12, 0, 2, 8, 0, 2, STAT_HEALTH, ATTR_CON, ATTR_CHAR,
-    .skills = SKILL_SPELL_EVO, .image_id = SPELL_PYRE
-  },
-  {ABILITY_CURE_WOUNDS, AT_HEAL, ACTION_MAGIC, DMG_TRUE, STAT_ENERGY, DES_SEL_TAR, 15, 8, 0, 2,4,1,1, STAT_HEALTH, ATTR_NONE, ATTR_WIS,
-    .skills = SKILL_SPELL_ABJ},
-  {ABILITY_REND, AT_DMG,ACTION_ATTACK,DMG_SLASH, STAT_STAMINA, DES_NONE, 25, 8, 4, 1, 4,1,1,STAT_HEALTH, ATTR_NONE,ATTR_STR,ABILITY_BLEED},
-  {ABILITY_HAMSTRING},
-  {ABILITY_RAGE, AT_DMG,ACTION_ATTACK,DMG_TRUE, STAT_RAGE, DES_NONE, 10, 1, 0,1, 2, 1,1, STAT_HEALTH, ATTR_NONE, ATTR_NONE },
-  {ABILITY_DASH, AT_MOVE, ACTION_MOVE, 0, STAT_STAMINA, DES_NONE, 5, 5, 1, 0, 0,0,0,1, STAT_NONE, ATTR_NONE, ATTR_DEX, ABILITY_NONE, 1, SKILL_ACRO,
-  .cat = ACT_BONUS},
-  {ABILITY_THROW_ROCK, AT_DMG, ACTION_ATTACK, DMG_BLUNT, STAT_STAMINA, DES_SEL_TAR, 20, 1, 10, 1, 4, 0, 2, STAT_HEALTH, ATTR_DEX, ATTR_STR,
-    .skills = SKILL_WEAP_NONE
-  },
-  {ABILITY_WEAP},
-  {ABILITY_WEAP_BLUDGEON, AT_DMG,ACTION_WEAPON,
-    DMG_BLUNT, STAT_STAMINA, DES_NONE, 25,1,17,3,2,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
-  },
-  {ABILITY_WEAP_CHOP,AT_DMG,ACTION_WEAPON,
-    DMG_SLASH, STAT_STAMINA, DES_NONE, 25,1,17,2,3,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
-  },
-  {ABILITY_WEAP_STAB,AT_DMG,ACTION_WEAPON,
-    DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1,17,2,3,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
-  },
-  {ABILITY_WEAP_SLASH,AT_DMG,ACTION_WEAPON,
-    DMG_SLASH, STAT_STAMINA, DES_NONE, 25,1,15,1,6,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
-  },
-  {ABILITY_WEAP_PIERCE,AT_DMG,ACTION_WEAPON,
-    DMG_PIERCE, STAT_STAMINA, DES_NONE, 25,1,17,2,2,0,1,STAT_HEALTH,ATTR_NONE, ATTR_STR,
-  },
-  {ABILITY_WEAP_RANGE_PIERCE,AT_DMG,ACTION_WEAPON,
-    DMG_PIERCE, STAT_STAMINA, DES_NONE, 27,1,15,1,4,0,3,STAT_HEALTH,ATTR_NONE, ATTR_DEX},
-  {ABILITY_STATUS},
-  {ABILITY_BLEED, AT_DMG, ACTION_NONE,
-    DMG_BLEED, STAT_STAMINA, DES_NONE, 0, 0, 4, 1, 6, 2,1, STAT_HEALTH, ATTR_CON,ATTR_STR},
-  {ABILITY_ARMOR},
-  {ABILITY_ARMOR_SAVE, AT_SAVE, ACTION_SAVE, .mod = ATTR_DEX,
-    .chain_id = ABILITY_ARMOR_DR, .save_fn = EntAbilitySave},
-  {ABILITY_ARMOR_DR, AT_DR, ACTION_SAVE,.save_fn = EntAbilityReduce},
-  {ABILITY_ITEM},
-  {ABILITY_ITEM_HEAL, AT_HEAL, ACTION_ITEM,
-    DMG_RADIANT, STAT_NONE, DES_SELF, 10, 1, 1, 2,4,2,0, STAT_HEALTH, ATTR_NONE, ATTR_NONE,.skills=SKILL_ALCH, .use_fn = AbilityConsume
-  },
-  {ABILITY_ITEM_RESTORE, AT_HEAL, ACTION_ITEM,
-    DMG_RADIANT, STAT_NONE, DES_SELF, 10, 1, 1, 20, 1,2,0, STAT_ENERGY, ATTR_NONE, ATTR_NONE,.skills=SKILL_ALCH, .use_fn = AbilityConsume
-  },
-  
-  {ABILITY_ITEM_SKILL, AT_KNOWLEDGE, ACTION_ITEM,
-      .skills=SKILL_LING, .use_fn = AbilityGrantExp
-  },
-  {ABILITY_ITEM_TOME, AT_KNOWLEDGE, ACTION_ITEM,
-    .skills=SKILL_ARCANA, .use_fn = AbilityLearn
-  },
-  {ABILITY_ITEM_SCROLL, AT_KNOWLEDGE, ACTION_ITEM,
-
-  
-  },
-  {ABILITY_TOOL_SKIN, AT_SKILL, ACTION_INTERACT,
-   .targeting = DES_REQ, ATTR_NONE, ATTR_DEX,
-    .skills = SKILL_SKIN, .use_fn = AbilityInteract,
-    .params = {[PARAM_RESOURCE] = RES_HIDE | RES_FUR | RES_MEAT},
-    .req = CTX_METHOD_EXTRACT | CTX_HAS_RESOURCE | CTX_TAR_ENV,
-    .vals = {
-      [VAL_DMG] = 6, [VAL_DMG_DIE] = 2, [VAL_HIT] = 12,
-      [VAL_DRAIN] = 1, [VAL_REACH] = 1, [VAL_DMG_BONUS] = 1
-    }
-  },
-  {ABILITY_TOOL_MINE, AT_SKILL, ACTION_INTERACT,
-    .targeting = DES_REQ, ATTR_NONE, ATTR_STR,
-    .skills = SKILL_STONE, .use_fn = AbilityInteract,
-    .req = CTX_METHOD_EXTRACT | CTX_HAS_RESOURCE | CTX_TAR_ENV,
-    .params = {[PARAM_RESOURCE] = RES_STONE},
-    .vals = {
-      [VAL_DMG] = 6, [VAL_DMG_DIE] = 4, [VAL_HIT] = 12,
-      [VAL_DRAIN] = 2, [VAL_REACH] = 1, [VAL_DMG_BONUS] = 2
-    }
-  },
-  {ABILITY_TOOL_SMELT, AT_SKILL, ACTION_INTERACT,
-    .targeting = DES_INTERFACE, ATTR_NONE, ATTR_WIS,
-    .skills = SKILL_SMELT, .use_fn = AbilityProcess,
-    .req = CTX_METHOD_PROCESS | CTX_HAS_RESOURCE,
-    .params = {[PARAM_RESOURCE] = RES_STONE},
-    .vals = {
-      [VAL_DRAIN] = 2,
-
-    }
-  },
-  {ABILITY_TOOL_FELL, AT_SKILL, ACTION_INTERACT,
-    .targeting = DES_REQ, ATTR_NONE, ATTR_STR,
-    .skills = SKILL_WOOD, .use_fn = AbilityInteract,
-    .req = CTX_METHOD_EXTRACT | CTX_HAS_RESOURCE | CTX_TAR_ENV,
-    .params = {[PARAM_RESOURCE] = RES_WOOD},
-    .vals = {
-      [VAL_DMG] = 4, [VAL_DMG_DIE] = 2, [VAL_HIT] = 14,
-      [VAL_DRAIN] = 4, [VAL_REACH] = 1, [VAL_DMG_BONUS] = 1
-    }
-  }
-};
-
 item_fn_t item_funcs[ITEM_DONE] = {
   {ITEM_NONE},
   {ITEM_WEAPON,.num_equip = 1, .on_equip= ItemAddAbility},
@@ -451,17 +290,14 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
     .vals = {
-      [VAL_WORTH]   = 250,
-      [VAL_PENN]    = 0,
-      [VAL_SCORE]   = 25,
-      [VAL_WEIGHT]  = 1250,
-      [VAL_SIZE]    = 512,
-      [VAL_STORAGE] = 512,
-      [VAL_DURI]    = 64,
-      [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 0, 
-      [VAL_HIT]     = 14,
-    }
+      [VAL_WORTH]   = 250,[VAL_PENN]    = 0,
+      [VAL_SCORE]   = 25, [VAL_WEIGHT]  = 1250,
+      [VAL_SIZE]    = 512,[VAL_STORAGE] = 512,
+      [VAL_DURI]    = 64, [VAL_DRAIN]   = 2,
+      [VAL_REACH]   = 1,  [VAL_HIT]     = 14,
+      [VAL_DMG]     = 2,  [VAL_DMG_DIE] = 3,
+    },
+    .loot = LF_WEAP | LF_MAT_WOOD | LF_MAT_STONE | LF_MAT_METAL
   },
   {WEAP_SWORD, "Sword",
     PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
@@ -472,17 +308,14 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
      STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
     .vals = {
-      [VAL_WORTH]   = 600,
-      [VAL_PENN]    = 0,
-      [VAL_SCORE]   = 10,
-      [VAL_WEIGHT]  = 1000,
-      [VAL_SIZE]    = 1024,
-      [VAL_STORAGE] = 1024,
-      [VAL_DURI]    = 32,
-      [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 0,
-      [VAL_HIT]     = 9,
-    }
+      [VAL_WORTH]   = 600, [VAL_PENN]    = 0,
+      [VAL_SCORE]   = 10,  [VAL_WEIGHT]  = 1000,
+      [VAL_SIZE]    = 1024,[VAL_STORAGE] = 1024,
+      [VAL_DURI]    = 32,  [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 1,   [VAL_HIT]     = 10,
+      [VAL_DMG]     = 6,   [VAL_DMG_DIE] = 1,
+    },
+    .loot = LF_WEAP | LF_MAT_METAL
   },
   {WEAP_AXE,"Axe",
     PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
@@ -493,17 +326,14 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
     .vals = {
-      [VAL_WORTH]   = 300,
-      [VAL_PENN]    = 1,
-      [VAL_SCORE]   = 200,
-      [VAL_WEIGHT]  = 1250,
-      [VAL_SIZE]    = 768,
-      [VAL_STORAGE] = 768,
-      [VAL_DURI]    = 48,
-      [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 0,
-      [VAL_HIT]     = 13,
-    }
+      [VAL_WORTH]   = 300, [VAL_PENN]    = 2,
+      [VAL_SCORE]   = 200, [VAL_WEIGHT]  = 1250,
+      [VAL_SIZE]    = 768, [VAL_STORAGE] = 768,
+      [VAL_DURI]    = 48,  [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 1,   [VAL_HIT]     = 12,
+      [VAL_DMG]     = 4,   [VAL_DMG_DIE] = 2,
+     },
+    .loot = LF_WEAP | LF_MAT_STONE | LF_MAT_METAL
   },
   {WEAP_DAGGER, "Dagger",
     PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
@@ -522,9 +352,10 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_STORAGE] = 256,
       [VAL_DURI]    = 32,
       [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 0,
+      [VAL_REACH]   = 1,
       [VAL_HIT]     = 12,
-    }
+    },
+    .loot = LF_WEAP | LF_MAT_STONE | LF_MAT_METAL
   },
   {WEAP_JAVELIN, "Javelin",
     PROP_MAT_BONE | PROP_MAT_WOOD | PROP_MAT_STONE | PROP_MAT_METAL,
@@ -544,8 +375,8 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_DURI]    = 4,
       [VAL_DRAIN]   = 1,
       [VAL_REACH]   = 2,
-    }
-
+    },
+    .loot = LF_WEAP | LF_MAT_WOOD | LF_MAT_METAL
   },
   {WEAP_BOW, "Bow",
     PROP_MAT_WOOD,
@@ -564,8 +395,9 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_STORAGE] = 1536,
       [VAL_DURI]    = 128,
       [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 2,
-    }
+      [VAL_REACH]   = 3,
+    },
+    .loot = LF_WEAP | LF_MAT_WOOD
   },
 };
 
@@ -590,7 +422,8 @@ tool_def_t TOOL_TEMPLATES[TOOL_DONE] = {
     .ability = ABILITY_WEAP_STAB,
     .use = ABILITY_TOOL_SKIN,
     .reagents = RES_BONE | RES_STONE | RES_METAL,
-    .icon = ICON_KNIFE
+    .icon = ICON_KNIFE,
+    .loot = LF_TOOL | LF_RES_BEAST | LF_MAT_STONE | LF_MAT_METAL
   },
   [TOOL_PICKAXE] = { TOOL_PICKAXE, "Pickaxe",
     PROP_MAT_STONE | PROP_MAT_METAL,
@@ -611,7 +444,8 @@ tool_def_t TOOL_TEMPLATES[TOOL_DONE] = {
     .skills = {SKILL_WEAP_PICK},
     .use = ABILITY_TOOL_MINE,
     .reagents = RES_STONE | RES_METAL,
-    .icon = ICON_PICK
+    .icon = ICON_PICK,
+    .loot = LF_TOOL | LF_RES_STONE | LF_MAT_STONE | LF_MAT_METAL
   },
   [TOOL_HATCHET] = { TOOL_HATCHET, "Hatchet",
         PROP_MAT_STONE | PROP_MAT_METAL,
@@ -633,12 +467,9 @@ tool_def_t TOOL_TEMPLATES[TOOL_DONE] = {
     .ability = ABILITY_WEAP_CHOP,
     .use = ABILITY_TOOL_FELL,
     .reagents = RES_STONE | RES_METAL,
-    .icon = ICON_HATCHET
+    .icon = ICON_HATCHET,
+    .loot = LF_TOOL | LF_RES_WOOD | LF_MAT_STONE | LF_MAT_METAL
   },
-
-
-
-
   [TOOL_CRUCIBLE] = { TOOL_CRUCIBLE, "Crucible",
     PROP_MAT_STONE,
     .vals = {
@@ -688,7 +519,8 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
       [VAL_STORAGE] = 1792, 
       [VAL_SIZE]    = 1792, 
       [VAL_SCORE]   = 25,
-    }
+    },
+    .loot = LF_ARMOR | LF_MAT_CLOTH
   },
   {ARMOR_PADDED, "Shirt",
     {},
@@ -707,7 +539,8 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
       [VAL_STORAGE] = 4096,
       [VAL_SIZE]    = 4096,
       [VAL_SCORE]   = 20,
-    }
+    },
+    .loot = LF_ARMOR | LF_MAT_CLOTH
   },
   {ARMOR_LEATHER, "Vest", 
     {{[DMG_SLASH]=1,[DMG_BLUNT]=1},{}},
@@ -726,7 +559,9 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
       [VAL_STORAGE] = 4096,
       [VAL_SIZE]    = 4096,
       [VAL_SCORE]   = 15,
-    }
+    },
+    .loot = LF_ARMOR | LF_MAT_HIDE
+
   },
   {ARMOR_CHAIN, "Mail Shirt", 
     {{[DMG_SLASH]=2,[DMG_PIERCE]=1},{}},
@@ -746,7 +581,8 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
       [VAL_SIZE]    = 2048,
       [VAL_SCORE]   = 10,
       [VAL_DRAIN]   = 1,
-    }
+    },
+    .loot = LF_ARMOR | LF_MAT_METAL
   },
   {ARMOR_PLATE, "Curaiss",
     {{[DMG_SLASH]=2,[DMG_PIERCE]=2,[DMG_BLUNT]=1},{}},
@@ -766,7 +602,8 @@ armor_def_t ARMOR_TEMPLATES[ARMOR_DONE]={
       [VAL_SIZE]    = 4096,
       [VAL_SCORE]   = 5,
       [VAL_DRAIN]   = 2
-    }
+    },
+    .loot = LF_ARMOR | LF_MAT_METAL
   },
 };
 
@@ -783,7 +620,8 @@ consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
     STORE_SPECIAL,
     {[STORE_HELD] = 5, [STORE_CONTAINER] = 1},
     0x0020,
-    "Potion of "
+    "Potion of ",
+    .loot = LF_CONS | LF_POT
   },
   {CONS_FOOD},
   {CONS_DRINK},
@@ -794,7 +632,8 @@ consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
     STORE_SPECIAL,
     {[STORE_HELD] = 5, [STORE_CONTAINER] = 3},
     0x0050,
-    "Scroll of "  
+    "Scroll of ",
+    .loot = LF_CONS | LF_SCROLL
   },
   {CONS_TOME,
     250, 1250, 1, 1, 20,
@@ -803,7 +642,8 @@ consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
     STORE_SPECIAL,
     {[STORE_HELD] = 5, [STORE_CONTAINER] = 3},
     0X1250,
-    "Tome of "
+    "Tome of ",
+    .loot = LF_CONS | LF_TOME
   },
   {CONS_SKILLUP,
      200, 500, 1, 25, 50,
@@ -813,7 +653,8 @@ consume_def_t CONSUME_TEMPLATES[CONS_DONE] = {
     {[STORE_HELD] = 5, [STORE_CONTAINER] = 3},
     0X1000,
     "Manual of ",
-    .vals = {[VAL_DMG] = 6, [VAL_DMG_DIE] = 10}  
+     .vals = {[VAL_DMG] = 6, [VAL_DMG_DIE] = 10},  
+    .loot = LF_CONS | LF_MANUAL
   }
 };
 
@@ -856,22 +697,76 @@ define_natural_armor_t NAT_ARMOR_TEMPLATES[13] = {
 };
 material_data_t MATERIAL_DATA[MAT_ALL] = {
   [MAT_WOOD_ASH]        = {MAT_WOOD_ASH, MAT_WOOD, "Ash"},
-  [MAT_WOOD_BEECH]      = {MAT_WOOD_BEECH, MAT_WOOD, "Beech"},
+  [MAT_WOOD_BEECH]      = {MAT_WOOD_BEECH, MAT_WOOD, "Beech",
+   PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+        BEIGE, ICON_WOOD,
+        .vals = {
+          [VAL_WEIGHT] = 750,
+          [VAL_WORTH]  = 2
+        }
+  },
   [MAT_WOOD_BIRCH]      = {MAT_WOOD_BIRCH, MAT_WOOD, "Birch"},
   [MAT_WOOD_CEDAR]      = {MAT_WOOD_CEDAR, MAT_WOOD, "Cedar"},
   [MAT_WOOD_CHERRY]     = {MAT_WOOD_CHERRY, MAT_WOOD, "Cherry"},
   [MAT_WOOD_CYPRESS]    = {MAT_WOOD_CYPRESS, MAT_WOOD, "Cypress"},
   [MAT_WOOD_ELM]        = {MAT_WOOD_ELM, MAT_WOOD, "Elm"},
-  [MAT_WOOD_FIR]        = {MAT_WOOD_FIR, MAT_WOOD, "Fir"},
+  [MAT_WOOD_FIR]        = {MAT_WOOD_FIR, MAT_WOOD, "Fir",
+   PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+        BEIGE, ICON_WOOD,
+        .vals = {
+          [VAL_WEIGHT] = 500,
+          [VAL_WORTH]  = 1
+        }
+
+  },
+  [MAT_WOOD_HELVORN]    = {MAT_WOOD_HICKORY, MAT_WOOD, "Helvorn",
+       PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+       FROSTGRAY,
+       .vals = {
+         [VAL_WEIGHT] = 1000,
+         [VAL_WORTH]  = 28
+       }
+  },
   [MAT_WOOD_HICKORY]    = {MAT_WOOD_HICKORY, MAT_WOOD, "Hickory"},
+  [MAT_WOOD_IRON]       = {MAT_WOOD_IRON, MAT_WOOD, "Ironwood",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    DARKGRAY,
+    .vals = {
+      [VAL_WEIGHT] = 1337,
+      [VAL_WORTH]  = 6
+    }
+  },
   [MAT_WOOD_MAPLE]      = {MAT_WOOD_MAPLE, MAT_WOOD, "Maple"},
-  [MAT_WOOD_OAK]        = {MAT_WOOD_OAK, MAT_WOOD, "Oak"},
+  [MAT_WOOD_OAK]        = {MAT_WOOD_OAK, MAT_WOOD, "Oak",
+        PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+        BROWN, ICON_WOOD,
+        .vals = {
+          [VAL_WEIGHT] = 700,
+          [VAL_WORTH]  = 3
+        }
+  },
   [MAT_WOOD_PINE]       = {MAT_WOOD_PINE, MAT_WOOD, "Pine"},
   [MAT_WOOD_POPLAR]     = {MAT_WOOD_POPLAR, MAT_WOOD, "Poplar"},
   [MAT_WOOD_REDWOOD]    = {MAT_WOOD_REDWOOD, MAT_WOOD, "Redwood"},
-  [MAT_WOOD_SPRUCE]     = {MAT_WOOD_SPRUCE, MAT_WOOD, "Spruce"},
+  [MAT_WOOD_SPRUCE]     = {MAT_WOOD_SPRUCE, MAT_WOOD, "Spruce",
+   PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+        DARKBROWN, ICON_WOOD,
+        .vals = {
+          [VAL_WEIGHT] = 425,
+          [VAL_WORTH]  = 1
+        }
+
+  },
   [MAT_WOOD_WALNUT]     = {MAT_WOOD_WALNUT, MAT_WOOD, "Walnut"},
-  
+  [MAT_WOOD_WYRD]     = {MAT_WOOD_WYRD, MAT_WOOD, "Wyrdwood",
+    PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+    COLDGRAY, ICON_WOOD,
+    .vals = {
+      [VAL_WEIGHT] = 700,
+      [VAL_WORTH]  = 24        
+    }
+  },
+
   [MAT_STONE_CASSITERITE] = {MAT_STONE_CASSITERITE, MAT_STONE,
     "Cassiterite",
     PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
@@ -1109,6 +1004,7 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
     },
     .score = 25,
     .cost = 50,
+    .loot = LF_MAT | LF_MAT_CLOTH
   },
   {MAT_HIDE,
     PROP_MAT_HIDE,
@@ -1119,6 +1015,7 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
     },
     .score = 50,
     .cost = 30,
+    .loot = LF_MAT | LF_MAT_HIDE
   },
   {MAT_FUR,
     PROP_MAT_FUR,
@@ -1129,6 +1026,7 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
     },
     .score = 40,
     .cost = 20,
+    .loot = LF_MAT | LF_MAT_HIDE
   },
   {MAT_LEATHER,
     PROP_MAT_LEATHER,
@@ -1139,6 +1037,7 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
     },
     .score = 30,
     .cost = 20,
+    .loot = LF_MAT | LF_MAT_HIDE
   },
   {MAT_BONE,
     PROP_MAT_BONE,
@@ -1151,17 +1050,20 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
     },
     .score = 20,
     .cost = 25,
+    .loot = LF_MAT | LF_MAT_BONE
   },
   {MAT_WOOD,
     PROP_MAT_WOOD,
     PROP_MAT_HAS_RESOURCE,
     RES_WOOD,
+    .icon = ICON_WOOD,
     .vals ={
       [VAL_STORAGE] = 2000,
       [VAL_WEIGHT]  = 1500,
     },
     .score = 100,
     .cost = 10,
+    .loot = LF_MAT | LF_MAT_WOOD
   },
   {MAT_STONE,
     PROP_MAT_STONE,
@@ -1175,9 +1077,12 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
     },
     .score = 50,
     .cost = 10,
+    .loot = LF_MAT | LF_MAT_STONE
   },
   {MAT_GEM,
     PROP_MAT_GEM,
+
+    .loot = LF_MAT | LF_MAT_GEM
   },
   {MAT_METAL,
     PROP_MAT_METAL,
@@ -1190,14 +1095,30 @@ material_def_t MATERIAL_TEMPLATES[MAT_DONE] = {
       [VAL_WORTH]   = 5,
     },
     .score = 20,
-    .cost = 50
+    .cost = 50,
+    .loot = LF_MAT | LF_MAT_METAL
   }
 };
 
 material_properties_t MATERIAL_COMP[MAT_ALL] = {
   [MAT_WOOD_BEECH] = {MAT_WOOD_BEECH, 1,
     {
-      {MAT_WOOD_BEECH, 75, 1, 1, .method = SKILL_WOOD}
+      {MAT_WOOD_BEECH, 75, 2, 3, .method = SKILL_WOOD}
+    }
+  },
+  [MAT_WOOD_FIR] = {MAT_WOOD_FIR, 1,
+    {
+      {MAT_WOOD_FIR, 75, 1, 3, .method = SKILL_WOOD}
+    }
+  },
+  [MAT_WOOD_OAK] = {MAT_WOOD_OAK, 1,
+    {
+      {MAT_WOOD_OAK, 75, 3, 4, .method = SKILL_WOOD}
+    }
+  },
+  [MAT_WOOD_SPRUCE] = {MAT_WOOD_SPRUCE, 1,
+    {
+      {MAT_WOOD_SPRUCE, 75, 1, 3, .method = SKILL_WOOD}
     }
   },
   [MAT_STONE_DOLOMITE] = {MAT_STONE_DOLOMITE, 1,
@@ -2530,32 +2451,15 @@ item_type_d* ItemGenAdd(item_gen_pool* p, ItemCategory cat, void* def){
   switch(cat){
     case ITEM_WEAPON:
       idef->data.weap = *(weapon_def_t*) def;
-      idef->flags |= LF_WEAP;
       idef->gouid = GameObjectMakeUID(idef->data.weap.name, cat, WorldGetTime());
       break;
     case ITEM_ARMOR:
       idef->data.armor = *(armor_def_t*) def;
-      idef->flags |= LF_ARMOR;
       idef->gouid = GameObjectMakeUID(idef->data.armor.name, cat, WorldGetTime());
       break;
     case ITEM_CONSUMABLE:
       idef->data.cons = *(consume_def_t*) def;
-      idef->flags |= LF_CONS;
       idef->gouid = GameObjectMakeUID(idef->data.cons.name, cat, WorldGetTime());
-      switch(idef->data.cons.type){
-        case CONS_SCROLL:
-          idef->flags |= LF_SCROLL;
-          break;
-        case CONS_POT:
-          idef->flags |= LF_POT;
-          break;
-        case CONS_TOME:
-          idef->flags |= LF_TOME;
-          break;
-        case CONS_SKILLUP:
-          idef->flags |= LF_MANUAL;
-          break;
-      }
       break;
     case ITEM_CONTAINER:
       idef->data.cont = *(container_def_t*) def;
@@ -2563,29 +2467,10 @@ item_type_d* ItemGenAdd(item_gen_pool* p, ItemCategory cat, void* def){
       break;
     case ITEM_MATERIAL:
       idef->data.mat = *(material_def_t*) def;
-      idef->flags |= LF_MATERIAL;
       idef->gouid = idef->data.mat.spec;
-      switch(idef->data.mat.type){
-        case MAT_CLOTH:
-          idef->flags |= LF_MAT_CLOTH;
-          break;
-        case MAT_HIDE:
-          idef->flags |= LF_MAT_HIDE;
-          break;
-        case MAT_BONE:
-          idef->flags |= LF_MAT_BONE;
-          break;
-        case MAT_FUR:
-        case MAT_LEATHER:
-        case MAT_WOOD:
-        case MAT_STONE:
-        case MAT_METAL:
-          break;
-      }
       break;
     case ITEM_TOOL:
       idef->data.tool = *(tool_def_t*)def;
-      idef->flags |= LF_TOOL;
       idef->gouid = GameObjectMakeUID(idef->data.tool.name, cat, WorldGetTime());
       break;
     default:

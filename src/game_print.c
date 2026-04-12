@@ -1007,7 +1007,7 @@ int GetAbilityDesc(line_item_t** li, ability_t* a){
   cost->type = VAL_INT;
   cost->rate = FETCH_ONCE;
   cost->i = GameMalloc("GetAbilityDesc", sizeof(int));
-  *cost->i = a->cost;
+  *cost->i = a->values[VAL_DRAIN]->val;
   
   element_value_t* resource = GameCalloc("GetAbilityDesc", 1,sizeof(element_value_t));
 
@@ -1030,6 +1030,72 @@ int GetAbilityDesc(line_item_t** li, ability_t* a){
 
     return count;
 }
+
+int GetToolDesc(line_item_t** li, item_t* item){
+
+  element_value_t* name = GameCalloc("GetToolDesc", 1,sizeof(element_value_t));
+  element_value_t* base[MAX_LINE_VAL];
+
+  tool_def_t* tdef = item->def->type_def;
+  int count = 0;
+  name->type = VAL_CHAR;
+  name->rate = FETCH_ONCE;
+  name->c = strdup(item->def->name);
+
+  base[0] = name;
+  li[count++] = InitLineItems(base, 1, "%s");
+
+  element_value_t* min_dmg = GameCalloc("GetToolDesc", 1,sizeof(element_value_t));
+  min_dmg->i = malloc(sizeof(int));
+  element_value_t* max_dmg = GameCalloc("GetToolDesc", 1,sizeof(element_value_t));
+
+  max_dmg->i = malloc(sizeof(int));
+  min_dmg->type = VAL_INT;
+  min_dmg->rate = FETCH_ONCE;
+  int min_roll = 1 * item->ability->dc->num_die;
+  *min_dmg->i =  min_roll;
+
+  int max_roll = item->ability->dc->sides * item->ability->dc->num_die;
+
+  max_dmg->type = VAL_INT;
+  max_dmg->rate = FETCH_ONCE;
+  *max_dmg->i = max_roll;
+
+  element_value_t* type = GameCalloc("GetToolDesc",1,sizeof(element_value_t));
+  type->type = VAL_CHAR;
+  type->rate = FETCH_ONCE;
+  type->c = strdup(ABILITY_STRINGS[tdef->use].target);
+  
+  element_value_t* dmg[3];
+  element_value_t* hit[3];
+  
+  dmg[0] = min_dmg;
+  dmg[1] = max_dmg;
+  dmg[2] = type;
+
+  element_value_t* duri[2];
+
+  element_value_t* base_d = GameCalloc("GetToolDesc",1,sizeof(element_value_t));
+
+  element_value_t* cur_d = GameCalloc("GetToolDesc",1,sizeof(element_value_t));
+
+  base_d->type = VAL_INT;
+  base_d->rate  = FETCH_TURN;
+  base_d->i = GameCalloc("GetToolDesc",1,sizeof(int));
+
+  cur_d->type = VAL_INT;
+  cur_d->rate  = FETCH_TURN;
+  cur_d->i = GameCalloc("GetToolDesc",1,sizeof(int));
+
+  *cur_d->i = item->values[VAL_DURI]->val;
+  *base_d->i = item->values[VAL_DURI]->base;
+  duri[0] = cur_d;
+  duri[1] = base_d;
+  li[count++] = InitLineItems(dmg, 3, "Extracts %i to %i %s");
+  li[count++] = InitLineItems(duri, 2, "Duribility %i out of %i");
+  return count;
+}
+
 
 int GetWeapDesc(line_item_t** li, item_t* item){
 
@@ -1499,6 +1565,9 @@ int SetCtxDescription(param_t ctx , line_item_t** li, int pad[UI_POSITIONING]){
           break;
         case ITEM_MATERIAL:
           lines = GetMaterialDesc(li, item);
+          break;
+        case ITEM_TOOL:
+          lines = GetToolDesc(li, item);
           break;
       }
       break;

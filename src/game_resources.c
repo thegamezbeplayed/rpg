@@ -62,8 +62,8 @@ MaterialSpec RegisterMaterial(MaterialType type, DataType dtype, int id, char na
   strcpy(mat->mat, MAT_STRINGS[type]);
   strcpy(mat->root, name);
 
-  TraceLog(LOG_INFO,"==== REGISTER NEW MATERIAL ====\n %s %s", mat->root, mat->mat);
   HashPut(&table->map, thash, mat);
+  WorldEvent(EVENT_REGISTER_MATERIAL, mat, thash);
   return mat->spec;
 }
 

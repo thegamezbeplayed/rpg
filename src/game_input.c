@@ -49,17 +49,52 @@ BehaviorStatus InputActionMove(ent_t* e, action_key_t akey, KeyboardKey k){
   return BEHAVIOR_FAILURE;
 }
 
-BehaviorStatus InputActionItem(ent_t* e, action_key_t a,  KeyboardKey k){
+BehaviorStatus InputMultiTarget(ent_t* e, ActionType a, param_t sel){
+  map_cell_t** selections = GameCalloc("InputMultiTarget", sel.size, sizeof(map_cell_t));
 
+  ability_t* abi = player_input.sel_abi;
+  selections = sel.data;
+
+  int num_ents = 0;
+  local_ctx_t** locals = GameCalloc("InputMultiTarget",
+      sel.size, sizeof(local_ctx_t*));
+
+  for(int i = 0; i < sel.size; i++){
+    map_cell_t* mc = selections[i];
+
+    if(!mc->occupant)
+      continue;
+
+    if(mc->occupant == e && (abi->req  & CTX_TAR_SELF)==0)
+      continue;
+
+    locals[num_ents++] = WorldGetContext(DATA_ENTITY, mc->occupant->gouid);
+  }
+
+  if(num_ents == 0)
+    return BEHAVIOR_FAILURE;
+
+  param_t multi = ParamMakeArray(DATA_ARRAY, e->gouid, locals, num_ents, sizeof(local_ctx_t*));
+
+  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_TAR] = multi;
+
+  player_input.decisions[ACTION_ATTACK]->params[ACT_PARAM_ABILITY] = ParamMakeObj(DATA_ABILITY, abi->id , abi);
+
+  action_t* act = InitActionByDecision(player_input.decisions[ACTION_ATTACK], ACTION_ATTACK);
+
+  if(ActionExecute(ACTION_ATTACK, act) == BEHAVIOR_SUCCESS){
+    WorldEvent(EVENT_PLAYER_INPUT, act, player->gouid);
+    return BEHAVIOR_SUCCESS;
+  }
+  
+  return BEHAVIOR_FAILURE;
 }
 
-BehaviorStatus InputActionMagic(ent_t* e, action_key_t a, KeyboardKey k){
+BehaviorStatus InputSetTarget(ent_t* e, ActionType a, param_t sel){
+  if(sel.type_id == DATA_NONE || !player_input.sel_abi)
+    return BEHAVIOR_FAILURE;
 
-}
-
-void InputSetTarget(ent_t* e, ActionType a, local_ctx_t* tar){
-  if(!tar || !player_input.sel_abi)
-    return;
+  local_ctx_t* tar = WorldGetContext(sel.type_id, sel.gouid); 
 
   ability_t* abi = player_input.sel_abi;
 
@@ -70,10 +105,12 @@ void InputSetTarget(ent_t* e, ActionType a, local_ctx_t* tar){
 
   action_t* act = InitActionByDecision(player_input.decisions[ACTION_ATTACK], ACTION_ATTACK);
  
-  if(ActionExecute(ACTION_ATTACK, act) == BEHAVIOR_SUCCESS)
+  if(ActionExecute(ACTION_ATTACK, act) == BEHAVIOR_SUCCESS){
     WorldEvent(EVENT_PLAYER_INPUT, act, player->gouid);
-
-
+   return BEHAVIOR_SUCCESS;
+  }
+  
+  return BEHAVIOR_FAILURE;
 }
 
 BehaviorStatus SelectActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
@@ -111,7 +148,7 @@ BehaviorStatus InputActionAttack(ent_t* e, action_key_t a, KeyboardKey k){
     case DES_MULTI_TAR:
       player_input.sel_abi = abi;
       int amnt = imax(abi->vals[VAL_QUANT],1);
-      ScreenActivateSelector(e->pos, amnt, true, InputSetTarget);
+      ScreenActivateSelector(e->pos, amnt, true, NULL, InputSetTarget);
       return BEHAVIOR_RUNNING;
       break;
   }

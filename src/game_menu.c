@@ -885,7 +885,6 @@ bool ElementShowChildren(ui_element_t* e){
 
 bool MenuProcessReady(ui_menu_t* m){
   WorldEvent(EVENT_PROCESS_READY, &m->process_id, GP_UI);
-
   return true;
 }
 
@@ -1708,16 +1707,19 @@ void UIEventActivate(EventType event, void* data, void* user){
 
 void UIItemEvent(EventType event, void* data, void* user){
   ui_element_t* e = user;
+  item_t* i = data;
   switch(event){
     case EVENT_ITEM_ACQUIRE:
+      if(e->sync_val)
       e->sync_val(e, FETCH_EVENT);
       break;
     case EVENT_ITEM_STORE:
-      item_t* i = data;
       param_t p = ParamMakeObj(DATA_ITEM, i->gouid, i);
       int index = ElementSetFirstAvailableChild(e, p);
-      if(index > -1)
+      if(index > -1){
         WorldTargetSubscribe(EVENT_INV_REMOVE, UIItemEvent, e->children[index], i->gouid);
+        WorldTargetSubscribe(EVENT_INV_REALLOC, UIItemEvent, e->children[index], i->gouid);
+      }
       break;
     case EVENT_INV_REMOVE:
     case EVENT_ITEM_DESTROY:
@@ -1725,6 +1727,12 @@ void UIItemEvent(EventType event, void* data, void* user){
       ElementContextEmpty(e, FETCH_EVENT);
       break;
     case EVENT_ITEM_EQUIP:
+      break;
+    case EVENT_INV_REALLOC:
+      if(e->set_val){
+        param_t val = ParamMakeObj(DATA_ITEM, i->gouid, i); 
+        e->value = e->set_val(e, val);
+      }
       break;
   }
 }

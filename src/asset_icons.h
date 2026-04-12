@@ -30,6 +30,7 @@ static sub_texture_t ICON_SPRITES[ICON_ALL] = {
   { ICON_ROCKS,     16, 16, 160, 32, 32, 32, LIGHTGRAY},
   { ICON_SHARD,     16, 16, 192,  32, 32, 32, DARKGRAY},
   { ICON_PICK,      16, 16, 224,  32, 32, 32, LIGHTGRAY},
-  { ICON_INGOT,     16, 16, 0,    64, 32, 32, DARKGRAY},
+  { ICON_WOOD,      16, 16, 0,  64, 32, 32, BROWN},
+  { ICON_INGOT,     16, 16, 32, 64, 32, 32, DARKGRAY},
   { ICON_BUCKET,    16, 16, 32, 64, 32, 32, LIGHTGRAY}
 };

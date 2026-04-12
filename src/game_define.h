@@ -81,6 +81,20 @@
 
 #define QUAL_MASK  (((1ULL << QUAL_BIT_COUNT) - 1) << QUAL_BIT_START)
 #define MAT_MASK   (((1ULL << MAT_BIT_COUNT) - 1) << MAT_BIT_START)
+
+#define LF_FOREST (\
+    LF_MAT_BONE | LF_MAT_CLOTH | LF_MAT_HIDE |\
+    LF_MAT_WOOD | LF_RES_WOOD | LF_RES_BEAST)
+
+#define LF_CAVE (\
+    LF_MAT_BONE | LF_MAT_CLOTH | LF_MAT_STONE |\
+    LF_RES_STONE)
+
+#define LF_MAT_MASK (\
+    LF_MAT_BONE | LF_MAT_CLOTH | LF_MAT_HIDE |\
+    LF_MAT_STONE | LF_MAT_WOOD | LF_MAT_METAL |\
+    LF_MAT_GEM)
+
 #define MAX_FACTIONS 20
 //__builtin_ctzll
 #define BCTZL(uint) (int){__builtin_ctzll(uint)}  
@@ -368,10 +382,18 @@ typedef enum{
   LF_TRASH      = BIT64(8),
   LF_POOR       = BIT64(9),
   LF_COMMON     = BIT64(10),
-  LF_MATERIAL   = BIT64(11),
+  LF_MAT        = BIT64(11),
   LF_MAT_BONE   = BIT64(12),
   LF_MAT_CLOTH  = BIT64(13),
   LF_MAT_HIDE   = BIT64(14),
+  LF_MAT_STONE  = BIT64(15),
+  LF_MAT_WOOD   = BIT64(16),
+  LF_MAT_METAL  = BIT64(17),
+  LF_MAT_GEM    = BIT64(18),
+
+  LF_RES_STONE  = BIT64(24),
+  LF_RES_WOOD   = BIT64(25),
+  LF_RES_BEAST  = BIT64(26),
 }LootFlag;
   
 typedef uint64_t LootFlags;
@@ -2042,6 +2064,7 @@ typedef struct{
   int                prio[STORE_DONE];
   MaterialSpec       mat;
   int                vals[VAL_ALL];
+  LootFlags       loot;
 }armor_def_t;
 
 typedef struct{
@@ -2051,6 +2074,7 @@ typedef struct{
   ItemProps       i_props;
   ContainerProps  c_props;
   uint16_t        size,slot_size;
+  LootFlags       loot;
 }container_def_t;
 
 typedef struct{
@@ -2065,6 +2089,7 @@ typedef struct{
   int             prio[STORE_DONE];
   int             vals[VAL_ALL];
   MaterialSpec    mat;
+  LootFlags       loot;
 }weapon_def_t;
 
 WeaponType GetWeapTypeBySkill(SkillType s);
@@ -2084,6 +2109,7 @@ typedef struct{
   const char*     fmt;
   int             chain_id;
   int             vals[VAL_ALL];
+  LootFlags       loot;
 }consume_def_t;
 consume_def_t* ConsumeGenerateKnowledge(int id, ConsumeType type);
 consume_def_t* ConsumeGeneratePotion(StatType stat);
@@ -2100,6 +2126,7 @@ typedef struct{
   Icons           icon;
   EnvTile         tile;
   Color           col;
+  LootFlags       loot;
 }material_def_t;
 extern material_def_t MATERIAL_TEMPLATES[MAT_DONE];
 
@@ -2147,6 +2174,7 @@ typedef struct{
   MaterialSpec  material;
   Icons         icon;
   Color         col;
+  LootFlags     loot;
 }tool_def_t;
 extern tool_def_t TOOL_TEMPLATES[TOOL_DONE];
 tool_def_t* ToolGenerate(ToolType type, MaterialSpec);
@@ -2164,7 +2192,6 @@ typedef struct{
     material_def_t  mat;
     tool_def_t      tool;
   }data;
-  LootFlags         flags;
 }item_type_d;
 
 typedef struct{

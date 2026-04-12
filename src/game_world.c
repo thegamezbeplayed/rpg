@@ -89,15 +89,6 @@ void AddFloatingText(render_text_t *rt){
   }
 }
 
-item_def_t* GetItemDefByID(GearID id){
-  for (int i = 0; i < world.items->size; i++){
-    if(world.items->pool[i]->id == id)
-      return world.items->pool[i];
-  }
-
-  return NULL;
-}
-
 map_grid_t* WorldGetMap(void){
   return world.map;
 }
@@ -343,10 +334,10 @@ bool RegisterEnt( ent_t *e){
 
 }
 
-bool RegisterItemContext(item_t* i, Cell pos){
+local_ctx_t* RegisterItemContext(item_t* i, Cell pos){
   param_t p = ParamMakeObj(DATA_ITEM, i->gouid, i);
 
-  return (MakeLocalContext(world.ctx->tables[OBJ_ITEM], &p, pos) != NULL);
+  return MakeLocalContext(world.ctx->tables[OBJ_ITEM], &p, pos);
  
 }
  
@@ -373,12 +364,6 @@ bool RegisterSprite(sprite_t *s){
   s->suid = AddSprite(s);
 
   return s->suid > -1;
-}
-
-bool RegisterItem(ItemInstance g){
-  item_def_t* item = DefineItem(g);
-
-  world.items->pool[world.items->size++] = item;
 }
 
 void OnWorldCtx(EventType event, void* data, void* user){
@@ -513,13 +498,13 @@ void WorldInitOnce(){
 
   InitInput(player);
 
-  //LootDraw(player, LF_WEAP, true, 1000, 1);
-  LootDraw(player, LF_TOOL, true, 1500, 1);
-  LootDraw(player, LF_ARMOR, true, 30, 1);
-  LootDraw(player, LF_TOME, false, 1000, 2);
+  LootDraw(player, LF_WEAP, true, true, 1000, 1);
+  LootDraw(player, LF_TOOL, true, true, 2500, 1);
+  LootDraw(player, LF_ARMOR, true, true, 30, 1);
+  LootDraw(player, LF_TOME, true, false, 1000, 7);
   //LootDraw(player, LF_SCROLL, false, 1000, 2);
-  LootDraw(player, LF_MANUAL, false, 1000, 4);
-  LootDraw(player, LF_POT, false, 1000, 4);
+  //LootDraw(player, LF_MANUAL, false, 1000, );
+  LootDraw(player, LF_POT, false, false, 1000, 4);
   WorldValidateContext();
   WorldEvent(EVENT_ENT_STEP, player, player->gouid);
 }
@@ -631,7 +616,7 @@ void PrepareWorldRegistry(void){
 
   world.ctx = InitWorldContext();
 
-  world.items = InitItemPool(); 
+  world.abilities = InitAbilityPool();
 
   int f_count = ARRAY_COUNT(FACTION_DEFS);
   for(int i = 0; i < f_count; i++){
@@ -842,3 +827,11 @@ void WorldClear(void){
 
   WorldContextClear();
 }
+
+ability_t* AbilityLookup(AbilityID id){
+  hash_key_t key = hash_64_from_int(id);
+
+  return HashGet(&world.abilities->map, key);
+
+}
+

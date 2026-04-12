@@ -441,10 +441,6 @@ InteractResult CombatCalcHit(combat_t* c){
   param_t p_abi = c->cctx[IM_AGGR]->ctx[IP_ABILITY];
   ability_t* atk = ParamRead(&p_abi, ability_t);
 
-  if(atk->resource>STAT_NONE && atk->cost > 0)
-    if(!StatChangeValue(agg,agg->stats[atk->resource],-1*atk->cost))
-      return IR_FAIL;
-
   param_t p_save = c->cctx[IM_TAR]->ctx[IP_ABILITY];
   ability_t* save = ParamRead(&p_save, ability_t);
 

@@ -15,21 +15,6 @@ ent_t* InitEnt(EntityType id,Cell pos){
   e->type = id;
 
   e->props->base_diff = 5;
-/*
-  item_def_t* w = GetItemDefByID(GEAR_MACE);
-  EntAddItem(e, InitItem(w), true);
-  
-  item_def_t* r = GetItemDefByID(GEAR_BOW_LIGHT);
-  EntAddItem(e, InitItem(r),true);
-
-  item_def_t* b = GetItemDefByID(GEAR_BANDOLIER);
-  EntAddItem(e, InitItem(b),true);
-  item_def_t* p = GetItemDefByID(GEAR_POT_HEALTH);
-  EntAddItem(e, InitItem(p), true);
-  item_def_t* a = GetItemDefByID(GEAR_LEATHER_ARMOR);
-  EntAddItem(e, InitItem(a), true);
-  
-  */
   
   ActionSlotAddAbility(e, InitAbility(e, ABILITY_PUNCH));
   e->pos = pos;
@@ -199,7 +184,8 @@ ent_t* InitEntByRace(mob_define_t def){
 
       for(int j = 0; j < w.num_abilities; j++){
         ability_t* a = InitAbility(e, w.abilities[j]);
-        a->cost--;
+        
+        ValueDecrease(a->values[VAL_DRAIN], 1);
 
         ActionSlotAddAbility(e,a);
       }
@@ -218,7 +204,7 @@ ent_t* InitEntByRace(mob_define_t def){
 
       for(int j = 0; j < w.num_abilities; j++){
         ability_t* a = InitAbility(e, w.abilities[j]);
-        a->cost--;
+        ValueDecrease(a->values[VAL_DRAIN], 1);
 
         ActionSlotAddAbility(e,a);
       }
@@ -238,7 +224,8 @@ ent_t* InitEntByRace(mob_define_t def){
       define_natural_armor_t *nat = GetNaturalArmor(e->props->covering);
       if(nat){
         ability_t* a = InitAbilityInnate(e, ABILITY_ARMOR_SAVE, nat);
-        a->cost--;
+        ValueDecrease(a->values[VAL_DRAIN], 1);
+
 
         ActionSlotAddAbility(e,a);
         ability_t* dr = InitAbilityInnate(e, ABILITY_ARMOR_DR, nat);
@@ -309,7 +296,7 @@ ent_t* InitEntCommoner(mob_define_t def, define_prof_t* sel){
 
       bool eq = num_w < 1;
       item_def_t* idef = BuildAppropriateItem(e, ITEM_WEAPON, i);
-      EntAddItem(e, InitItem(idef), eq);
+      ItemAddUnique(e, InitItem(idef), eq);
       num_w++;
 
     }
@@ -426,7 +413,7 @@ bool ModifyEnt(ent_t* e, int amnt, MobMod mod){
 
       for(int j = 0; j < w.num_abilities; j++){
         ability_t* a = InitAbility(e, w.abilities[j]);
-        a->cost--;
+        ValueDecrease(a->values[VAL_DRAIN], 1);
 
         ActionSlotAddAbility(e,a);
       }
@@ -443,7 +430,8 @@ bool ModifyEnt(ent_t* e, int amnt, MobMod mod){
 
       for(int j = 0; j < c.num_abilities; j++){
         ability_t* a = InitAbility(e, c.abilities[j]);
-        a->cost--;
+
+        ValueDecrease(a->values[VAL_DRAIN], 1);
 
         ActionSlotAddAbility(e,a);
 
@@ -629,7 +617,7 @@ void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
 
     bool eq = num_w < 2;
     item_def_t* idef = BuildAppropriateItem(e, ITEM_WEAPON, i);
-    EntAddItem(e, InitItem(idef), eq);
+    ItemAddUnique(e, InitItem(idef), eq);
     num_w++;
   }
 
@@ -638,7 +626,7 @@ void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
       continue;
 
     item_def_t* idef = BuildAppropriateItem(e, ITEM_ARMOR, i);
-    EntAddItem(e, InitItem(idef), true);
+    ItemAddUnique(e, InitItem(idef), true);
   }
 
   AbilityID abilities[MAX_ABILITIES];
@@ -963,6 +951,7 @@ properties_t* InitProperties(race_define_t racials, mob_define_t m){
 
     p->resources[BCTZL(r)] = resource;
   }
+  p->loot = m.loot | GetLootFlagsFromMobFlags(m.rules, racials.props);
   return p;
 }
 
@@ -1044,7 +1033,7 @@ env_t* InitEnvFromData(EnvTile t,Cell pos, MaterialID mat, uint32_t size){
   env_t* batch =WorldGetEnvById(e->type);
   if(!batch || batch->material != mat){
     e->sprite = InitSpriteByID(t,SHEET_ENV);
-    if(data.col.a == 255)
+    if(data.type != MAT_WOOD && data.col.a == 255)
       e->sprite->slice->color = data.col;
   }
   else
@@ -1289,41 +1278,16 @@ item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped){
   return NULL;
 }
 
-bool EntAddItem(ent_t* e, item_t* item, bool equip){
-  item_t* exists = NULL;
-  item_t* added = NULL;
+bool EntAcquireCtx(ent_t* e, local_ctx_t* ctx){
 
-  item->fuid = EventMakeFlexID(e->gouid, 
-          (flex_id_t){DATA_INT, .id = item->def->type});
-
-  if(item->stack > 0)
-    exists = InventoryGetStackable(e, item->def->hash);
-
-  if(exists
-      && exists->values[VAL_QUANT]->val < item->stack){
-    added = exists;
-    item->owner = e;
-    added->values[VAL_QUANT]->val += item->values[VAL_QUANT]->val;
-    added->values[VAL_WEIGHT]->val = added->values[VAL_WEIGHT]->base * item->values[VAL_QUANT]->val;
-    WorldEvent(EVENT_ITEM_STORE, item, e->gouid);
-
-  }
-  else
-    added = InventoryAddItem(e, item);
-  
-  if(added){
-    added->equipped = equip;
-
-    if(added->on_acquire)
-      added->on_acquire(e, added);
-
-    if(equip)
-      for(int i = 0; i < 2; i++)
-        if(added->on_equip[i])
-          added->on_equip[i](e, added);
+  switch(ctx->other.type_id){
+    case DATA_ITEM:
+      return ItemAdd(e, ctx->other.data, false);
+      break;
   }
 
-  return added != NULL;
+  return false;
+
 }
 
 void EntAddExp(ent_t *e, int exp){
@@ -1455,8 +1419,8 @@ ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot){
   if(!running){
     for(int j = 0; j < e->slots[slot]->count; j++){
       ability_t* a = e->slots[slot]->abilities[j];
-      AddPurchase(p, a->id, a->weight, a->cost, a, NULL);
-
+      int cost = a->values[VAL_DRAIN]->val;
+      AddPurchase(p, a->id, a->weight, cost, a, NULL);
     }
   }
 
@@ -1555,8 +1519,10 @@ InteractResult EntUseAbility(ent_t* e, ability_t* a, local_ctx_t* ctx){
   int cr = LocalAddAggro(e->local, target, 1, target->props->base_diff, false);
   LocalAddAggro(target->local, e, 1, 1, false);//e->props->base_diff);
 
-  if(a->resource>STAT_NONE && a->cost > 0)
-    if(!StatChangeValue(e,e->stats[a->resource],-1*a->cost)){
+  int cost = -1 *a->values[VAL_DRAIN]->val;
+
+  if(a->resource>STAT_NONE && cost != 0)
+    if(!StatChangeValue(e,e->stats[a->resource], cost)){
       success = false;
     }
 
@@ -1607,44 +1573,6 @@ controller_t* InitController(ent_t* e){
       STATE_END, e, STATE_ACTION, &running);
 
   return ctrl;
-}
-
-InteractResult AbilityUse(ent_t* owner, ability_t* a, local_ctx_t* target, ability_sim_t* other){
-  InteractResult ires = IR_NONE;
-  switch(a->type){
-    case AT_SKILL:
-    case AT_DMG:
-    case AT_HEAL:
-      if(a->use_fn == NULL)
-        return IR_FAIL;
-
-      ires = a->use_fn(owner, a, target);
-      break;
-    case AT_SAVE:
-    case AT_DR:
-      ires = a->save_fn(owner, a, other);
-      break;
-    default:
-      break;
-  }
-  
-  if(ires > IR_NONE){
-   if(a->on_use_cb)
-    a->on_use_cb(owner, a, target, ires);
-
-   if(a->item && a->item->on_use)
-     a->item->on_use(owner, a->item, ires);
-   
-   if(a->type < AT_SAVE)
-   if(a->chain && a->chain_fn)
-     a->chain_fn(owner, a->chain, target);
-  }
-
-  if(ires >=IR_SUCCESS && a->on_success_cb)
-    a->on_success_cb(owner, a, target, ires);
-  
-
-  return ires;
 }
 
 bool ValueUpdateStat(value_t* v, void* ctx){
@@ -1964,7 +1892,8 @@ bool CheckEnvAvailable(env_t* e){
 }
 
 ability_t* EntFindAbility(ent_t* e, AbilityID id){
-  ActionType act = ABILITIES[id].action;
+  ability_t* a = AbilityLookup(id);
+  ActionType act = a->action;
 
   for(int i = 0; i < SLOT_ALL; i++){
     if(!e->slots[i]->allowed[act])
@@ -1975,13 +1904,7 @@ ability_t* EntFindAbility(ent_t* e, AbilityID id){
         return e->slots[i]->abilities[j];
     }
   }
-
   return NULL;
-}
-
-ability_t AbilityLookup(AbilityID id){
-  if(id >= ABILITY_NONE && id < ABILITY_DONE)
-    return ABILITIES[id];
 }
 
 char* EntGetClassNamePretty(ent_t* e){

@@ -117,8 +117,8 @@ void ItemConsumePropVals(item_t* i){
       break;
     case CONS_TOME:
       i->sprite = InitSpriteByID(ICON_TOME, SHEET_ICON);
-      ability_t a = ABILITIES[def->chain_id];
-      i->sprite->slice->color = DAMAGE_SCHOOL[a.school].col;
+      ability_t* a = AbilityLookup(def->chain_id);
+      i->sprite->slice->color = DAMAGE_SCHOOL[a->school].col;
       break;
     case CONS_SKILLUP:
       i->sprite = InitSpriteByID(ICON_TOME, SHEET_ICON);
@@ -219,15 +219,20 @@ void ItemContainerPropVals(item_t* i){
   i->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp->size);
 }
 
-bool InitItemContext(item_def_t* def, Cell pos){
+bool InitItemContext(item_def_t* def, map_cell_t* mc){
   item_t* item = InitItem(def);
 
-  TraceLog(LOG_INFO, "=== DROP ITEM %s at %i/%i", def->name, pos.x, pos.y);
-  if(RegisterItemContext(item, pos))
-    item->sprite->is_visible = true;
+  local_ctx_t* ctx = RegisterItemContext(item, mc->coords);
+
+  if(!ctx || MapCellSetContents(mc, ctx) > TILE_ISSUES)
+    return false;
+
+  item->sprite->is_visible = true;
 
   item->sprite->slice->scale = 0.25f;
-  item->sprite->pos = CellToVector2(pos,CELL_WIDTH); 
+  item->sprite->pos = CellToVector2(mc->coords,CELL_WIDTH); 
+
+  mc->on_enter = MapCellGiveContents;
 
   return item->sprite->is_visible;
 }
@@ -301,10 +306,10 @@ item_t* InitItem(item_def_t* def){
   return item;
 }
 
-item_t* InventoryGetEntry(ent_t* e, uint64_t uid){
+item_t* InventoryGetEntry(ent_t* e, hash_key_t hash){
   for(int i = 0; i < INV_DONE; i++){
     inventory_t* t = e->inventory[i];
-    item_t* exists = HashGet(&t->map, uid);
+    item_t* exists = HashGet(&t->hash, hash);
     if(exists)
       return exists;
   }
@@ -343,12 +348,52 @@ void InventoryEnsureCap(inventory_t* t){
 
   t->items = new_items;
   t->cap = new_cap;
+  
+  for(int i = 0; i < t->count; i++){
+    item_t* item = &new_items[i];  
+
+    if(item->ability)
+      item->ability->item = item;
+
+    if(item->use)
+      item->use->item = item;
+
+    WorldEvent(EVENT_INV_REALLOC, item, item->gouid );
+  }
 }
 
-item_pool_t* InitItemPool(void) {
-  item_pool_t* ip = GameCalloc("InitItemPool", 1, sizeof(item_pool_t));
-  ip->size = 0;
-  return ip;
+void RegisterAbility(ability_pool_t* pool, ability_t base){
+
+  ability_t* a = &pool->entries[pool->count++];
+
+  *a = base;
+
+
+  hash_key_t key = hash_64_from_int(a->id);
+
+  HashPut(&pool->map, key, a);
+}
+
+ability_pool_t* InitAbilityPool(void){
+  ability_pool_t* a = GameCalloc("InitAbilityPool", 1, sizeof(ability_pool_t));
+
+  *a = (ability_pool_t){
+    .cap = ABILITY_DONE,
+    .entries = GameCalloc("InitAbilityPool", ABILITY_DONE, sizeof(ability_t))
+  };
+
+  HashInit(&a->map, next_pow2_int(ABILITY_DONE * 2));
+
+  for(int i = 0; i < SCHOOL_DONE; i++){
+    for (int j = 0; j < ABILITY_DONE; j++){
+      ability_t abi = ABILITY_LIST[i][j];
+      if(abi.id == ABILITY_NONE)
+        break;
+
+      RegisterAbility(a, abi);
+    }
+  }
+  return a;
 }
 
 inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit){
@@ -544,16 +589,14 @@ item_t* InventoryAddItem(ent_t* e, item_t* i){
   switch(i->def->category){
     case ITEM_CONTAINER:
       slot = InventoryAddStorage(e, i);
-      return e->inventory[i->def->type]->container;
+      return i;
       break;
     default:
       slot = InventoryGetAvailable(e, i->def->category, size, weight);
       break;
   }
   if(slot <= INV_NONE)
-    return NULL;
-  else if (slot >= INV_DONE)
-    DO_NOTHING();
+    return false;
 
   int index = InventorySlotAddItem(e, slot, i);
   return &e->inventory[slot]->items[index];
@@ -572,6 +615,62 @@ item_t* InventoryGetEquipped(ent_t* e, ItemSlot id){
   }
 
   return NULL;
+}
+
+
+bool ItemAdd(ent_t* e, item_t* item, bool equip){
+  item_t* exists = NULL;
+  bool added = false;
+
+  item->fuid = EventMakeFlexID(e->gouid, 
+          (flex_id_t){DATA_INT, .id = item->def->type});
+
+  if(item->stack > 0)
+    exists = InventoryGetStackable(e, item->def->hash);
+
+  if(exists
+      && exists->values[VAL_QUANT]->val < item->stack){
+    added = true;
+    item->owner = e;
+    exists->values[VAL_QUANT]->val += item->values[VAL_QUANT]->val;
+    exists->values[VAL_WEIGHT]->val = exists->values[VAL_WEIGHT]->base * item->values[VAL_QUANT]->val;
+    
+    WorldEvent(EVENT_ITEM_STORE, item, e->gouid);
+    item = exists;
+  }
+  else{
+    item = InventoryAddItem(e, item);
+ 
+    if(item)
+      added = true;
+  }
+  if(added){
+    item->equipped = equip;
+
+    if(item->on_acquire)
+      item->on_acquire(e, item);
+
+    if(equip)
+      for(int i = 0; i < 2; i++)
+        if(item->on_equip[i])
+          item->on_equip[i](e, item);
+  } 
+
+  return added;
+
+}
+
+bool ItemAddUnique(ent_t* e, item_t* item, bool equip){
+  item_t* exists = NULL;
+  bool added = false;
+  
+  exists = InventoryGetEntry(e, item->def->hash);
+
+  if(exists)
+    return false;
+
+  return ItemAdd(e, item, equip);
+
 }
 
 char* ItemGenerateName(item_def_t* def){
@@ -698,7 +797,6 @@ item_def_t* DefineConsumableByDef(consume_def_t *def){
 
   item->type = def->type;
 
-  item->flags |= LF_CONS;
   strcpy(item->name, def->name);
 
   item->category = ITEM_CONSUMABLE;
@@ -851,9 +949,9 @@ ability_t* InitAbilityDR(ent_t* owner, AbilityID id, define_natural_armor_t* def
 
 }
 ability_t* InitAbilityInnate(ent_t* e, AbilityID id, define_natural_armor_t* def){
-  ability_t a = ABILITIES[id];
+  ability_t *a = AbilityLookup(id);
 
-  switch(a.type){
+  switch(a->type){
     case AT_DMG:
       return InitAbility(e,id);
       break;
@@ -882,7 +980,7 @@ bool AbilitySkillup(ent_t* owner, ability_t* a, local_ctx_t* ctx, InteractResult
       cr*=a->rank;
       break;
     case AT_SKILL:
-      cr = a->last_use_cr;
+      return true;
       break;
     default:
       if(ctx->other.type_id != DATA_ENTITY)
@@ -936,13 +1034,10 @@ InteractResult AbilityGrantExp(ent_t* owner,  ability_t* a, local_ctx_t* ctx){
 ability_t* InitAbility(ent_t* owner, AbilityID id){
   ability_t* a = GameCalloc("InitAbility", 1,sizeof(ability_t));
 
-  *a = AbilityLookup(id);
-
-  a->hit = Die(20,1);
+  ability_t* base = AbilityLookup(id);
+  memcpy(a, base, sizeof(ability_t));
 
   a->owner = owner;
-  a->dc = Die(a->side,a->die);
-
   a->rank++;
   if(a->use_fn == NULL)
     a->use_fn = EntUseAbility;
@@ -964,18 +1059,27 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
 
   a->on_use_cb = AbilitySkillup;
 
-  a->stats[STAT_REACH] = InitStat(STAT_REACH,1,a->reach,a->reach);
-  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,a->bonus,a->mod);
+  a->stats[STAT_REACH] = STAT(STAT_REACH, a->vals[VAL_REACH]);
+  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,a->vals[VAL_DMG_BONUS],a->mod);
 
-  for (int i = 0; i < STAT_DONE; i++){
+  for (int i = 0; i < STAT_ENT_DONE; i++){
     if(!a->stats[i])
-      continue;
+      a->stats[i] = InitStat(i,0,0,0);
+
     a->stats[i]->owner = owner;
   }
 
   for(int i = 0; i < VAL_WORTH; i++){
     a->values[i] = InitValue(i,a->vals[i]);
+    a->values[i]->val = ValueRebase(a->values[i]);
+    if(a->values[i]->stat_relates_to == STAT_NONE)
+      continue;
+    StatExpand(a->stats[a->values[i]->stat_relates_to],  a->values[i]->val, true);
   }
+
+  a->hit = Die(a->values[VAL_HIT]->val,1);
+
+  a->dc = Die(a->values[VAL_DMG]->val,a->values[VAL_DMG_DIE]->val);
 
   if(a->chain_id > ABILITY_NONE){
     a->chain = InitAbility(owner, a->chain_id);
@@ -1012,7 +1116,8 @@ bool ItemAddUse(ent_t* owner, item_t* item){
   item->on_use = NULL;
 
   ability_t* a =  GameCalloc("ItemAddUse", 1,sizeof(ability_t));
-  *a = AbilityLookup(def->use);
+  memcpy(a, AbilityLookup(def->use), sizeof(ability_t));
+
 
   a->owner = owner;
   for(int i = 0; i < VAL_WORTH; i++){
@@ -1044,9 +1149,8 @@ bool ItemAddUse(ent_t* owner, item_t* item){
     a->stats[i]->owner = owner;
   }
 
-
   a->item = item;
-  item->ability = a;
+  item->use = a;
   item->use_fn = ItemAbilityUse;
 
   a->on_use_cb = AbilitySkillup;
@@ -1154,6 +1258,44 @@ bool ItemSkillup(ent_t* owner, item_t* item, InteractResult result){
   return true;
 }
 
+InteractResult AbilityUse(ent_t* owner, ability_t* a, local_ctx_t* target, ability_sim_t* other){
+  InteractResult ires = IR_NONE;
+  switch(a->type){
+    case AT_SKILL:
+    case AT_DMG:
+    case AT_HEAL:
+      if(a->use_fn == NULL)
+        return IR_FAIL;
+  
+      ires = a->use_fn(owner, a, target);
+      break; 
+    case AT_SAVE:
+    case AT_DR:
+      ires = a->save_fn(owner, a, other);
+      break;
+    default:
+      break;
+  } 
+  
+  if(ires > IR_NONE){
+   if(a->on_use_cb)
+    a->on_use_cb(owner, a, target, ires);
+  
+   if(a->item && a->item->on_use)
+     a->item->on_use(owner, a->item, ires);
+   
+   if(a->type < AT_SAVE)
+   if(a->chain && a->chain_fn)
+     a->chain_fn(owner, a->chain, target);
+  }
+  
+  if(ires >=IR_SUCCESS && a->on_success_cb)
+    a->on_success_cb(owner, a, target, ires);
+
+    
+  return ires;
+}   
+
 local_ctx_t* AbilityTargetFilter(ent_t* e, CtxProps props, GameObjectParam param, uint64_t filter){
 
   local_ctx_t* filtered[32] = {0};
@@ -1181,19 +1323,42 @@ BehaviorStatus AbilityExecute(ability_t* a, ent_t* e){
     case DES_FACING:
       tar = EntGetTarget(e, a->id);
       break;
-    case DES_SELF:
-      tar = WorldGetContext(DATA_ENTITY, e->gouid);
+    case DES_REQ:
+      tar = AbilityTargetFilter(e, a->req, PARAM_RESOURCE, a->params[PARAM_RESOURCE]);
+      break;
+    case DES_AREA:
+    case DES_CONE:
+      int rad = imax(1, a->values[VAL_SIZE]->val);
+      player_input.sel_abi = a;
+      ScreenActivateSelector(e->pos, rad, false, InputMultiTarget, NULL);
+      return BEHAVIOR_RUNNING;
       break;
     case DES_MULTI_TAR:
     case DES_SEL_TAR:
-      int amnt = imax(1,a->values[VAL_QUANT]->val);
-
       player_input.sel_abi = a;
-      ScreenActivateSelector(e->pos, amnt, true, InputSetTarget);
+      int amnt = imax(1,a->values[VAL_QUANT]->val);
+      ScreenActivateSelector(e->pos, amnt, true, NULL, InputSetTarget);
       return BEHAVIOR_RUNNING;
       break;
-    case DES_REQ:
-      tar = AbilityTargetFilter(e, a->req, PARAM_RESOURCE, a->params[PARAM_RESOURCE]);
+    case DES_ORIGIN:
+      player_input.sel_abi = a;
+      int num = imax(1, a->values[VAL_SIZE]->val);
+
+      CellList area = GetCellsInRadius(e->pos, num);
+      int count = 0;
+      map_cell_t* tiles[area.count];
+      for (int i = 0; i < area.count; i++){
+        map_cell_t* mc = MapGetTile(WorldGetMap(), area.data[i]);
+        if(!mc )
+          continue;
+
+        tiles[count++] = mc;
+      }
+      if(count == 0)
+        return BEHAVIOR_FAILURE;
+
+      param_t mcells = ParamMakeArray(DATA_MAP_CELL, e->gouid, tiles, count, sizeof(map_cell_t*));
+      return InputMultiTarget(e, a->action, mcells);
       break;
   }
 
@@ -1228,7 +1393,7 @@ void EntAddResource(ent_t* e, local_ctx_t* tar, resource_t* res){
 
   ValueSet(item->values[VAL_QUANT], amnt);
   
-  EntAddItem(e, item, false);
+  ItemAdd(e, item, false);
 }
 
 InteractResult ExtractResource(ent_t* owner,  ability_t* a, local_ctx_t* target){
@@ -1236,8 +1401,6 @@ InteractResult ExtractResource(ent_t* owner,  ability_t* a, local_ctx_t* target)
   
   if(matches == 0)
     return IR_NONE;
-
-  a->last_use_cr = 0;
 
   int results[a->dc->num_die];
 
@@ -1270,7 +1433,6 @@ InteractResult ExtractResource(ent_t* owner,  ability_t* a, local_ctx_t* target)
 
     amnt -= take;
 
-    a->last_use_cr += extract->cr;
     if(take == 0)
       return IR_ALMOST;
     for(int i = 0; i < ext->num_mats; i++){
@@ -1305,9 +1467,9 @@ InteractResult AbilityProcess(ent_t* e,  ability_t* a, local_ctx_t* target){
 }
 
 InteractResult AbilityInteract(ent_t* e,  ability_t* a, local_ctx_t* target){
-  int cost = a->values[VAL_DRAIN]->val;
-  if(a->resource>STAT_NONE && cost > 0)
-    if(!StatChangeValue(e,e->stats[a->resource],-1*cost))
+  int cost = -1*  a->values[VAL_DRAIN]->val;
+  if(a->resource>STAT_NONE && cost != 0)
+    if(!StatChangeValue(e,e->stats[a->resource],cost))
       return IR_NONE;
 
   CtxProp method = a->req & CTX_METHOD_MASK;
@@ -1518,7 +1680,6 @@ item_def_t* DefineTool(tool_def_t* def){
   strcpy(item->name, def->name);
 
   item->abilities[0] = def->ability;
-  item->flags = LF_TOOL;
   return item;
 }
 
@@ -1596,17 +1757,14 @@ item_def_t* GenerateItem(param_t params[LOOT_PARAM_END]){
     case ITEM_WEAPON:
       WeaponProps weap_p = *ParamRead(&params[LOOT_PARAM_WEAP], uint64_t);
       item = GenerateWeapon(type, props, weap_p, params);
-      item->flags |= LF_WEAP;
       break;
     case ITEM_ARMOR:
       ArmorProps arm_p = *ParamRead(&params[LOOT_PARAM_ARMOR], uint64_t);
       item = GenerateArmor(type, props, arm_p, params);
-      item->flags |= LF_ARMOR;
       break;
     case ITEM_CONSUMABLE:
       ConsumeProps con_p = *ParamRead(&params[LOOT_PARAM_CONS], uint64_t);
       item = GenerateConsume(type, props, con_p, params);
-      item->flags |= LF_CONS;
       break;
   }
 
@@ -1646,9 +1804,9 @@ int AbilityAddPB(ent_t* e, ability_t* a, StatType s){
 }
 
 bool AbilityRankup(ent_t* owner, ability_t* a){
-  ability_t base = ABILITIES[a->id];
+  ability_t* base = AbilityLookup(a->id);
   for(int i = 0; i < VAL_EXP; i++){
-    if(base.rankup[i]==0)
+    if(base->rankup[i]==0)
       continue;
   }
 }
@@ -1701,7 +1859,8 @@ ActionStatus AbilityCanTarget(ability_t* a, local_ctx_t* target){
 
   if(a->resource != STATE_NONE){
     int res = e->stats[a->resource]->current;
-    if(a->cost > res)
+    int cost = a->values[VAL_DRAIN]->val;
+    if(cost > res)
       return ACT_STATUS_RESOURCE;
   }
 

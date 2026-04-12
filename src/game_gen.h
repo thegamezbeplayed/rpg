@@ -106,7 +106,7 @@ typedef enum{
   MAPFLAG_FOREST       = 1 << 26,
 }TileFlag;
 
-typedef uint32_t TileFlags;
+typedef uint64_t TileFlags;
 static const TileFlags EnvTileFlags[ENV_DONE] = {
   [ENV_BONES_BEAST]    = TILEFLAG_SIZE_MED | TILEFLAG_BONE | MAPFLAG_FOREST | MAPFLAG_DUNGEON,
   [ENV_BOULDER]        = MAPFLAG_FOREST | TILEFLAG_SIZE_MED | TILEFLAG_SOLID | TILEFLAG_DEBRIS | TILEFLAG_STONE,
@@ -149,7 +149,8 @@ static const TileFlags EnvTileFlags[ENV_DONE] = {
     TILEFLAG_STONE | TILEFLAG_DECOR | TILEFLAG_DEBRIS, 
   [ENV_BORDER_DUNGEON]  = MAPFLAG_DUNGEON | TILEFLAG_BORDER | TILEFLAG_SOLID,
   [ENV_FURNITURE_CHAIR]  = MAPFLAG_DUNGEON | TILEFLAG_SPAWN | TILEFLAG_DECOR,
-  [ENV_EXIT]  = MAPFLAG_DUNGEON | MAPFLAG_FOREST |  TILEFLAG_EXIT,
+  [ENV_EXIT]         = MAPFLAG_DUNGEON |  TILEFLAG_EXIT,
+  [ENV_FOREST_EXIT]  = MAPFLAG_FOREST |  TILEFLAG_EXIT,
 };
 
 typedef enum {
@@ -663,6 +664,7 @@ struct map_cell_s{
   TileFlags           flags;
   env_t*              tile;
   ent_t*              occupant;
+  local_ctx_t*        contains;
   Color               fow;
   site_properties_t*  props;
   bool                in_ctx, updates, explored;
@@ -670,6 +672,7 @@ struct map_cell_s{
 };
 
 void MapCellExit(map_cell_t* mc, ent_t* e);
+void MapCellGiveContents(map_cell_t* mc, ent_t* e);
 
 typedef struct{
   map_grid_t*     map;
@@ -713,6 +716,7 @@ void MapSync(map_grid_t* m);
 void MapTurnStep(map_grid_t* m);
 TileStatus MapChangeOccupant(map_grid_t* m, ent_t* e, Cell old, Cell c);
 TileStatus MapSetOccupant(map_grid_t* m, ent_t* e, Cell c);
+TileStatus MapCellSetContents(map_cell_t* m, local_ctx_t*);
 ent_t* MapGetOccupant(map_grid_t* m, Cell c, TileStatus* status);
 map_cell_t* MapGetTile(map_grid_t* map,Cell tile);
 TileStatus MapTileAvailable(map_grid_t* m, Cell c);
@@ -861,26 +865,26 @@ bool TileBlocksMovement(map_cell_t *c);
 
 bool TileBlocksSight(map_cell_t *c);
     
-static inline bool TileHasFlag(EnvTile t, uint32_t flag) {
+static inline bool TileHasFlag(EnvTile t, TileFlag flag) {
     return (EnvTileFlags[t] & flag) != 0;
 }
 
-static inline bool TileHasAllFlags(EnvTile t, uint32_t flags) {
+static inline bool TileHasAllFlags(EnvTile t, TileFlags flags) {
     return ( (EnvTileFlags[t] & flags) == flags );
 }
 
-static inline bool TileHasAnyFlags(EnvTile t, uint32_t flags) {
+static inline bool TileHasAnyFlags(EnvTile t, TileFlags flags) {
     return (EnvTileFlags[t] & flags) != 0;
 }
 
-static inline EnvTile GetTileByFlags(uint32_t flags) {
+static inline EnvTile GetTileByFlags(TileFlags flags) {
     for (int i = 0; i < ENV_DONE; i++) {
         if (TileHasAllFlags(i, flags))
             return (EnvTile)i;
     }
     return (EnvTile)-1; // NONE
 }
-static bool TileCellHasFlag(map_context_t* ctx, Cell c, RoomFlags f){
+static bool TileCellHasFlag(map_context_t* ctx, Cell c, TileFlag f){
   EnvTile t = ctx->tiles[c.x][c.y];
 
   return TileHasFlag(t,f);

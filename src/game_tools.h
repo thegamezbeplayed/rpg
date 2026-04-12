@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <time.h>
+#include "game_enum.h"
 #define UID_INVALID ((game_object_uid_i)0)
 #define BAD_INDEX   -1337
 
@@ -52,7 +53,7 @@
 #define CellMul(c1,c2) (Cell){(c1.x * c2.x),(c1.y * c2.y)}
 #define CellSub(c1,c2) (Cell){(c1.x - c2.x),(c1.y - c2.y)}
 #define CellFlip(c) (Cell){(c.y),(c.x)}
-
+#define CellBoth(c, x, y) (Cell){(c.x+x),(c.y+y)}
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
 typedef bool (*CompareFn)(int a, int b);
 
@@ -92,6 +93,17 @@ static inline uint64_t Hash64(uint64_t x) {
     x *= 0xc4ceb9fe1a85ec53ULL;
     x ^= x >> 33;
     return x;
+}
+
+static uint64_t hash_64_from_int(int x)
+{
+    uint64_t z = (uint64_t)x + 0x9E3779B97F4A7C15ULL;
+
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+    z = z ^ (z >> 31);
+
+    return z;
 }
 
 static uint32_t hash_float(float f) {
@@ -172,6 +184,128 @@ typedef struct {
   int x,y;
 } Cell;
 
+typedef struct {
+  DesignationType type;  
+  Cell*       data;
+  Cell        center;
+  int         count, rad;
+} CellList;
+
+static CellList ShiftCellsInRadius(CellList list, Cell shift){
+  for(int i = 0; i < list.count; i++){
+    list.data[i] = CellInc( list.data[i], shift);
+  }
+
+  list.center = CellInc(list.center, shift);
+
+  return list;
+}
+
+
+static CellList GetCellOne(Cell pos)
+{
+    Cell* points = GameCalloc("GetCellsInRadius", 1, sizeof(Cell));
+
+    int count = 0;
+
+    points[count++] = pos;
+
+    return (CellList){
+      .type   = DES_SEL_TAR,
+        .data   = points,
+        .count  = count,
+        .center = pos 
+    };
+}
+
+
+static CellList GetCellsInRadius(Cell pos, int radius)
+{
+  int r2 = radius * radius;
+  int cx = pos.x;
+  int cy = pos.y;
+
+    // Worst case allocation (square)
+    int max = (2 * radius + 1) * (2 * radius + 1);
+    Cell* points = GameCalloc("GetCellsInRadius",max, sizeof(Cell));
+
+    int count = 0;
+
+    for (int y = -radius; y <= radius; y++) {
+        for (int x = -radius; x <= radius; x++) {
+
+            if (x*x + y*y <= r2) {
+                points[count++] = (Cell){
+                    cx + x,
+                    cy + y
+                };
+            }
+        }
+    }
+
+    return (CellList){
+      .type = DES_AREA,  
+        .data   = points,
+        .count  = count,
+        .center = CELL_NEW(cx,cy),
+        .rad = radius
+    };
+}
+
+static CellList GetCellsCone(Cell pos, int radius, Cell dir)
+{
+    int cx = pos.x;
+    int cy = pos.y;
+    int max = (2 * radius + 1) * (2 * radius + 1);
+    Cell* points = GameCalloc("GetCellsCone", max, sizeof(Cell));
+
+    int count = 0;
+
+    for (int y = -radius; y <= radius; y++) {
+        for (int x = -radius; x <= radius; x++) {
+
+            // offset from center
+            int dx = x;
+            int dy = y;
+
+            // forward distance (dot product)
+            int forward = dx * dir.x + dy * dir.y;
+
+            if (forward <= 0) continue;         // only forward
+            if (forward > radius) continue;     // limit length
+
+            // perpendicular distance (controls width)
+            int side = abs(dx * dir.y - dy * dir.x);
+
+            if (side > forward) continue;       // cone shape
+
+            points[count++] = (Cell){
+                cx + x,
+                cy + y
+            };
+        }
+    }
+
+    return (CellList){
+      .type   = DES_CONE,
+        .data   = points,
+        .count  = count,
+        .center = pos,
+        .rad = radius
+    };
+}
+
+static CellList CellListShift(CellList list, Cell shift){
+  switch(list.type){
+    case DES_CONE:
+      return GetCellsCone(list.center, list.rad, shift);
+      break;
+    default:
+      return ShiftCellsInRadius(list, shift);
+      break;
+
+  }
+}
 static inline int CELL_LEN(Cell c){
   return isqrt((c.x * c.x) + (c.y*c.y));
 }

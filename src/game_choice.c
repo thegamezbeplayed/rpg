@@ -871,7 +871,7 @@ bool AddAbility(decision_pool_t* t, local_ctx_t* ctx, ability_t* a){
   }
 
   d->score = 1+ hit*dmg;;
-  d->cost = 1 + a->cost;
+  d->cost = 1 + a->values[VAL_DRAIN]->val;
 
   return true;
 }

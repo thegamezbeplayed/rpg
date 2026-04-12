@@ -82,10 +82,9 @@ void OnLevelReady(EventType event, void* data, void* user){
 void LootDrops(ent_t* e){
   int budget = e->props->base_diff * 100;
 
-  mob_define_t mdef =  MONSTER_MASH[e->type];
-  LootFlags flags = mdef.loot;
+  LootFlags flags = e->props->loot;
 
-  int amnt = RandRange(0, mdef.cost);
+  int amnt = RandRange(0, e->props->base_diff*3);
 
   if(flags == 0 || amnt < 1)
    return;
@@ -93,6 +92,55 @@ void LootDrops(ent_t* e){
   Rectangle area = {e->pos.x -2, e->pos.y -2, 5, 5};
   LootDrop(flags, budget, amnt, area);
 
+}
+
+void ItemGenerateItemFromMaterial(material_def_t* mat){
+
+  for (int i = 2; i < TOOL_DONE; i++){
+    Resources res = TOOL_TEMPLATES[i].reagents;
+
+      if((mat->m_props & PROP_MAT_TOOLING) == 0)
+        continue;
+
+      if((MAT_RES_MAP[mat->type].other & res) == 0)
+        continue;
+
+      tool_def_t* tdef = ToolGenerate(i, mat->spec);
+      ItemGenAdd(Level.item_defs, ITEM_TOOL, tdef);
+
+  }
+  for (int i = 1; i < WEAP_DAGGER; i++){
+    weapon_def_t* weap = &WEAPON_TEMPLATES[i];
+    if((mat->m_props & weap->m_props) < weap->m_props)
+      continue;
+
+    weapon_def_t *wdef = WeaponGenerate(weap, mat);
+    ItemGenAdd(Level.item_defs, ITEM_WEAPON, wdef);
+  }
+
+  for (int i = 2; i < ARMOR_DONE; i++){
+    armor_def_t* armor = &ARMOR_TEMPLATES[i];
+      if((mat->m_props & armor->m_props) < armor->m_props)
+        continue;
+
+      if((mat->i_props & armor->i_props) == 0)
+        continue;
+
+      armor_def_t *adef = ArmorGenerate(armor, mat);
+      ItemGenAdd(Level.item_defs, ITEM_ARMOR, adef);
+  }
+}
+
+void OnLevelEvent(EventType event, void* data, void* user){
+  switch(event){
+    case EVENT_REGISTER_MATERIAL:
+    material_spec_d* spec = data;
+    material_def_t base = MATERIAL_TEMPLATES[spec->type];
+    material_def_t* mdef = InitMaterial(base, spec);
+    ItemGenAdd(Level.item_defs, ITEM_MATERIAL, mdef);
+    ItemGenerateItemFromMaterial(mdef);
+    break;
+  }
 }
 
 void LevelEntityEvent(EventType event, void* data, void* user){
@@ -132,6 +180,8 @@ level_t* InitLevel(void){
   ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGeneratePotion(STAT_ENERGY_REGEN)); 
   ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGeneratePotion(STAT_HEALTH_REGEN)); 
   ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGeneratePotion(STAT_STAMINA_REGEN)); 
+
+  WorldSubscribe(EVENT_REGISTER_MATERIAL, OnLevelEvent, &Level);
   return &Level;
 }
 
@@ -172,58 +222,6 @@ void LevelReady(map_grid_t* m){
   ctx->enemy_cr = iround(mgen.diff);
   ctx->seed = hash_combine_64(Level.seed, mgen.biome);
 
-  material_def_t *mats[Level.materials->count];
-  for(int i = 0; i < Level.materials->count; i++){  
-    material_spec_d* spec = &Level.materials->entries[i];
-    material_def_t base = MATERIAL_TEMPLATES[spec->type];
-    material_def_t* mdef = InitMaterial(base, spec);
-    mats[i] = mdef;
-    ItemGenAdd(Level.item_defs, ITEM_MATERIAL, mdef);
-  }
-
-  for (int i = 2; i < TOOL_DONE; i++){
-    Resources res = TOOL_TEMPLATES[i].reagents;
-
-    for(int j = 0; j < Level.materials->count; j++){
-      material_def_t *mat = mats[j];
-      if((mat->m_props & PROP_MAT_TOOLING) == 0)
-        continue;
-
-      if((MAT_RES_MAP[mat->type].other & res) == 0)
-        continue;
-
-      tool_def_t* tdef = ToolGenerate(i, mat->spec);
-      ItemGenAdd(Level.item_defs, ITEM_TOOL, tdef);
-    }
-
-  }
-  for (int i = 1; i < WEAP_DAGGER; i++){
-    weapon_def_t* weap = &WEAPON_TEMPLATES[i];
-     for(int j = 0; j < Level.materials->count; j++){
-       material_def_t *mat = mats[j];
-       if((mat->m_props & weap->m_props) < weap->m_props)
-         continue;
-
-       weapon_def_t *wdef = WeaponGenerate(weap, mat);
-       ItemGenAdd(Level.item_defs, ITEM_WEAPON, wdef);
-     }
-  }
-
-  for (int i = 2; i < ARMOR_DONE; i++){
-    armor_def_t* armor = &ARMOR_TEMPLATES[i];
-    for (int j = 0; j < Level.materials->count; j++){
-      material_def_t *mat = mats[j];
-      if((mat->m_props & armor->m_props) < armor->m_props)
-        continue;
-
-      if((mat->i_props & armor->i_props) == 0)
-        continue;
-
-      armor_def_t *adef = ArmorGenerate(armor, mat);
-      ItemGenAdd(Level.item_defs, ITEM_ARMOR, adef);
-
-    }
-  }
   Level.loot = GenerateLootPool(Level.materials->count + Level.item_defs->count, ctx);
 
   WorldSubscribe(EVENT_ENT_DEATH, LevelEntityEvent, &Level);
@@ -303,66 +301,86 @@ loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx){
   dp = StartChoice(&lp->drops, count, WeightedPurchaseByFlags, &ready);
 
   for (int i = 0; i < Level.item_defs->count; i++){
+    LootFlags lootflags = 0;
     item_type_d* item = &Level.item_defs->entries[i];
     item_def_t* def;
     int weight = 0, cost = 0;
     switch(item->cat){
       case ITEM_CONSUMABLE:
         def = DefineConsumableByDef(&item->data.cons);
+        lootflags = item->data.cons.loot;
         weight = item->data.cons.weight;
         def->cost = item->data.cons.cost;
         break;
       case ITEM_MATERIAL:
         def = DefineMaterial(&item->data.mat);
+        lootflags = item->data.mat.loot;
         weight = def->weight;
         cost = def->cost;
         break;
       case ITEM_TOOL:
         def = DefineTool(&item->data.tool);
+        lootflags = item->data.tool.loot;
         weight = def->weight;
         cost = def->cost;
         break;
       case ITEM_WEAPON:
         def = DefineWeapon(&item->data.weap);
+        lootflags = item->data.weap.loot;
         weight = def->weight;
         cost = def->cost;
         break;
       case ITEM_ARMOR:
         def = DefineArmor(&item->data.armor);
         weight = def->weight;
+        lootflags = item->data.armor.loot;
         cost = def->cost;
         break;
     }
-    def->flags |= item->flags;
     def->id = item->data.cons.chain_id; 
       
-    AddChoiceCostFlags(dp, def->id, weight, def->cost, def, def->flags, ChoiceReduceScore);
+    AddChoiceCostFlags(dp, def->id, weight, def->cost, def, lootflags, ChoiceReduceScore);
   }
 
   ShuffleChoices(dp);
   return lp;
 }
 
-void LootDraw(ent_t* e, LootFlags flags, bool equip, int budget, int amnt){
+void LootDraw(ent_t* e, LootFlags flags, bool unique, bool equip, int budget, int amnt){
   if(Level.loot->drops->count < 1)
     return;
 
   int i = 0;
+  int attempts = 0;
   Level.loot->drops->budget = budget;
   Level.loot->drops->flags = flags;
   
+  ItemAddFn fn = unique? ItemAddUnique: ItemAdd;
+
   while (i < amnt && Level.loot->drops->budget > 0){
+    attempts++;
     choice_t* choice = Level.loot->drops->choose(Level.loot->drops);
 
-    if(!choice || !choice->context)
-      break;
+    if(attempts > (amnt * 3))
+      return;
+
+    if(!choice || !choice->context){
+      
+      TraceLog(LOG_INFO, "==== LOOT DRAW ====\n Could not find item %llu with budget %i pool size of %i", flags, budget, Level.loot->drops->count);
+      continue;
+    }
 
     item_def_t* def = choice->context;
-    if(EntAddItem(e, InitItem(def), equip)){
+    item_t* item = InitItem(def);
+    if(fn(e, item, equip)){
       Level.loot->drops->budget += choice->cost;
       i++;
       TraceLog(LOG_INFO, "Added item - %s", def->name);
     }
+    else{
+      TraceLog(LOG_INFO, "Item - %s not added ====\n size %i weight %i", def->name, item->values[VAL_STORAGE]->val, item->values[VAL_WEIGHT]->val);
+    }
+    
   }
 }
 
@@ -418,7 +436,7 @@ void LootDrop(LootFlags flags, int budget, int amnt, Rectangle r){
 
     map_cell_t* mc = pos->context;
 
-    if(InitItemContext(def, mc->coords))
+    if(InitItemContext(def, mc))
       i++;
 
   }

@@ -17,6 +17,7 @@
 #define RATIO(s) ((s)->ratio((s)))
 #define STAT(st, val) (stat_t*){InitStat(st, val, val, val)}
 
+#define VALUE(v) (int){v->val}
 #define NUM_FEATS 40
 #define NUM_AFFECTS 1
 

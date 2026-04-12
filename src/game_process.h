@@ -196,7 +196,7 @@ typedef struct world_s{
   unsigned int    num_ent;
   sprite_t*       sprs[MAX_ENTS];
   unsigned int    num_spr;
-  item_pool_t     *items;
+  ability_pool_t  *abilities;
   unsigned int    num_env;
   env_t*          envs[MAX_ENVS];
   render_text_t   *texts[MAX_EVENTS];
@@ -250,7 +250,7 @@ bool RegisterEnt( ent_t *e);
 bool RegisterEnv( env_t *e);
 map_cell_t* RegisterMapCell(int x, int y);
 bool RegisterSprite(sprite_t *s);
-bool RegisterItemContext(item_t*, Cell);
+local_ctx_t*  RegisterItemContext(item_t*, Cell);
 bool RegisterItem(ItemInstance g);
 void WorldInitOnce();
 void WorldPreUpdate();

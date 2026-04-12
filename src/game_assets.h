@@ -16,6 +16,8 @@
 #define BRONZE        (Color) {188, 136, 32, 255}
 #define COPPER        (Color) {208, 128, 88, 255}
 #define SILVER        (Color) {192, 192, 192, 255}
+#define COLDGRAY      (Color) {80, 124, 152, 255}
+#define FROSTGRAY     (Color) {208, 216, 224, 255}
 
 struct ent_s;
 void InitResources();

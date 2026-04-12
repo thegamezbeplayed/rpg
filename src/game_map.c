@@ -1,6 +1,7 @@
 #include <assert.h>
 #include "game_process.h"
 #include "game_helpers.h"
+#include "game_strings.h"
 #include <limits.h>
 
 
@@ -57,6 +58,17 @@ void OnMapEvent(EventType event, void* data, void* user){
       break;
 
   }
+}
+
+void MapCellGiveContents(map_cell_t* mc, ent_t* e){
+  if(!mc->contains)
+    return;
+
+  if(!EntAcquireCtx(e, mc->contains))
+    return;
+
+  mc->contains = NULL;
+  mc->on_enter = NULL;
 }
 
 void MapCellExit(map_cell_t* mc, ent_t* e){
@@ -525,18 +537,15 @@ MapNodeResult MapBuildBiome(map_context_t* ctx, map_node_t *node){
 }
 
 MapNodeResult MapGraphNodes(map_context_t *ctx, map_node_t *node){
-  TraceLog(LOG_INFO,"===Generate New Node====");
   bool success =  MapGenNodeScan(ctx,NULL)==MAP_NODE_SUCCESS;
   RefreshNodeOptions();
   if(success){
     MB->applied++;
-    TraceLog(LOG_INFO, "====New Node added nodes count %i",MB->applied);
     return MB->applied>MB->cap?MAP_NODE_SUCCESS:MAP_NODE_RUNNING;
   }
 
   if( MB->cap > MB->applied )
     return MAP_NODE_RUNNING;
-  TraceLog(LOG_WARNING,"======= MAP GEN FIND OPTIONS MB->attempts ====\n =====  %i =====",MB->attempts);
   if (MB->attempts > MAX_ATTEMPTS)
     return MAP_NODE_SUCCESS;
 }
@@ -828,7 +837,6 @@ Cell MapApplyContext(map_grid_t* m){
 
         e = exits[i];
         m->tiles[x][y].on_enter = MapCellExit;
-        TraceLog(LOG_INFO, "====MAP CONTEXT===\n exit at [%i, %i]",e->pos.x, e->pos.y); 
         break;
       }
       if(!e)
@@ -862,6 +870,18 @@ TileStatus MapChangeOccupant(map_grid_t* map,ent_t* e, Cell old, Cell c){
     MapRemoveOccupant(map,old);
 
   return MapSetOccupant(map,e,c);
+}
+
+TileStatus MapCellSetContents(map_cell_t* m, local_ctx_t* ctx){
+  if(!ctx || m->contains)
+    return TILE_OCCUPIED;
+
+  if(m->tile && TileHasFlag(m->tile->type, TILEFLAG_SOLID))
+    return TILE_COLLISION;
+
+  m->contains = ctx;
+
+  return TILE_SUCCESS;
 }
 
 TileStatus MapSetTile(map_grid_t* m, env_t* e, Cell c){
@@ -1273,7 +1293,11 @@ env_t* MapSpawn(map_grid_t* m, TileFlags flags, int x, int y){
 MapNodeResult MapNodeRunSequence(map_context_t *ctx, map_node_t *node){
   int i = 0;
   while (i < node->num_children) {
+    TraceLog(LOG_INFO, "==== MAP NODE RUN ====\n Starting [%s]",
+        MAP_GEN_NODES[node->children[i]->id]);
     MapNodeResult r = node->children[i]->run(ctx, node->children[i]);
+    TraceLog(LOG_INFO, "==== MAP NODE RUN ====\n [%s] %s",
+        MAP_GEN_NODES[node->children[i]->id], MAP_NODE_RESULTS[r]); 
     switch(r){
       case MAP_NODE_RUNNING:
         break;

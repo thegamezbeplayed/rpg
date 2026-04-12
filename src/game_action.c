@@ -160,13 +160,53 @@ bool ActionHasStatus(action_pool_t* p, ActionStatus s){
   return false;
 }
 
+ActionStatus ActionAttackMulti(action_t* a){
+  ActionStatus s = a->status; 
+
+  param_t sel = a->params[ACT_PARAM_TAR];
+  if(sel.type_id != DATA_ARRAY)
+    return ACT_STATUS_BAD_DATA;
+
+  if(s!= ACT_STATUS_RUNNING)
+    return ACT_STATUS_MISQUEUE;
+
+  bool prepared = false;
+
+  ability_t* ab; 
+  switch(a->params[ACT_PARAM_ABILITY].type_id){
+    case DATA_INT:
+      AbilityID aid = ParamReadInt(&a->params[ACT_PARAM_ABILITY]);
+      ab = EntFindAbility(a->owner, aid);
+      break;
+    case DATA_ABILITY:
+      ab = ParamRead(&a->params[ACT_PARAM_ABILITY], ability_t);
+      break;
+  }
+  prepared = ab!=NULL;
+
+  if(!prepared)
+    s = ACT_STATUS_BAD_ATTACK;
+  else{
+    local_ctx_t** selections = GameCalloc("ActionValidate", sel.size, sizeof(local_ctx_t));
+
+    selections = sel.data;
+    for(int i = 0; i < sel.size; i++){
+      local_ctx_t* ctx = selections[i];
+      AbilityUse(a->owner, ab, ctx, NULL);
+      s = ACT_STATUS_TAKEN;
+
+    }
+
+  }
+  ActionSetStatus(a, s);
+  return a->status;
+
+}
+
 ActionStatus ActionAttack(action_t* a){
   ActionStatus s = a->status;
   if(a->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX)
     s = ACT_STATUS_BAD_DATA;
-
-  if(a->owner == player)
-    DO_NOTHING();
 
   bool prepared = false;
   ability_t* ab;
@@ -214,46 +254,71 @@ ActionStatus ActionInteract(action_t* a){
 }
 
 ActionStatus ActionValidate(action_t* a){
-  ActionStatus status = a->status;
   switch(a->type){
     case ACTION_MOVE:
-      if(a->params[ACT_PARAM_STEP].type_id != DATA_CELL){
-        status = ACT_STATUS_BAD_DATA;    
-        break;
-        local_ctx_t* dest = ParamReadCtx(&a->params[ACT_PARAM_DEST]);
-        if(!dest || dest->path == NULL){
-          a->status = ACT_STATUS_BAD_DATA; 
-          break;
-        } 
-
+      ActionStatus status = ACT_STATUS_NONE;
+      if(a->params[ACT_PARAM_STEP].type_id != DATA_CELL)
+        status = ACT_STATUS_BAD_DATA;
+      else{
         Cell step = ParamReadCell(&a->params[ACT_PARAM_STEP]);
-        TileStatus tile = MapTileAvailable(a->owner->map, step);
-        if(tile > TILE_SUCCESS){
-          status = ACT_STATUS_BLOCK;
-          break;
-        }
+        Cell pos = CellInc(a->owner->pos, step);
+        TileStatus tile = MapTileAvailable(a->owner->map, pos);
+        if(tile > TILE_SUCCESS)
+          return ACT_STATUS_BLOCK;
+        else
+          return ACT_STATUS_NONE;
       }
+
+      if(a->params[ACT_PARAM_DEST].type_id != DATA_LOCAL_CTX)
+        status = ACT_STATUS_BAD_DATA;
+      else{
+        local_ctx_t* dest = ParamReadCtx(&a->params[ACT_PARAM_DEST]);
+        if(!dest || dest->path == NULL)
+          status = ACT_STATUS_BAD_DATA;
+        else
+         return ACT_STATUS_NONE; 
+      }
+
+      return status;
       break;
     case ACTION_ATTACK:
-      if(a->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX){
-        status = ACT_STATUS_BAD_DATA;
-        break;
-      }
-      if(a->params[ACT_PARAM_ABILITY].type_id != DATA_ABILITY){
-        status = ACT_STATUS_BAD_DATA;
-        break;
-      }
-      local_ctx_t* tar = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
+      if(a->params[ACT_PARAM_ABILITY].type_id != DATA_ABILITY)
+        return ACT_STATUS_BAD_DATA;
 
       ability_t* abi = ParamRead(&a->params[ACT_PARAM_ABILITY],ability_t);
-      status = AbilityCanTarget(abi, tar);
+      switch(a->params[ACT_PARAM_TAR].type_id){
+        case DATA_LOCAL_CTX:
+          local_ctx_t* tar = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
+
+          return AbilityCanTarget(abi, tar);
+          break;
+        case DATA_ARRAY:
+          a->fn = ActionAttackMulti;
+          local_ctx_t** selections = GameCalloc("ActionValidate",
+              a->params[ACT_PARAM_TAR].size, sizeof(local_ctx_t));
+
+          selections = a->params[ACT_PARAM_TAR].data;
+          int valid = 0;
+          for(int i = 0; i < a->params[ACT_PARAM_TAR].size; i++){
+            local_ctx_t* ctx = selections[i];
+            if(AbilityCanTarget(abi, ctx) < ACT_STATUS_ERROR)
+              valid++;
+
+          }
+          if(valid == 0)
+            return ACT_STATUS_INVALID;
+
+          break;
+        default:
+          return ACT_STATUS_BAD_DATA;
+          break;
+      }
       break;
     case ACTION_INTERACT:
       break;
   }
 
-  ActionSetStatus(a, status);
-  return a->status;
+  return ACT_STATUS_NONE;
 }
 
 ActionStatus ActionMove(action_t* a){
@@ -271,7 +336,7 @@ ActionStatus ActionMove(action_t* a){
     else
       s = ACT_STATUS_TAKEN;
   }
-  
+
   ActionSetStatus(a,s);
   return a->status;
 }
@@ -298,12 +363,12 @@ ActionStatus ActionRun(action_t* a){
 void ActionRoundSort(TurnPhase phase, int count){
   if (count <= 1)
     return;
-  
+
   qsort(ActionMan.round[phase].entries,
       count,
       sizeof(action_t*),
       ActionCompareInitDsc);
-  
+
 }   
 
 void ActionManagerRunQueue(TurnPhase phase){
@@ -313,8 +378,12 @@ void ActionManagerRunQueue(TurnPhase phase){
 
   for (int i = 0; i < count; i++){
     action_t* a = ActionMan.round[phase].entries[i];
-    if(ActionValidate(a) < ACT_STATUS_ERROR)
-    ActionSetStatus(a, ActionRun(a));
+    ActionStatus validated = ActionValidate(a);
+    if(validated < ACT_STATUS_ERROR)
+      ActionSetStatus(a, ActionRun(a));
+    else
+      ActionSetStatus(a, validated);
+
     switch(a->status){
       case ACT_STATUS_TAKEN:
         WorldEvent(EVENT_ACT_TAKEN, a, a->id);
@@ -483,7 +552,8 @@ action_t* InitActionByDecision(decision_t* d, ActionType t){
   action_t* a = InitAction(e, t, ACT_MAIN, d->id, d->score);
 
   for(int i = 0; i < ACT_PARAM_ALL; i++){
-    a->params[i] = ParamClone(&d->params[i]);
+    //a->params[i] = ParamClone(&d->params[i]);
+    a->params[i] = d->params[i];
   }
   switch(t){
     case ACTION_MOVE:
@@ -517,7 +587,7 @@ BehaviorStatus ActionExecute(ActionType t, action_t* a){
   if(!a)
     return BEHAVIOR_FAILURE;
 
-  ActionValidate(a);
+  ActionSetStatus(a,ActionValidate(a));
 
   if(a->status == ACT_STATUS_NONE)
     QueueAction(a->owner->control->actions, a);

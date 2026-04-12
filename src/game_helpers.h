@@ -1296,4 +1296,55 @@ static MaterialType MapMaterialResource(Resource res){
 
   return -1;
 }
+static LootFlags GetLootFlagsFromMobFlags(MobRules rules , RaceProps props){
+  LootFlags out = LF_NONE;
+
+  while(rules){
+    MobRule rule = rules & -rules;
+    rules &= rules -1;
+    switch(rule){
+      case MOB_LOC_FOREST:
+        out |= LF_FOREST;
+        break;
+      case MOB_LOC_DUNGEON:
+      case MOB_LOC_CAVE:
+        out |= LF_CAVE;
+        break;
+      case MOB_THEME_CIVIL:
+        out |= LF_MANUAL|LF_TOME;
+        break;
+    };
+  }
+
+  while(props){
+    RaceProp prop = props & -props;
+    props &= props -1;
+    switch(prop){
+      case RACE_USE_TOOLS:
+        out |= LF_TOOL;
+        break;
+      case RACE_USE_WEAPS:
+        out |= LF_WEAP;
+        break;
+      case RACE_USE_ARMOR:
+        out |= LF_ARMOR;
+        break;
+      case RACE_USE_POTIONS:
+        out |= LF_POT;
+        break;
+      case RACE_USE_SCROLLS:
+        out |= LF_SCROLL;
+        break;
+      case RACE_DIFF_SPELLS:
+      case RACE_TACTICS_ARCANA:
+        out |= LF_TOME;
+        break;
+      case RACE_DIFF_SKILL:
+        out |= LF_MANUAL;
+        break;
+    };
+  }
+
+  return out;
+}
 #endif

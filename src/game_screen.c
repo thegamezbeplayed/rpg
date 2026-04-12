@@ -109,15 +109,24 @@ void ScreenRender(void){
   if(!keyctrl.active)
     return;
 
-  play_area.screen_icons[UI_SELECTOR_EMPTY]->is_visible = true;
-  DrawSpriteAtPos(play_area.screen_icons[UI_SELECTOR_EMPTY],CellToVector2(keyctrl.pos,CELL_WIDTH));
+  UiType selector = keyctrl.icon;
+  UiType selected = UI_SELECTOR_CHOSEN;
+  play_area.screen_icons[selector]->is_visible = true;
+  for(int i = 0; i < keyctrl.pos.count; i++){    
+    Cell pos = keyctrl.pos.data[i]; 
+    Vector2 vpos = CellToVector2(pos, CELL_WIDTH);
+
+    DrawSpriteAtPos(play_area.screen_icons[selector],vpos);
+
+  }  
+  
   for (int i = 0; i < keyctrl.selected; i++){
     if(!keyctrl.selections[i])
       continue;
 
-    play_area.screen_icons[UI_SELECTOR_CHOSEN]->is_visible = true;
+    play_area.screen_icons[selected]->is_visible = true;
     Vector2 pos = CellToVector2(keyctrl.selections[i]->coords,CELL_WIDTH);
-    DrawSpriteAtPos(play_area.screen_icons[UI_SELECTOR_CHOSEN],pos);
+    DrawSpriteAtPos(play_area.screen_icons[selected],pos);
 
   }
 }
@@ -149,16 +158,35 @@ void InitScreenInteractive(void){
   keyctrl = (key_controller_t) {0};
 }
 
-void ScreenActivateSelector(Cell pos, int num, bool occupied, SelectionCallback on_select){
+void ScreenActivateSelector(Cell pos, int num, bool occupied,
+    SelectionCallback on_complete, SelectionCallback on_select){
   if(!keyctrl.active)
     InputToggle();
 
+  UiType icon = UI_SELECTOR_AREA;
+  switch(player_input.sel_abi->targeting){
+    case DES_AREA:
+      keyctrl.pos = GetCellsInRadius(pos, num);
+      icon = UI_SELECTOR_AREA;
+      break;
+    case DES_CONE:
+      keyctrl.pos = GetCellsCone(pos, num, CELL_UP);
+      icon = UI_SELECTOR_AREA;
+      break;
+    default:
+      keyctrl.pos = GetCellOne(pos);
+      break;
+  }
+
   keyctrl.active = true;
-  keyctrl.pos = pos;
   keyctrl.desired = num;
   keyctrl.occupied = occupied;
   keyctrl.selected = 0;
   keyctrl.on_select = on_select;
+  keyctrl.on_complete = on_complete;
+
+  keyctrl.icon = icon;
+
 }
 
 bool ScreenSelectorInput(void){
@@ -193,17 +221,39 @@ key_controller_t* ScreenGetSelection(void){
 }
 
 BehaviorStatus ScreenMakeSelection(struct ent_s* e, action_key_t a, KeyboardKey k){
-  map_cell_t* sel = WorldGetTile(keyctrl.pos);
 
-  if(keyctrl.occupied && sel->occupant==NULL)
-    return false;
-
-  keyctrl.selections[keyctrl.selected++] = sel;
+  int last = keyctrl.pos.count-1;
+  for(int i = 0; i < keyctrl.pos.count; i++){    
+    Cell pos = keyctrl.pos.data[i]; 
+    keyctrl.selections[keyctrl.selected++] = WorldGetTile(pos);
+  }   
   if(keyctrl.on_select){
-    local_ctx_t* ctx = WorldGetContext(DATA_ENTITY, sel->occupant->gouid);
-    keyctrl.on_select(player, a.action, ctx);
+    map_cell_t* sel = WorldGetTile(keyctrl.pos.data[last]);
+    param_t tar = ParamMakeObj(DATA_MAP_CELL, sel->gouid, sel);
+    if(keyctrl.occupied){
+      if(sel->occupant)
+      tar = ParamMakeObj(DATA_ENTITY, sel->occupant->gouid, sel->occupant);
+      else{
+        return BEHAVIOR_FAILURE;
+      }
+    }
+    keyctrl.on_select(player, a.action, tar);
+
   }
-  return true;
+
+  if(keyctrl.selected < keyctrl.desired)
+    return BEHAVIOR_RUNNING;
+
+  if(keyctrl.on_complete){
+    param_t arr = ParamMakeArray(DATA_MAP_CELL, player_input.sel_abi->id,
+       keyctrl.selections, keyctrl.selected, sizeof(map_cell_t*));
+    keyctrl.on_complete(player, a.action, arr);
+    return BEHAVIOR_SUCCESS; 
+  }
+  else
+    return BEHAVIOR_SUCCESS;
+    
+  return BEHAVIOR_FAILURE;
 }
 
 BehaviorStatus ScreenMoveSelector(struct ent_s* e, action_key_t a, KeyboardKey k){
@@ -231,7 +281,7 @@ BehaviorStatus ScreenMoveSelector(struct ent_s* e, action_key_t a, KeyboardKey k
       break;
   }
 
-  keyctrl.pos = CellInc(keyctrl.pos,dir);
+  keyctrl.pos = CellListShift(keyctrl.pos, dir);
 
   return true;
 

@@ -39,15 +39,16 @@ typedef struct{
   local_ctx_t   *ctx[SCREEN_CTX_ALL];
 }mouse_controller_t;
 
-typedef void (*SelectionCallback)(ent_t* e, ActionType a, local_ctx_t* selection);
+typedef BehaviorStatus (*SelectionCallback)(ent_t*, ActionType , param_t);
 
 typedef struct{
   bool              active;
-  Cell              pos;
-  map_cell_t*       selections[5];
+  CellList          pos;
+  map_cell_t*       selections[MAX_TARGETING];
   int               desired,selected;
   bool              occupied;
   SelectionCallback on_select, on_complete;
+  UiType            icon;
 }key_controller_t;
 
 typedef enum{
@@ -82,7 +83,7 @@ void InitPlayArea(void);
 void ScreenCalcAreas(void);
 Vector2 ScreenAreaStart(ScreenArea t);
 float ScreenSized(PlaySizes s);
-void ScreenActivateSelector(Cell pos, int num, bool occupied, SelectionCallback on_select);
+void ScreenActivateSelector(Cell, int, bool, SelectionCallback, SelectionCallback);
 bool ScreenSelectorInput(void);
 key_controller_t* ScreenGetSelection(void);
 BehaviorStatus ScreenMoveSelector(struct ent_s* e, action_key_t, KeyboardKey k);

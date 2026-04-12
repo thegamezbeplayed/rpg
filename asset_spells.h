@@ -10,7 +10,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 #define ATLAS_ASSET_SPELLS_IMAGE_PATH      "asset_spells.png"
-#define ATLAS_ASSET_SPELLS_SPRITE_COUNT    16
+#define ATLAS_ASSET_SPELLS_SPRITE_COUNT    18
 
 // Atlas sprite properties
 typedef struct rtpAtlasSprite {
@@ -27,7 +27,7 @@ typedef struct rtpAtlasSprite {
 } rtpAtlasSprite;
 
 // Atlas sprites array
-static rtpAtlasSprite rtpDescAssetSpells[16] = {
+static rtpAtlasSprite rtpDescAssetSpells[18] = {
     { "BLUDGEON", "", 0, 0, 0, 0, 32, 32, 0, false, 4, 2, 24, 28, 0, 0, 0, 0, 0 },
     { "BONE", "", 0, 0, 32, 0, 32, 32, 0, false, 4, 4, 24, 24, 0, 0, 0, 0, 0 },
     { "BUBBLE", "", 0, 0, 64, 0, 32, 32, 0, false, 2, 2, 28, 28, 0, 0, 0, 0, 0 },
@@ -43,5 +43,7 @@ static rtpAtlasSprite rtpDescAssetSpells[16] = {
     { "ROCK", "", 0, 0, 128, 32, 32, 32, 0, false, 4, 4, 24, 24, 0, 0, 0, 0, 0 },
     { "SHIELD", "", 0, 0, 160, 32, 32, 32, 0, false, 4, 2, 24, 28, 0, 0, 0, 0, 0 },
     { "SLASH", "", 0, 0, 192, 32, 32, 32, 0, false, 4, 4, 24, 24, 0, 0, 0, 0, 0 },
-    { "WISP", "", 0, 0, 224, 32, 32, 32, 0, false, 2, 4, 28, 24, 0, 0, 0, 0, 0 },
+    { "STORM", "", 0, 0, 224, 32, 32, 32, 0, false, 2, 0, 28, 29, 0, 0, 0, 0, 0 },
+    { "VOLT", "", 0, 0, 0, 64, 32, 32, 0, false, 2, 1, 28, 30, 0, 0, 0, 0, 0 },
+    { "WISP", "", 0, 0, 32, 64, 32, 32, 0, false, 2, 4, 28, 24, 0, 0, 0, 0, 0 },
 };

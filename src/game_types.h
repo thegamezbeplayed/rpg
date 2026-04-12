@@ -7,6 +7,7 @@
 #include "game_math.h"
 #include "game_control.h"
 
+#define MAX_TARGETING 32
 #define MAX_ENTS 128  
 #define MAX_ENVS 8192  
 #define CARRY_SIZE 4
@@ -70,6 +71,7 @@ typedef struct{
   Traits        traits;
   resource_t    *resources[RES_DONE];
   int           cr, offr, defr, smell;
+  LootFlags     loot;
 }properties_t;
 
 properties_t* InitProperties(race_define_t racials, mob_define_t m);
@@ -96,7 +98,7 @@ struct ability_s{
   DamageType       school;
   StatType         resource;
   DesignationType  targeting;
-  int              weight,cost,hdie,die,side,bonus,reach;
+  int              weight;
   StatType         damage_to;
   AttributeType    save,mod;
   AbilityID        chain_id;
@@ -122,7 +124,7 @@ struct ability_s{
   sprite_t*        spr;
   uint64_t         params[PARAM_ALL];
   CtxProps         req;
-  int              last_use_cr;
+  Affects          affects;
 };
 
 int AbilityAddPB(ent_t* e, ability_t* a, StatType s);
@@ -153,6 +155,10 @@ typedef struct{
   hash_map_t    map, hash;
 }inventory_t;
 
+typedef bool (*ItemAddFn)(ent_t*, item_t*, bool);
+bool ItemAdd(ent_t*, item_t*, bool);
+bool ItemAddUnique(ent_t*, item_t*, bool);
+
 inventory_t* InitInventory(ItemSlot id, ent_t* e, int cap, int limit);
 item_t* InventoryGetEntry(ent_t* e, uint64_t uid);
 item_t* InventoryGetStackable(ent_t* e, hash_key_t hash);
@@ -160,9 +166,9 @@ void InventoryPoll(ent_t*, ItemSlot id);
 void InventorySetPrefs(inventory_t* inv, uint64_t traits);
 item_t* InventoryAddItem(ent_t* e, item_t*);
 item_t* InventoryGetEquipped(ent_t* e, ItemSlot id);
-extern ability_t ABILITIES[ABILITY_DONE];
+
 void AbilityApplyValues(ability_t* self, value_t* v);
-ability_t AbilityLookup(AbilityID id);
+ability_t* AbilityLookup(AbilityID id);
 ability_t* EntFindAbility(ent_t* e, AbilityID id);
 ability_t* InitAbility(ent_t* owner, AbilityID);
 bool AbilityRankup(ent_t* owner, ability_t* a);
@@ -189,7 +195,6 @@ typedef struct item_def_s{
   bool                allowed[STORE_DONE];
   ItemProps           props;
   uint64_t            t_props;
-  LootFlags           flags;
 }item_def_t;
 
 typedef bool (*ItemEquipCallback)(struct ent_s* owner, item_t* item);
@@ -211,6 +216,7 @@ struct item_s{
   StorageMethod     location;
   sprite_t          *sprite;
   ability_t         *ability;     
+  ability_t         *use;     
   ItemEquipCallback on_equip[2], on_acquire;
   ItemUseCallback   on_use;
   ItemUseFunction   use_fn;
@@ -233,11 +239,13 @@ typedef struct{
 
 extern item_fn_t item_funcs[ITEM_DONE];
 typedef struct{
-  int         size;
-  item_def_t* pool[GEAR_DONE];
-}item_pool_t;
+  int         count, cap;
+  ability_t   *entries;
+  hash_map_t  map;
+}ability_pool_t;
+extern ability_t ABILITY_LIST[SCHOOL_DONE][50];
+ability_pool_t* InitAbilityPool(void);
 
-item_pool_t* InitItemPool(void);
 item_def_t* DefineItem(ItemInstance data);
 item_def_t* DefineArmor(armor_def_t*);
 item_def_t* DefineWeapon(weapon_def_t* wdef);
@@ -249,8 +257,7 @@ item_def_t* DefineConsumableByDef(consume_def_t *def);
 item_def_t* DefineTool(tool_def_t* def);
 item_def_t* DefineMaterial(material_def_t *def);
 item_def_t* DefineMaterialByResource(Resource, MaterialSpec, int);
-bool InitItemContext(item_def_t* def, Cell pos);
-item_def_t* GetItemDefByID(GearID id);
+bool InitItemContext(item_def_t*, map_cell_t*);
 material_def_t* InitMaterial(material_def_t, material_spec_d*);
 
 typedef struct{
@@ -329,7 +336,7 @@ void EntCalcStats(ent_t* e, race_define_t* racial);
 void EntPrepare(ent_t* e);
 void EntPollInventory(ent_t* e);
 item_t* EntGetItem(ent_t* e, ItemCategory cat, bool equipped);
-bool EntAddItem(ent_t* e, item_t* item, bool equip);
+bool EntAcquireCtx(ent_t*, local_ctx_t*);
 void EntToggleTooltip(ent_t* e);
 void EntInitOnce(ent_t* e);
 bool EntPrepareAttack(ent_t* e, ability_t* a, local_ctx_t*);
@@ -397,7 +404,6 @@ bool CanChangeState(EntityState old, EntityState s);
 void ApplyItemProps(item_t * w, ItemProps props, uint64_t e_props);
 int GetWeaponByTrait(Traits t, weapon_def_t *arms);
 item_def_t* BuildWeapon(WeaponType, ItemProps, WeaponProps);
-item_def_t* BuildItem(GearID id, ItemProps props, WeaponProps w_props);
 item_def_t* BuildAppropriateItem(ent_t* e, ItemCategory cat, SkillType s);
 
 bool ItemCurate(item_def_t*);

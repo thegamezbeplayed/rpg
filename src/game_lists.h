@@ -1356,6 +1356,12 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
   {ABILITY_PUNCH},
   {ABILITY_RAM},
   {ABILITY_BITE},
+  {ABILITY_CALL_LIGHTNING, true, true,
+    CLASS_BASE_LOCK,
+    CLASS_BASE_WIZ,
+    0,3,8, 7,
+    SPEC_ARCHAIN
+  },
   {ABILITY_CHEW},
   {ABILITY_GNAW},
   {ABILITY_CLAW},
@@ -1432,13 +1438,31 @@ static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
     0,3,8, 7,
     SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
   },
+  {ABILITY_FIRE_BLAST, true, true,
+    CLASS_BASE_LOCK,
+    CLASS_BASE_WIZ,
+    0,3,8, 7,
+    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+  },
+  {ABILITY_FLAME_STRIKE, true, true,
+    CLASS_BASE_LOCK,
+    CLASS_BASE_WIZ,
+    0,3,8, 7,
+    SPEC_ARCHAIN
+  },
+  {ABILITY_BLAST_WAVE, true, true,
+    CLASS_BASE_LOCK,
+    CLASS_BASE_WIZ,
+    0,3,8, 7,
+    SPEC_ARCHAIN
+  },
   {ABILITY_FROST_BITE, true, true,
     CLASS_BASE_DRUID | CLASS_BASE_SHAMAN,
     CLASS_BASE_WIZ,
     0, 3, 8, 7,
     SPEC_HUMAN | SPEC_GOBLINOID | SPEC_ORC
   },
-  {ABILITY_THUNDER_WAVE, false, false,
+  {ABILITY_THUNDER_WAVE, true , true,
     CLASS_BASE_DRUID | CLASS_BASE_SHAMAN,
     CLASS_BASE_WIZ,
     0, 3, 8 ,7,
@@ -1773,7 +1797,7 @@ static skill_proficiency_bonus_t GRANTS_PB[SKILL_DONE] = {
   },        
   [SKILL_STONE]         =  {SKILL_STONE, SKILL_CAT_GATHER,
     SKILL_NONE,
-    5,
+    4,
     ATTR_STR,
     PC_HIT
   },          
@@ -1797,7 +1821,12 @@ static skill_proficiency_bonus_t GRANTS_PB[SKILL_DONE] = {
   [SKILL_WEAP_NET]      =  {SKILL_WEAP_NET, SKILL_CAT_COMBAT,},       
   [SKILL_WEAP_GREAT]    =  {SKILL_WEAP_GREAT, SKILL_CAT_COMBAT,},     
   [SKILL_WEAP_NONE]     =  {SKILL_WEAP_NONE, SKILL_CAT_COMBAT,},      
-  [SKILL_WOOD]          =  {SKILL_WOOD, SKILL_CAT_GATHER,},           
+  [SKILL_WOOD]          =  {SKILL_WOOD, SKILL_CAT_GATHER,
+    SKILL_NONE,
+    2,
+    ATTR_STR,
+    PC_HIT
+  },           
   [SKILL_WRESTLE]       =  {SKILL_WRESTLE, SKILL_CAT_COMBAT,},
 };
 static skill_unlocks_t SKILL_UNLOCKS[SKILL_DONE] = {
@@ -1818,6 +1847,5 @@ static define_skill_gain_t SKILL_GAIN[AT_DONE][10] = {
   [AT_KNOWLEDGE] = {
     {AT_KNOWLEDGE, ABILITY_ITEM_TOME, 10, 10},
   }
-
 };
 #endif

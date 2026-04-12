@@ -10,7 +10,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 #define ATLAS_ASSET_UI_IMAGE_PATH      "asset_ui.png"
-#define ATLAS_ASSET_UI_SPRITE_COUNT    4
+#define ATLAS_ASSET_UI_SPRITE_COUNT    5
 
 // Atlas sprite properties
 typedef struct rtpAtlasSprite {
@@ -27,9 +27,10 @@ typedef struct rtpAtlasSprite {
 } rtpAtlasSprite;
 
 // Atlas sprites array
-static rtpAtlasSprite rtpDescAssetUi[4] = {
-    { "UI_SELECTOR_CHOSEN", "", 8, 8, 0, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
-    { "UI_SELECTOR_EMPTY", "", 8, 8, 16, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
-    { "UI_SELECTOR_VALID", "", 8, 8, 32, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
-    { "UI_GRID_CELL", "", 8, 8, 48, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
+static rtpAtlasSprite rtpDescAssetUi[5] = {
+    { "AREA", "", 0, 0, 0, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
+    { "UI_GRID_CELL", "", 0, 0, 16, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
+    { "UI_SELECTOR_CHOSEN", "", 0, 0, 32, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
+    { "UI_SELECTOR_EMPTY", "", 0, 0, 48, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
+    { "UI_SELECTOR_VALID", "", 0, 0, 64, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
 };

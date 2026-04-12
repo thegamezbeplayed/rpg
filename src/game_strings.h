@@ -21,6 +21,7 @@ typedef struct{
   AbilityID     id;
   const char    strs[TENSE_ALL][MAX_NAME_LEN];
   const char    name[MAX_NAME_LEN];
+  const char    target[MAX_NAME_LEN];
 }ability_strings_d;
 
 typedef struct{
@@ -284,6 +285,7 @@ static const char* SKILL_NAMES[SKILL_DONE] = {
 static ability_strings_d ABILITY_STRINGS[ABILITY_DONE] = {
   [ABILITY_RAM]           = {ABILITY_RAM, {"rammed", "rams"},"ram"},
   [ABILITY_BITE]          = {ABILITY_BITE, {"bit", "bites"}, "bite"},
+  [ABILITY_CALL_LIGHTNING]= {ABILITY_CALL_LIGHTNING, {"called down lightning upon", "calls down lightning upon"}, "Call Lightning"},
   [ABILITY_CHEW]          = {ABILITY_CHEW, {"chewed on", "chews on"}, "bite"},
   [ABILITY_GNAW]          = {ABILITY_GNAW, {"gnawed at", "gnaws at"}, "bite"},
   [ABILITY_CLAW]          = {ABILITY_CLAW, {"scratched", "scratches"},"scratch"},
@@ -304,6 +306,9 @@ static ability_strings_d ABILITY_STRINGS[ABILITY_DONE] = {
   [ABILITY_CHILL_TOUCH] = {ABILITY_CHILL_TOUCH, "grasped", "grasps", "Chilling Touch"},
   [ABILITY_POISON_SPRAY] = {ABILITY_POISON_SPRAY, "sprayed poison at", "sprays poison at", "Poison Spray"},
   [ABILITY_FIRE_BOLT]    = {ABILITY_FIRE_BOLT, "shot a fiery bolt at", "shoots a fiery bolt at", "Fire Bolt"},
+  [ABILITY_FIRE_BLAST]    = {ABILITY_FIRE_BLAST, "blasted fire at", "blasts a wave of fire at", "Fire Blast"},
+  [ABILITY_FLAME_STRIKE]    = {ABILITY_FLAME_STRIKE, "was caught in a fiery pyre", "catches fire", "Flame Strike"},
+  [ABILITY_BLAST_WAVE]    = {ABILITY_FIRE_BLAST, "blasted fire at", "blasts a wave of fire at", "Blast Wave"},
   [ABILITY_FROST_BITE]    = {ABILITY_FROST_BITE, "chilled", "chills", "Frost Bite"},
   [ABILITY_DISSONANT_WHISPERS]  = {ABILITY_DISSONANT_WHISPERS, "did stuff", "does stuffs", "Dissonant Whispers"},
   [ABILITY_THUNDER_WAVE]        = {ABILITY_THUNDER_WAVE, "blasted a wave of thunderous energy at", "blasts a wave of thunderous energy at", "Thunder Wave"},
@@ -315,9 +320,9 @@ static ability_strings_d ABILITY_STRINGS[ABILITY_DONE] = {
   [ABILITY_WEAP_PIERCE]           = {ABILITY_WEAP_PIERCE, {"thrusted at", "thrust at"},"Pierce"},
   [ABILITY_WEAP_BLUDGEON]           = {ABILITY_WEAP_BLUDGEON, {"bludgeoned", "blugeon"},"Bludgeon"},
 
-  [ABILITY_TOOL_SKIN]           = {ABILITY_TOOL_SKIN, {"SOMETHING", "SOMETHINGS"}, "Skin"},
-  [ABILITY_TOOL_MINE]           = {ABILITY_TOOL_MINE, {"SOMETHING", "SOMETHINGS"}, "Mine"},
-  [ABILITY_TOOL_FELL]           = {ABILITY_TOOL_FELL, {"SOMETHING", "SOMETHINGS"}, "Chop Wood"},
+  [ABILITY_TOOL_SKIN]           = {ABILITY_TOOL_SKIN, {"SOMETHING", "SOMETHINGS"}, "Skin", "Hide"},
+  [ABILITY_TOOL_MINE]           = {ABILITY_TOOL_MINE, {"SOMETHING", "SOMETHINGS"}, "Mine", "Stone"},
+  [ABILITY_TOOL_FELL]           = {ABILITY_TOOL_FELL, {"SOMETHING", "SOMETHINGS"}, "Chop Wood", "Wood"},
 };
 
 static token_strings_d TOKEN_STRINGS[TOKE_ALL] = {
@@ -357,6 +362,43 @@ static token_strings_d TOKEN_STRINGS[TOKE_ALL] = {
       {"have learned", "learned", "learns"},
     }
   }
+};
+
+static char* MAP_GEN_NODES[MAP_NODE_DONE] = {
+  "GRID ROOT",
+  "ANCHORS SEQ",
+  "GENERATE ROOMS",
+  "GRID GEN SEQ",
+  "GRID LAYOUT",
+  "APPLY ROOM SHAPES",
+  "PLACE SUBROOMS",
+  "COMPUTE BOUNDS",
+  "ALLOCATE TILES",
+  "CARVE TILES",
+  "GRAPH ROOTS",
+  "BUILD SEQ",
+  "DETAIL SEQ",
+  "FILL WALLS",
+  "PLACE POI SEQ",
+  "SET PLAYER",
+  "PLACE SPAWNS",
+  "ALIGN NODES",
+  "CLEANUP SEQ",
+  "NODES TO GRID",
+  "CHECK PATHS",
+  "CHECK MAP SEQ",
+  "FIX ISSUES",
+  "GRAPH SEQ",
+  "APPLY FIXES",
+  "BUILD BIOME",
+  "ENHANCE MAP",
+  "DECOR MAP"
+};
+
+static char* MAP_NODE_RESULTS[3] = {
+  "Success",
+  "Running",
+  "Failure"
 };
 
 static const char* GetTokenString(ParseToken token, Narrator pers, NarrativeTense tense){

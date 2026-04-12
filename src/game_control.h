@@ -141,7 +141,8 @@ extern game_input_t player_input;
 void InitInput(ent_t* player);
 void InputSync(TurnPhase phase, int turn);
 bool InputCheck(TurnPhase phase, int turn);
-void InputSetTarget(ent_t* e, ActionType a, local_ctx_t* target);
+BehaviorStatus InputSetTarget(ent_t* e, ActionType a, param_t target);
+BehaviorStatus InputMultiTarget(ent_t* e, ActionType a, param_t target);
 void InputReset(void);
 static void InputToggle(void){
   player_input.active = !player_input.active;

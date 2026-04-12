@@ -409,6 +409,7 @@ typedef enum{
   CTX_METHOD_EXTRACT  = BIT64(1),
   CTX_METHOD_PROCESS  = BIT64(2),
   CTX_TAR_ENV         = BIT64(3),
+  CTX_TAR_SELF        = BIT64(4),
 }CtxProp;
 
 typedef uint64_t CtxProps;
@@ -602,6 +603,6 @@ typedef struct{
 }loot_pool_t;
 
 loot_pool_t* GenerateLootPool(int count, loot_ctx_t *ctx);
-void LootDraw(ent_t*, LootFlags, bool, int, int);
+void LootDraw(ent_t*, LootFlags,bool, bool, int, int);
 void LootDrop(LootFlags flags, int budget, int amnt, Rectangle r);
 #endif
