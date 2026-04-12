@@ -391,7 +391,7 @@ void OnWorldByGOUID(EventType event, void* data, void* user){
   switch(event){
     case EVENT_ENV_DEATH:
     case EVENT_ENT_DEATH:
-    case EVENT_DEL_LOCAL_CTX:
+    //ase EVENT_DEL_LOCAL_CTX:
       LocalPruneCtx(table, *gouid);
       break;
     case EVENT_UPDATE_LOCAL_CTX:
@@ -499,11 +499,11 @@ void WorldInitOnce(){
   InitInput(player);
 
   LootDraw(player, LF_WEAP, true, true, 1000, 1);
-  LootDraw(player, LF_TOOL, true, true, 2500, 1);
+  LootDraw(player, LF_TOOL, true, false, 2500, 2);
   LootDraw(player, LF_ARMOR, true, true, 30, 1);
   LootDraw(player, LF_TOME, true, false, 1000, 7);
   //LootDraw(player, LF_SCROLL, false, 1000, 2);
-  //LootDraw(player, LF_MANUAL, false, 1000, );
+  LootDraw(player, LF_MANUAL, false, false, 1000, 4);
   LootDraw(player, LF_POT, false, false, 1000, 4);
   WorldValidateContext();
   WorldEvent(EVENT_ENT_STEP, player, player->gouid);

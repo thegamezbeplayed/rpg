@@ -223,11 +223,11 @@ void MapCellRender(map_cell_t* mc){
     if(mc->tile)
       EnvRender(mc->tile);
 
-    if(mc->vis == VIS_FULL && mc->occupant)
+    if(mc->vis >= VIS_FULL && mc->occupant)
       EntRender(mc->occupant);
   }
 
-  if(mc->vis < VIS_FULL){
+  if(mc->vis < VIS_FULL || mc->vis == VIS_SEL){
     mask_t m = AssMan.masks[mc->vis];
     DrawScreenOverlay(m, mc->coords);
   } 
@@ -356,8 +356,6 @@ void MapRoomRunSpawner(map_room_t* r, spawner_t* s){
 
     if(r->num_mobs < MOB_ROOM_MAX)
     r->mobs[r->num_mobs++] = InitMob(mob, pos);
-    else
-      DO_NOTHING();
   }
 
   for (int i = 0; i < r->num_mobs; i++){
@@ -566,8 +564,6 @@ room_t* ConvertNodeToRoom(map_context_t* ctx, room_node_t* node){
 
   RoomFlags purpose = r->flags&ROOM_PURPOSE_MASK;
   
-  if((purpose&ROOM_PURPOSE_EXIT)>0)
-    DO_NOTHING();
 
   node->applied = true;
 
@@ -1348,8 +1344,6 @@ bool RoomCheckPaths(map_context_t *ctx, room_connection_t* conn){
 
 
   if(f_path || t_path){
-    if(f_path != t_path)
-      DO_NOTHING();
 
     Rectangle f_rec = RecFromBounds(&conn->from->bounds);
     Rectangle t_rec = RecFromBounds(&conn->to->bounds);
@@ -3465,20 +3459,33 @@ void MapVisEvent(EventType event, void* data, void* user){
   map_cell_t* mc = user;
   ent_t* e = data;
 
-  int range = e->senses[SEN_SEE]->range;
 
-  int dist = cell_distance(e->pos, mc->coords);
-  switch(mc->vis){
-    case VIS_UNSEEN:
-    case VIS_EXPLORED:
-      if(dist < range)
-        mc->vis = VIS_FULL;
-      if(dist == range)
-        mc->vis = VIS_EXPLORED;
+  switch(event){
+    case EVENT_ENT_STEP:
+      int range = e->senses[SEN_SEE]->range;
+      int dist = cell_distance(e->pos, mc->coords);
+      switch(mc->vis){
+        case VIS_UNSEEN:
+        case VIS_EXPLORED:
+          if(dist < range)
+            mc->vis = VIS_FULL;
+          if(dist == range)
+            mc->vis = VIS_EXPLORED;
+          break;
+        case VIS_SEL:
+          mc->vis = VIS_FULL;
+          break;
+        case VIS_FULL:
+          if(dist > range)
+            mc->vis = VIS_EXPLORED;
+          break;
+      }
       break;
-    case VIS_FULL:
-      if(dist > range)
-        mc->vis = VIS_EXPLORED;
+    case SCREEN_EVENT_ACTIVATE_SEL:
+      mc->vis = VIS_SEL;
+      break;
+    case SCREEN_EVENT_SEL_END:
+      mc->vis = VIS_FULL;
       break;
   }
 }

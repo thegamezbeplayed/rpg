@@ -294,7 +294,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_SCORE]   = 25, [VAL_WEIGHT]  = 1250,
       [VAL_SIZE]    = 512,[VAL_STORAGE] = 512,
       [VAL_DURI]    = 64, [VAL_DRAIN]   = 2,
-      [VAL_REACH]   = 1,  [VAL_HIT]     = 14,
+      [VAL_REACH]   = 1,  [VAL_HIT]     = 16,
       [VAL_DMG]     = 2,  [VAL_DMG_DIE] = 3,
     },
     .loot = LF_WEAP | LF_MAT_WOOD | LF_MAT_STONE | LF_MAT_METAL
@@ -312,7 +312,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_SCORE]   = 10,  [VAL_WEIGHT]  = 1000,
       [VAL_SIZE]    = 1024,[VAL_STORAGE] = 1024,
       [VAL_DURI]    = 32,  [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 1,   [VAL_HIT]     = 10,
+      [VAL_REACH]   = 1,   [VAL_HIT]     = 12,
       [VAL_DMG]     = 6,   [VAL_DMG_DIE] = 1,
     },
     .loot = LF_WEAP | LF_MAT_METAL
@@ -330,7 +330,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_SCORE]   = 200, [VAL_WEIGHT]  = 1250,
       [VAL_SIZE]    = 768, [VAL_STORAGE] = 768,
       [VAL_DURI]    = 48,  [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 1,   [VAL_HIT]     = 12,
+      [VAL_REACH]   = 1,   [VAL_HIT]     = 14,
       [VAL_DMG]     = 4,   [VAL_DMG_DIE] = 2,
      },
     .loot = LF_WEAP | LF_MAT_STONE | LF_MAT_METAL
@@ -344,16 +344,11 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
     .vals = {
-      [VAL_WORTH]   = 275,
-      [VAL_PENN]    = 0,
-      [VAL_SCORE]   = 15,
-      [VAL_WEIGHT]  = 500,
-      [VAL_SIZE]    = 256,
-      [VAL_STORAGE] = 256,
-      [VAL_DURI]    = 32,
-      [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 1,
-      [VAL_HIT]     = 12,
+      [VAL_WORTH]   = 275,  [VAL_PENN]    = 0,
+      [VAL_SCORE]   = 15,   [VAL_WEIGHT]  = 500,
+      [VAL_SIZE]    = 256,  [VAL_STORAGE] = 256,
+      [VAL_DURI]    = 32,   [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 1,    [VAL_HIT]     = 12,
     },
     .loot = LF_WEAP | LF_MAT_STONE | LF_MAT_METAL
   },
@@ -459,7 +454,7 @@ tool_def_t TOOL_TEMPLATES[TOOL_DONE] = {
       [VAL_WEIGHT]  = 700,
       [VAL_SIZE]    = 0x0300,
       [VAL_WORTH]   = 325,
-      [VAL_SCORE]   = 500,
+      [VAL_SCORE]   = 25,
       [VAL_DRAIN]   = 2,
       [VAL_STORAGE] = 0x0100
     },
@@ -665,7 +660,7 @@ container_def_t CONTAINER_TEMPLATES[INV_DONE]={
   {INV_BELT},
   {"Sling", INV_SLING, 1250, 25, 4, .size = 0x0100, 0x0020}
 };
-define_natural_armor_t NAT_ARMOR_TEMPLATES[13] = {
+define_natural_armor_t NAT_ARMOR_TEMPLATES[14] = {
   {PQ_FUR, ARMOR_NATURAL, 5,
     {{[DMG_COLD] = 1}}
   },
@@ -693,6 +688,10 @@ define_natural_armor_t NAT_ARMOR_TEMPLATES[13] = {
   {PQ_CHITIN, ARMOR_NATURAL, 4,
     {{[DMG_POISON] = 1 }}
   },
+  {PQ_TOUGH_CHITIN, ARMOR_NATURAL, 6,
+    {{[DMG_POISON] = 2, [DMG_SLASH] = 1, [DMG_PIERCE] = 1 }},
+    ATTR_STR, 2
+  }
 
 };
 material_data_t MATERIAL_DATA[MAT_ALL] = {
@@ -957,36 +956,42 @@ material_data_t MATERIAL_DATA[MAT_ALL] = {
     }
   },
   [MAT_GEM_CALCITE] = {MAT_GEM_CALCITE, MAT_GEM, "Calcite",
+    PROP_MAT_RAW | PROP_MAT_REAGENT,
     .vals = {
       [VAL_WEIGHT] = 2700,
       [VAL_WORTH]  = 3
     }
   },
   [MAT_GEM_MALACHITE] = {MAT_GEM_MALACHITE, MAT_GEM, "Malachite",
+    PROP_MAT_RAW | PROP_MAT_REAGENT,
     .vals = {
       [VAL_WEIGHT] = 3600,
       [VAL_WORTH]  = 30
     }
   },
   [MAT_GEM_PYRITE] = {MAT_GEM_PYRITE, MAT_GEM, "Pyrite",
+    PROP_MAT_RAW | PROP_MAT_REAGENT,
     .vals = {
       [VAL_WEIGHT] = 4850,
       [VAL_WORTH] = 3
     }
   },
   [MAT_GEM_QUARTZ] = {MAT_GEM_QUARTZ, MAT_GEM, "Quartz",
+    PROP_MAT_RAW | PROP_MAT_REAGENT,
     .vals = {
       [VAL_WEIGHT] = 2650,
       [VAL_WORTH] = 4
     }
   },
   [MAT_GEM_TOPAZ] = {MAT_GEM_TOPAZ, MAT_GEM, "Topaz",
-  .vals = {
-      [VAL_WEIGHT] = 3500,
-      [VAL_WORTH] = 50
-    }
+    PROP_MAT_RAW | PROP_MAT_REAGENT,
+      .vals = {
+        [VAL_WEIGHT] = 3500,
+        [VAL_WORTH] = 50
+      }
   },
   [MAT_GEM_TOURMALINE] = {MAT_GEM_TOURMALINE, MAT_GEM, "Tourmaline",
+    PROP_MAT_RAW | PROP_MAT_REAGENT,
     .vals = {
       [VAL_WEIGHT] = 3150,
       [VAL_WORTH] = 100
@@ -1765,6 +1770,9 @@ bool StatIncrementValue(stat_t* s, bool increase){
 }
 
 bool StatChangeValue(struct ent_s* owner, stat_t* s, float val){
+  if(!s)
+    return false;
+
   float old = s->current;
   s->current+=val;
   s->current = CLAMPF(s->current,s->min, s->max);
@@ -1962,6 +1970,8 @@ bool SkillUseSecondary(skill_t* self, int gain, InteractResult result){
 }
  
 bool SkillUse(skill_t* self, uint64_t source, uint64_t target, int gain, InteractResult result){
+  if(self->id == SKILL_SPELL_EVO)
+    DO_NOTHING();
 
   define_skill_rank_t r = SKILL_RANKS[SkillRankGet(self)];
   gain-=r.penalty;
@@ -1976,8 +1986,6 @@ bool SkillUse(skill_t* self, uint64_t source, uint64_t target, int gain, Interac
 
   if (!iter || gain < 1)
     return false;
-
-
   skill_event_t* skev = iter->ctx;
   skill_decay_t* sk_decay = skev->decay;
 
@@ -2097,13 +2105,16 @@ void SkillRankup(skill_t* self, float old, float cur){
 skill_t* InitSkill(SkillType id, struct ent_s* owner, int min, int max){
   skill_t* s = GameCalloc("InitSkill", 1,sizeof(skill_t));
 
+  SkillRate rating = SkillRateLookup(id);
+  define_skill_rate_t dsr = SKILL_RATES[rating];
+
   *s = (skill_t){
     .id = id,
     .val = min,
     .min = min,
     .max = max,
     .point = 0,
-    .threshold = 350,
+    .threshold = dsr.thresh,
     .owner = owner,
     .on_skill_up = SkillupRelated,
     .on_rank_up = SkillRankup,

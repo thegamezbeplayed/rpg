@@ -212,8 +212,10 @@ void InputSync(TurnPhase phase, int turn){
 
 void InputReset(void){
   player_input.active = true;
-  player_input.redo = true;
-    
+  
+  for(int i = 0; i < TURN_ALL; i++)
+    player->control->actions->options[i] = true;
+  
   TraceLog(LOG_WARNING, "=== GAME INPUT ===\n RESET INPUT");
 }
 
@@ -221,20 +223,14 @@ bool InputCheck(TurnPhase phase, int turn){
   if(IsKeyDown(KEY_SPACE))
     moncontrol(1);
 
-  if(player_input.redo){
-    player_input.redo = false;
-    TraceLog(LOG_WARNING, "=== GAME INPUT ===\n INPUT REDO");
-  }
-  else{
-    if(!player_input.active)
-      return false;
+  if(!player_input.active)
+    return false;
 
-    if(!player->control->actions->options[phase])
-      return false;
+  if(!player->control->actions->options[phase])
+    return false;
 
-    if(ActionMan.round[phase].status != ACT_STATUS_NONE)
-      return false;
-  }
+  if(ActionMan.round[phase].status != ACT_STATUS_NONE)
+    return false;
   for(int i = 0; i < ACTION_DONE; i++){
     action_key_t akey = player_input.actions[i];
 

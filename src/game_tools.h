@@ -55,12 +55,34 @@
 #define CellFlip(c) (Cell){(c.y),(c.x)}
 #define CellBoth(c, x, y) (Cell){(c.x+x),(c.y+y)}
 #define ARRAY_COUNT(a) (sizeof(a) / sizeof((a)[0]))
+
+#define HKEY_CELL(c) (hash_key_t){hash_combine_64(\
+    hash_64_from_int(c.x), hash_64_from_int(c.y))}
+
 typedef bool (*CompareFn)(int a, int b);
 
 void* GameCalloc(const char* func, int count, size_t size);
 void* GameMalloc(const char* func, size_t size);
 void* GameRealloc(const char* func, void* ptr, size_t new_size);
 void GameFree(const char* func, void* ptr);
+
+static int next_pow2_int(int v) {
+    if (v <= 1)
+        return 1;
+    // Prevent overflow (largest power of 2 that fits in signed int)
+    if (v > (1 << 30))
+        return 0; // or clamp to (1 << 30)
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+
+    return v;
+}
+
 typedef uint64_t hash_key_t;
 
 typedef struct {
@@ -74,6 +96,7 @@ typedef struct {
     uint32_t cap;
     uint32_t count;
 } hash_map_t;
+
 void HashInit(hash_map_t* m, uint32_t cap);
 void HashFree(hash_map_t* m);
 void HashClear(hash_map_t* m);
@@ -189,6 +212,7 @@ typedef struct {
   Cell*       data;
   Cell        center;
   int         count, rad;
+  hash_map_t  map;
 } CellList;
 
 static CellList ShiftCellsInRadius(CellList list, Cell shift){
@@ -225,87 +249,112 @@ static CellList GetCellsInRadius(Cell pos, int radius)
   int cx = pos.x;
   int cy = pos.y;
 
+  CellList list = {
+    .type = DES_AREA,
+    .center = pos,
+    .rad = radius
+  };
     // Worst case allocation (square)
-    int max = (2 * radius + 1) * (2 * radius + 1);
-    Cell* points = GameCalloc("GetCellsInRadius",max, sizeof(Cell));
+  int max = (2 * radius + 1) * (2 * radius + 1);
+  Cell* points = GameCalloc("GetCellsInRadius",max, sizeof(Cell));
 
-    int count = 0;
+  HashInit(&list.map, next_pow2_int(max*2));
+  int count = 0;
 
-    for (int y = -radius; y <= radius; y++) {
-        for (int x = -radius; x <= radius; x++) {
+  for (int y = -radius; y <= radius; y++) {
+    for (int x = -radius; x <= radius; x++) {
 
-            if (x*x + y*y <= r2) {
-                points[count++] = (Cell){
-                    cx + x,
-                    cy + y
-                };
-            }
-        }
+      Cell dcell = CELL_NEW(cx+x, cy+y);
+
+      if (x*x + y*y <= r2){
+        hash_key_t key = HKEY_CELL(dcell);
+        points[count++] = dcell;
+        HashPut(&list.map, key, &dcell);
+      }
     }
+  }
 
-    return (CellList){
-      .type = DES_AREA,  
-        .data   = points,
-        .count  = count,
-        .center = CELL_NEW(cx,cy),
-        .rad = radius
-    };
+  list.data   = points;
+  list.count  = count;
+
+  return list;
 }
 
 static CellList GetCellsCone(Cell pos, int radius, Cell dir)
 {
-    int cx = pos.x;
-    int cy = pos.y;
-    int max = (2 * radius + 1) * (2 * radius + 1);
-    Cell* points = GameCalloc("GetCellsCone", max, sizeof(Cell));
+  int cx = pos.x;
+  int cy = pos.y;
+  int max = (2 * radius + 1) * (2 * radius + 1);
+  Cell* points = GameCalloc("GetCellsCone", max, sizeof(Cell));
 
-    int count = 0;
+  CellList list = {
+    .type = DES_CONE,
+    .center = pos,
+    .rad = radius
+  };
 
-    for (int y = -radius; y <= radius; y++) {
-        for (int x = -radius; x <= radius; x++) {
+  HashInit(&list.map, next_pow2_int(max*2));
 
-            // offset from center
-            int dx = x;
-            int dy = y;
+  int count = 0;
 
-            // forward distance (dot product)
-            int forward = dx * dir.x + dy * dir.y;
+  for (int y = -radius; y <= radius; y++) {
+    for (int x = -radius; x <= radius; x++) {
 
-            if (forward <= 0) continue;         // only forward
-            if (forward > radius) continue;     // limit length
+      // offset from center
+      int dx = x;
+      int dy = y;
 
-            // perpendicular distance (controls width)
-            int side = abs(dx * dir.y - dy * dir.x);
+      // forward distance (dot product)
+      int forward = dx * dir.x + dy * dir.y;
 
-            if (side > forward) continue;       // cone shape
+      if (forward <= 0) continue;         // only forward
+      if (forward > radius) continue;     // limit length
 
-            points[count++] = (Cell){
-                cx + x,
-                cy + y
-            };
-        }
+      // perpendicular distance (controls width)
+      int side = abs(dx * dir.y - dy * dir.x);
+
+      if (side > forward) continue;       // cone shape
+
+      Cell dcell = CELL_NEW(cx+x, cy+y);
+
+      hash_key_t key = HKEY_CELL(dcell);
+      points[count++] = dcell;
+      HashPut(&list.map, key, &dcell);
+
     }
+  }
 
-    return (CellList){
-      .type   = DES_CONE,
-        .data   = points,
-        .count  = count,
-        .center = pos,
-        .rad = radius
-    };
+  list.data   = points;
+  list.count  = count;
+  return list; 
 }
 
-static CellList CellListShift(CellList list, Cell shift){
-  switch(list.type){
-    case DES_CONE:
-      return GetCellsCone(list.center, list.rad, shift);
+  static CellList CellListShift(CellList list, Cell shift){
+    switch(list.type){
+      case DES_CONE:
+        return GetCellsCone(list.center, list.rad, shift);
       break;
+    case DES_SEL_TAR:
+      return GetCellOne(CellInc(list.center, shift));
     default:
-      return ShiftCellsInRadius(list, shift);
+      return GetCellsInRadius(CellInc(shift, list.center), list.rad);
       break;
 
   }
 }
+
+static bool CellListContains(CellList allowed, CellList compare){
+  for (int i = 0; i < compare.count; i++) {
+    hash_key_t other = HKEY_CELL(compare.data[i]);
+
+    if (!HashGet(&allowed.map, other)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 static inline int CELL_LEN(Cell c){
   return isqrt((c.x * c.x) + (c.y*c.y));
 }
@@ -607,26 +656,6 @@ static void MakeTriangleFromRect(Rectangle r, Cell dir, Vector2 out[3]) {
     }
 }
 
-
-
-static int next_pow2_int(int v) {
-    if (v <= 1)
-        return 1;
-
-    // Prevent overflow (largest power of 2 that fits in signed int)
-    if (v > (1 << 30))
-        return 0; // or clamp to (1 << 30)
-
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v++;
-
-    return v;
-}
 
 static Cell float_to_ints(float v) {
     Cell c;

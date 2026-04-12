@@ -9,8 +9,8 @@
 #define MAX_LINE_ITEMS 12
 #define MAX_LINE_VAL 4
 #define MAX_LINE_LEN 256
-#define MAX_SUB_ELE 20
-#define MAX_ELEMENTS 64
+#define MAX_SUB_ELE 16
+#define MAX_ELEMENTS 128
 
 #define UI_GRID_WIDTH 6
 #define UI_GRID_HEIGHT 3
@@ -56,7 +56,7 @@
 #define FIXED_DETAILS_BOX     (Vector2){264, 48}
 
 #define UI_PANEL_RIGHT (Vector2){1472, 0}
-#define UI_PANEL_BOT (Vector2){316, 696}
+#define UI_PANEL_BOT (Vector2){316, 688}
 #define UI_PANEL_TOP (Vector2){316, 0}
 
 #define UI_LOG_HOR (Vector2){640, 220}

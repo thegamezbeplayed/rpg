@@ -210,6 +210,9 @@ void LevelReady(map_grid_t* m){
       
       WorldTargetSubscribe(EVENT_ENT_STEP, MapVisEvent, mc, player->gouid);      
       mc->vis = VIS_UNSEEN;
+      WorldTargetSubscribe(SCREEN_EVENT_ACTIVATE_SEL, MapVisEvent, mc, mc->gouid);
+      WorldTargetSubscribe(SCREEN_EVENT_SEL_END, MapVisEvent, mc, mc->gouid);
+
     }
   }
 

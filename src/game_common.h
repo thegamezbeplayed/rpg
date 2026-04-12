@@ -39,7 +39,14 @@ typedef struct{
 }flex_val_t;
 
 
-
+typedef struct{
+  int             cap, count;
+  local_ctx_t     *targets;
+  InteractResult  *results;
+  InteractResult  main;
+}interact_result_t;
+interact_result_t* InitInteractResult(int count);
+void InteractAddResults(interact_result_t*, InteractResult, local_ctx_t*);
 static inline bool RaceHasAbility(AbilityID id, SpeciesType race){
   return (CLASS_ABILITIES[id].racial & race) !=0;
 }

@@ -160,59 +160,12 @@ bool ActionHasStatus(action_pool_t* p, ActionStatus s){
   return false;
 }
 
-ActionStatus ActionAttackMulti(action_t* a){
-  ActionStatus s = a->status; 
-
-  param_t sel = a->params[ACT_PARAM_TAR];
-  if(sel.type_id != DATA_ARRAY)
-    return ACT_STATUS_BAD_DATA;
-
-  if(s!= ACT_STATUS_RUNNING)
-    return ACT_STATUS_MISQUEUE;
-
-  bool prepared = false;
-
-  ability_t* ab; 
-  switch(a->params[ACT_PARAM_ABILITY].type_id){
-    case DATA_INT:
-      AbilityID aid = ParamReadInt(&a->params[ACT_PARAM_ABILITY]);
-      ab = EntFindAbility(a->owner, aid);
-      break;
-    case DATA_ABILITY:
-      ab = ParamRead(&a->params[ACT_PARAM_ABILITY], ability_t);
-      break;
-  }
-  prepared = ab!=NULL;
-
-  if(!prepared)
-    s = ACT_STATUS_BAD_ATTACK;
-  else{
-    local_ctx_t** selections = GameCalloc("ActionValidate", sel.size, sizeof(local_ctx_t));
-
-    selections = sel.data;
-    for(int i = 0; i < sel.size; i++){
-      local_ctx_t* ctx = selections[i];
-      AbilityUse(a->owner, ab, ctx, NULL);
-      s = ACT_STATUS_TAKEN;
-
-    }
-
-  }
-  ActionSetStatus(a, s);
-  return a->status;
-
-}
-
 ActionStatus ActionAttack(action_t* a){
   ActionStatus s = a->status;
-  if(a->params[ACT_PARAM_TAR].type_id != DATA_LOCAL_CTX)
-    s = ACT_STATUS_BAD_DATA;
 
   bool prepared = false;
   ability_t* ab;
-  local_ctx_t* tar = NULL;
   if(s == ACT_STATUS_RUNNING){
-    tar = ParamReadCtx(&a->params[ACT_PARAM_TAR]);
     switch(a->params[ACT_PARAM_ABILITY].type_id){
       case DATA_INT:
         AbilityID aid = ParamReadInt(&a->params[ACT_PARAM_ABILITY]);
@@ -228,7 +181,7 @@ ActionStatus ActionAttack(action_t* a){
     s = ACT_STATUS_BAD_ATTACK;
   }
   else{
-    AbilityUse(a->owner, ab, tar, NULL);
+    AbilityUse(a->owner, ab, a->params[ACT_PARAM_TAR], NULL);
     s = ACT_STATUS_TAKEN;
   }
 
@@ -293,7 +246,6 @@ ActionStatus ActionValidate(action_t* a){
           return AbilityCanTarget(abi, tar);
           break;
         case DATA_ARRAY:
-          a->fn = ActionAttackMulti;
           local_ctx_t** selections = GameCalloc("ActionValidate",
               a->params[ACT_PARAM_TAR].size, sizeof(local_ctx_t));
 
@@ -754,7 +706,7 @@ void OnPlayerAction(EventType event, void* data, void* user){
           break;
         default:
           TraceLog(LOG_WARNING,"==== GAME ACTIONS ===\n Unexpected player action Status %i",a->status);
-          ActionManSetStatus(a->phase, a->status);
+          //ActionManSetStatus(a->phase, a->status);
           InputReset();
           break;
       }
@@ -796,7 +748,7 @@ bool ActionSlotAdd(action_slot_t* owner, ability_t* a){
 
   owner->abilities[owner->count++] = a;
 
-  owner->space-= a->size;
+  //owner->space-= a->size;
 
   return true;
 }
@@ -816,7 +768,7 @@ ActionSlot ActionSlotGetAvailable(ent_t* owner, ActionType type, int size){
 }
 
 bool ActionSlotAddAbility(ent_t* owner, ability_t* a){
-  ActionSlot slot = ActionSlotGetAvailable(owner, a->action, a->size);
+  ActionSlot slot = ActionSlotGetAvailable(owner, a->action, 0);
 
   if(slot == SLOT_NONE)
     return false;
@@ -1099,4 +1051,27 @@ void PrioritiesSync(priorities_t* t){
 
   PrioritizePriorities(t);
   t->valid = true;
+}
+
+interact_result_t* InitInteractResult(int count){
+  interact_result_t* ir = GameCalloc("InitInteractResult", 1, sizeof(interact_result_t));
+
+  ir->cap = count;
+  ir->targets = GameCalloc("InitInteractResult", count, sizeof(local_ctx_t));
+
+  ir->results = GameCalloc("InitInteractResult", count, sizeof(InteractResult));
+
+  return ir;
+}
+
+void InteractAddResults(interact_result_t* irs, InteractResult res, local_ctx_t* ctx){
+  if(irs->count >= irs->cap)
+    return;
+
+  InteractResult *r = &irs->results[irs->count];
+  local_ctx_t* tar = &irs->targets[irs->count++];
+
+  *r = res;
+
+  *tar = *ctx;
 }

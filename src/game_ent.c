@@ -760,7 +760,7 @@ int EntBuild(mob_define_t def, MobRules rules, ent_t **pool){
   if(max>min)
     amount = CLAMP(RandRange(min,max+count),1,MOB_ROOM_MAX);
   else
-    amount = max+count;
+    amount = imax(min, max+count);
 
 
   int chief = 0, captain = 0, commander =0;
@@ -1308,30 +1308,6 @@ void EntDestroy(ent_t* e){
   //e->control = NULL;
 }
 
-InteractResult AbilityConsume(ent_t* owner,  ability_t* a, local_ctx_t* target){
-  if(target->other.type_id != DATA_ENTITY)
-    return IR_FAIL;
-
-  ent_t* e = ParamRead(&target->other, ent_t);
-  int cr = 1;
-
-  InteractResult ires = IR_SUCCESS;
-
-
-
-  int rolls[a->dc->num_die];
-  int base = a->dc->roll(a->dc,rolls);
-
-  base = (base + a->stats[STAT_DAMAGE]->current);
-
-  stat_t* damage_to = e->stats[a->damage_to];
- 
-  if(StatChangeValue(e, damage_to, base))
-  return ires;
-
-  return IR_ALMOST;
-}
-
 int EntAddAggro(ent_t* owner, ent_t* source, int threat, float mul, bool init){
   int cr = LocalAddAggro(owner->local, source, threat, mul, init);
 
@@ -1476,6 +1452,9 @@ InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_sim_t* source){
 InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source){
   InteractResult res = IR_FAIL;
 
+  if(!source)
+    return IR_TOTAL_SUCC;
+
   int dr = a->dr->resist_types[source->d_type];
   if(source->penn > dr)
     return IR_CRITICAL_FAIL;
@@ -1503,35 +1482,45 @@ InteractResult EntAbilityReduce(ent_t* e, ability_t* a, ability_sim_t* source){
   return res;
 }
 
-InteractResult EntUseAbility(ent_t* e, ability_t* a, local_ctx_t* ctx){
-  if(ctx->other.type_id != DATA_ENTITY)
-    return IR_NONE;
+interact_result_t* EntUseAbility(ent_t* e, ability_t* a, param_t tar){
 
-  ent_t* target = ParamRead(&ctx->other, ent_t);
-
-  interaction_t* combat = StartCombat(e, target, a);
-  if(!combat)
-    return IR_NONE;
-
-  bool success = true;
-  InteractResult ires = IR_NONE;
-
-  int cr = LocalAddAggro(e->local, target, 1, target->props->base_diff, false);
-  LocalAddAggro(target->local, e, 1, 1, false);//e->props->base_diff);
+  interact_result_t* out = NULL;
+  local_ctx_t* ctx;
 
   int cost = -1 *a->values[VAL_DRAIN]->val;
 
   if(a->resource>STAT_NONE && cost != 0)
     if(!StatChangeValue(e,e->stats[a->resource], cost)){
-      success = false;
+        out = InitInteractResult(1);
+        out->main = IR_NONE;
+        return out;
     }
 
-  while(ires != IR_DONE)
-    ires = CombatStep(combat, ires);
+  switch(tar.type_id){
+    case DATA_LOCAL_CTX:
+      out = InitInteractResult(1);
+      ctx = ParamReadCtx(&tar);
+      InteractResult res = AbilityAttack(e, a, ctx);
+      out->main = res;
+      InteractAddResults(out, res, ctx);
+      break;
+    case DATA_ARRAY:
+      local_ctx_t** selections = GameCalloc("ActionValidate", tar.size, sizeof(local_ctx_t));
 
-  combat_t* c = combat->ctx;
-  return c->step[BAT_DMG];
+      out = InitInteractResult(tar.size);
+      
+      selections = tar.data;
+      for(int i = 0; i < tar.size; i++){
+        ctx = selections[i];
+        InteractResult r = AbilityAttack(e, a, ctx);
+        InteractAddResults(out, r, ctx);
+        if(r > out->main)
+          out->main = r;
+      }
+      break;
+  }
 
+  return out;
 }
 
 bool FreeEnt(ent_t* e){

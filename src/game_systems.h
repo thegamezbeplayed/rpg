@@ -140,7 +140,8 @@ typedef struct{
   combat_context_t  *cctx[IM_DONE];
   InteractResult    phase[COM_END];
   InteractResult    step[BAT_DONE];
-  Activity          current;
+  Activity          active;
+  BattleStep        current;
   InteractResult    result;
 }combat_t;
 

@@ -43,9 +43,10 @@ typedef BehaviorStatus (*SelectionCallback)(ent_t*, ActionType , param_t);
 
 typedef struct{
   bool              active;
-  CellList          pos;
+  Cell              origin;
+  CellList          pos, allowed;
   map_cell_t*       selections[MAX_TARGETING];
-  int               desired,selected;
+  int               desired,selected, range;
   bool              occupied;
   SelectionCallback on_select, on_complete;
   UiType            icon;

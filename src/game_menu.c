@@ -673,7 +673,11 @@ bool ElementItemUse(ui_element_t* e){
 
   InteractResult res = IR_NONE;
   TraceLog(LOG_INFO, "%s %i - use item %s: %i", e->name, e->index, item->def->name, item->gouid);
-  return item->use_fn(item, WorldGetContext(DATA_ENTITY, player->gouid));
+  
+  local_ctx_t* ctx = WorldGetContext(DATA_ENTITY, player->gouid);
+
+  param_t p = ParamMakeObj(DATA_LOCAL_CTX, player->gouid, ctx);
+  return item->use_fn(item, p);
 
 }
 

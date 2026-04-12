@@ -602,8 +602,12 @@ item_t* InventoryAddItem(ent_t* e, item_t* i){
   return &e->inventory[slot]->items[index];
 }
 
-bool ItemAbilityUse(item_t* i, local_ctx_t* tar){
-  i->ability->use_fn(i->owner, i->ability, tar);
+bool ItemAbilityUse(item_t* i, param_t p){
+
+  if(p.type_id != DATA_LOCAL_CTX)
+    return IR_NONE;
+
+  i->ability->use_fn(i->owner, i->ability, p);
 
   ValueDecrease(i->values[VAL_QUANT], 1);
 }
@@ -1016,19 +1020,36 @@ bool AbilitySkillup(ent_t* owner, ability_t* a, local_ctx_t* ctx, InteractResult
   return true;
 }
 
-InteractResult AbilityGrantExp(ent_t* owner,  ability_t* a, local_ctx_t* ctx){
-  if(ctx->other.type_id != DATA_ENTITY)
-    return IR_NONE;
+interact_result_t* AbilityGrantExp(ent_t* owner,  ability_t* a, param_t p){
+
+  interact_result_t* out = InitInteractResult(1);
+  out->main = IR_ALMOST;
+  local_ctx_t* ctx = NULL;
+
+  if(p.type_id != DATA_LOCAL_CTX)
+    out->main = IR_NONE;
+  else{
+    ctx = p.data;
+
+    if(ctx->other.type_id != DATA_ENTITY)
+      out->main = IR_NONE;
+  }
+
+  if(out->main != IR_ALMOST)
+    return out;
 
   ent_t* target = ParamRead(&ctx->other, ent_t);
 
   int res[a->dc->num_die];
   int exp = a->dc->roll(a->dc, res);
   skill_t* s = target->skills[a->chain_id];
+  InteractResult ires = IR_FAIL;
   if(SkillIncrease(s, exp))
-    return IR_SUCCESS;
+    ires = IR_SUCCESS;
 
-  return IR_FAIL;
+  InteractAddResults(out, ires, ctx);
+  out->main = ires;
+  return out;
 }
 
 ability_t* InitAbility(ent_t* owner, AbilityID id){
@@ -1058,9 +1079,6 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
   }
 
   a->on_use_cb = AbilitySkillup;
-
-  a->stats[STAT_REACH] = STAT(STAT_REACH, a->vals[VAL_REACH]);
-  a->stats[STAT_DAMAGE] = InitStatOnMax(STAT_DAMAGE,a->vals[VAL_DMG_BONUS],a->mod);
 
   for (int i = 0; i < STAT_ENT_DONE; i++){
     if(!a->stats[i])
@@ -1258,42 +1276,55 @@ bool ItemSkillup(ent_t* owner, item_t* item, InteractResult result){
   return true;
 }
 
-InteractResult AbilityUse(ent_t* owner, ability_t* a, local_ctx_t* target, ability_sim_t* other){
-  InteractResult ires = IR_NONE;
+InteractResult AbilityUse(ent_t* owner, ability_t* a, param_t p, ability_sim_t* other){
+  if(p.type_id != DATA_LOCAL_CTX && p.type_id != DATA_ARRAY)
+    return IR_NONE;
+
+  local_ctx_t* target = p.data;
+  
+  interact_result_t* res = NULL;
   switch(a->type){
     case AT_SKILL:
     case AT_DMG:
     case AT_HEAL:
       if(a->use_fn == NULL)
         return IR_FAIL;
-  
-      ires = a->use_fn(owner, a, target);
+ 
+      if(owner == player)
+       DO_NOTHING(); 
+      res = a->use_fn(owner, a, p);
       break; 
     case AT_SAVE:
     case AT_DR:
-      ires = a->save_fn(owner, a, other);
+      InteractResult ires = a->save_fn(owner, a, other);
+      res = InitInteractResult(1);
+      InteractAddResults(res, ires, target);
+      res->main = ires;
       break;
     default:
       break;
   } 
   
-  if(ires > IR_NONE){
-   if(a->on_use_cb)
-    a->on_use_cb(owner, a, target, ires);
-  
+  if(res && res->main > IR_NONE){
+    if(a->on_use_cb){
+      for(int i = 0; i < res->count; i++)
+        a->on_use_cb(owner, a, &res->targets[i], res->results[i]);
+    }
    if(a->item && a->item->on_use)
-     a->item->on_use(owner, a->item, ires);
+     a->item->on_use(owner, a->item, res->main);
    
    if(a->type < AT_SAVE)
    if(a->chain && a->chain_fn)
-     a->chain_fn(owner, a->chain, target);
+     a->chain_fn(owner, a->chain, p);
   }
-  
-  if(ires >=IR_SUCCESS && a->on_success_cb)
-    a->on_success_cb(owner, a, target, ires);
+
+  if(res->main >=IR_SUCCESS && a->on_success_cb){
+    for(int i = 0; i < res->count; i++)
+      a->on_success_cb(owner, a, &res->targets[i], res->results[i]);
+  }
 
     
-  return ires;
+  return res->main;
 }   
 
 local_ctx_t* AbilityTargetFilter(ent_t* e, CtxProps props, GameObjectParam param, uint64_t filter){
@@ -1462,31 +1493,125 @@ InteractResult InteractionExtract(ent_t* owner,  ability_t* a, local_ctx_t* targ
   }
 }
 
-InteractResult AbilityProcess(ent_t* e,  ability_t* a, local_ctx_t* target){
-
+interact_result_t* AbilityProcess(ent_t* e,  ability_t* a, param_t p){
 }
 
-InteractResult AbilityInteract(ent_t* e,  ability_t* a, local_ctx_t* target){
+interact_result_t* AbilityInteract(ent_t* e,  ability_t* a, param_t p){
+  interact_result_t* out = InitInteractResult(1);
+  out->main = IR_ALMOST;
+  local_ctx_t* target = NULL;
+
+  if(p.type_id != DATA_LOCAL_CTX)
+    out->main = IR_NONE;
+  else
+    target = p.data;
+
+
+  if(out->main != IR_ALMOST)
+    return out;
+
+  InteractResult ires = out->main;
   int cost = -1*  a->values[VAL_DRAIN]->val;
   if(a->resource>STAT_NONE && cost != 0)
     if(!StatChangeValue(e,e->stats[a->resource],cost))
-      return IR_NONE;
+      ires = IR_FAIL;
 
-  CtxProp method = a->req & CTX_METHOD_MASK;
-  switch(method){
-    case CTX_METHOD_EXTRACT:
-      return InteractionExtract(e, a, target);
-      break;
-    default:
-      return IR_NONE;
+  if(ires != IR_FAIL){
+    CtxProp method = a->req & CTX_METHOD_MASK;
+    switch(method){
+      case CTX_METHOD_EXTRACT:
+        ires = InteractionExtract(e, a, target);
+        break;
+      default:
+        ires = IR_FAIL;
+        break;
+    }
   }
 
+  InteractAddResults(out, ires, target);
+  out->main = ires;
 
+  return out;
 }
 
-InteractResult AbilityLearn(ent_t* owner,  ability_t* a, local_ctx_t* ctx){
+InteractResult AbilityAttack(ent_t* e,  ability_t* a, local_ctx_t* ctx){
   if(ctx->other.type_id != DATA_ENTITY)
-    return IR_FAIL;
+    return IR_NONE;
+
+
+  ent_t* target = ParamRead(&ctx->other, ent_t);
+
+  interaction_t* combat = StartCombat(e, target, a);
+  if(!combat)
+    return IR_NONE;
+
+  InteractResult ires = IR_NONE;
+
+  int cr = LocalAddAggro(e->local, target, 1, target->props->base_diff, false);
+  LocalAddAggro(target->local, e, 1, 1, false);//e->props->base_diff);
+  
+  while(ires != IR_DONE)
+    ires = CombatStep(combat, ires);
+
+  combat_t* c = combat->ctx;
+  return c->step[c->current];
+}
+
+interact_result_t* AbilityConsume(ent_t* owner,  ability_t* a, param_t p){
+
+  interact_result_t* out = InitInteractResult(1);
+  out->main = IR_ALMOST;
+  local_ctx_t* target = NULL;
+
+  if(p.type_id != DATA_LOCAL_CTX)
+    out->main = IR_NONE;
+  else
+    target = p.data;
+
+  if(target && target->other.type_id != DATA_ENTITY)
+    out->main = IR_NONE;
+
+  if(out->main != IR_ALMOST)
+    return out;
+
+  ent_t* e = ParamRead(&target->other, ent_t);
+  int cr = 1;
+
+  InteractResult ires = IR_SUCCESS;
+
+  int rolls[a->dc->num_die];
+  int base = a->dc->roll(a->dc,rolls);
+
+  base = (base + a->stats[STAT_DAMAGE]->current);
+
+  stat_t* damage_to = e->stats[a->damage_to];
+
+  InteractResult fin = IR_NONE;
+  if(StatChangeValue(e, damage_to, base))
+    fin = IR_SUCCESS;
+  else
+    fin = IR_FAIL;
+
+  InteractAddResults(out, fin, target);
+
+  return out;
+}
+
+interact_result_t* AbilityLearn(ent_t* owner,  ability_t* a, param_t p){
+  interact_result_t* out = InitInteractResult(1);
+  out->main = IR_ALMOST;
+  local_ctx_t* ctx = NULL;
+
+  if(p.type_id != DATA_LOCAL_CTX)
+    out->main = IR_NONE;
+  else
+    ctx = p.data;
+  
+  if(ctx && ctx->other.type_id != DATA_ENTITY)
+    out->main = IR_NONE;
+
+  if(out->main != IR_ALMOST)
+    return out;
 
   ent_t* target = ParamRead(&ctx->other, ent_t);
   ability_t* abi = InitAbility(owner, a->chain_id);
@@ -1503,7 +1628,8 @@ InteractResult AbilityLearn(ent_t* owner,  ability_t* a, local_ctx_t* ctx){
     WorldEvent(EVENT_LEARN, abi, owner->gouid);
   }
 
-  return ires;
+  InteractAddResults(out, ires, ctx);
+  return out;
 }
 
 int GetWeaponByTrait(Traits t, weapon_def_t *arms){
@@ -1804,11 +1930,13 @@ int AbilityAddPB(ent_t* e, ability_t* a, StatType s){
 }
 
 bool AbilityRankup(ent_t* owner, ability_t* a){
+  /*
   ability_t* base = AbilityLookup(a->id);
   for(int i = 0; i < VAL_EXP; i++){
     if(base->rankup[i]==0)
       continue;
   }
+  */
 }
 
 ability_sim_t* AbilitySimMax(ent_t* owner,  ability_t* a){

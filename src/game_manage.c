@@ -33,10 +33,10 @@ activity_t* InitCombatActivity(interaction_t* inter){
   
   combat_t* com = inter->ctx;
 
-  if(com->current == ACT_NONE || com->current == ACT_END)
+  if(com->active == ACT_NONE || com->active == ACT_END)
     return NULL;
 
-  act->kind = com->current;
+  act->kind = com->active;
   activity_format_t a = ACT_LOG_FMT[act->kind];
 
   local_ctx_t* a_ctx = ParamReadCtx(&com->cctx[IM_AGGR]->ctx[IP_OWNER]);
@@ -383,7 +383,7 @@ InteractResult CombatDamage(combat_t *c, bool init){
   tar->last_hit_by = agg;
   stat_t* damaged = tar->stats[atk->damage_to];
   if (StatChangeValue(tar, damaged, damage)){
-    c->current = ACT_ATTACK;
+    c->active = ACT_ATTACK;
     result = IR_SUCCESS;
     if(StatIsEmpty(damaged))
       result = IR_TOTAL_SUCC;
@@ -395,7 +395,7 @@ InteractResult CombatDamage(combat_t *c, bool init){
 
   }
   else
-    c->current = ACT_MISS;//TODO ITS ABSORBED
+    c->active = ACT_MISS;//TODO ITS ABSORBED
   return result;
 }
 
@@ -407,7 +407,6 @@ InteractResult CombatCalcDmg(combat_t* c){
   ability_sim_t* sim = ParamRead(&c->cctx[IM_AGGR]->ctx[IP_DMG], ability_sim_t);
   
   param_t p_agg = c->cctx[IM_AGGR]->ctx[IP_OWNER];
-  local_ctx_t* a_ctx = ParamReadCtx(&p_agg);
   param_t p_tar = c->cctx[IM_TAR]->ctx[IP_OWNER];
 
   local_ctx_t* t_ctx = ParamReadCtx(&p_tar);
@@ -415,7 +414,7 @@ InteractResult CombatCalcDmg(combat_t* c){
 
   InteractResult dres = IR_FAIL;
   if(dr)
-    dres = AbilityUse(tar, dr, a_ctx, sim);
+    dres = AbilityUse(tar, dr, p_agg, sim);
 
   if(dres == IR_TOTAL_SUCC)
     return IR_CRITICAL_FAIL;
@@ -450,7 +449,7 @@ InteractResult CombatCalcHit(combat_t* c){
 
   ability_sim_t* sim = atk->sim_fn(agg,atk);
   c->cctx[IM_AGGR]->ctx[IP_DMG] = ParamCopyObj(DATA_DMG, atk->id, sim, sizeof(ability_sim_t));
-  switch(AbilityUse(tar,save, a_ctx, sim)){
+  switch(AbilityUse(tar,save, p_agg, sim)){
     case IR_FAIL:
       res = IR_SUCCESS;
       break;
@@ -477,6 +476,8 @@ InteractResult CombatOnStep(combat_t* c){
       break;
     }
 
+  c->current = step < BAT_DONE? step: step-1;
+
   combat_context_t* a = c->cctx[IM_AGGR];
   combat_context_t* t = c->cctx[IM_TAR];
   param_t p_agg = a->ctx[IP_OWNER];
@@ -490,7 +491,7 @@ InteractResult CombatOnStep(combat_t* c){
     case BAT_HIT:
       c->step[step] = CombatCalcHit(c);
       if(c->step[step] < IR_ALMOST){
-        c->current = ACT_MISS;      
+        c->active = ACT_MISS;      
         c->result = IR_DONE;
       }
       break;
@@ -530,17 +531,17 @@ void CombatCheckStatus(combat_t* c){
   item_t* i = NULL;
 
   if(!LocalContextCheck(tar)){
-    c->current = ACT_END;
+    c->active = ACT_END;
     ent_t* last_hit = EntLastHitBy(tar->other.data);
     if(last_hit && last_hit->gouid == agg->gouid)
-      c->current = ACT_KILL;
+      c->active = ACT_KILL;
   }
 }
 
 InteractResult CombatStep(interaction_t* i, InteractResult res){
   combat_t* c = i->ctx;
 
-  c->current = ACT_NONE;
+  c->active = ACT_NONE;
   for (int i = 0; i < IM_DONE; i++){
     if(c->cctx[i]->ctx[IP_OWNER].type_id == DATA_NONE)
       return IR_DONE;
@@ -574,7 +575,7 @@ InteractResult CombatStep(interaction_t* i, InteractResult res){
           //res = CombatStepPhase(c, COM_END);
           break;
         case COM_END:
-          c->current = ACT_END;  
+          c->active = ACT_END;  
           c->result = IR_DONE;
           break;
 

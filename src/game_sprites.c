@@ -37,6 +37,11 @@ void InitAssetManager(void){
     mask.col.a -= (i*32);
     AssMan.masks[i] = mask;
   }
+
+  AssMan.masks[VIS_SEL] = (mask_t){
+    .area = Rect(0,0,CELL_WIDTH, CELL_HEIGHT),
+    .col = BLUEFADE
+  };
 }
 
 void InitResources(){

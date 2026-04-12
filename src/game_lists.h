@@ -148,30 +148,107 @@ static const int  STAT_STANDARDS[STAT_ENT_DONE][SC_DONE] = {
 static define_skill_rate_t  SKILL_RATES[RATE_DONE]={
   {RATE_NONE},
   {RATE_LINEAR,
-    {[IR_FAIL] = 100, [IR_SUCCESS] = 100},
-    {[IR_FAIL] = 75,[IR_SUCCESS] = 75},
-    20
+    {
+      [IR_FAIL]           = 100,
+      [IR_SUCCESS]        = 100, 
+      [IR_TOTAL_SUCC]     = 125,
+      [IR_ALMOST]         = 50,
+      [IR_CRITICAL_FAIL]  = 25
+    },
+    {
+      [IR_FAIL]          = 75,
+      [IR_SUCCESS]       = 75,
+      [IR_ALMOST]        = 25,
+      [IR_CRITICAL_FAIL] = 25,
+      [IR_TOTAL_SUCC]    = 90
+    },
+    20, 275
   },
   {RATE_REWARD,
-    {[IR_FAIL] = 75, [IR_SUCCESS] = 100},
-    {[IR_FAIL] = 75, [IR_SUCCESS] = 90},
-    30
+    {
+      [IR_FAIL]          = 50,
+      [IR_SUCCESS]       = 100,
+      [IR_TOTAL_SUCC]    = 150,
+      [IR_ALMOST]        = 75,
+      [IR_CRITICAL_FAIL] = 10
+    },
+    {
+      [IR_FAIL]          = 50,
+      [IR_ALMOST]        = 75,
+      [IR_SUCCESS]       = 90,
+      [IR_TOTAL_SUCC]    = 100,
+      [IR_CRITICAL_FAIL] = 25,
+    },
+    20, 350.
   },
   {RATE_REWARD_SLOW,
-    {[IR_FAIL] = 25, [IR_SUCCESS] = 75},
-    {[IR_FAIL] = 25, [IR_SUCCESS] = 50},
-    30
-  },
-  {RATE_RISK, 
     {
-      [IR_FAIL] = 100,
-      [IR_CRITICAL_FAIL] = 110,
-      [IR_SUCCESS] = 75,
-      [IR_TOTAL_SUCC] = 50
+      [IR_FAIL]          = 50,
+      [IR_SUCCESS]       = 100,
+      [IR_TOTAL_SUCC]    = 150,
+      [IR_ALMOST]        = 75,
+      [IR_CRITICAL_FAIL] = 10
     },
-    {[IR_FAIL] = 90, [IR_SUCCESS]=50},
-    40
-  }
+    {
+      [IR_FAIL]          = 20,
+      [IR_ALMOST]        = 50,
+      [IR_SUCCESS]       = 80,
+      [IR_TOTAL_SUCC]    = 100,
+      [IR_CRITICAL_FAIL] = 10,
+    },
+    30, 425
+  },
+   {RATE_REWARD_FAST,
+     {
+       [IR_FAIL]          = 50,
+       [IR_SUCCESS]       = 100,
+       [IR_TOTAL_SUCC]    = 150,
+       [IR_ALMOST]        = 75,
+       [IR_CRITICAL_FAIL] = 10
+     },
+     {
+       [IR_FAIL]          = 50,
+       [IR_ALMOST]        = 75,
+       [IR_SUCCESS]       = 90,
+       [IR_TOTAL_SUCC]    = 100,
+       [IR_CRITICAL_FAIL] = 25,
+     },
+    10, 275
+   },
+   {RATE_RISK, 
+     {
+       [IR_FAIL]           = 100,
+       [IR_CRITICAL_FAIL]  = 125,
+       [IR_SUCCESS]        = 75,
+       [IR_TOTAL_SUCC]     = 50,
+       [IR_ALMOST]         = 80,
+     },
+     {
+       [IR_FAIL]          = 90,
+       [IR_ALMOST]        = 50,
+       [IR_SUCCESS]       = 80,
+       [IR_TOTAL_SUCC]    = 50,
+       [IR_CRITICAL_FAIL] = 100,
+     },
+     30, 350,
+   },
+     {RATE_RISK_SLOW,
+       {
+         [IR_FAIL]           = 100,
+         [IR_CRITICAL_FAIL]  = 125,
+         [IR_SUCCESS]        = 75,
+         [IR_TOTAL_SUCC]     = 50,
+         [IR_ALMOST]         = 80,
+       },
+       {
+         [IR_FAIL]          = 80,
+         [IR_ALMOST]        = 25,
+         [IR_SUCCESS]       = 40,
+         [IR_TOTAL_SUCC]    = 50, 
+         [IR_CRITICAL_FAIL] = 90,
+       },
+       50, 425
+     }
 };
 
 static skill_rate_relation_t SKILLRATE_LOOKUP[RATE_DONE]={
@@ -192,19 +269,29 @@ static skill_rate_relation_t SKILLRATE_LOOKUP[RATE_DONE]={
       [SKILL_STONE]       = true,
     }
   },
-  {RATE_ALL_OR_NOTHING,
+  {RATE_REWARD_FAST,
     {
-      [SKILL_WEAP_SWORD] = true,
-      [SKILL_WEAP_BOW]   = true,
+      [SKILL_SPELL_ABJ]   = true,
+      [SKILL_SPELL_CONJ]  = true,
+      [SKILL_SPELL_DIV]   = true,
+      [SKILL_SPELL_ENCH]  = true,
+      [SKILL_SPELL_EVO]   = true,
+      [SKILL_SPELL_ILL]   = true,
+      [SKILL_SPELL_NECRO] = true,
+      [SKILL_SPELL_TRANS] = true,
     }
   },
   {RATE_RISK,
     {
       [SKILL_ARCANA] = true,
-      [SKILL_STEALTH] = true,
       [SKILL_WEAP_SIMP] = true,
     }
   },
+  {RATE_RISK_SLOW,
+    {
+      [SKILL_STEALTH] = true,
+    }
+  }
 };
 
 static attribute_name_t ATTR_STRING[ATTR_DONE]={
@@ -1125,20 +1212,26 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
       MOB_LOC_DUNGEON | MOB_LOC_CAVE | MOB_LOC_FOREST |
       MOB_THEME_CRITTER |
       MOB_FREQ_RARE |
-      MOB_GROUPING_SOLO | MOB_GROUPING_SWARM,
+      MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP | MOB_GROUPING_SWARM,
     SPEC_ARTHROPOD,
     {75,67}, 3,
     .65,
     SOC_INSTINCTIVE,
     RES_BLOOD | RES_SCALE,
     RES_BLOOD,
+    .flags = {
+      PQ_TAIL, 0,
+      PQ_PINCERS | PQ_STINGER | PQ_SPIKED_TAIL,
+      PQ_TOUGH_CHITIN
+    }
   },
   {ENT_SPIDER, "Spider",
       MOB_MOD_ENLARGE |
       MOB_LOC_MASK |
       MOB_THEME_CRITTER |
       MOB_FREQ_COMMON |
-      MOB_GROUPING_MASK,
+      MOB_GROUPING_SOLO | MOB_GROUPING_PAIRS | MOB_GROUPING_TROOP |
+      MOB_GROUPING_PARTY | MOB_GROUPING_CREW | MOB_GROUPING_SQUAD,
     SPEC_ARTHROPOD,
     {80,69}, 2,
     0.25,
@@ -1146,8 +1239,9 @@ static mob_define_t MONSTER_MASH[ENT_DONE] = {
     RES_BLOOD,
     RES_BLOOD,
     .flags = {
-      PQ_MANY_EYES,
-      .weaps = PQ_FANGS | PQ_POISON_FANGS
+      PQ_MANY_EYES, 0, 
+      PQ_FANGS | PQ_POISON_FANGS,
+      PQ_CHITIN
     }
   },
   {ENT_TROLL, "Troll",

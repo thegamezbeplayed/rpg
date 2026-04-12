@@ -1118,7 +1118,6 @@ void LocalSyncCtx(local_table_t* s, local_ctx_t* ctx){
 }
 
 void LocalSync(local_table_t* s, bool sort){
-  LocalPrune(s);
 
   for(int i = 0; i < s->count; i++){
     local_ctx_t* ctx = &s->entries[i];
@@ -1170,7 +1169,11 @@ void LocalSync(local_table_t* s, bool sort){
   if(s->valid)
     return;
 
-  LocalSortByDist(s);
+  if(s->last_update != WorldGetTurn()){
+    LocalPrune(s);
+    LocalSortByDist(s);
+    s->last_update = WorldGetTurn();
+  }
   s->valid = true;
 }
 

@@ -638,7 +638,7 @@ typedef struct{
   SkillRate   rate;
   int         weights[IR_MAX];
   int         dr[IR_MAX];
-  int         duration;
+  int         duration, thresh;
 }define_skill_rate_t;
 
 typedef struct{
@@ -759,7 +759,10 @@ typedef enum {
   /* Future-safe */
   // PQ_MANDIBLES  = 1ULL << 9,
   // PQ_TENTACLES  = 1ULL << 10,
-  // PQ_SPIKED_TAIL= 1ULL << 11,
+  PQ_SPIKED_TAIL  = 1ULL << 11,
+  PQ_STINGER      = 1ULL << 12,
+
+  PQ_PINCERS      = 1ULL << 13,
 
 } PhysWeapon;
 
@@ -788,6 +791,7 @@ typedef enum {
 
   /* Future-safe */
    PQ_CHITIN       = 1ULL << 12,
+   PQ_TOUGH_CHITIN = 1ULL << 13,
   // PQ_CRYSTALLINE = 1ULL << 10,
 
 } PhysBody;
@@ -1031,7 +1035,8 @@ static const qualities_benefits_t NAT_WEAPS[17] = {
   {PQ_FANGS, .skillup = {[SKILL_WEAP_NONE] = 350}},
   {PQ_POISON_FANGS, .num_abilities = 1, .abilities = ABILITY_BITE_POISON,
     .skillup = {[SKILL_WEAP_NONE] = 350}},
-
+  {PQ_STINGER, .num_abilities = 1, .abilities = ABILITY_STING_POISON,
+    .skillup = {[SKILL_WEAP_NONE] = 400}},
 };
 
 static const qualities_benefits_t COVERINGS[35] = {
@@ -1060,6 +1065,10 @@ static const qualities_benefits_t COVERINGS[35] = {
   {PQ_CHITIN, .skillup = {[SKILL_ARMOR_NATURAL] = 400},
     .num_abilities = 1, .abilities = ABILITY_ARMOR_SAVE
   },
+  {PQ_TOUGH_CHITIN, .skillup = {[SKILL_ARMOR_NATURAL] = 650},
+    .num_abilities = 1, .abilities = ABILITY_ARMOR_SAVE
+  },
+
 };
 
 static const qualities_benefits_t BODY[35] = {
@@ -2028,6 +2037,7 @@ typedef enum{
   PROP_MAT_TOOLING      = BIT64(2),
   PROP_MAT_BLADE        = BIT64(3),
   PROP_MAT_CLOTHING     = BIT64(4),
+  PROP_MAT_REAGENT      = BIT64(5),
 }MaterialProp;
 
 typedef enum{
@@ -2499,7 +2509,7 @@ typedef struct{
   int                mod_max;
   SkillType          skill;
 }define_natural_armor_t;
-extern define_natural_armor_t NAT_ARMOR_TEMPLATES[13];
+extern define_natural_armor_t NAT_ARMOR_TEMPLATES[14];
 
 typedef struct{
   GameObjectParam   param;

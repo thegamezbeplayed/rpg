@@ -9,6 +9,7 @@
 
 #define MAX_TARGETING 32
 #define MAX_ENTS 128  
+#define MAX_COMPONENTS 8  
 #define MAX_ENVS 8192  
 #define CARRY_SIZE 4
 #define NUM_ABILITIES 6
@@ -76,15 +77,28 @@ typedef struct{
 
 properties_t* InitProperties(race_define_t racials, mob_define_t m);
 void  PropAddFeat(ent_t* e, FeatFlag f, SkillType skill);
+
+typedef struct{
+  ComponentType   type;
+  bool            required;
+
+}component_t;
+
+typedef struct{
+  int     count;
+  component_t* components[MAX_COMPONENTS];
+}component_list_t;
+
 typedef bool (*AbilityCb)(ent_t* owner,  ability_t* chain, local_ctx_t* target, InteractResult result);
-typedef InteractResult (*AbilityFn)(ent_t* owner,  ability_t* a, local_ctx_t* target);
+typedef interact_result_t* (*AbilityFn)(ent_t* owner,  ability_t* a, param_t);
 typedef ability_sim_t* (*AbilitySim)(ent_t* owner,  ability_t* a);
 ActionStatus AbilityCanTarget(ability_t* a, local_ctx_t* target);
-InteractResult AbilityConsume(ent_t*,  ability_t*, local_ctx_t*);
-InteractResult AbilityGrantExp(ent_t*,  ability_t*, local_ctx_t* target);
-InteractResult AbilityLearn(ent_t* owner,  ability_t* a, local_ctx_t*);
-InteractResult AbilityProcess(ent_t* e,  ability_t* a, local_ctx_t* target);
-InteractResult AbilityInteract(ent_t* owner,  ability_t* a, local_ctx_t*);
+interact_result_t* AbilityConsume(ent_t*,  ability_t*, param_t);
+interact_result_t* AbilityGrantExp(ent_t*,  ability_t*, param_t);
+interact_result_t* AbilityLearn(ent_t* owner,  ability_t* a, param_t);
+interact_result_t* AbilityProcess(ent_t* e,  ability_t* a, param_t);
+interact_result_t* AbilityInteract(ent_t* owner,  ability_t* a, param_t);
+InteractResult AbilityAttack(ent_t* owner,  ability_t* a, local_ctx_t*);
 material_extraction_t* ResourceExtract(resource_t*, int, skill_t*);
 
 BehaviorStatus AbilityExecute(ability_t* a, ent_t* e);
@@ -102,14 +116,12 @@ struct ability_s{
   StatType         damage_to;
   AttributeType    save,mod;
   AbilityID        chain_id;
-  int              size;
   SkillType        skills[3];
   dice_roll_t*     dc,*hit;
   stat_t*          stats[STAT_ENT_DONE];
   ability_t        *chain;
   value_t*            values[VAL_WORTH];
   int                 rank;
-  int                 rankup[VAL_WORTH];
   damage_reduction_t* dr;
   AbilityCb           on_success_cb, on_use_cb;
   AbilityFn           use_fn, chain_fn;
@@ -173,7 +185,7 @@ ability_t* EntFindAbility(ent_t* e, AbilityID id);
 ability_t* InitAbility(ent_t* owner, AbilityID);
 bool AbilityRankup(ent_t* owner, ability_t* a);
 ability_t* InitAbilityDummy(ent_t* owner, ability_t copy);
-InteractResult AbilityUse(ent_t*, ability_t*, local_ctx_t*, ability_sim_t*);
+InteractResult AbilityUse(ent_t*, ability_t*, param_t, ability_sim_t*);
 ability_t* EntChoosePreferredAbility(ent_t* e);
 ability_t* EntChooseWeightedAbility(ent_t* e, int budget, ActionSlot slot);
 InteractResult EntAbilitySave(ent_t* e, ability_t* a, ability_sim_t* source);
@@ -199,7 +211,7 @@ typedef struct item_def_s{
 
 typedef bool (*ItemEquipCallback)(struct ent_s* owner, item_t* item);
 typedef bool (*ItemUseCallback)(ent_t* owner, item_t* item, InteractResult res);
-typedef bool (*ItemUseFunction)(item_t*, local_ctx_t*);
+typedef bool (*ItemUseFunction)(item_t*, param_t);
 
 
 struct item_s{
@@ -222,7 +234,7 @@ struct item_s{
   ItemUseFunction   use_fn;
 };
 
-bool ItemAbilityUse(item_t*, local_ctx_t*);
+bool ItemAbilityUse(item_t*, param_t);
 bool ItemApplyStats(ent_t* owner, item_t* item);
 bool ItemConsume(ent_t* owner, item_t* item);
 bool ItemAddAbility(ent_t* owner, item_t* item);
@@ -342,7 +354,7 @@ void EntInitOnce(ent_t* e);
 bool EntPrepareAttack(ent_t* e, ability_t* a, local_ctx_t*);
 //attack_t* InitWeaponAttack(ent_t* owner, item_t* w);
 InteractResult EntMeetNeed(ent_t* e, need_t* n, param_t g);
-InteractResult EntUseAbility(ent_t* owner, ability_t* a, local_ctx_t*);
+interact_result_t* EntUseAbility(ent_t* owner, ability_t* a, param_t);
 InteractResult EntSkillCheck(ent_t* owner, ent_t* target, SkillType s);
 local_ctx_t* EntGetTarget(ent_t* e, AbilityID id);
 void EntSync(ent_t* e);
