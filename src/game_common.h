@@ -47,25 +47,6 @@ typedef struct{
 }interact_result_t;
 interact_result_t* InitInteractResult(int count);
 void InteractAddResults(interact_result_t*, InteractResult, local_ctx_t*);
-static inline bool RaceHasAbility(AbilityID id, SpeciesType race){
-  return (CLASS_ABILITIES[id].racial & race) !=0;
-}
-static inline bool ClassHasAbility(AbilityID id, Archetype arch){
-  return (CLASS_ABILITIES[id].base & arch) !=0;
-}
-
-static inline int FilterAbilities(AbilityID *pool, Archetype arch, SpeciesType race){
-  int count = 0;
-  for(int i = 0; i < ABILITY_DONE; i++){
-    if(!ClassHasAbility(i, arch))
-      continue;
-    if(!RaceHasAbility(i, race))
-      continue;
-
-    pool[count++] = i;
-  }
-  return count;
-}
 
 static inline int MobGetFrequencyTier(uint64_t rules)
 {
@@ -472,6 +453,7 @@ typedef struct{
   ModifierType      bonus[ATTR_BLANK];
   ProficiencyCheck  type;
   dice_roll_t*      die;
+  int               last_turn_use;
 }skill_check_t;
 
 skill_check_t* InitSkillCheck(skill_t* skill);

@@ -629,11 +629,11 @@ void GrantEntClass(ent_t* e, race_define_t racial, race_class_t* race_class){
     ItemAddUnique(e, InitItem(idef), true);
   }
 
-  AbilityID abilities[MAX_ABILITIES];
-  int num_abilities = FilterAbilities(abilities, data.archtype, racial.race);
-  for (int i = 0; i < num_abilities; i++){
-    define_ability_class_t def_ab = CLASS_ABILITIES[abilities[i]];
-    if(def_ab.lvl > 1)
+  int lvl = imin(1, e->skills[SKILL_LVL]->val);
+  for (int i = 0; i < 20; i++){
+    define_ability_class_t def_ab = CLASS_ABILITIES[data.archtype][i];
+
+    if(def_ab.id == ABILITY_NONE || def_ab.lvl > lvl)
       continue;
 
     ability_t* a = InitAbility(e, def_ab.id);
@@ -1074,6 +1074,8 @@ void EntRender(ent_t* e){
 }
  
 void EnvRender(env_t* e){
+  if(e->type == ENV_CHEST)
+    DO_NOTHING();
   switch(e->status){
     case ENV_STATUS_NORMAL:
       DrawSpriteAtPos(e->sprite,e->vpos);
@@ -1717,6 +1719,11 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
   
   e->control->phase = phase;
   e->control->turn = turn;
+
+  if(WorldGetDebug() && WorldGetDebug() == e)
+    DO_NOTHING();
+
+
   LocalSync(e->local, false);
 
   if(e->type == ENT_PERSON)
@@ -1735,10 +1742,6 @@ void EntControlStep(ent_t *e, int turn, TurnPhase phase){
 
   PrioritiesSync(e->control->priorities);
   behavior_tree_node_t* current = e->control->bt[e->state];
-
-  if(e->last_hit_by == player)
-    DO_NOTHING();
-
   current->tick(current, e);
 }
 

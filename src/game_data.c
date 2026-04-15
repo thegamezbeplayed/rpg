@@ -296,6 +296,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_DURI]    = 64, [VAL_DRAIN]   = 2,
       [VAL_REACH]   = 1,  [VAL_HIT]     = 16,
       [VAL_DMG]     = 2,  [VAL_DMG_DIE] = 3,
+      [VAL_HIT_DIE] = 1,
     },
     .loot = LF_WEAP | LF_MAT_WOOD | LF_MAT_STONE | LF_MAT_METAL
   },
@@ -314,6 +315,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_DURI]    = 32,  [VAL_DRAIN]   = 1,
       [VAL_REACH]   = 1,   [VAL_HIT]     = 12,
       [VAL_DMG]     = 6,   [VAL_DMG_DIE] = 1,
+      [VAL_HIT_DIE] = 1,
     },
     .loot = LF_WEAP | LF_MAT_METAL
   },
@@ -332,6 +334,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_DURI]    = 48,  [VAL_DRAIN]   = 1,
       [VAL_REACH]   = 1,   [VAL_HIT]     = 14,
       [VAL_DMG]     = 4,   [VAL_DMG_DIE] = 2,
+      [VAL_HIT_DIE] = 1,
      },
     .loot = LF_WEAP | LF_MAT_STONE | LF_MAT_METAL
   },
@@ -349,6 +352,7 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
       [VAL_SIZE]    = 256,  [VAL_STORAGE] = 256,
       [VAL_DURI]    = 32,   [VAL_DRAIN]   = 1,
       [VAL_REACH]   = 1,    [VAL_HIT]     = 12,
+      [VAL_HIT_DIE] = 1,
     },
     .loot = LF_WEAP | LF_MAT_STONE | LF_MAT_METAL
   },
@@ -361,15 +365,13 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
     .vals = {
-      [VAL_WORTH]   = 5,
-      [VAL_PENN]    = 0,
-      [VAL_SCORE]   = 5,
-      [VAL_WEIGHT]  = 750,
-      [VAL_SIZE]    = 768,
-      [VAL_STORAGE] = 768,
-      [VAL_DURI]    = 4,
-      [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 2,
+      [VAL_WORTH]   = 5,  [VAL_PENN]    = 0,
+      [VAL_SCORE]   = 5,  [VAL_WEIGHT]  = 750,
+      [VAL_SIZE]    = 768,[VAL_STORAGE] = 768,
+      [VAL_DURI]    = 4,  [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 2,  [VAL_HIT]     = 18,
+      [VAL_DMG]     = 2,  [VAL_DMG_DIE] = 3,
+      [VAL_HIT_DIE] = 1,
     },
     .loot = LF_WEAP | LF_MAT_WOOD | LF_MAT_METAL
   },
@@ -382,15 +384,12 @@ weapon_def_t WEAPON_TEMPLATES[WEAP_DONE]= {
     STORE_HELD,
     {[STORE_CARRY] = 2,[STORE_WORN]=1},
     .vals = {
-      [VAL_WORTH]   = 300,
-      [VAL_PENN]    = 0,
-      [VAL_SCORE]   = 10,
-      [VAL_WEIGHT]  = 1250,
-      [VAL_SIZE]    = 1536,
-      [VAL_STORAGE] = 1536,
-      [VAL_DURI]    = 128,
-      [VAL_DRAIN]   = 1,
-      [VAL_REACH]   = 3,
+      [VAL_WORTH]   = 300,  [VAL_PENN]    = 0,
+      [VAL_SCORE]   = 10,   [VAL_WEIGHT]  = 1250,
+      [VAL_SIZE]    = 1536, [VAL_STORAGE] = 1536,
+      [VAL_DURI]    = 128,  [VAL_DRAIN]   = 1,
+      [VAL_REACH]   = 3,    [VAL_HIT]     = 18,
+      [VAL_DMG]     = 2,    [VAL_DMG_DIE] = 1
     },
     .loot = LF_WEAP | LF_MAT_WOOD
   },
@@ -731,7 +730,8 @@ material_data_t MATERIAL_DATA[MAT_ALL] = {
     PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
     DARKGRAY,
     .vals = {
-      [VAL_WEIGHT] = 1337,
+          PROP_MAT_RAW | PROP_MAT_HAS_RESOURCE,
+[VAL_WEIGHT] = 1337,
       [VAL_WORTH]  = 6
     }
   },
@@ -1247,7 +1247,7 @@ biome_t BIOME[BIO_DONE] = {
   },
   {BIO_DUNGEON},
   {BIO_FOREST,
-    0.1f, 0.15f, 0.05f, 0.1f, 0.05f,
+    0.1f, 0.15f, 0.05f, 0.1f, 0.5f,
     .ratios = {
       [MT_PREY] = .40f, [MT_PRED] = .08f, [MT_CRITTER] = .20f, [MT_BUG] = .12f, [MT_FACTION] = .0f, [MT_MONSTER] = 0.07f, [MT_LOCALS] = .13f},
     .materials = {
@@ -2134,6 +2134,11 @@ int SkillCheckGetVal(skill_t* s, ValueCategory val){
 
 InteractResult SkillCheckVal(skill_t* s, int cr){
   skill_check_t* checks = s->checks;
+  if (checks->last_turn_use == WorldGetTurn())
+    return IR_NONE;
+  
+  checks->last_turn_use = WorldGetTurn();
+  
   if(s->ovrd)
     checks = s->ovrd;
 
@@ -2149,7 +2154,6 @@ InteractResult SkillCheckVal(skill_t* s, int cr){
     dr->advantage = checks->vals[VAL_ADV_HIT];
   }
   int hit = dr->roll(dr, hits);
-
 
   s->ovrd = NULL;
 

@@ -49,6 +49,42 @@ BehaviorStatus InputActionMove(ent_t* e, action_key_t akey, KeyboardKey k){
   return BEHAVIOR_FAILURE;
 }
 
+BehaviorStatus InputInteract(ent_t* e, action_key_t akey, KeyboardKey k){
+  local_ctx_t* pool[8] = {0};
+  ParamCompareFn fn = ParamCompareAnd;
+  GameObjectParam p = PARAM_PROPS;
+
+  ability_t* abi = AbilityLookup(ABILITY_INTERACT_OPEN);
+  param_t f = ParamMake(DATA_UINT64, sizeof(uint64_t), &abi->req);
+  int count = LocalContextFilter(e->local, 8, pool, f, p, fn, 0);
+
+  local_ctx_t* tar = NULL;
+  for(int i = 0; i < count; i++){
+    local_ctx_t* ctx = pool[i];
+    if(ctx->dist > 1)
+      continue;
+
+    tar = ctx;
+    break;
+
+  }
+
+  if(!tar)
+    return BEHAVIOR_FAILURE;
+
+  param_t pt = ParamMakeObj(DATA_LOCAL_CTX, tar->gouid, tar);
+
+  player_input.decisions[ACTION_INTERACT]->params[ACT_PARAM_TAR] = pt;
+  action_t* a = InitActionByDecision(player_input.decisions[ACTION_INTERACT], ACTION_INTERACT);
+
+  if(ActionExecute(ACTION_INTERACT, a) == BEHAVIOR_SUCCESS){
+    WorldEvent(EVENT_PLAYER_INPUT, a, player->gouid);
+    return BEHAVIOR_SUCCESS;
+  }
+
+  return BEHAVIOR_FAILURE;
+}
+
 BehaviorStatus InputMultiTarget(ent_t* e, ActionType a, param_t sel){
   map_cell_t** selections = GameCalloc("InputMultiTarget", sel.size, sizeof(map_cell_t));
 
@@ -200,6 +236,8 @@ void InitInput(ent_t* player){
   player_input.actions[ACTION_MOVE] = (action_key_t){
     ACTION_MOVE,8,{KEY_D,KEY_A,KEY_W,KEY_S,KEY_LEFT, KEY_RIGHT,KEY_UP,KEY_DOWN},InputActionMove,SLOT_NONE};
 
+  player_input.actions[ACTION_INTERACT] = (action_key_t){
+    ACTION_INTERACT, 1, {KEY_I}, InputInteract, SLOT_NONE};
 }
 
 void InputSync(TurnPhase phase, int turn){

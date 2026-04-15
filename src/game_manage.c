@@ -447,6 +447,9 @@ InteractResult CombatCalcHit(combat_t* c){
 
   StatMaxOut(atk->stats[STAT_DAMAGE]);
 
+  if(atk->dc->sides == 0)
+    DO_NOTHING();
+
   ability_sim_t* sim = atk->sim_fn(agg,atk);
   c->cctx[IM_AGGR]->ctx[IP_DMG] = ParamCopyObj(DATA_DMG, atk->id, sim, sizeof(ability_sim_t));
   switch(AbilityUse(tar,save, p_agg, sim)){

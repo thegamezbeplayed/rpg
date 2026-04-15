@@ -657,6 +657,8 @@ local_ctx_t* MakeLocalContext(local_table_t* s, param_t* entry, Cell pos){
       WorldTargetSubscribe(EVENT_ENV_DEATH, OnWorldByGOUID, s, tile->gouid);
       props |= CTX_TAR_ENV;
 
+      if(tile->type == ENV_CHEST)
+        props |= CTX_METHOD_OPEN;
       break;
     case DATA_MAP_CELL:
       PRUNES++;
@@ -960,12 +962,14 @@ aggro_t* LocalAggroByCtx(local_ctx_t* ctx){
 void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   ent_t* other = ParamReadEnt(&ctx->other);
 
+  if(!CheckEntAlive(other)){
+    ctx->prune = true;
+    ctx->valid = false;
+    return;
+  }
   SpeciesRelate rel = *ParamRead(&ctx->params[PARAM_RELATE], SpeciesRelate);
   if(rel == SPEC_RELATE_POSITIVE && ctx->awareness <= 0)
     ctx->awareness = f_safe_divide(1,1+ctx->dist);
-
-  if(ctx->gouid == player->gouid)
-    DO_NOTHING();
 
   float base = -0.5f;
   bool detect = ctx->awareness > 1;
@@ -976,21 +980,25 @@ void LocalEntCheck(ent_t* e, local_ctx_t* ctx){
   if(ctx->dist > MAX_SEN_DIST && ctx->awareness < 0.25f)
     return;
 
-  for(int j = 0; j<SEN_DONE; j++){
-    if(detect)
-      break;
+  if(ctx->awareness >= 1.0f)
+    base = 1.0f;
+  else{
+    for(int j = 0; j<SEN_DONE; j++){
+      if(detect)
+        break;
 
-    e->skills[SKILL_PERCEPT]->ovrd = EntGetSkillPB(SKILL_PERCEPT, e, ctx, j);
-    InteractResult res = EntCanDetect(e, other, j);
-    if(res < IR_ALMOST)
-      continue;
+      e->skills[SKILL_PERCEPT]->ovrd = EntGetSkillPB(SKILL_PERCEPT, e, ctx, j);
+      InteractResult res = EntCanDetect(e, other, j);
+      if(res < IR_ALMOST)
+        continue;
 
-    base+=0.25f * (res-2);
-    if(res == IR_TOTAL_SUCC)
-      detect = true;
+      base+=0.25f * (res-2);
+      if(res == IR_TOTAL_SUCC)
+        detect = true;
+    }
+    if(base <= 0 && ctx->awareness <=0)
+      return;
   }
-  if(base <= 0 && ctx->awareness <=0)
-    return;
 
   for(int j = 0; j < TREAT_DONE; j++){
     if(ctx->treatment[j] == 0)
@@ -1124,23 +1132,24 @@ void LocalSync(local_table_t* s, bool sort){
 
     local_ctx_t* wctx = WorldGetContext(ctx->other.type_id, ctx->gouid);
 
-    if(!wctx)
+    if(!wctx){
+      ctx->prune = true;
+      s->valid = false;
       continue;
-
+    }
     if(s->valid && wctx->ctx_revision == ctx->ctx_revision)
       continue;
-
-    if(s->owner->gouid == player->gouid)
-      DO_NOTHING();
 
     ctx->ctx_revision = wctx->ctx_revision;
     int dist = cell_distance(s->owner->pos, wctx->pos);
     if(dist != ctx->dist){
+      if(ctx->gouid == player->gouid)
+        DO_NOTHING();
       ctx->dist = dist;
       ctx->pos = wctx->pos;
-      /*if(this_changed)
-        ctx->valid = false;
-*/
+      ctx->valid = false;
+
+      s->valid = false;
       switch(ctx->other.type_id){
         case DATA_ENTITY:
           LocalEntCheck(s->owner, ctx);
@@ -1171,9 +1180,10 @@ void LocalSync(local_table_t* s, bool sort){
 
   if(s->last_update != WorldGetTurn()){
     LocalPrune(s);
-    LocalSortByDist(s);
     s->last_update = WorldGetTurn();
   }
+    
+  LocalSortByDist(s);
   s->valid = true;
 }
 
@@ -1245,7 +1255,7 @@ int LocalAddAggro(local_table_t* table, ent_t* source, int threat_gain, float mu
   if(init)
     ctx->awareness*=1.25f;
   else
-    ctx->awareness*=1.05f;
+    ctx->awareness=imax(ctx->awareness,1);
 
   WorldEvent(EVENT_AGGRO, source, table->owner->gouid);
 

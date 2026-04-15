@@ -265,7 +265,10 @@ bool RegisterEnv( env_t *e){
  e->uid = e->type;
  TileStatus status = MapSetTile(world.map,e,e->pos);
   if(status > TILE_ISSUES)
-    TraceLog(LOG_WARNING,"Issue %i at tile %i,%i ",status,e->pos.x,e->pos.y);
+    TraceLog(LOG_WARNING,"%s Issue %i at tile %i,%i ",e->name, status,e->pos.x,e->pos.y);
+
+  if(e->type == ENV_CHEST)
+    DO_NOTHING();
 
   if(e->sprite)
     e->sprite->is_visible = true;
@@ -501,7 +504,7 @@ void WorldInitOnce(){
   LootDraw(player, LF_WEAP, true, true, 1000, 1);
   LootDraw(player, LF_TOOL, true, false, 2500, 2);
   LootDraw(player, LF_ARMOR, true, true, 30, 1);
-  LootDraw(player, LF_TOME, true, false, 1000, 7);
+  LootDraw(player, LF_TOME, true, false, 1000, 2);
   //LootDraw(player, LF_SCROLL, false, 1000, 2);
   LootDraw(player, LF_MANUAL, false, false, 1000, 4);
   LootDraw(player, LF_POT, false, false, 1000, 4);

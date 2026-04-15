@@ -1,6 +1,11 @@
 #include "game_process.h"
 
 ability_t ABILITY_LIST[SCHOOL_DONE][50] = {
+  [SCHOOL_NONE] = {
+    {ABILITY_INTERACT_OPEN, AT_INTER, ACTION_INTERACT, 
+      .req = CTX_METHOD_OPEN,
+    }
+  },
   [SCHOOL_ABJ] = {
     {ABILITY_RESISTANCE,
       .skills = SKILL_SPELL_ABJ, .image_id = SPELL_SHIELD
@@ -33,7 +38,7 @@ ability_t ABILITY_LIST[SCHOOL_DONE][50] = {
         [VAL_SIZE]    = 1,
         [VAL_DRAIN]   = 14,
       },
-      .image_id = SPELL_STORM
+      .image_id = SPELL_STORM,.fail_id = ABILITY_HALF_DMG,
     },
 
   },
@@ -43,7 +48,7 @@ ability_t ABILITY_LIST[SCHOOL_DONE][50] = {
   },
 
   [SCHOOL_ENCH] = {
-    {ABILITY_DISSONANT_WHISPERS, AT_DMG, ACTION_MAGIC, DMG_PSYCHIC,
+    {ABILITY_DISS_WHISP, AT_DMG, ACTION_MAGIC, DMG_PSYCHIC,
       STAT_ENERGY, DES_SEL_TAR, 15,
       STAT_HEALTH, ATTR_WIS, ATTR_CHAR,
       .skills = SKILL_SPELL_ENCH, .image_id = SPELL_EYE,
@@ -56,10 +61,10 @@ ability_t ABILITY_LIST[SCHOOL_DONE][50] = {
         [VAL_DRAIN]   = 8,
       }
     },
-    
   },
 
   [SCHOOL_EVO] = {
+    {ABILITY_HALF_DMG, AT_DMG, ACTION_MAGIC},
     {ABILITY_ACID_SPLASH, AT_DMG, ACTION_MAGIC, DMG_ACID, STAT_ENERGY,
     DES_AREA, 11, STAT_HEALTH, ATTR_DEX, ATTR_WIS,
     .skills = SKILL_SPELL_EVO, .image_id = SPELL_BUBBLES,
@@ -77,6 +82,7 @@ ability_t ABILITY_LIST[SCHOOL_DONE][50] = {
     {ABILITY_BLAST_WAVE, AT_DMG, ACTION_MAGIC, DMG_FIRE, STAT_ENERGY,
       DES_ORIGIN, 12, STAT_HEALTH, ATTR_DEX, ATTR_INT,
       .skills = SKILL_SPELL_EVO, .image_id = SPELL_WISP,
+      .fail_id = ABILITY_HALF_DMG,
       .vals = {
         [VAL_HIT]       = 16,
         [VAL_DMG]       = 8,
@@ -87,10 +93,25 @@ ability_t ABILITY_LIST[SCHOOL_DONE][50] = {
         [VAL_DRAIN]     = 24,
       },
     },
-    {ABILITY_MAGIC_MISSLE, AT_DMG, ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TAR, 20,4,99,1,4,1,3,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .skills = SKILL_SPELL_EVO,
+    {ABILITY_CONE_COLD, AT_DMG, ACTION_MAGIC, DMG_COLD,
+      STAT_ENERGY, DES_CONE, 7, STAT_HEALTH, ATTR_CON, ATTR_INT,
+      .skills = SKILL_SPELL_EVO, .image_id = SPELL_CRYSTAL,
+      .fail_id = ABILITY_HALF_DMG,
+      .vals = {
+        [VAL_HIT]     = 20,
+        [VAL_DMG]     = 6,
+        [VAL_DMG_DIE] = 2,
+        [VAL_SCORE]   = 11,
+        [VAL_REACH]   = 3,
+        [VAL_SIZE]    = 1,
+        [VAL_DRAIN]   = 12,
+      },
+    },
+    {ABILITY_MAGIC_MISSLE, AT_DMG, ACTION_MAGIC, DMG_FORCE, STAT_ENERGY, DES_MULTI_TAR, 20,STAT_HEALTH, ATTR_NONE, ATTR_NONE, .chain_id = ABILITY_NONE, .skills = SKILL_SPELL_EVO,
       .image_id = SPELL_MISSILE,
       .vals = {
-        [VAL_HIT]       = 99,
+        [VAL_HIT]       = 10,
+        [VAL_HIT_DIE]   = 20,
         [VAL_DMG]       = 4,
         [VAL_DMG_DIE]   = 1,
         [VAL_DMG_BONUS] = 1,
@@ -100,7 +121,7 @@ ability_t ABILITY_LIST[SCHOOL_DONE][50] = {
         [VAL_QUANT]     = 3
       }
     },
-    {ABILITY_ELDRITCH_BLAST, AT_DMG,ACTION_MAGIC, DMG_FORCE,
+    {ABILITY_ELD_BLAST, AT_DMG,ACTION_MAGIC, DMG_FORCE,
       STAT_ENERGY, DES_CONE, 30, 
       STAT_HEALTH, ATTR_NONE, ATTR_CHAR,
       .skills = SKILL_SPELL_EVO, .image_id = SPELL_FLARE,
@@ -146,11 +167,11 @@ ability_t ABILITY_LIST[SCHOOL_DONE][50] = {
       STAT_HEALTH, ATTR_NONE, ATTR_WIS,
       .skills = SKILL_SPELL_EVO, .image_id = SPELL_WISP,
       .vals = {
-        [VAL_HIT]       = 17,
-        [VAL_DMG]       = 8,
-        [VAL_DMG_DIE]   = 1,
+        [VAL_HIT]       = 18,
+        [VAL_DMG]       = 4,
+        [VAL_DMG_DIE]   = 2,
         [VAL_SCORE]     = 25,
-        [VAL_REACH]     = 5,
+        [VAL_REACH]     = 4,
         [VAL_DRAIN]     = 6,
       }
     },
@@ -200,10 +221,10 @@ ability_t ABILITY_LIST[SCHOOL_DONE][50] = {
       .skills = SKILL_SPELL_EVO, .image_id = SPELL_GLIMMER,
       .vals = {
         [VAL_HIT]     = 20,
-        [VAL_DMG]     = 6,
-        [VAL_DMG_DIE] = 1,
+        [VAL_DMG]     = 4,
+        [VAL_DMG_DIE] = 2,
         [VAL_SCORE]   = 12,
-        [VAL_REACH]   = 3,
+        [VAL_REACH]   = 4,
         [VAL_DRAIN]   = 8,
       },
       .affects = AFFECT_CHILL

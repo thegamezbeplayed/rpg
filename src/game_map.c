@@ -60,6 +60,16 @@ void OnMapEvent(EventType event, void* data, void* user){
   }
 }
 
+void MapCellTreasure(map_cell_t* mc, ent_t* e){
+  if(!mc->tile)
+    return;
+
+  if(e != player)
+    return;
+
+  LootDraw(e, LF_TREASURE, false, false, 1250, 3);
+}
+
 void MapCellGiveContents(map_cell_t* mc, ent_t* e){
   if(!mc->contains)
     return;
@@ -343,11 +353,6 @@ void MapRoomSpawn(map_grid_t* m, EntityType data, int room){
 }
 
 void MapRoomRunSpawner(map_room_t* r, spawner_t* s){
-  Rectangle bounds = RecFromBounds(&r->bounds);
-  int area = bounds.width * bounds.height;
-  choice_pool_t* picker = InitChoicePool(area,ChooseByWeight);
-
-
   for (int i = 0; i < s->num_mobs; i++){
     mob_t* mob = &s->pool[i];
     map_cell_t* c = MapRoomPlacement(r);
@@ -460,6 +465,7 @@ map_room_t* InitMapRoom(map_context_t* ctx, room_t* r){
 
 void WorldMapLoaded(map_grid_t* m){
   map_gen_t mgen = MAPS[m->id];
+  WorldEvent(EVENT_LOAD_MAP, m, m->id);
 
   for(int i = 0; i < MB->ctx->num_rooms; i++){
     map_room_t* mr = InitMapRoom(MB->ctx,MB->ctx->rooms[i]);
@@ -1289,11 +1295,11 @@ env_t* MapSpawn(map_grid_t* m, TileFlags flags, int x, int y){
 MapNodeResult MapNodeRunSequence(map_context_t *ctx, map_node_t *node){
   int i = 0;
   while (i < node->num_children) {
-    TraceLog(LOG_INFO, "==== MAP NODE RUN ====\n Starting [%s]",
-        MAP_GEN_NODES[node->children[i]->id]);
+    //TraceLog(LOG_INFO, "==== MAP NODE RUN ====\n Starting [%s]",
+     //   MAP_GEN_NODES[node->children[i]->id]);
     MapNodeResult r = node->children[i]->run(ctx, node->children[i]);
-    TraceLog(LOG_INFO, "==== MAP NODE RUN ====\n [%s] %s",
-        MAP_GEN_NODES[node->children[i]->id], MAP_NODE_RESULTS[r]); 
+    //TraceLog(LOG_INFO, "==== MAP NODE RUN ====\n [%s] %s",
+      //  MAP_GEN_NODES[node->children[i]->id], MAP_NODE_RESULTS[r]); 
     switch(r){
       case MAP_NODE_RUNNING:
         break;
@@ -2695,8 +2701,6 @@ MapNodeResult MapDecor(map_context_t *ctx, map_node_t *node) {
 }
 
 MapNodeResult MapEnhance(map_context_t *ctx, map_node_t *node) {
-  return MAP_NODE_SUCCESS;
-
   int count = 0;
   room_t *enhance[ctx->num_rooms-2];
   for(int i = 0; i < ctx->num_rooms; i++){
@@ -2761,6 +2765,39 @@ int RoomScore(room_t* r){
 };
 
 void RoomAddTreasure(room_t* r, int score){
+  Rectangle bounds = RecFromBounds(&r->bounds);
+  int area = bounds.width * bounds.height;
+  choice_pool_t* picker = InitChoicePool(area, ChooseByWeight);
+
+  for (int x = r->bounds.min.x; x < r->bounds.max.x; x++){
+    for (int y = r->bounds.min.y; y < r->bounds.max.y; y++){
+      Cell *c = GameMalloc("RoomAddTreasure", sizeof(Cell));
+      *c = CELL_NEW(x, y);
+
+      int dist = 1 + cell_distance(r->center, *c);
+
+      AddChoice(picker, x*1000+y, area/dist, c, DiscardChoice);
+    }
+  }
+
+  int attempts = 0;
+  int count = 0;
+  while(count < 1 && attempts < 10){
+    choice_t* rc = picker->choose(picker);
+
+    if(!rc || !rc->context)
+      break;
+
+    Cell* cell = rc->context;
+
+    if(MapContextSetTile(*cell, TILEFLAG_TREASURE)){
+      TraceLog(LOG_INFO, "=== MAP GEN ADD TREASURE ===\n pos [%i,%i]",cell->x, cell->y);
+      count++;
+
+    }
+    else
+      attempts++;
+  }
 
 }
 
@@ -3464,19 +3501,20 @@ void MapVisEvent(EventType event, void* data, void* user){
     case EVENT_ENT_STEP:
       int range = e->senses[SEN_SEE]->range;
       int dist = cell_distance(e->pos, mc->coords);
+      bool los = HasLOS(e->map, e->pos, mc->coords);
       switch(mc->vis){
         case VIS_UNSEEN:
         case VIS_EXPLORED:
-          if(dist < range)
+          if(los && dist < range)
             mc->vis = VIS_FULL;
-          if(dist == range)
+          if(los && dist == range)
             mc->vis = VIS_EXPLORED;
           break;
         case VIS_SEL:
           mc->vis = VIS_FULL;
           break;
         case VIS_FULL:
-          if(dist > range)
+          if(los&&dist > range)
             mc->vis = VIS_EXPLORED;
           break;
       }

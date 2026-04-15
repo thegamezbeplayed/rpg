@@ -706,7 +706,7 @@ void OnPlayerAction(EventType event, void* data, void* user){
           break;
         default:
           TraceLog(LOG_WARNING,"==== GAME ACTIONS ===\n Unexpected player action Status %i",a->status);
-          //ActionManSetStatus(a->phase, a->status);
+          ActionManSetStatus(a->phase, ACT_STATUS_TAKEN);
           InputReset();
           break;
       }

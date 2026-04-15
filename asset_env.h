@@ -10,7 +10,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 #define ATLAS_ASSET_ENV_IMAGE_PATH      "asset_env.png"
-#define ATLAS_ASSET_ENV_SPRITE_COUNT    40
+#define ATLAS_ASSET_ENV_SPRITE_COUNT    41
 
 // Atlas sprite properties
 typedef struct rtpAtlasSprite {
@@ -27,7 +27,7 @@ typedef struct rtpAtlasSprite {
 } rtpAtlasSprite;
 
 // Atlas sprites array
-static rtpAtlasSprite rtpDescAssetEnv[40] = {
+static rtpAtlasSprite rtpDescAssetEnv[41] = {
     { "BONES_BEAST", "ENV_BONES_BEAST", 8, 8, 0, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
     { "BOULDER", "ENV_BOULDER", 8, 8, 16, 0, 16, 16, 0, false, 1, 3, 14, 11, 0, 0, 0, 0, 0 },
     { "COBBLE", "ENV_COBBLE", 8, 8, 32, 0, 16, 16, 0, false, 1, 1, 14, 14, 0, 0, 0, 0, 0 },
@@ -68,4 +68,5 @@ static rtpAtlasSprite rtpDescAssetEnv[40] = {
     { "ROCKS", "", 0, 0, 80, 64, 16, 16, 0, false, 1, 2, 14, 10, 0, 0, 0, 0, 0 },
     { "OXIDE", "", 0, 0, 96, 64, 16, 16, 0, false, 2, 2, 13, 12, 0, 0, 0, 0, 0 },
     { "FOREST_EXIT", "", 0, 0, 112, 64, 16, 16, 0, false, 0, 0, 16, 14, 0, 0, 0, 0, 0 },
+    { "CHEST", "", 0, 0, 0, 80, 16, 16, 0, false, 2, 2, 12, 12, 0, 0, 0, 0, 0 },
 };

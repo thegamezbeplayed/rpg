@@ -115,16 +115,16 @@ struct ability_s{
   int              weight;
   StatType         damage_to;
   AttributeType    save,mod;
-  AbilityID        chain_id;
+  AbilityID        chain_id, fail_id;
   SkillType        skills[3];
   dice_roll_t*     dc,*hit;
   stat_t*          stats[STAT_ENT_DONE];
-  ability_t        *chain;
+  ability_t        *chain, *fail;
   value_t*            values[VAL_WORTH];
   int                 rank;
   damage_reduction_t* dr;
   AbilityCb           on_success_cb, on_use_cb;
-  AbilityFn           use_fn, chain_fn;
+  AbilityFn           use_fn, chain_fn, fail_fn;
   AbilitySave         save_fn;
   AbilitySim          sim_fn;
   item_t*             item;
@@ -147,7 +147,7 @@ struct ability_sim_s{
   DamageType    d_type;
   int           dmg_die,dmg_sides,d_bonus, h_die, h_sides, h_bonus, penn,dmg_calc, hit_calc, final_dmg;
   int           dmg_res[10];
-  int           hit_res[2];
+  int           hit_res[20];
 };
 
 int AbilitySimulate(ability_t* a, local_ctx_t* ctx);

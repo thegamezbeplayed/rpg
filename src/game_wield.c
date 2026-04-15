@@ -219,6 +219,14 @@ void ItemContainerPropVals(item_t* i){
   i->values[VAL_STORAGE] = InitValue(VAL_STORAGE,temp->size);
 }
 
+void ItemContextEvent(EventType ev, void* edata, void* udata){
+  item_t* item = udata;
+
+  item->sprite->slice->scale = 1;
+
+
+}
+
 bool InitItemContext(item_def_t* def, map_cell_t* mc){
   item_t* item = InitItem(def);
 
@@ -233,6 +241,8 @@ bool InitItemContext(item_def_t* def, map_cell_t* mc){
   item->sprite->pos = CellToVector2(mc->coords,CELL_WIDTH); 
 
   mc->on_enter = MapCellGiveContents;
+
+  WorldTargetSubscribe(EVENT_ITEM_STORE, ItemContextEvent, item, player->gouid);
 
   return item->sprite->is_visible;
 }
@@ -1052,6 +1062,28 @@ interact_result_t* AbilityGrantExp(ent_t* owner,  ability_t* a, param_t p){
   return out;
 }
 
+ability_t* InitAbilityFromAbility(ent_t* owner, ability_t* base, AbilityID id){
+  ability_t* a = GameCalloc("InitAbility", 1,sizeof(ability_t));
+
+  ability_t* new = AbilityLookup(id);
+  memcpy(a, new, sizeof(ability_t));
+
+  new->owner = owner;
+  switch(id){
+    case ABILITY_HALF_DMG:
+      new->school = base->school;
+      new->vals[VAL_DMG] = base->values[VAL_DMG]->val/2;
+      new->vals[VAL_HIT_DIE] = 20;
+      new->damage_to = base->damage_to;
+      break;
+  }
+
+
+  return a;
+
+
+}
+
 ability_t* InitAbility(ent_t* owner, AbilityID id){
   ability_t* a = GameCalloc("InitAbility", 1,sizeof(ability_t));
 
@@ -1095,7 +1127,8 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
     StatExpand(a->stats[a->values[i]->stat_relates_to],  a->values[i]->val, true);
   }
 
-  a->hit = Die(a->values[VAL_HIT]->val,1);
+  int hitdie = imax(1, a->values[VAL_HIT_DIE]->val);
+  a->hit = Die(a->values[VAL_HIT]->val, hitdie);
 
   a->dc = Die(a->values[VAL_DMG]->val,a->values[VAL_DMG_DIE]->val);
 
@@ -1104,6 +1137,10 @@ ability_t* InitAbility(ent_t* owner, AbilityID id){
     a->chain_fn = EntUseAbility;
   }
 
+  if(a->fail_id > ABILITY_NONE){
+   a->fail = InitAbilityFromAbility(owner, a, a->fail_id);
+   a->fail_fn = EntUseAbility;
+  }
   a->spr = InitSpriteByID(a->image_id, SHEET_SPELLS);
   return a;
 }
@@ -1304,20 +1341,31 @@ InteractResult AbilityUse(ent_t* owner, ability_t* a, param_t p, ability_sim_t* 
     default:
       break;
   } 
-  
+
   if(res && res->main > IR_NONE){
     if(a->on_use_cb){
       for(int i = 0; i < res->count; i++)
         a->on_use_cb(owner, a, &res->targets[i], res->results[i]);
     }
-   if(a->item && a->item->on_use)
-     a->item->on_use(owner, a->item, res->main);
-   
-   if(a->type < AT_SAVE)
-   if(a->chain && a->chain_fn)
-     a->chain_fn(owner, a->chain, p);
-  }
+    if(a->item && a->item->on_use)
+      a->item->on_use(owner, a->item, res->main);
 
+    if(a->type < AT_SAVE){
+      switch(res->main){
+        case IR_SUCCESS:
+        case IR_TOTAL_SUCC:
+          if(a->chain && a->chain_fn)
+            a->chain_fn(owner, a->chain, p);
+          break;
+        case IR_ALMOST:
+        case IR_FAIL:
+          if(a->fail && a->fail_fn)
+            a->fail_fn(owner, a->fail, p);
+          break;
+      }
+    }
+
+  }
   if(res->main >=IR_SUCCESS && a->on_success_cb){
     for(int i = 0; i < res->count; i++)
       a->on_success_cb(owner, a, &res->targets[i], res->results[i]);
@@ -1365,11 +1413,14 @@ BehaviorStatus AbilityExecute(ability_t* a, ent_t* e){
       return BEHAVIOR_RUNNING;
       break;
     case DES_MULTI_TAR:
-    case DES_SEL_TAR:
       player_input.sel_abi = a;
       int amnt = imax(1,a->values[VAL_QUANT]->val);
-      ScreenActivateSelector(e->pos, amnt, true, NULL, InputSetTarget);
+      ScreenActivateSelector(e->pos, amnt, true, InputSetTarget, NULL);
       return BEHAVIOR_RUNNING;
+      break;
+    case DES_SEL_TAR:
+      player_input.sel_abi = a;
+      ScreenActivateSelector(e->pos, 1, true, NULL, InputSetTarget);
       break;
     case DES_ORIGIN:
       player_input.sel_abi = a;

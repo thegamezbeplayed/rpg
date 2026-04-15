@@ -140,6 +140,26 @@ void OnLevelEvent(EventType event, void* data, void* user){
     ItemGenAdd(Level.item_defs, ITEM_MATERIAL, mdef);
     ItemGenerateItemFromMaterial(mdef);
     break;
+    case EVENT_LOAD_MAP:
+    map_grid_t* m = data;
+
+    map_gen_t mgen = MAPS[m->id];
+
+    int total = 0;
+    for (int i = 0; i < NUM_FACTIONS; i++){
+      int ratio = FACTIONS[i]->bio_pref[mgen.biome];
+
+      if(ratio == 0)
+        continue;
+
+      int size = MAX_ENTS * ratio / 100;
+      Level.factions[Level.num_factions++] = InitFactionGroups(i, size);
+
+      total += size;
+    }
+
+    Level.spawns = InitSpawnPool(total);
+    break;
   }
 }
 
@@ -164,13 +184,15 @@ level_t* InitLevel(void){
 
   WorldSubscribe(EVENT_ROOM_READY, OnLevelReady, &Level);
   WorldSubscribe(EVENT_MAP_LOADED, OnLevelReady, &Level);
+  WorldSubscribe(EVENT_LOAD_MAP, OnLevelEvent, &Level);
+
 
   Level.item_defs = InitItemGenPool(ENV_DONE + ENT_DONE + ABILITY_DONE + SKILL_DONE);
 
   for(int i = 0; i < ABILITY_DONE; i++){
-    if(CLASS_ABILITIES[i].tome && CLASS_ABILITIES[i].lvl == 0)
+    if(ABILITY_DATA[i].tome && ABILITY_DATA[i].lvl == 0)
       ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_TOME));     
-    if(CLASS_ABILITIES[i].scroll)
+    if(ABILITY_DATA[i].scroll)
       ItemGenAdd(Level.item_defs, ITEM_CONSUMABLE, ConsumeGenerateKnowledge(i, CONS_SCROLL));     
       }
 
@@ -187,22 +209,6 @@ level_t* InitLevel(void){
 
 void LevelReady(map_grid_t* m){
 
-  map_gen_t mdef = MAPS[m->id];
-
-  int total = 0;
-  for (int i = 0; i < NUM_FACTIONS; i++){
-    int ratio = FACTIONS[i]->bio_pref[mdef.biome];
-
-    if(ratio == 0)
-      continue;
-
-    int size = MAX_ENTS * ratio / 100;
-    Level.factions[Level.num_factions++] = InitFactionGroups(i, size);
-  
-    total += size;
-  }
-
-  Level.spawns = InitSpawnPool(total);
   for(int x = 0; x < m->width; x++){
     for(int y = 0; y < m->height; y++){
       map_cell_t* mc = &m->tiles[x][y];
@@ -364,11 +370,10 @@ void LootDraw(ent_t* e, LootFlags flags, bool unique, bool equip, int budget, in
     attempts++;
     choice_t* choice = Level.loot->drops->choose(Level.loot->drops);
 
-    if(attempts > (amnt * 3))
-      return;
-
     if(!choice || !choice->context){
-      
+      if(attempts > (amnt * 3))
+        return;
+       
       TraceLog(LOG_INFO, "==== LOOT DRAW ====\n Could not find item %llu with budget %i pool size of %i", flags, budget, Level.loot->drops->count);
       continue;
     }

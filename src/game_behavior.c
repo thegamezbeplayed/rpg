@@ -219,7 +219,7 @@ BehaviorStatus BehaviorCheckAbility(behavior_params_t *params){
 
   d->ouid = e->gouid;
 
-  for(int i = 0; i < SLOT_ALL; i++){
+  for(int i = 0; i < SLOT_SAVE; i++){
     action_slot_t *slot = e->slots[i];
     for (int j = 0; j < slot->count; j++){
       AddAbility(d, tar, slot->abilities[j]);
@@ -245,8 +245,10 @@ BehaviorStatus BehaviorCheckRange(behavior_params_t *params){
   decision_pool_t* dec = e->control->decider[s];
   decision_t* sel = dec->selected;
 
-  if(e->control->action == ACTION_MOVE || sel->decision == ACTION_MOVE)
+  if(e->control->action == ACTION_MOVE || sel->decision == ACTION_MOVE){
+    e->control->action = ACTION_MOVE;
     return BEHAVIOR_SUCCESS;
+  }
 
   if(EntCheckRange(e, sel)){
     e->control->action = sel->decision;

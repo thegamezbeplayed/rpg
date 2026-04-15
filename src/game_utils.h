@@ -408,8 +408,9 @@ typedef enum{
   CTX_HAS_RESOURCE    = BIT64(0),
   CTX_METHOD_EXTRACT  = BIT64(1),
   CTX_METHOD_PROCESS  = BIT64(2),
-  CTX_TAR_ENV         = BIT64(3),
-  CTX_TAR_SELF        = BIT64(4),
+  CTX_METHOD_OPEN     = BIT64(3),
+  CTX_TAR_ENV         = BIT64(4),
+  CTX_TAR_SELF        = BIT64(5),
 }CtxProp;
 
 typedef uint64_t CtxProps;

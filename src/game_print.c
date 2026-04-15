@@ -262,14 +262,39 @@ int CtxGetDebugPos(line_item_t **fill, local_ctx_t* ctx, param_t vctx){
   y->i = GameCalloc("CtxGetDebugPos", 1, sizeof(int));
   *y->i = ctx->pos.y;
   element_value_t* pos[2];
+
+  element_value_t* aware = GameCalloc("CtxGetDebugPos", 1, sizeof(element_value_t));
+
+  aware->type = VAL_FLOAT;
+  aware->rate = FETCH_TURN;
+  aware->context = vctx;
+  aware->index = 2;
+
+  element_value_t* allies = GameCalloc("CtxGetDebugPos", 1, sizeof(element_value_t));
+
+  allies->type = VAL_INT;
+  allies->rate = FETCH_TURN;
+  allies->context = vctx;
+  allies->index = 3;
+
+  allies->i = GameCalloc("CtxGetDebugPos", 1, sizeof(int));
+
+  ent_t* e = ctx->other.data;
+  local_ctx_t* pctx = LocalGetEntry(e->local, player->gouid);
+
+  aware->f = GameCalloc("CtxGetDebugPos", 1, sizeof(float));
+
+  *allies->i = e->allies->count;
+
+  *aware->f = pctx->awareness;
   pos[0] = x;
   pos[1] = y; 
   fill[0] = InitLineItems(pos, 2, "Cell: [%i, %i]");
+  fill[1] = InitLineItem(aware, "Player Awareness: %f");
+  fill[2] = InitLineItem(allies, "Allies: %i");
 
-  return 1;
+  return 3;
 }
-
-
 
 int CtxGetDebugState(line_item_t **fill, local_ctx_t* ctx, param_t vctx){
   EntityState curs, prevs, nexts;
@@ -1036,6 +1061,8 @@ int GetToolDesc(line_item_t** li, item_t* item){
   element_value_t* name = GameCalloc("GetToolDesc", 1,sizeof(element_value_t));
   element_value_t* base[MAX_LINE_VAL];
 
+
+  ability_t* abi = item->use;
   tool_def_t* tdef = item->def->type_def;
   int count = 0;
   name->type = VAL_CHAR;
@@ -1052,10 +1079,10 @@ int GetToolDesc(line_item_t** li, item_t* item){
   max_dmg->i = malloc(sizeof(int));
   min_dmg->type = VAL_INT;
   min_dmg->rate = FETCH_ONCE;
-  int min_roll = 1 * item->ability->dc->num_die;
+  int min_roll = 1 * abi->dc->num_die;
   *min_dmg->i =  min_roll;
 
-  int max_roll = item->ability->dc->sides * item->ability->dc->num_die;
+  int max_roll = abi->dc->sides * abi->dc->num_die;
 
   max_dmg->type = VAL_INT;
   max_dmg->rate = FETCH_ONCE;

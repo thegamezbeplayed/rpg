@@ -95,6 +95,9 @@
     LF_MAT_STONE | LF_MAT_WOOD | LF_MAT_METAL |\
     LF_MAT_GEM)
 
+#define LF_TREASURE (\
+    LF_MAT_GEM | LF_MAT_METAL | LF_SCROLL | LF_TOME | LF_POT)
+
 #define MAX_FACTIONS 20
 //__builtin_ctzll
 #define BCTZL(uint) (int){__builtin_ctzll(uint)}  
@@ -1943,11 +1946,15 @@ typedef struct{
 
 typedef struct{
   AbilityID     id;
-  bool          tome,scroll;
-  Archetype     base,has;
-  int           lvl,ranks,priority,weight;
+  int           lvl, priority, weight;
   SpeciesType   racial;
 }define_ability_class_t;
+
+typedef struct{
+  AbilityID     id;
+  bool          tome, scroll;
+  int           lvl;
+}ability_d;
 
 typedef struct{
   int         weight;

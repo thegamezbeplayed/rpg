@@ -1445,149 +1445,169 @@ static mob_variants_t MOB_MODS[ENT_DONE] = {
 
 };
 
-static define_ability_class_t CLASS_ABILITIES[ABILITY_DONE]={
-  {ABILITY_NONE},
-  {ABILITY_PUNCH},
-  {ABILITY_RAM},
-  {ABILITY_BITE},
-  {ABILITY_CALL_LIGHTNING, true, true,
-    CLASS_BASE_LOCK,
-    CLASS_BASE_WIZ,
-    0,3,8, 7,
-    SPEC_ARCHAIN
+static define_ability_class_t CLASS_ABILITIES[CLASS_BASE_DONE][20]={
+  [CLASS_BASE_CLERIC] = {
+    {ABILITY_MAGIC_MISSLE, 0,9,10,
+      SPEC_HUMAN | SPEC_ELF,
+    },
+    {ABILITY_RESISTANCE, 0, 3, 20,
+      SPEC_HUMAN// | SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
+    },
+    {ABILITY_GUIDING_BOLT, 1, 3, 8,
+      SPEC_HUMAN | SPEC_ELF
+    },
+    {ABILITY_SACRED_FLAME, 0,3,5,
+      SPEC_HUMAN | SPEC_ELF
+    },
+    {ABILITY_DISS_WHISP, 2, 3, 8,
+      SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+    },
+    {ABILITY_CURE_WOUNDS, 0, 8, 15,
+      SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+    },
   },
-  {ABILITY_CHEW},
-  {ABILITY_GNAW},
-  {ABILITY_CLAW},
-  {ABILITY_SWIPE},
-  {ABILITY_BITE_POISON},
-  {ABILITY_POISON, false, false},
-  {ABILITY_ACID_SPLASH, true, true,
-    CLASS_BASE_DRUID,
-    CLASS_BASE_WIZ,
-    0, 5, 6, 7,
-    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+  [CLASS_BASE_DRUID] = {
+    {ABILITY_CALL_LIGHTNING, 4,4, 5,
+      SPEC_HUMAN | SPEC_ELF
+    },
+    {ABILITY_CONE_COLD, 1, 3, 8,
+      SPEC_HUMAN
+    },
+    {ABILITY_ACID_SPLASH, 0, 5, 10,
+      SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID
+    },
+    {ABILITY_RESISTANCE, 0,5, 15,
+      SPEC_HUMAN// | SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
+    },
+    {ABILITY_STARRY_WISP, 0,3,9,
+      SPEC_ELF | SPEC_GOBLINOID 
+    },
+    {ABILITY_MAGIC_STONE, 0, 5, 15,
+      SPEC_ELF | SPEC_GOBLINOID 
+    },
   },
-  {ABILITY_MAGIC_MISSLE, true, true,
-    CLASS_BASE_WIZ,
-    CLASS_BASE_WIZ,
-    0,9,10, 35,
-    SPEC_HUMAN | SPEC_ELF,
+  [CLASS_BASE_FIGHTER] = {
+    {ABILITY_REND, 0, 5, 10,
+      SPEC_GOBLINOID | SPEC_ORC | SPEC_HUMAN
+    },
+    {ABILITY_HAMSTRING, 2, 5, 8,
+      SPEC_HUMAN //| SPEC_GOBLINOID | SPEC_ORC
+    }
   },
-  {ABILITY_ELDRITCH_BLAST, true,true, 
-    CLASS_BASE_LOCK,
-    CLASS_SUB_HEX,
-    0,5,10, 20,
-    SPEC_ORC | SPEC_HUMAN
+  [CLASS_BASE_MONK] = {
+
   },
-  {ABILITY_RESISTANCE, true, true,
-    CLASS_BASE_CLERIC | CLASS_BASE_DRUID,
-    CLASS_BASE_SHAMAN,
-    1,3,8, 10,
-    SPEC_HUMAN// | SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
+  [CLASS_BASE_RANGER] = {
+    {ABILITY_REND, 4, 5, 10,
+      SPEC_GOBLINOID | SPEC_ORC | SPEC_HUMAN
+    },
+    {ABILITY_HAMSTRING, 0, 5, 8,
+      SPEC_HUMAN //| SPEC_GOBLINOID | SPEC_ORC
+    }
   },
-  {ABILITY_CHILL_TOUCH, false, false,
-    CLASS_BASE_LOCK,
-    CLASS_BASE_WIZ,
-    0, 3, 6, 8,
-    SPEC_HUMAN | SPEC_GOBLINOID | SPEC_ORC
+  [CLASS_BASE_ROGUE] = {
   },
-  {ABILITY_GUIDING_BOLT, true, true,
-    CLASS_BASE_CLERIC,
-    0, 3, 6, 10,
+  [CLASS_BASE_LOCK] = {
+    {ABILITY_ELD_BLAST,
+      0,5, 25,
+      SPEC_ORC | SPEC_HUMAN
+    },
+    {ABILITY_CHILL_TOUCH, 0, 3, 15,
+      SPEC_HUMAN | SPEC_GOBLINOID | SPEC_ORC
+    },
+    {ABILITY_POISON_SPRAY, 0, 3, 12,
+      SPEC_GOBLINOID | SPEC_ORC | SPEC_HUMAN
+    },
+    {ABILITY_FIRE_BOLT, 0,3,10,
+      SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+    },
+    {ABILITY_FIRE_BLAST,
+      2,3,5,
+      SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
+    },
+    {ABILITY_FLAME_STRIKE, 6, 3, 8,
+      SPEC_ARCHAIN | SPEC_HUMAN
+    },
+    {ABILITY_BLAST_WAVE, 4, 3, 8,
+      SPEC_ARCHAIN | SPEC_HUMAN
+    },
   },
-  {ABILITY_SACRED_FLAME, true, true,
-    CLASS_BASE_CLERIC,
-    CLASS_BASE_CLERIC,
-    0,3,5, 10,
-    SPEC_HUMAN | SPEC_ELF
-  },
-  {ABILITY_STARRY_WISP, true, true,
-    CLASS_BASE_BARD | CLASS_BASE_DRUID,
-    CLASS_BASE_SHAMAN,
-    0,3,6, 20,
-    SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
-  },
-  {ABILITY_MAGIC_STONE, true, true,
-    CLASS_BASE_DRUID,
-    CLASS_BASE_LOCK,
-    0, 0, 5, 5,
-    SPEC_ELF | SPEC_GOBLINOID | SPEC_ORC
-  },
-  {ABILITY_POISON_SPRAY, true, true,
-    CLASS_BASE_DRUID | CLASS_BASE_SHAMAN,
-    CLASS_BASE_WIZ,
-    0, 3, 8, 5,
-    SPEC_GOBLINOID | SPEC_ORC
-  },
-  {ABILITY_DISSONANT_WHISPERS, true, true,
-    CLASS_BASE_LOCK,
-    CLASS_BASE_WIZ,
-    0, 3, 8, 7,
-    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
-  },
-  {ABILITY_FIRE_BOLT, true, true,
-    CLASS_BASE_LOCK,
-    CLASS_BASE_WIZ,
-    0,3,8, 7,
-    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
-  },
-  {ABILITY_FIRE_BLAST, true, true,
-    CLASS_BASE_LOCK,
-    CLASS_BASE_WIZ,
-    0,3,8, 7,
-    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
-  },
-  {ABILITY_FLAME_STRIKE, true, true,
-    CLASS_BASE_LOCK,
-    CLASS_BASE_WIZ,
-    0,3,8, 7,
-    SPEC_ARCHAIN
-  },
-  {ABILITY_BLAST_WAVE, true, true,
-    CLASS_BASE_LOCK,
-    CLASS_BASE_WIZ,
-    0,3,8, 7,
-    SPEC_ARCHAIN
-  },
-  {ABILITY_FROST_BITE, true, true,
-    CLASS_BASE_DRUID | CLASS_BASE_SHAMAN,
-    CLASS_BASE_WIZ,
-    0, 3, 8, 7,
-    SPEC_HUMAN | SPEC_GOBLINOID | SPEC_ORC
-  },
-  {ABILITY_THUNDER_WAVE, true , true,
-    CLASS_BASE_DRUID | CLASS_BASE_SHAMAN,
-    CLASS_BASE_WIZ,
-    0, 3, 8 ,7,
-    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
-  },
-  {ABILITY_CURE_WOUNDS, true, true,
-    CLASS_BASE_CLERIC | CLASS_BASE_DRUID,
-    CLASS_BASE_SHAMAN,
-    0,8,8, 17,
-    SPEC_HUMAN | SPEC_ARCHAIN | SPEC_GOBLINOID | SPEC_ORC
-  },
-  [ABILITY_REND] = {ABILITY_REND, false, false,
-    CLASS_BASE_FIGHTER,
-    CLASS_BASE_RANGER,
-    0, 0,4, 20,
-    SPEC_GOBLINOID | SPEC_ORC | SPEC_HUMAN
-  },
-  [ABILITY_HAMSTRING] = {ABILITY_HAMSTRING, false, false,
-    CLASS_BASE_FIGHTER | CLASS_BASE_RANGER,
-    CLASS_BASE_ROGUE,
-    1,0,4,15,
-    SPEC_HUMAN //| SPEC_GOBLINOID | SPEC_ORC
-  },
-  [ABILITY_RAGE] = {ABILITY_RAGE, false, false,
-    CLASS_BASE_BERZ,
-    CLASS_BASE_BERZ,
-    0,5,12,50,
-    SPEC_GOBLINOID | SPEC_ORC | SPEC_ARCHAIN
-  },
+  [CLASS_BASE_BERZ] = {
+    {ABILITY_RAGE, 0,5, 50,
+      SPEC_GOBLINOID | SPEC_ORC | SPEC_ARCHAIN
+    },
+  }
 
 };
+
+static ability_d ABILITY_DATA[ABILITY_DONE] = {
+  [ABILITY_CALL_LIGHTNING] = {
+  ABILITY_CALL_LIGHTNING, true, true, 2
+  },
+  [ABILITY_CONE_COLD]      = {
+    ABILITY_CONE_COLD, true, true, 1,
+  },
+  [ABILITY_POISON]         = {},
+  [ABILITY_ACID_SPLASH]    = {
+    ABILITY_ACID_SPLASH, true, true, 1,
+  },
+  [ABILITY_MAGIC_MISSLE]   = {
+    ABILITY_MAGIC_MISSLE, true, true, 0,
+  },
+  [ABILITY_ELD_BLAST]      = {
+    ABILITY_ELD_BLAST, true, true, 1,
+  },
+  [ABILITY_RESISTANCE]     = {
+  ABILITY_RESISTANCE, true, true, 0,
+  },
+  [ABILITY_CHILL_TOUCH]    = {
+  ABILITY_CHILL_TOUCH, true, true, 1,
+  },
+  [ABILITY_GUIDING_BOLT]   = {
+    ABILITY_GUIDING_BOLT, true, true, 2,
+  },
+  [ABILITY_SACRED_FLAME]   = {
+    ABILITY_SACRED_FLAME, true, true, 1,
+  },
+  [ABILITY_STARRY_WISP]    = {
+    ABILITY_STARRY_WISP, true, true, 1,
+  },
+  [ABILITY_MAGIC_STONE]    = {
+    ABILITY_MAGIC_STONE, true, true, 0,
+  },
+  [ABILITY_POISON_SPRAY]   = {
+    ABILITY_POISON_SPRAY, true,  true, 0,
+  },
+  [ABILITY_FIRE_BOLT]      = {
+  ABILITY_FIRE_BOLT, true, true, 0
+  },
+  [ABILITY_FIRE_BLAST]     = {
+  ABILITY_FIRE_BLAST, true, true, 2
+  },
+  [ABILITY_FLAME_STRIKE]   = {
+  ABILITY_FLAME_STRIKE, true, true, 4,
+  },
+  [ABILITY_BLAST_WAVE]     = {
+    ABILITY_BLAST_WAVE, true, true, 3
+  },
+  [ABILITY_FROST_BITE]     = {
+    ABILITY_FROST_BITE, true, true, 0
+  },
+  [ABILITY_DISS_WHISP]     = {
+  ABILITY_DISS_WHISP, true, true, 1
+  },
+  [ABILITY_THUNDER_WAVE]   = {
+    ABILITY_THUNDER_WAVE, true, true, 3
+  },
+  [ABILITY_CURE_WOUNDS]    = {
+    ABILITY_CURE_WOUNDS, true, true, 0
+  },
+  [ABILITY_REND]           = {},
+  [ABILITY_HAMSTRING]      = {},
+  [ABILITY_RAGE]           = {},
+  [ABILITY_DASH]           = {},
+};
+
 static skill_relation_t SKILLUP_RELATION[MAG_DONE] = {
   [MAG_MINOR] = {
     .mag = MAG_MINOR,
@@ -1773,7 +1793,7 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
   },
   {INV_SLING,
     {
-      [ITEM_AMMO] = 2, [ITEM_CONSUMABLE] = 2
+      [ITEM_AMMO] = 2, [ITEM_CONSUMABLE] = 4
     },
     0,
     10,
@@ -1788,8 +1808,8 @@ static define_inventory_t ITEMS_ALLOWED[INV_DONE] = {
     0x0050
   },
   {INV_PACK,
-    {[ITEM_MATERIAL] = 20, [ITEM_CONSUMABLE] = 10, [ITEM_TOOL] = 2},
-    .cap = 10, .max = 20,
+    {[ITEM_ARMOR] = 5, [ITEM_MATERIAL] = 20, [ITEM_CONSUMABLE] = 10, [ITEM_TOOL] = 2},
+    .cap = 16, .max = 20,
     .base_size = 0xA000
   },
   {INV_POUCH,

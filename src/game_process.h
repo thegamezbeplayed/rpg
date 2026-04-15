@@ -208,6 +208,9 @@ typedef struct world_s{
 } world_t;
 extern world_t world;
 
+static ent_t* WorldGetDebug(void){
+  return world.debug;
+}
 static void WorldSetDebug(ent_t* e){
   world.debug = e;
 }
